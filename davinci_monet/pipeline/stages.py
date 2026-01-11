@@ -10,7 +10,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable, Protocol, Sequence, TypeVar, runtime_checkable
+from typing import Any, Callable, Protocol, Sequence, runtime_checkable
 
 import xarray as xr
 
@@ -120,6 +120,9 @@ class PipelineContext:
         Results from completed stages.
     metadata
         Pipeline metadata (start time, etc.).
+    progress_callback
+        Optional callback for reporting progress within stages.
+        Called with a message string to display progress updates.
     """
 
     config: dict[str, Any] = field(default_factory=dict)
@@ -128,6 +131,12 @@ class PipelineContext:
     paired: dict[str, Any] = field(default_factory=dict)
     results: dict[str, StageResult] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
+    progress_callback: Callable[[str], None] | None = None
+
+    def log_progress(self, message: str) -> None:
+        """Log a progress message if callback is set."""
+        if self.progress_callback:
+            self.progress_callback(message)
 
     def get_model(self, label: str) -> Any:
         """Get a model by label."""
@@ -221,10 +230,13 @@ class LoadModelsStage(BaseStage):
 
         start = time.time()
         model_config = context.config.get("model") or context.config.get("models", {})
+        total_models = len(model_config)
 
         loaded_count = 0
         for label, config in model_config.items():
             try:
+                context.log_progress(f"    Loading model: {label} ({loaded_count + 1}/{total_models})")
+
                 files = config.get("files", config.get("filename"))
                 mod_type = config.get("mod_type", "generic")
                 variables = config.get("variables")
@@ -296,6 +308,7 @@ class LoadObservationsStage(BaseStage):
 
         start = time.time()
         obs_config = context.config.get("obs") or context.config.get("observations", {})
+        total_obs = len(obs_config)
 
         # Use current working directory for relative paths
         base_path = Path.cwd()
@@ -303,6 +316,8 @@ class LoadObservationsStage(BaseStage):
         loaded_count = 0
         for label, config in obs_config.items():
             try:
+                context.log_progress(f"    Loading obs: {label} ({loaded_count + 1}/{total_obs})")
+
                 obs_type = config.get("obs_type", "pt_sfc")
                 filename = config.get("filename")
                 variables = config.get("variables", {})
@@ -414,6 +429,16 @@ class PairingStage(BaseStage):
         # Get pairing configuration
         pairing_config_dict = context.config.get("pairing", {})
 
+        # Count expected pairs for progress reporting
+        expected_pairs = []
+        for model_label in context.models:
+            model_config = context.config.get("model", {}).get(model_label, {})
+            mapping = model_config.get("mapping", {})
+            for obs_label in context.observations:
+                if mapping and obs_label in mapping:
+                    expected_pairs.append(f"{model_label}_{obs_label}")
+        total_pairs = len(expected_pairs)
+
         engine = PairingEngine()
 
         for model_label, model_data in context.models.items():
@@ -431,6 +456,8 @@ class PairingStage(BaseStage):
                     var_mapping = mapping.get(obs_label, {})
                     if not var_mapping:
                         continue
+
+                    context.log_progress(f"    Pairing: {pair_key} ({paired_count + 1}/{total_pairs})")
 
                     obs_vars = list(var_mapping.keys())
                     model_vars = list(var_mapping.values())

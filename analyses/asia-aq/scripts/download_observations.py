@@ -11,6 +11,7 @@ Domain: 0-45N, 90-140E
 Period: February 1-28, 2024
 """
 
+import os
 from pathlib import Path
 import warnings
 
@@ -18,7 +19,11 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+# Suppress warnings during data download (monetio generates many deprecation warnings)
 warnings.filterwarnings("ignore")
+
+# Data directory from env var or default to ~/Data/ASIA-AQ
+ASIA_AQ_DATA = Path(os.environ.get("ASIA_AQ_DATA", Path.home() / "Data" / "ASIA-AQ"))
 
 # Output directory
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -235,7 +240,7 @@ def process_pandora():
     print(f"Period: {START_DATE} to {END_DATE}")
     print()
 
-    pandora_dir = Path.home() / "Data" / "ASIA-AQ" / "Pandora"
+    pandora_dir = ASIA_AQ_DATA / "Pandora"
     if not pandora_dir.exists():
         print(f"Pandora data directory not found: {pandora_dir}")
         return None

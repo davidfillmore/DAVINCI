@@ -27,31 +27,7 @@ The `apply_expression()` method uses `eval()` for user-provided expressions. Whi
 
 ## P1: High
 
-### 2. Use absolute paths for data directories
-**Location**: `analyses/asia-aq/scripts/run_evaluation.py`
-
-Scripts use paths relative to working directory, so they fail if run from a different directory.
-
-**Solution**:
-- Use `Path(__file__).parent` to resolve paths relative to script location
-- Or use environment variables (`$ASIA_AQ_DATA`, `$DAVINCI_DATA`)
-
-### 3. Add STDOUT logging for pipeline progress
-**Location**: `davinci_monet/pipeline/runner.py`
-
-Users have no visibility into pipeline progress during long runs. Should show:
-- Current stage being executed
-- Progress within stages (e.g., "Loading file 5/28...")
-- Elapsed time per stage
-
-**Solution**: Add `tqdm` progress bars and structured logging to stdout.
-
-### 4. Hardcoded user paths in analysis scripts
-**Locations**:
-- `analyses/asia-aq/scripts/run_evaluation.py:86` - `/Users/fillmore/Data/ASIA-AQ/...`
-- `analyses/asia-aq/misc/explore_model.py:15` - `Path.home() / "Data" / "ASIA-AQ"`
-
-**Solution**: Use config file or environment variables for data paths.
+*No P1 items currently open.*
 
 ---
 
@@ -121,6 +97,35 @@ Model and observation readers should log:
 ---
 
 ## Completed
+
+### Use absolute paths for data directories (was P1 #2)
+**Location**: `analyses/asia-aq/scripts/`, `analyses/asia-aq/configs/`
+
+- Added `ASIA_AQ_DATA` environment variable support with fallback to `~/Data/ASIA-AQ`
+- Updated YAML config to use `${ASIA_AQ_DATA}` for model paths (config parser expands env vars)
+- Updated scripts: `run_evaluation.py`, `explore_model.py`, `download_observations.py`
+
+**Completed**: 2026-01-11
+
+### Add STDOUT logging for pipeline progress (was P1 #3)
+**Location**: `davinci_monet/pipeline/runner.py`
+
+- Added `tqdm` dependency to `environment.yml`
+- Added `show_progress` parameter to `PipelineRunner` (default: True)
+- Pipeline now displays progress bar and stage timing to stdout
+- Added `progress_callback` to `PipelineContext` for sub-stage progress (each model/obs/pair)
+- Updated `PipelineBuilder` and `run_analysis()` to support `show_progress`
+- Added `log_dir` config option with timestamped log files (`pipeline_YYYYMMDD_HHMMSS.log`)
+- Log files capture all progress output even if stdout is interrupted (BrokenPipeError handling)
+
+**Completed**: 2026-01-11
+
+### Hardcoded user paths in analysis scripts (was P1 #4)
+**Location**: `analyses/asia-aq/scripts/`, `analyses/asia-aq/configs/`
+
+Resolved as part of P1 #2 above - all paths now use `ASIA_AQ_DATA` env var.
+
+**Completed**: 2026-01-11
 
 ### Update synthetic data plot examples (was P2 #5)
 **Location**: `examples/all_plot_types.py`

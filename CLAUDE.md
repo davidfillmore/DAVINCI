@@ -41,6 +41,7 @@ conda activate davinci-monet
 
 **Additional I/O support**:
 - pyhdf - HDF4/HDF-EOS for MODIS satellite data
+- tqdm - Progress bars for pipeline execution
 
 **Development tools**:
 - pydantic - configuration validation
@@ -100,7 +101,7 @@ davinci_monet/
 
 ## Implementation Status
 
-**STATUS: COMPLETE** - All 12 phases implemented with 745 tests passing.
+**STATUS: COMPLETE** - All 12 phases implemented with 792 tests passing.
 
 | Phase | Description | Status |
 |-------|-------------|--------|
@@ -154,12 +155,13 @@ davinci-monet run path/to/config.yaml
 analysis:
   start_time: "2024-02-01"
   end_time: "2024-02-03"
-  output_dir: output
+  output_dir: ${MY_ANALYSIS}/output  # Supports env var expansion
+  log_dir: ${MY_ANALYSIS}/logs       # Pipeline logs with timestamps
 
 model:
   my_model:
     mod_type: cesm_fv  # or cmaq, wrfchem, ufs, generic
-    files: /path/to/model/*.nc
+    files: ${MY_DATA}/model/*.nc     # Env vars in paths
     radius_of_influence: 15000
     variables:
       PM25:
@@ -170,7 +172,7 @@ model:
 obs:
   my_obs:
     obs_type: pt_sfc
-    filename: data/observations.nc
+    filename: ${MY_ANALYSIS}/data/observations.nc
     variables:
       pm25:
         obs_min: 0
@@ -192,6 +194,14 @@ plots:
 
 stats:
   metrics: [N, MB, RMSE, R, NMB, NME, IOA]
+```
+
+### Environment Variable Expansion
+
+YAML config paths support `${VAR}` syntax for environment variables. Set variables before running:
+```bash
+export MY_DATA=~/Data/campaign
+export MY_ANALYSIS=/path/to/analysis
 ```
 
 ### Variable Naming Convention
@@ -240,22 +250,28 @@ Reference implementation in `analyses/asia-aq/`:
 ```
 analyses/asia-aq/
 ├── configs/
-│   └── cesm_airnow_aeronet.yaml    # Pipeline configuration
+│   └── asia-aq.yaml                # Pipeline configuration
 ├── scripts/
 │   ├── download_airnow.py          # Data download
 │   └── run_evaluation.py           # Pipeline execution
 ├── data/                           # Observation data
 ├── output/                         # Plots and statistics
+├── logs/                           # Pipeline logs
 └── misc/                           # Exploratory scripts (not part of workflow)
 ```
 
-**Model data location**: `~/Data/ASIA-AQ/`
+**Environment variables**:
+- `ASIA_AQ_DATA`: Model/observation data root (default: `~/Data/ASIA-AQ`)
+- `ASIA_AQ_ANALYSIS`: Analysis directory (set automatically by `run_evaluation.py`)
 
 **Run the analysis**:
 ```bash
 cd analyses/asia-aq
+export ASIA_AQ_DATA=~/Data/ASIA-AQ
 python scripts/run_evaluation.py
 ```
+
+Pipeline displays progress with tqdm and logs to `logs/pipeline_YYYYMMDD_HHMMSS.log`.
 
 ## Common Gotchas
 

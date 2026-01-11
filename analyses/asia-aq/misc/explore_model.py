@@ -6,13 +6,14 @@ This script examines the model data structure, variables, and coverage
 to inform configuration for model-observation comparisons.
 """
 
+import os
 from pathlib import Path
 
 import numpy as np
 import xarray as xr
 
-# Data location
-DATA_DIR = Path.home() / "Data" / "ASIA-AQ"
+# Data location from env var or default to ~/Data/ASIA-AQ
+DATA_DIR = Path(os.environ.get("ASIA_AQ_DATA", Path.home() / "Data" / "ASIA-AQ"))
 FILE_PATTERN = "f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.*.nc"
 
 

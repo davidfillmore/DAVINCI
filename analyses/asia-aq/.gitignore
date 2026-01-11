@@ -1,5 +1,9 @@
 # Output files - plots and statistics
 output/
+outback/
+
+# Log files
+logs/
 
 # Data files (downloaded observations, intermediate files)
 data/

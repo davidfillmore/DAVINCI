@@ -13,9 +13,10 @@ Usage:
     python run_evaluation.py
 
 Or use the CLI directly:
-    davinci-monet run ../configs/cesm_airnow_aeronet.yaml
+    davinci-monet run ../configs/asia-aq.yaml
 """
 
+import os
 from glob import glob
 from pathlib import Path
 
@@ -23,6 +24,16 @@ import xarray as xr
 
 from davinci_monet.models.cesm import compute_tropospheric_column
 from davinci_monet.pipeline.runner import run_analysis
+
+# Data directory from env var or default to ~/Data/ASIA-AQ
+ASIA_AQ_DATA = Path(os.environ.get("ASIA_AQ_DATA", Path.home() / "Data" / "ASIA-AQ"))
+
+# Analysis directory (where this script lives)
+ASIA_AQ_ANALYSIS = Path(__file__).parent.parent.resolve()
+
+# Set env vars for config file expansion
+os.environ.setdefault("ASIA_AQ_DATA", str(ASIA_AQ_DATA))
+os.environ.setdefault("ASIA_AQ_ANALYSIS", str(ASIA_AQ_ANALYSIS))
 
 
 def precompute_no2_column(model_files: list[str], output_path: Path) -> None:
@@ -67,7 +78,7 @@ def main():
     """Run the ASIA-AQ model evaluation pipeline."""
     # Paths
     base_dir = Path(__file__).parent.parent
-    config_path = base_dir / "configs" / "cesm_airnow_aeronet.yaml"
+    config_path = base_dir / "configs" / "asia-aq.yaml"
     data_dir = base_dir / "data"
     no2_column_path = data_dir / "cesm_no2_column_20240201_20240229.nc"
 
@@ -83,7 +94,7 @@ def main():
 
     # Precompute NO2 column if needed
     if not no2_column_path.exists():
-        model_files = glob("/Users/fillmore/Data/ASIA-AQ/CAM/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc")
+        model_files = glob(str(ASIA_AQ_DATA / "CAM" / "f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc"))
         if model_files:
             precompute_no2_column(model_files, no2_column_path)
         else:

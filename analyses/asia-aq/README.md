@@ -55,14 +55,30 @@ ASIA-AQ was an international cooperative field study conducted from January-Marc
 asia-aq/
 ├── README.md
 ├── configs/
-│   └── cesm_airnow_aeronet.yaml    # Pipeline configuration
+│   └── asia-aq.yaml                # Pipeline configuration
 ├── scripts/
 │   ├── download_airnow.py          # Download AirNow data
 │   └── run_evaluation.py           # Run pipeline
 ├── data/                           # Observation data (NetCDF)
 ├── output/                         # Plots and statistics
+├── logs/                           # Pipeline logs (timestamped)
 └── misc/                           # Exploratory scripts
 ```
+
+## Setup
+
+Set the environment variables for data and analysis directories:
+
+```bash
+# Model and raw observation data (required)
+export ASIA_AQ_DATA=~/Data/ASIA-AQ
+
+# Analysis directory (set automatically by run_evaluation.py)
+export ASIA_AQ_ANALYSIS=/path/to/analyses/asia-aq
+```
+
+If `ASIA_AQ_DATA` is not set, scripts default to `~/Data/ASIA-AQ`.
+The `ASIA_AQ_ANALYSIS` variable is set automatically when running `run_evaluation.py`.
 
 ## Usage
 
@@ -79,7 +95,7 @@ python scripts/run_evaluation.py
 
 Or via CLI:
 ```bash
-davinci-monet run configs/cesm_airnow_aeronet.yaml
+davinci-monet run configs/asia-aq.yaml
 ```
 
 ## Results
@@ -97,3 +113,4 @@ davinci-monet run configs/cesm_airnow_aeronet.yaml
 - `output/*_scatter.png` - Model vs obs scatter plots
 - `output/*_timeseries.png` - Time series with uncertainty bands (mean ± std)
 - `output/*_spatial_bias.png` - Spatial bias maps with city labels
+- `logs/pipeline_YYYYMMDD_HHMMSS.log` - Pipeline execution logs with timing
