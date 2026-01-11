@@ -355,8 +355,9 @@ class BasePlotter(ABC):
             )
 
         if title or self.config.title:
+            formatted_title = format_plot_title(title or self.config.title)
             ax.set_title(
-                title or self.config.title,
+                formatted_title,
                 fontsize=cfg.title_fontsize,
                 fontweight=cfg.fontweight,
             )

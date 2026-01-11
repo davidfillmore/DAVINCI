@@ -1,95 +1,101 @@
-# DAVINCI-MONET Examples
+# DAVINCI-MONET Plot Examples
 
-Example scripts demonstrating DAVINCI-MONET usage.
+This directory contains examples demonstrating all 15 plot types available in DAVINCI-MONET, using synthetic data and the `davinci_monet.plots` module.
 
-## Scripts
-
-### basic_analysis.py
-
-A minimal example showing the core workflow:
-- Creating synthetic model and observation data
-- Simple point-to-grid pairing
-- Computing basic statistics
-- Creating time series and scatter plots
+## Quick Start
 
 ```bash
-cd examples
-python basic_analysis.py
+# Run all examples
+python run_all_examples.py
+
+# Run a single example
+python plot_01_timeseries.py
 ```
 
-### surface_evaluation.py
+Output is saved to `output/plots/` as PNG (300 DPI) and PDF.
 
-Surface observation evaluation example:
-- Multi-variable comparison (O3, PM2.5, NO2)
-- Statistics for all pollutants
-- Diurnal cycle analysis
-- Spatial bias mapping
+## Plot Types
 
-```bash
-python surface_evaluation.py
+| # | Script | Plot Type | Data Geometry | Description |
+|---|--------|-----------|---------------|-------------|
+| 1 | `plot_01_timeseries.py` | `timeseries` | Point | Time series with uncertainty bands |
+| 2 | `plot_02_diurnal.py` | `diurnal` | Point | Mean diurnal cycle comparison |
+| 3 | `plot_03_scatter.py` | `scatter` | Point, Swath | Model vs obs scatter with regression |
+| 4 | `plot_04_taylor.py` | `taylor` | Point | Taylor diagram (correlation, std, RMSE) |
+| 5 | `plot_05_boxplot.py` | `boxplot` | Point | Distribution comparison |
+| 6 | `plot_06_spatial_bias.py` | `spatial_bias` | Point | Geographic bias distribution |
+| 7 | `plot_07_spatial_overlay.py` | `spatial_overlay` | Point + Grid | Model contours + obs points |
+| 8 | `plot_08_spatial_distribution.py` | `spatial_distribution` | Point | Geographic value distribution |
+| 9 | `plot_09_curtain.py` | `curtain` | Track | Vertical cross-section (time x altitude) |
+| 10 | `plot_10_scorecard.py` | `scorecard` | Point | Multi-metric performance heatmap |
+| 11 | `plot_11_site_timeseries.py` | `site_timeseries` | Point | Multi-panel site-by-site comparison |
+| 12 | `plot_12_flight_timeseries.py` | `flight_timeseries` | Track | Multi-panel flight-by-flight comparison |
+| 13 | `plot_13_track_map_3d.py` | `track_map_3d` | Track | 3D flight trajectory visualization |
+| 14 | `plot_14_satellite_swath.py` | `spatial_bias`, `spatial_distribution` | Swath | Satellite swath (TROPOMI-like) plots |
+| 15 | `plot_15_satellite_gridded.py` | pcolormesh | Grid | L3 gridded satellite data visualization |
+
+## Architecture
+
+All examples use the same pattern:
+
+```python
+from davinci_monet.plots import plot_scatter  # or any plot type
+from _helpers import create_paired_surface_data, save_figure
+
+# Generate synthetic paired data
+paired = create_paired_surface_data(n_sites=30, variables=["O3"])
+
+# Create plot using davinci_monet.plots
+fig = plot_scatter(paired, obs_var="obs_o3", model_var="model_o3", title="My Plot")
+
+# Save output
+save_figure(fig, "my_scatter")
 ```
 
-### all_plot_types.py
+### Helper Module (`_helpers.py`)
 
-Complete demonstration of all 10 plot types:
-1. Time Series
-2. Diurnal Cycle
-3. Scatter Plot
-4. Taylor Diagram
-5. Box Plot
-6. Spatial Bias Map
-7. Spatial Overlay
-8. Spatial Distribution
-9. Curtain Plot (vertical cross-section)
-10. Scorecard
+Provides functions to create paired model-observation datasets:
 
-```bash
-python all_plot_types.py
+| Function | Geometry | Dimensions |
+|----------|----------|------------|
+| `create_paired_surface_data()` | Point | `(time, site)` |
+| `create_paired_track_data()` | Track | `(time,)` + lat/lon/alt coords |
+| `create_paired_profile_data()` | Profile | `(time, level)` |
+| `create_paired_swath_data()` | Swath | `(scanline, pixel)` |
+| `create_paired_gridded_data()` | Grid | `(time, lat, lon)` |
+
+## Using in Your Analysis
+
+Import plotters directly:
+
+```python
+from davinci_monet.plots import (
+    plot_scatter,
+    plot_spatial_bias,
+    plot_taylor,
+    plot_timeseries,
+    # ... etc
+)
+
+# With your paired data
+fig = plot_scatter(my_paired_data, "obs_pm25", "model_pm25")
+fig.savefig("my_scatter.png")
 ```
 
-### custom_statistics.py
+Or use the registry:
 
-Statistics module deep dive:
-- Quick statistics from arrays
-- Individual metric calculation
-- Grouped statistics (by site, by hour)
-- Output formatting and export
+```python
+from davinci_monet.plots import get_plotter
 
-```bash
-python custom_statistics.py
+plotter = get_plotter("scatter")
+fig = plotter.plot(my_paired_data, "obs_pm25", "model_pm25")
 ```
-
-## Configuration Files
-
-### configs/cmaq_airnow.yaml
-
-Example configuration for CMAQ evaluation against AirNow:
-- Multiple variables (O3, PM2.5, NO2, CO)
-- Time series, scatter, diurnal, spatial plots
-- Standard statistics suite
-
-Usage:
-```bash
-davinci-monet validate configs/cmaq_airnow.yaml
-davinci-monet run configs/cmaq_airnow.yaml
-```
-
-## Output
-
-All scripts write output to `./output/`:
-- PNG plot files
-- CSV statistics files
 
 ## Requirements
 
-These examples require DAVINCI-MONET to be installed:
+DAVINCI-MONET must be installed:
 
 ```bash
 conda activate davinci-monet
 pip install -e ..
-```
-
-For spatial plots, cartopy is required:
-```bash
-conda install -c conda-forge cartopy
 ```

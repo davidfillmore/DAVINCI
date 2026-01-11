@@ -17,6 +17,7 @@ from davinci_monet.plots.base import (
     PlotConfig,
     calculate_symmetric_limits,
     format_label_with_units,
+    format_plot_title,
     get_variable_label,
     get_variable_units,
 )
@@ -250,9 +251,9 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         # Title
         var_label = get_variable_label(paired_data, obs_var)
         if self.config.title:
-            ax.set_title(self.config.title, fontsize=self.config.text.title_fontsize)
+            ax.set_title(format_plot_title(self.config.title), fontsize=self.config.text.title_fontsize)
         else:
-            ax.set_title(f"{var_label} Bias", fontsize=self.config.text.title_fontsize)
+            ax.set_title(format_plot_title(f"{var_label} Bias"), fontsize=self.config.text.title_fontsize)
 
         return fig
 
@@ -263,6 +264,7 @@ def plot_spatial_bias(
     model_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     map_config: MapConfig | dict[str, Any] | None = None,
+    title: str | None = None,
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
     """Convenience function for spatial bias plotting.
@@ -279,6 +281,8 @@ def plot_spatial_bias(
         Plot configuration.
     map_config
         Map configuration.
+    title
+        Plot title.
     **kwargs
         Additional arguments passed to plot method.
 
@@ -289,8 +293,20 @@ def plot_spatial_bias(
     """
     if isinstance(config, dict):
         config = PlotConfig.from_dict(config)
+    elif config is None:
+        config = PlotConfig()
     if isinstance(map_config, dict):
         map_config = MapConfig.from_dict(map_config)
+
+    if title is not None:
+        config = PlotConfig(
+            title=title,
+            figure=config.figure,
+            style=config.style,
+            text=config.text,
+            vmin=config.vmin,
+            vmax=config.vmax,
+        )
 
     plotter = SpatialBiasPlotter(config=config, map_config=map_config)
     return plotter.plot(paired_data, obs_var, model_var, **kwargs)

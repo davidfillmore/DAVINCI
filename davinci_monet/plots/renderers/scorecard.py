@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Literal, Sequence
 import matplotlib.pyplot as plt
 import numpy as np
 
-from davinci_monet.plots.base import BasePlotter, PlotConfig
+from davinci_monet.plots.base import BasePlotter, PlotConfig, format_plot_title
 from davinci_monet.plots.registry import register_plotter
 
 if TYPE_CHECKING:
@@ -232,7 +232,7 @@ class ScorecardPlotter(BasePlotter):
 
         # Title
         if self.config.title:
-            ax.set_title(self.config.title, fontsize=self.config.text.title_fontsize)
+            ax.set_title(format_plot_title(self.config.title), fontsize=self.config.text.title_fontsize)
 
         plt.tight_layout()
         return fig

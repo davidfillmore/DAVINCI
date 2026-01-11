@@ -96,22 +96,30 @@ print(f"Success: {result.success}")
 
 ## Examples
 
-The `examples/` directory contains complete working examples for different observation types:
+The `examples/` directory contains individual plot type examples using `davinci_monet.plots`:
 
-| Example | Description | Plots |
-|---------|-------------|-------|
-| [`surface_evaluation.py`](examples/surface_evaluation.py) | Surface station evaluation | Scatter, diurnal cycle, spatial bias |
-| [`aircraft_evaluation.py`](examples/aircraft_evaluation.py) | Aircraft track evaluation | Flight path, curtain, scatter, time series, vertical profile |
-| [`satellite_evaluation.py`](examples/satellite_evaluation.py) | Satellite L2/L3 evaluation | Swath footprint, bias maps, scatter density, histograms |
-| [`sonde_evaluation.py`](examples/sonde_evaluation.py) | Ozonesonde profile evaluation | Launch map, profiles, mean/bias, layer statistics |
-| [`all_plot_types.py`](examples/all_plot_types.py) | All 10 plot types demo | Time series, diurnal, scatter, Taylor, box, spatial, curtain, scorecard |
+| Plot Type | Script | Data Geometry |
+|-----------|--------|---------------|
+| Time Series | `plot_01_timeseries.py` | Point |
+| Diurnal Cycle | `plot_02_diurnal.py` | Point |
+| Scatter | `plot_03_scatter.py` | Point, Swath |
+| Taylor Diagram | `plot_04_taylor.py` | Point |
+| Box Plot | `plot_05_boxplot.py` | Point |
+| Spatial Bias | `plot_06_spatial_bias.py` | Point |
+| Spatial Overlay | `plot_07_spatial_overlay.py` | Point + Grid |
+| Spatial Distribution | `plot_08_spatial_distribution.py` | Point |
+| Curtain | `plot_09_curtain.py` | Track |
+| Scorecard | `plot_10_scorecard.py` | Point |
+| Site Time Series | `plot_11_site_timeseries.py` | Point |
+| Flight Time Series | `plot_12_flight_timeseries.py` | Track |
+| 3D Track Map | `plot_13_track_map_3d.py` | Track |
 
-Run any example:
+Run all examples:
 ```bash
-python examples/aircraft_evaluation.py
+cd examples && python run_all_examples.py
 ```
 
-Output is saved to `examples/output/<name>/` as both PNG (300 DPI) and PDF.
+Output is saved to `examples/output/plots/` as both PNG (300 DPI) and PDF.
 
 ## Analyses
 

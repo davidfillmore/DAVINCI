@@ -57,23 +57,7 @@ Users have no visibility into pipeline progress during long runs. Should show:
 
 ## P2: Medium
 
-### 5. Update synthetic data plot examples
-**Location**: `examples/`
-
-Example scripts need updating to include new plot types:
-- [ ] `site_timeseries` - Site-by-site time series panels
-- [ ] `flight_timeseries` - Flight-by-flight time series panels
-- [ ] `track_map_3d` - 3D flight track visualization
-
-### 6. Create generic `run_analysis` CLI command
-**Location**: `davinci_monet/cli/`
-
-Currently `davinci-monet run` exists, but analyses have custom `run_evaluation.py` scripts. Consider:
-- Single entry point that takes YAML config path
-- Handles data path resolution
-- Reports progress to stdout
-
-### 7. Silent exception handling masks errors
+### 5. Silent exception handling masks errors
 **Locations**:
 - `davinci_monet/stats/calculator.py:417-418, 555` - Catches all exceptions, returns NaN
 - `davinci_monet/observations/satellite/generic_l3.py:130` - Silent file open failures
@@ -81,7 +65,7 @@ Currently `davinci-monet run` exists, but analyses have custom `run_evaluation.p
 
 **Solution**: Use specific exception types, log warnings with details.
 
-### 8. Global warning suppression
+### 6. Global warning suppression
 **Location**: `analyses/asia-aq/scripts/download_observations.py:21`
 
 ```python
@@ -90,7 +74,7 @@ warnings.filterwarnings("ignore")
 
 **Solution**: Use context managers for targeted suppression.
 
-### 9. Type ignore comments (11+ instances)
+### 7. Type ignore comments (11+ instances)
 **Locations**: Various files with `# type: ignore[arg-type]`
 
 **Solution**: Investigate and fix underlying type mismatches where possible.
@@ -99,21 +83,21 @@ warnings.filterwarnings("ignore")
 
 ## P3: Low
 
-### 10. Document deprecated feature removal timeline
+### 8. Document deprecated feature removal timeline
 **Locations**:
 - `davinci_monet/observations/satellite/goes_l3_aod.py:309-315` - `open_goes` deprecated
 - `davinci_monet/models/ufs.py:154-160` - Deprecated aliases
 
 **Solution**: Add version number for planned removal to deprecation warnings.
 
-### 11. Add progress bars for file I/O
+### 9. Add progress bars for file I/O
 **Location**: `davinci_monet/observations/satellite/generic_l3.py:125-140`
 
 When loading many files, no indication of progress.
 
 **Solution**: Add `tqdm` progress bars for file loading loops.
 
-### 12. Analysis script documentation
+### 10. Analysis script documentation
 **Location**: `analyses/asia-aq/scripts/`
 
 Scripts lack clear documentation of:
@@ -121,14 +105,14 @@ Scripts lack clear documentation of:
 - Failure modes and recovery
 - Performance characteristics
 
-### 13. Profile array operations for large datasets
+### 11. Profile array operations for large datasets
 **Observation**: 46 instances of `.flatten()` or `.ravel()` calls
 
 These create copies and may be inefficient for large satellite datasets.
 
 **Solution**: Profile with real-world datasets, optimize hot paths.
 
-### 14. Improve debug logging in data loaders
+### 12. Improve debug logging in data loaders
 Model and observation readers should log:
 - Files being loaded
 - Variable mappings applied
@@ -138,11 +122,19 @@ Model and observation readers should log:
 
 ## Completed
 
-_Move items here when resolved._
+### Update synthetic data plot examples (was P2 #5)
+**Location**: `examples/all_plot_types.py`
+
+Added all 13 plot types with synthetic data:
+- [x] `site_timeseries` - Site-by-site time series panels
+- [x] `flight_timeseries` - Flight-by-flight time series panels
+- [x] `track_map_3d` - 3D flight track visualization
+
+**Completed**: 2026-01-11
 
 ---
 
 ## Notes
 
 - Test count: 792+ (all passing)
-- Last updated: 2024-02-29
+- Last updated: 2026-01-11

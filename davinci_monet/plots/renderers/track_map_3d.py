@@ -159,9 +159,8 @@ class TrackMap3DPlotter(BasePlotter):
         else:  # bias
             values = model_vals - obs_vals
             default_cmap = "RdBu_r"
-            # Get a nice display name for bias label
-            var_label = get_variable_label(paired_data, obs_var, include_prefix=False)
-            label = f"{var_label} Bias"
+            # Consistent bias label with other plotters
+            label = "Bias (Model - Obs)"
 
         cmap = cmap or default_cmap
 
@@ -227,7 +226,7 @@ class TrackMap3DPlotter(BasePlotter):
 
         # Title
         if self.config.title:
-            ax3d.set_title(self.config.title, fontsize=12)
+            ax3d.set_title(format_plot_title(self.config.title), fontsize=12)
 
         plt.tight_layout()
         return fig

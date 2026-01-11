@@ -14,6 +14,7 @@ import numpy as np
 from davinci_monet.plots.base import (
     PlotConfig,
     format_label_with_units,
+    format_plot_title,
     get_variable_label,
     get_variable_units,
 )
@@ -254,11 +255,11 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
 
         # Title
         if self.config.title:
-            ax.set_title(self.config.title, fontsize=self.config.text.title_fontsize)
+            ax.set_title(format_plot_title(self.config.title), fontsize=self.config.text.title_fontsize)
         else:
             var_label = get_variable_label(paired_data, obs_var)
             ax.set_title(
-                f"{var_label}: Model (contour) vs Obs (points)",
+                format_plot_title(f"{var_label}: Model (contour) vs Obs (points)"),
                 fontsize=self.config.text.title_fontsize,
             )
 

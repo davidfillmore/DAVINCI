@@ -15,6 +15,7 @@ from davinci_monet.plots.base import (
     PlotConfig,
     calculate_data_limits,
     format_label_with_units,
+    format_plot_title,
     get_variable_label,
     get_variable_units,
 )
@@ -200,8 +201,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         # Plot model
         if show_var in ("model", "both"):
             target_ax = ax_model if show_var == "both" else ax
-            if show_var == "both":
-                self.add_map_features(target_ax)
+            self.add_map_features(target_ax)
 
             mappable = self._plot_data(
                 target_ax,
@@ -223,8 +223,13 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         # Add colorbar and title for single panel
         if show_var != "both":
             self.add_colorbar(fig, mappable, ax, label=cbar_label)
-            title = self.config.title or f"{var_label} ({'Obs' if show_var == 'obs' else 'Model'})"
-            ax.set_title(title, fontsize=self.config.text.title_fontsize)
+            if self.config.title:
+                title = self.config.title
+            else:
+                # Use base variable name without prefix for cleaner title
+                base_label = get_variable_label(paired_data, obs_var, include_prefix=False)
+                title = f"{base_label} ({'Observations' if show_var == 'obs' else 'Model'})"
+            ax.set_title(format_plot_title(title), fontsize=self.config.text.title_fontsize)
 
         plt.tight_layout()
         return fig
@@ -314,6 +319,7 @@ def plot_spatial_distribution(
     model_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     map_config: MapConfig | dict[str, Any] | None = None,
+    title: str | None = None,
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
     """Convenience function for spatial distribution plotting.
@@ -330,6 +336,8 @@ def plot_spatial_distribution(
         Plot configuration.
     map_config
         Map configuration.
+    title
+        Plot title.
     **kwargs
         Additional arguments passed to plot method.
 
@@ -340,8 +348,20 @@ def plot_spatial_distribution(
     """
     if isinstance(config, dict):
         config = PlotConfig.from_dict(config)
+    elif config is None:
+        config = PlotConfig()
     if isinstance(map_config, dict):
         map_config = MapConfig.from_dict(map_config)
+
+    if title is not None:
+        config = PlotConfig(
+            title=title,
+            figure=config.figure,
+            style=config.style,
+            text=config.text,
+            vmin=config.vmin,
+            vmax=config.vmax,
+        )
 
     plotter = SpatialDistributionPlotter(config=config, map_config=map_config)
     return plotter.plot(paired_data, obs_var, model_var, **kwargs)

@@ -18,6 +18,7 @@ from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
     format_label_with_units,
+    format_plot_title,
     get_variable_label,
     get_variable_units,
 )
@@ -252,7 +253,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
 
         # Main title
         if self.config.title:
-            fig.suptitle(self.config.title, fontsize=12, y=1.02)
+            fig.suptitle(format_plot_title(self.config.title), fontsize=12, y=1.02)
 
         plt.tight_layout()
         return fig
