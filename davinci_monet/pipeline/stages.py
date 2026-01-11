@@ -209,6 +209,17 @@ class BaseStage(ABC):
         )
 
 
+def _format_size(n: int) -> str:
+    """Format large numbers with K/M/B suffix."""
+    if n >= 1_000_000_000:
+        return f"{n / 1_000_000_000:.1f}B"
+    elif n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    elif n >= 1_000:
+        return f"{n / 1_000:.1f}K"
+    return str(n)
+
+
 class LoadModelsStage(BaseStage):
     """Stage for loading model data.
 
@@ -225,6 +236,7 @@ class LoadModelsStage(BaseStage):
     def execute(self, context: PipelineContext) -> StageResult:
         """Load model data from configuration."""
         import time
+        from glob import glob
 
         from davinci_monet.models import open_model
 
@@ -241,6 +253,14 @@ class LoadModelsStage(BaseStage):
                 mod_type = config.get("mod_type", "generic")
                 variables = config.get("variables")
 
+                # Count files for progress message
+                if isinstance(files, str) and ("*" in files or "?" in files):
+                    file_list = glob(files)
+                    n_files = len(file_list)
+                    context.log_progress(f"step: Opening {n_files} files...")
+                else:
+                    context.log_progress(f"step: Opening dataset...")
+
                 if isinstance(variables, dict):
                     var_list = list(variables.keys())
                 else:
@@ -255,6 +275,13 @@ class LoadModelsStage(BaseStage):
 
                 # Apply unit scaling, units, and display_name if configured
                 if isinstance(variables, dict):
+                    has_conversions = any(
+                        isinstance(vc, dict) and "unit_scale" in vc
+                        for vc in variables.values()
+                    )
+                    if has_conversions:
+                        context.log_progress("step: Applying unit conversions...")
+
                     for var_name, var_config in variables.items():
                         if isinstance(var_config, dict) and var_name in model_data.data.data_vars:
                             if "unit_scale" in var_config:
@@ -268,6 +295,13 @@ class LoadModelsStage(BaseStage):
 
                 context.models[label] = model_data
                 loaded_count += 1
+
+                # Summary message
+                ds = model_data.data
+                n_vars = len(ds.data_vars)
+                n_times = ds.sizes.get("time", 0)
+                context.log_progress(f"done: {n_vars} vars, {n_times} times")
+
             except Exception as e:
                 return self._create_result(
                     StageStatus.FAILED,
@@ -337,12 +371,16 @@ class LoadObservationsStage(BaseStage):
                     if "*" in str(file_path) or "?" in str(file_path):
                         files = sorted(glob(str(file_path)))
                         if files:
+                            n_files = len(files)
                             # Check if ICARTT files (.ict extension)
                             if files[0].endswith(".ict"):
+                                context.log_progress(f"step: Reading {n_files} ICARTT files...")
                                 data = self._load_icartt_files(files)
                             else:
+                                context.log_progress(f"step: Opening {n_files} files...")
                                 data = xr.open_mfdataset(files, combine="by_coords")
                     elif file_path.exists():
+                        context.log_progress("step: Opening dataset...")
                         if str(file_path).endswith(".ict"):
                             data = self._load_icartt_files([str(file_path)])
                         else:
@@ -371,6 +409,19 @@ class LoadObservationsStage(BaseStage):
 
                 context.observations[label] = obs_data
                 loaded_count += 1
+
+                # Summary message
+                ds = obs_data.data
+                n_vars = len(ds.data_vars)
+                # Get record count (sites, points, or time steps)
+                n_records = (
+                    ds.sizes.get("site")
+                    or ds.sizes.get("x")
+                    or ds.sizes.get("time")
+                    or 0
+                )
+                context.log_progress(f"done: {n_vars} vars, {_format_size(n_records)} records")
+
             except Exception as e:
                 return self._create_result(
                     StageStatus.FAILED,
@@ -476,6 +527,9 @@ class PairingStage(BaseStage):
                         time_tolerance=pairing_config_dict.get("time_tolerance", "1h"),
                     )
 
+                    # Progress: finding grid cells
+                    context.log_progress("step: Finding nearest grid cells...")
+
                     # Pair data
                     paired_ds = engine.pair(
                         model_ds,
@@ -487,6 +541,12 @@ class PairingStage(BaseStage):
 
                     context.paired[pair_key] = paired_ds
                     paired_count += 1
+
+                    # Summary message
+                    paired_data = paired_ds.data if hasattr(paired_ds, "data") else paired_ds
+                    n_vars = len(obs_vars)
+                    n_points = paired_data.sizes.get("time", paired_data.sizes.get("x", 0))
+                    context.log_progress(f"done: {n_vars} vars, {_format_size(n_points)} points")
 
                 except Exception as e:
                     # Log but continue with other pairs
@@ -520,14 +580,26 @@ class StatisticsStage(BaseStage):
         stats_results: dict[str, Any] = {}
 
         stats_config = context.config.get("stats", {})
+        total_pairs = len(context.paired)
+        pair_count = 0
 
         for pair_key, paired_obj in context.paired.items():
             try:
+                pair_count += 1
+                context.log_progress(f"    Stats: {pair_key} ({pair_count}/{total_pairs})")
+                context.log_progress("step: Computing metrics...")
+
                 # Handle PairedData objects
                 paired_data = paired_obj.data if hasattr(paired_obj, "data") else paired_obj
                 # Calculate basic statistics
                 pair_stats = self._calculate_stats(paired_data, stats_config)
                 stats_results[pair_key] = pair_stats
+
+                # Summary
+                n_metrics = sum(len(v) for v in pair_stats.values())
+                n_vars = len(pair_stats)
+                context.log_progress(f"done: {n_vars} vars, {n_metrics} metrics")
+
             except Exception as e:
                 context.metadata.setdefault("stats_errors", []).append(
                     f"{pair_key}: {e}"
@@ -625,12 +697,18 @@ class PlottingStage(BaseStage):
         # Get pairs config for variable mapping
         pairs_config = context.config.get("pairs", {})
         model_config = context.config.get("model", {})
+        total_plots = len(plot_config)
+        plot_count = 0
 
         for plot_name, plot_spec in plot_config.items():
             try:
+                plot_count += 1
                 plot_type = plot_spec.get("type", "scatter")
                 plot_pairs = plot_spec.get("pairs", [])
                 title = format_plot_title(plot_spec.get("title", plot_name))
+
+                context.log_progress(f"    Plot: {plot_name} ({plot_count}/{total_plots})")
+                context.log_progress(f"step: Rendering {plot_type}...")
 
                 for pair_name in plot_pairs:
                     # Get pair configuration
@@ -709,6 +787,8 @@ class PlottingStage(BaseStage):
 
                     plt.close(fig)
 
+                    context.log_progress(f"done: saved PNG + PDF")
+
             except Exception as e:
                 context.metadata.setdefault("plot_errors", []).append(
                     f"{plot_name}: {e}"
@@ -745,6 +825,7 @@ class SaveResultsStage(BaseStage):
         # Save statistics summary from statistics stage
         stats_result = context.results.get("statistics")
         if stats_result and stats_result.data:
+            context.log_progress("step: Writing statistics CSV...")
             rows = []
             for pair_key, pair_stats in stats_result.data.items():
                 for var_name, var_stats in pair_stats.items():
@@ -772,6 +853,7 @@ class SaveResultsStage(BaseStage):
                 stats_file = output_dir / "statistics_summary.csv"
                 df.to_csv(stats_file)
                 saved_files.append(str(stats_file))
+                context.log_progress(f"done: {len(rows)} rows saved")
 
         return self._create_result(
             StageStatus.COMPLETED,

@@ -369,6 +369,118 @@ class TeeWriter:
             writer.flush()
 
 
+class ProgressFormatter:
+    """Formats pipeline progress output with nice ASCII styling.
+
+    Uses box-drawing characters and status icons for clear, readable output.
+    """
+
+    # Box drawing characters
+    BOX_TL = "┌"
+    BOX_TR = "┐"
+    BOX_BL = "└"
+    BOX_BR = "┘"
+    BOX_H = "─"
+    BOX_V = "│"
+    BOX_T = "┬"
+    BOX_B = "┴"
+
+    # Status icons
+    ICON_OK = "✓"
+    ICON_FAIL = "✗"
+    ICON_ARROW = "→"
+    ICON_BULLET = "•"
+    ICON_SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+    # Width for formatting
+    WIDTH = 72
+
+    def __init__(self, show_output: bool = True) -> None:
+        self.show_output = show_output
+        self._current_stage: str | None = None
+        self._stage_start: float | None = None
+        self._lines: list[str] = []  # For log file
+
+    def _emit(self, line: str) -> None:
+        """Output a line and store for logging."""
+        self._lines.append(line)
+        if self.show_output:
+            try:
+                print(line, file=sys.stdout, flush=True)
+            except BrokenPipeError:
+                pass
+
+    def header(self, config_path: str | None = None) -> None:
+        """Print pipeline header."""
+        self._emit("")
+        self._emit(self.BOX_TL + self.BOX_H * (self.WIDTH - 2) + self.BOX_TR)
+        title = "DAVINCI-MONET Pipeline"
+        padding = (self.WIDTH - 2 - len(title)) // 2
+        self._emit(self.BOX_V + " " * padding + title + " " * (self.WIDTH - 2 - padding - len(title)) + self.BOX_V)
+        self._emit(self.BOX_BL + self.BOX_H * (self.WIDTH - 2) + self.BOX_BR)
+        self._emit("")
+        if config_path:
+            # Truncate path if too long
+            max_path_len = self.WIDTH - 10
+            display_path = config_path
+            if len(config_path) > max_path_len:
+                display_path = "..." + config_path[-(max_path_len - 3):]
+            self._emit(f"  Config: {display_path}")
+            self._emit("")
+
+    def stage_start(self, name: str) -> None:
+        """Print stage start."""
+        self._current_stage = name
+        self._stage_start = time.time()
+        self._emit(self.BOX_TL + self.BOX_H + f" {name} " + self.BOX_H * (self.WIDTH - len(name) - 5))
+
+    def stage_end(self, name: str, success: bool, duration: float) -> None:
+        """Print stage end."""
+        icon = self.ICON_OK if success else self.ICON_FAIL
+        status = "completed" if success else "FAILED"
+        self._emit(self.BOX_BL + self.BOX_H + f" {icon} {name} {status} ({duration:.1f}s)")
+        self._emit("")
+        self._current_stage = None
+
+    def item_start(self, category: str, name: str, index: int, total: int) -> None:
+        """Print item start (model, observation, pair)."""
+        self._emit(f"{self.BOX_V}  {self.ICON_ARROW} {name} ({index}/{total})")
+
+    def step(self, message: str) -> None:
+        """Print a step within an item."""
+        self._emit(f"{self.BOX_V}      {self.ICON_BULLET} {message}")
+
+    def item_done(self, summary: str) -> None:
+        """Print item completion with summary."""
+        self._emit(f"{self.BOX_V}      {self.ICON_OK} {summary}")
+
+    def item_fail(self, error: str) -> None:
+        """Print item failure."""
+        # Truncate error if too long
+        max_len = self.WIDTH - 12
+        if len(error) > max_len:
+            error = error[:max_len - 3] + "..."
+        self._emit(f"{self.BOX_V}      {self.ICON_FAIL} {error}")
+
+    def footer(self, success: bool, duration: float, log_path: Path | None = None) -> None:
+        """Print pipeline footer."""
+        self._emit(self.BOX_TL + self.BOX_H * (self.WIDTH - 2) + self.BOX_TR)
+        if success:
+            msg = f"{self.ICON_OK} Pipeline completed successfully in {duration:.1f}s"
+        else:
+            msg = f"{self.ICON_FAIL} Pipeline failed after {duration:.1f}s"
+        padding = (self.WIDTH - 2 - len(msg)) // 2
+        self._emit(self.BOX_V + " " * padding + msg + " " * (self.WIDTH - 2 - padding - len(msg)) + self.BOX_V)
+        self._emit(self.BOX_BL + self.BOX_H * (self.WIDTH - 2) + self.BOX_BR)
+        if log_path:
+            self._emit(f"  Log: {log_path}")
+        self._emit("")
+
+    def get_log_lines(self) -> list[str]:
+        """Get all output lines for logging."""
+        return self._lines.copy()
+
+
 @dataclass
 class PipelineResult:
     """Result of a complete pipeline execution.
@@ -522,12 +634,14 @@ class PipelineRunner:
         if context is None:
             context = PipelineContext()
 
-        # Set up logging
+        # Set up logging and formatting
         log_path: Path | None = None
         log_collector: LogCollector | None = None
+        formatter = ProgressFormatter(show_output=self._show_progress)
 
         analysis_config = context.config.get("analysis", {})
         log_dir = analysis_config.get("log_dir")
+        config_path = context.metadata.get("config_path")
 
         if log_dir:
             log_dir_path = Path(log_dir)
@@ -537,31 +651,60 @@ class PipelineRunner:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             log_path = log_dir_path / f"pipeline_{timestamp}.md"
 
-            # Initialize log collector with config path
+            # Initialize log collector
             log_collector = LogCollector()
-            config_path = context.metadata.get("config_path")
             log_collector.start_pipeline(config_path=config_path)
 
-        # Set up progress callback that both shows progress and collects data
+        # Print header
+        formatter.header(config_path=config_path)
+
+        # Set up progress callback that uses formatter and collects data
         def _make_progress_callback(
-            collector: LogCollector | None, show_prog: bool
+            fmt: ProgressFormatter,
+            collector: LogCollector | None,
         ) -> Callable[[str], None]:
-            """Create progress callback for stdout and log collection."""
+            """Create progress callback for formatted output and log collection."""
             def callback(msg: str) -> None:
-                # Collect structured data
+                # Collect structured data for Markdown log
                 if collector:
                     collector.log_item(msg)
-                # Show real-time progress to stdout
-                if show_prog:
-                    try:
-                        tqdm.write(msg, file=sys.stdout)
-                    except BrokenPipeError:
-                        pass
+                # Parse message type and format appropriately
+                if msg.strip().startswith("Loading model:"):
+                    match = re.match(r"\s*Loading model: (\S+) \((\d+)/(\d+)\)", msg)
+                    if match:
+                        name, idx, total = match.groups()
+                        fmt.item_start("model", name, int(idx), int(total))
+                elif msg.strip().startswith("Loading obs:"):
+                    match = re.match(r"\s*Loading obs: (\S+) \((\d+)/(\d+)\)", msg)
+                    if match:
+                        name, idx, total = match.groups()
+                        fmt.item_start("obs", name, int(idx), int(total))
+                elif msg.strip().startswith("Pairing:"):
+                    match = re.match(r"\s*Pairing: (\S+) \((\d+)/(\d+)\)", msg)
+                    if match:
+                        name, idx, total = match.groups()
+                        fmt.item_start("pair", name, int(idx), int(total))
+                elif msg.strip().startswith("Stats:"):
+                    match = re.match(r"\s*Stats: (\S+) \((\d+)/(\d+)\)", msg)
+                    if match:
+                        name, idx, total = match.groups()
+                        fmt.item_start("stats", name, int(idx), int(total))
+                elif msg.strip().startswith("Plot:"):
+                    match = re.match(r"\s*Plot: (\S+) \((\d+)/(\d+)\)", msg)
+                    if match:
+                        name, idx, total = match.groups()
+                        fmt.item_start("plot", name, int(idx), int(total))
+                elif msg.strip().startswith("step:"):
+                    # Step messages from stages
+                    step_msg = msg.strip()[5:].strip()
+                    fmt.step(step_msg)
+                elif msg.strip().startswith("done:"):
+                    # Completion messages from stages
+                    done_msg = msg.strip()[5:].strip()
+                    fmt.item_done(done_msg)
             return callback
 
-        context.progress_callback = _make_progress_callback(
-            log_collector, self._show_progress
-        )
+        context.progress_callback = _make_progress_callback(formatter, log_collector)
 
         result = PipelineResult(
             success=True,
@@ -572,24 +715,10 @@ class PipelineRunner:
         start_time = time.time()
         self._call_hook("on_start", context)
 
-        # Create progress bar if enabled
-        stages_iter = self._stages
-        if self._show_progress:
-            stages_iter = tqdm(
-                self._stages,
-                desc="Pipeline",
-                unit="stage",
-                file=sys.stdout,
-                leave=True,
-            )
-
         try:
-            for stage in stages_iter:
-                # Update progress bar description
-                if self._show_progress and hasattr(stages_iter, "set_description"):
-                    stages_iter.set_description(f"Running {stage.name}")
-
-                # Track stage in collector
+            for stage in self._stages:
+                # Start stage in formatter and collector
+                formatter.stage_start(stage.name)
                 if log_collector:
                     log_collector.start_stage(stage.name)
 
@@ -605,14 +734,9 @@ class PipelineRunner:
 
                 if stage_result.status == StageStatus.FAILED:
                     result.success = False
-                    msg = f"  FAILED: {stage.name} - {stage_result.error}"
+                    formatter.stage_end(stage.name, False, stage_result.duration_seconds)
                     if log_collector:
                         log_collector.end_stage(stage.name, "failed", stage_result.duration_seconds)
-                    if self._show_progress:
-                        try:
-                            tqdm.write(msg, file=sys.stdout)
-                        except BrokenPipeError:
-                            pass
                     if self._fail_fast:
                         logger.error(
                             f"Pipeline failed at stage '{stage.name}': "
@@ -620,16 +744,15 @@ class PipelineRunner:
                         )
                         break
                 elif stage_result.status == StageStatus.COMPLETED:
-                    msg = f"  {stage.name}: {stage_result.duration_seconds:.1f}s"
+                    formatter.stage_end(stage.name, True, stage_result.duration_seconds)
                     if log_collector:
                         log_collector.end_stage(stage.name, "completed", stage_result.duration_seconds)
-                    if self._show_progress:
-                        try:
-                            tqdm.write(msg, file=sys.stdout)
-                        except BrokenPipeError:
-                            pass
 
         finally:
+            # Print footer
+            total_duration = time.time() - start_time
+            formatter.footer(result.success, total_duration, log_path)
+
             # Write Markdown log file
             if log_collector and log_path:
                 log_collector.end_pipeline(result.success)
@@ -637,11 +760,6 @@ class PipelineRunner:
                 log_collector.extract_context_data(context)
                 try:
                     log_path.write_text(log_collector.to_markdown())
-                    if self._show_progress:
-                        try:
-                            tqdm.write(f"  Log saved: {log_path}", file=sys.stdout)
-                        except BrokenPipeError:
-                            pass
                 except Exception as e:
                     logger.warning(f"Failed to write log file: {e}")
 
