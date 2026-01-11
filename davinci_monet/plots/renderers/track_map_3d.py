@@ -17,7 +17,7 @@ from davinci_monet.plots.base import (
     PlotConfig,
     calculate_symmetric_limits,
     format_label_with_units,
-    format_variable_display_name,
+    format_plot_title,
     get_variable_label,
     get_variable_units,
 )
@@ -221,6 +221,7 @@ class TrackMap3DPlotter(BasePlotter):
         # Colorbar
         units = get_variable_units(paired_data, obs_var)
         cbar_label = format_label_with_units(label, units)
+        cbar_label = format_plot_title(cbar_label)  # Apply subscript formatting
         cbar = fig.colorbar(scatter, ax=ax3d, shrink=0.6, pad=0.1)
         cbar.set_label(cbar_label, fontsize=10)
 
