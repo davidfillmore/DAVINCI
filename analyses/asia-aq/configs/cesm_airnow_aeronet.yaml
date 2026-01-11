@@ -361,20 +361,26 @@ plots:
     pairs: [cesm_dc8_co]
     title: "CO: CESM vs DC-8 Aircraft"
 
-  dc8_o3_timeseries:
-    type: timeseries
+  dc8_o3_flight_timeseries:
+    type: flight_timeseries
     pairs: [cesm_dc8_o3]
-    title: "O3 Along DC-8 Flight Track"
+    title: "O3 Flight-by-Flight: CESM vs DC-8"
+    ncols: 4
+    min_points: 10
 
-  dc8_no2_timeseries:
-    type: timeseries
+  dc8_no2_flight_timeseries:
+    type: flight_timeseries
     pairs: [cesm_dc8_no2]
-    title: "NO2 Along DC-8 Flight Track"
+    title: "NO2 Flight-by-Flight: CESM vs DC-8"
+    ncols: 4
+    min_points: 10
 
-  dc8_co_timeseries:
-    type: timeseries
+  dc8_co_flight_timeseries:
+    type: flight_timeseries
     pairs: [cesm_dc8_co]
-    title: "CO Along DC-8 Flight Track"
+    title: "CO Flight-by-Flight: CESM vs DC-8"
+    ncols: 4
+    min_points: 10
 
 # Statistics configuration
 stats:

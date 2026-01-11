@@ -34,6 +34,10 @@ from davinci_monet.plots.renderers.site_timeseries import (
     SiteTimeSeriesPlotter,
     plot_site_timeseries,
 )
+from davinci_monet.plots.renderers.flight_timeseries import (
+    FlightTimeSeriesPlotter,
+    plot_flight_timeseries,
+)
 
 # Statistical plots
 from davinci_monet.plots.renderers.scatter import (
@@ -81,6 +85,8 @@ __all__ = [
     "plot_diurnal",
     "SiteTimeSeriesPlotter",
     "plot_site_timeseries",
+    "FlightTimeSeriesPlotter",
+    "plot_flight_timeseries",
     # Statistical
     "ScatterPlotter",
     "plot_scatter",

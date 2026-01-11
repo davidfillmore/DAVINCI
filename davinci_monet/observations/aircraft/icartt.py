@@ -278,6 +278,12 @@ class ICARTTReader:
         if coord_renames:
             ds = ds.rename(coord_renames)
 
+        # Add flight identifier based on date (for per-flight analysis)
+        if "time" in ds.dims:
+            times = pd.to_datetime(ds["time"].values)
+            flight_dates = times.strftime("%Y-%m-%d")
+            ds = ds.assign_coords(flight=("time", flight_dates))
+
         ds.attrs["geometry"] = DataGeometry.TRACK.value
 
         return ds
