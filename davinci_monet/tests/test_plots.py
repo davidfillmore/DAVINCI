@@ -84,6 +84,46 @@ def track_paired_data() -> xr.Dataset:
 
 
 @pytest.fixture
+def flight_paired_data() -> xr.Dataset:
+    """Create paired dataset for flight time series plots (multiple flights)."""
+    np.random.seed(42)
+    # Simulate 3 flights on different days, each ~2 hours
+    n_points_per_flight = 120
+    flights = []
+
+    for day in range(3):
+        base_time = pd.Timestamp(f"2023-01-0{day + 1} 10:00:00")
+        time = pd.date_range(base_time, periods=n_points_per_flight, freq="1min")
+
+        # Simulate aircraft track
+        altitude = 1000 + 5000 * np.sin(np.linspace(0, np.pi, n_points_per_flight))
+        lats = np.linspace(35 + day, 40 + day, n_points_per_flight)
+        lons = np.linspace(-120, -110, n_points_per_flight)
+
+        obs = 50 + 10 * np.exp(-altitude / 5000) + np.random.normal(0, 5, n_points_per_flight)
+        model = obs + np.random.normal(3, 3, n_points_per_flight)
+
+        flight_id = f"2023-01-0{day + 1}"
+
+        ds = xr.Dataset(
+            {
+                "obs_o3": (["time"], obs, {"units": "ppbv", "long_name": "Ozone"}),
+                "model_o3": (["time"], model, {"units": "ppbv", "long_name": "Ozone"}),
+            },
+            coords={
+                "time": time,
+                "altitude": ("time", altitude),
+                "latitude": ("time", lats),
+                "longitude": ("time", lons),
+                "flight": ("time", [flight_id] * n_points_per_flight),
+            },
+        )
+        flights.append(ds)
+
+    return xr.concat(flights, dim="time")
+
+
+@pytest.fixture
 def gridded_paired_data() -> xr.Dataset:
     """Create gridded paired dataset for spatial plots."""
     np.random.seed(42)
@@ -244,6 +284,8 @@ class TestRegistry:
         assert "diurnal" in plotters
         assert "curtain" in plotters
         assert "scorecard" in plotters
+        assert "site_timeseries" in plotters
+        assert "flight_timeseries" in plotters
         assert "spatial_bias" in plotters
         assert "spatial_overlay" in plotters
         assert "spatial_distribution" in plotters
@@ -366,6 +408,134 @@ class TestDiurnalPlotter:
             )
             assert fig is not None
             plt.close(fig)
+
+
+class TestSiteTimeSeriesPlotter:
+    """Tests for site time series plotter."""
+
+    def test_basic_plot(self, simple_paired_data):
+        """Test basic site time series plot."""
+        from davinci_monet.plots import plot_site_timeseries
+
+        fig = plot_site_timeseries(
+            simple_paired_data,
+            "obs_o3",
+            "model_o3",
+            ncols=2,
+        )
+
+        assert fig is not None
+        plt.close(fig)
+
+    def test_custom_ncols(self, simple_paired_data):
+        """Test different number of columns."""
+        from davinci_monet.plots import SiteTimeSeriesPlotter
+
+        plotter = SiteTimeSeriesPlotter()
+
+        for ncols in [1, 2, 3]:
+            fig = plotter.plot(
+                simple_paired_data,
+                "obs_o3",
+                "model_o3",
+                ncols=ncols,
+            )
+            assert fig is not None
+            plt.close(fig)
+
+    def test_min_points_filter(self, simple_paired_data):
+        """Test minimum points filtering."""
+        from davinci_monet.plots import SiteTimeSeriesPlotter
+
+        plotter = SiteTimeSeriesPlotter()
+        fig = plotter.plot(
+            simple_paired_data,
+            "obs_o3",
+            "model_o3",
+            min_points=10,
+        )
+
+        assert fig is not None
+        plt.close(fig)
+
+
+class TestFlightTimeSeriesPlotter:
+    """Tests for flight time series plotter."""
+
+    def test_basic_plot(self, flight_paired_data):
+        """Test basic flight time series plot."""
+        from davinci_monet.plots import plot_flight_timeseries
+
+        fig = plot_flight_timeseries(
+            flight_paired_data,
+            "obs_o3",
+            "model_o3",
+            ncols=2,
+        )
+
+        assert fig is not None
+        # Should have panels for 3 flights
+        plt.close(fig)
+
+    def test_custom_ncols(self, flight_paired_data):
+        """Test different number of columns."""
+        from davinci_monet.plots import FlightTimeSeriesPlotter
+
+        plotter = FlightTimeSeriesPlotter()
+
+        for ncols in [1, 2, 3]:
+            fig = plotter.plot(
+                flight_paired_data,
+                "obs_o3",
+                "model_o3",
+                ncols=ncols,
+            )
+            assert fig is not None
+            plt.close(fig)
+
+    def test_min_points_filter(self, flight_paired_data):
+        """Test minimum points filtering."""
+        from davinci_monet.plots import FlightTimeSeriesPlotter
+
+        plotter = FlightTimeSeriesPlotter()
+        fig = plotter.plot(
+            flight_paired_data,
+            "obs_o3",
+            "model_o3",
+            min_points=50,
+        )
+
+        assert fig is not None
+        plt.close(fig)
+
+    def test_show_stats(self, flight_paired_data):
+        """Test statistics display toggle."""
+        from davinci_monet.plots import FlightTimeSeriesPlotter
+
+        plotter = FlightTimeSeriesPlotter()
+
+        for show_stats in [True, False]:
+            fig = plotter.plot(
+                flight_paired_data,
+                "obs_o3",
+                "model_o3",
+                show_stats=show_stats,
+            )
+            assert fig is not None
+            plt.close(fig)
+
+    def test_missing_flight_coord(self, track_paired_data):
+        """Test error when flight coordinate is missing."""
+        from davinci_monet.plots import FlightTimeSeriesPlotter
+
+        plotter = FlightTimeSeriesPlotter()
+
+        with pytest.raises(ValueError, match="Flight coordinate"):
+            plotter.plot(
+                track_paired_data,
+                "obs_o3",
+                "model_o3",
+            )
 
 
 class TestScatterPlotter:
