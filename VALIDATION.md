@@ -12,7 +12,7 @@ This document tracks the human validation of DAVINCI-MONET using real observatio
 | | OpenAQ | Not Started | | | |
 | **Column** | Pandora | Complete | D. Fillmore | 2026-01 | ASIA-AQ analysis (13 sites, Feb 2024) |
 | **Sonde** | Ozonesonde | Not Started | | | |
-| **Aircraft** | ICARTT | Not Started | | | |
+| **Aircraft** | ICARTT | Complete | D. Fillmore | 2026-01 | ASIA-AQ DC-8 (O3, NO2, CO; 17 flights, Feb 2024) |
 | **Satellite L2** | TROPOMI | Not Started | | | Polar; NO2, O3, CO, HCHO |
 | | MODIS | Not Started | | | Polar; AOD |
 | | TEMPO | Not Started | | | Geo; NO2, O3, HCHO |
@@ -327,13 +327,30 @@ This document tracks the human validation of DAVINCI-MONET using real observatio
 | AOD | 8,150 | 0.51 | -46% |
 | NO2 column | 8,886 | 0.57 | +86% |
 
+#### DC-8 Aircraft Observations Validated
+
+**ICARTT (DC-8 Aircraft)**
+- 17 flights in February 2024
+- Variables: O3 (ROZE), NO2 (CANOE), CO (DACOM)
+- Reader: `davinci_monet.observations.aircraft.icartt`
+- Data: 60-second merged files from NASA ESPO archive
+- Pairing: Track-to-grid strategy (vectorized extraction)
+- Flight coordinate added automatically based on date
+- Issues: None; reader handles campaign-specific variable naming
+
+| Variable | N | Mean Obs | Mean Model | R | NMB |
+|----------|---|----------|------------|-----|------|
+| O3 (ROZE) | 3,248 | 37.7 ppb | 50.9 ppb | 0.28 | +35% |
+| NO2 (CANOE) | 3,255 | 0.98 ppb | 6.15 ppb | 0.43 | +529% |
+| CO (DACOM) | 3,244 | 169 ppb | 187 ppb | 0.32 | +10% |
+
 #### Pipeline Components Validated
 
 - `load_models` stage: CESM reader, unit scaling
-- `load_observations` stage: AirNow, AERONET, Pandora readers
-- `pairing` stage: Point-to-grid strategy
+- `load_observations` stage: AirNow, AERONET, Pandora, ICARTT readers
+- `pairing` stage: Point-to-grid strategy, Track-to-grid strategy
 - `statistics` stage: All standard metrics (N, MB, RMSE, R, NMB, NME, IOA)
-- `plotting` stage: scatter, timeseries, spatial_bias, site_timeseries
+- `plotting` stage: scatter, timeseries, spatial_bias, site_timeseries, flight_timeseries
 - `save_results` stage: CSV output
 
 ---

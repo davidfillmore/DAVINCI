@@ -11,7 +11,7 @@ A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air 
 - **27 Statistical Metrics** - Bias, error, correlation, and agreement metrics with groupby support
 - **Multiple Plot Types** - Time series, scatter, Taylor diagrams, spatial maps, curtain, and more
 - **Type-Safe Configuration** - Pydantic-validated YAML configs with backward compatibility
-- **Full Test Coverage** - 780+ tests with synthetic data generation
+- **Full Test Coverage** - 788+ tests with synthetic data generation
 
 ### Supported Observations
 
