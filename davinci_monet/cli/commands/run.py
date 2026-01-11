@@ -10,13 +10,11 @@ from pathlib import Path
 import typer
 
 from davinci_monet.cli.app import (
-    DEBUG,
     ERROR_COLOR,
     INFO_COLOR,
     SUCCESS_COLOR,
-    timer,
+    WARNING_COLOR,
 )
-from davinci_monet.pipeline.stages import StageStatus
 
 
 def run_analysis(control_path: str, debug: bool = False) -> None:
@@ -39,82 +37,33 @@ def run_analysis(control_path: str, debug: bool = False) -> None:
         typer.secho(f"Error: control file {control_path!r} does not exist", fg=ERROR_COLOR)
         raise typer.Exit(2)
 
-    typer.secho(f"Using control file: {control_path!r}", fg=INFO_COLOR)
-    typer.secho(f"Full path: {p.absolute().as_posix()}", fg=INFO_COLOR)
+    typer.secho(f"Config: {p.absolute()}", fg=INFO_COLOR)
+    typer.echo()
 
-    with timer("Loading configuration"):
-        from davinci_monet.config import load_config
+    # Run the full pipeline with progress bars and logging
+    from davinci_monet.pipeline.runner import run_analysis as pipeline_run
 
-        config = load_config(p)
+    try:
+        result = pipeline_run(str(p), show_progress=True)
+    except Exception as e:
+        typer.secho(f"Pipeline error: {e}", fg=ERROR_COLOR)
+        if debug:
+            raise
+        raise typer.Exit(1)
 
-    with timer("Initializing pipeline"):
-        from davinci_monet.pipeline.runner import PipelineRunner
-        from davinci_monet.pipeline.stages import PipelineContext
-
-        context = PipelineContext(config=config.model_dump())
-        runner = PipelineRunner(fail_fast=True)
-
-    with timer("Opening model(s)"):
-        from davinci_monet.pipeline.stages import LoadModelsStage
-
-        models_stage = LoadModelsStage()
-        models_result = models_stage.execute(context)
-        if not models_result.status == StageStatus.COMPLETED:
-            raise RuntimeError(f"Failed to load models: {models_result.error}")
-
-    with timer("Opening observation(s)"):
-        from davinci_monet.pipeline.stages import LoadObservationsStage
-
-        obs_stage = LoadObservationsStage()
-        obs_result = obs_stage.execute(context)
-        if not obs_result.status == StageStatus.COMPLETED:
-            raise RuntimeError(f"Failed to load observations: {obs_result.error}")
-
-    with timer("Pairing data"):
-        from davinci_monet.pipeline.stages import PairingStage
-
-        pairing_stage = PairingStage()
-        pairing_result = pairing_stage.execute(context)
-        if not pairing_result.status == StageStatus.COMPLETED:
-            raise RuntimeError(f"Failed to pair data: {pairing_result.error}")
-
-    # Check if plotting is configured
-    if config.plots:
-        with timer("Generating plots"):
-            from davinci_monet.pipeline.stages import PlottingStage
-
-            plotting_stage = PlottingStage()
-            plotting_result = plotting_stage.execute(context)
-            if not plotting_result.status == StageStatus.COMPLETED:
-                typer.secho(
-                    f"Warning: Some plots failed: {plotting_result.error}",
-                    fg=typer.colors.YELLOW,
-                )
-
-    # Check if statistics are configured
-    if config.stats:
-        with timer("Computing statistics"):
-            from davinci_monet.pipeline.stages import StatisticsStage
-
-            stats_stage = StatisticsStage()
-            stats_result = stats_stage.execute(context)
-            if not stats_result.status == StageStatus.COMPLETED:
-                typer.secho(
-                    f"Warning: Statistics computation failed: {stats_result.error}",
-                    fg=typer.colors.YELLOW,
-                )
-
-    # Save results if output directory configured
-    if config.analysis and config.analysis.output_dir:
-        with timer("Saving results"):
-            from davinci_monet.pipeline.stages import SaveResultsStage
-
-            save_stage = SaveResultsStage()
-            save_result = save_stage.execute(context)
-            if not save_result.status == StageStatus.COMPLETED:
-                typer.secho(
-                    f"Warning: Failed to save some results: {save_result.error}",
-                    fg=typer.colors.YELLOW,
-                )
-
-    typer.secho("\nAnalysis complete!", fg=SUCCESS_COLOR)
+    # Report results
+    typer.echo()
+    if result.success:
+        typer.secho(
+            f"Analysis complete! ({result.total_duration_seconds:.1f}s)",
+            fg=SUCCESS_COLOR,
+        )
+        typer.secho(
+            f"Stages: {', '.join(result.completed_stages)}",
+            fg=INFO_COLOR,
+        )
+    else:
+        typer.secho("Analysis failed!", fg=ERROR_COLOR)
+        for failed in result.failed_stages:
+            typer.secho(f"  {failed.stage_name}: {failed.error}", fg=ERROR_COLOR)
+        raise typer.Exit(1)
