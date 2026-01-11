@@ -40,6 +40,10 @@ model:
         co: CO
       aeronet:
         aod_500nm: AODVISdn
+      dc8:
+        O3_ROZE_STCLAIR: O3
+        NO2_CANOE_STCLAIR: NO2
+        CO_DACOM_DISKIN: CO
 
     # Model variable configurations with unit conversions
     variables:
@@ -144,6 +148,31 @@ obs:
         units: mol/m²
         ylabel_plot: "NO2 Column (mol/m²)"
 
+  # DC-8 aircraft observations (ASIA-AQ campaign)
+  dc8:
+    obs_type: aircraft
+    filename: ~/Data/ASIA-AQ/DC8/asiaaq-mrg60_dc8_202402*.ict
+    variables:
+      O3_ROZE_STCLAIR:
+        obs_min: 0
+        obs_max: 200
+        units: ppb
+        ylabel_plot: "O3 (ppb)"
+        display_name: "O3 (ROZE)"
+      NO2_CANOE_STCLAIR:
+        unit_scale: 0.001  # pptv to ppbv
+        obs_min: 0
+        obs_max: 50
+        units: ppb
+        ylabel_plot: "NO2 (ppb)"
+        display_name: "NO2 (CANOE)"
+      CO_DACOM_DISKIN:
+        obs_min: 0
+        obs_max: 500
+        units: ppb
+        ylabel_plot: "CO (ppb)"
+        display_name: "CO (DACOM)"
+
 # Pairing groups (which model-obs combinations to analyze)
 pairs:
   cesm_airnow_pm25:
@@ -187,6 +216,28 @@ pairs:
     variable:
       model_var: NO2_column
       obs_var: no2_trop_column
+
+  # DC-8 aircraft pairs
+  cesm_dc8_o3:
+    model: cesm_asiaq
+    obs: dc8
+    variable:
+      model_var: O3
+      obs_var: O3_ROZE_STCLAIR
+
+  cesm_dc8_no2:
+    model: cesm_asiaq
+    obs: dc8
+    variable:
+      model_var: NO2
+      obs_var: NO2_CANOE_STCLAIR
+
+  cesm_dc8_co:
+    model: cesm_asiaq
+    obs: dc8
+    variable:
+      model_var: CO
+      obs_var: CO_DACOM_DISKIN
 
 # Plotting configuration
 plots:
@@ -293,6 +344,37 @@ plots:
     type: spatial_bias
     pairs: [cesm_pandora_no2_column]
     title: "NO2 Column Spatial Bias"
+
+  # DC-8 Aircraft plots
+  dc8_o3_scatter:
+    type: scatter
+    pairs: [cesm_dc8_o3]
+    title: "O3: CESM vs DC-8 Aircraft"
+
+  dc8_no2_scatter:
+    type: scatter
+    pairs: [cesm_dc8_no2]
+    title: "NO2: CESM vs DC-8 Aircraft"
+
+  dc8_co_scatter:
+    type: scatter
+    pairs: [cesm_dc8_co]
+    title: "CO: CESM vs DC-8 Aircraft"
+
+  dc8_o3_timeseries:
+    type: timeseries
+    pairs: [cesm_dc8_o3]
+    title: "O3 Along DC-8 Flight Track"
+
+  dc8_no2_timeseries:
+    type: timeseries
+    pairs: [cesm_dc8_no2]
+    title: "NO2 Along DC-8 Flight Track"
+
+  dc8_co_timeseries:
+    type: timeseries
+    pairs: [cesm_dc8_co]
+    title: "CO Along DC-8 Flight Track"
 
 # Statistics configuration
 stats:

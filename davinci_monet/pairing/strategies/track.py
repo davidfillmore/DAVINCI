@@ -98,7 +98,7 @@ class TrackStrategy(BasePairingStrategy):
 
         # Determine vertical coordinate
         obs_altitude = self._get_altitude(obs, altitude_var)
-        model_has_vertical = "z" in model.dims
+        model_has_vertical = any(dim in model.dims for dim in ["z", "lev", "level", "altitude", "height"])
 
         # Extract and interpolate model values along track
         model_along_track = self._extract_along_track(
@@ -153,6 +153,8 @@ class TrackStrategy(BasePairingStrategy):
     ) -> xr.Dataset:
         """Extract model values along the track.
 
+        Uses vectorized extraction for efficiency - similar to PointStrategy.
+
         Parameters
         ----------
         model
@@ -185,58 +187,64 @@ class TrackStrategy(BasePairingStrategy):
             lat_dim = model_lat.dims[0]
             lon_dim = model_lat.dims[1]
 
-        # First, interpolate model to track times
-        model_time_interp = self._interpolate_time(model, obs_times, method="linear")
+        # Handle invalid indices (outside radius of influence)
+        valid_mask = (lat_idx >= 0) & (lon_idx >= 0)
 
-        # Build output for each variable
-        data_vars: dict[str, tuple[tuple[str, ...], np.ndarray[Any, np.dtype[Any]]]] = {}
+        # Create DataArray indexers for vectorized spatial extraction
+        lat_indexer = xr.DataArray(
+            np.where(valid_mask, lat_idx, 0), dims=["track_point"]
+        )
+        lon_indexer = xr.DataArray(
+            np.where(valid_mask, lon_idx, 0), dims=["track_point"]
+        )
 
-        for var in model_time_interp.data_vars:
-            var_data = model_time_interp[var]
+        # Extract surface level if model is 3D
+        # Use base class method which follows MONET convention (z=0 is surface)
+        model_surface = self._extract_surface(model)
 
-            # Initialize output array
-            out_data = np.full(n_points, np.nan)
+        # Vectorized spatial extraction - extracts all track points at once
+        extracted = model_surface.isel({lat_dim: lat_indexer, lon_dim: lon_indexer})
 
-            for i in range(n_points):
-                if lat_idx[i] < 0 or lon_idx[i] < 0:
-                    continue
+        # Load data to trigger efficient read (single I/O operation)
+        extracted = extracted.load()
 
-                # Extract at horizontal location
-                if model_lat.ndim == 1:
-                    point_data = var_data.isel(
-                        {lat_dim: lat_idx[i], lon_dim: lon_idx[i], "time": i}
-                    )
-                else:
-                    point_data = var_data.isel(
-                        {lat_dim: lat_idx[i], lon_dim: lon_idx[i], "time": i}
-                    )
+        # Interpolate in time: for each track point, find nearest model time
+        # Use vectorized nearest-neighbor time matching
+        model_times = extracted["time"].values.astype("datetime64[ns]").astype(np.int64)
+        obs_times_vals = obs_times.values.astype("datetime64[ns]").astype(np.int64)
 
-                # Handle vertical interpolation
-                if model_has_vertical and "z" in point_data.dims:
-                    if obs_altitude is not None:
-                        # Interpolate to observation altitude
-                        target_alt = float(obs_altitude.values[i])
-                        z_vals = point_data["z"].values
-                        if vertical_method == "nearest":
-                            z_idx = np.argmin(np.abs(z_vals - target_alt))
-                            out_data[i] = float(point_data.isel(z=z_idx).values)
-                        else:
-                            # Linear interpolation
-                            out_data[i] = float(
-                                np.interp(target_alt, z_vals, point_data.values)
-                            )
-                    else:
-                        # Take surface level
-                        out_data[i] = float(point_data.isel(z=0).values)
-                else:
-                    out_data[i] = float(point_data.values)
+        # Vectorized nearest time matching using searchsorted
+        insert_idx = np.searchsorted(model_times, obs_times_vals)
+        # Clamp to valid range
+        insert_idx = np.clip(insert_idx, 1, len(model_times) - 1)
+        # Check if left or right neighbor is closer
+        left_idx = insert_idx - 1
+        right_idx = insert_idx
+        left_dist = np.abs(obs_times_vals - model_times[left_idx])
+        right_dist = np.abs(model_times[right_idx] - obs_times_vals)
+        time_idx = np.where(left_dist <= right_dist, left_idx, right_idx)
 
-            data_vars[str(var)] = (("time",), out_data)
+        # Create time indexer
+        time_indexer = xr.DataArray(time_idx, dims=["track_point"])
+
+        # Extract at matched times
+        result_vars: dict[str, tuple[tuple[str, ...], np.ndarray[Any, np.dtype[Any]]]] = {}
+        for var in extracted.data_vars:
+            var_data = extracted[var]
+            if "time" in var_data.dims:
+                # Select the appropriate time for each track point
+                out_data = var_data.isel(time=time_indexer).values
+            else:
+                out_data = np.full(n_points, var_data.values)
+
+            # Mask invalid points
+            out_data = np.where(valid_mask, out_data, np.nan)
+            result_vars[str(var)] = (("time",), out_data)
 
         # Build output dataset
         coords = {"time": obs_times.values}
 
-        return xr.Dataset(data_vars, coords=coords)
+        return xr.Dataset(result_vars, coords=coords)
 
     def _create_paired_output(
         self,
@@ -255,10 +263,13 @@ class TrackStrategy(BasePairingStrategy):
         Returns
         -------
         xr.Dataset
-            Combined dataset.
+            Combined dataset with obs and model variables.
         """
         # Combine coordinates
         coords = dict(obs.coords)
+
+        # Get obs variable names to check for collisions
+        obs_var_names = set(str(v) for v in obs.data_vars)
 
         # Combine data variables
         data_vars: dict[str, Any] = {}
@@ -267,9 +278,14 @@ class TrackStrategy(BasePairingStrategy):
         for var in obs.data_vars:
             data_vars[str(var)] = obs[var]
 
-        # Add model variables with prefix
+        # Add model variables - add prefix only if name collision
         for var in model_along_track.data_vars:
-            model_var_name = f"model_{var}"
-            data_vars[model_var_name] = model_along_track[var]
+            var_name = str(var)
+            if var_name in obs_var_names:
+                # Name collision - add model_ prefix
+                data_vars[f"model_{var_name}"] = model_along_track[var]
+            else:
+                # No collision - keep original name
+                data_vars[var_name] = model_along_track[var]
 
         return xr.Dataset(data_vars, coords=coords)

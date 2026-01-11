@@ -116,9 +116,15 @@ class ICARTTReader:
         ds_list = []
         for fpath in file_paths:
             try:
-                df: pd.DataFrame = icartt_mod.add_data(str(fpath), **kwargs)
-                if not df.empty:
-                    ds_list.append(df)
+                result = icartt_mod.add_data(str(fpath), **kwargs)
+                # monetio returns xarray Dataset directly
+                if isinstance(result, xr.Dataset):
+                    if len(result.time) > 0:
+                        ds_list.append(result)
+                elif isinstance(result, pd.DataFrame):
+                    # Fallback for older monetio versions
+                    if not result.empty:
+                        ds_list.append(self._dataframe_to_dataset(result))
             except Exception as e:
                 warnings.warn(f"Failed to read {fpath}: {e}", UserWarning)
                 continue
@@ -126,8 +132,11 @@ class ICARTTReader:
         if not ds_list:
             raise DataNotFoundError("No valid ICARTT data found")
 
-        combined_df = pd.concat(ds_list, ignore_index=True)
-        ds: xr.Dataset = self._dataframe_to_dataset(combined_df)
+        # Concatenate datasets along time dimension
+        if len(ds_list) == 1:
+            ds = ds_list[0]
+        else:
+            ds = xr.concat(ds_list, dim="time")
 
         if variables is not None:
             available = [v for v in variables if v in ds.data_vars]
@@ -236,26 +245,34 @@ class ICARTTReader:
         """Standardize ICARTT dataset dimensions and coordinates."""
         coord_renames: dict[str, str] = {}
 
-        # Standardize coordinate names
-        for alias in ["Latitude", "latitude", "LAT", "lat"]:
-            if alias in ds.data_vars and "lat" not in ds.coords:
+        # Standardize coordinate names (including campaign-specific suffixes)
+        lat_aliases = ["Latitude", "latitude", "LAT", "lat",
+                       "Latitude_BENNETT", "G_LAT", "LATITUDE"]
+        for alias in lat_aliases:
+            if alias in ds.data_vars and "latitude" not in ds.coords:
                 ds = ds.set_coords(alias)
-                if alias != "lat":
-                    coord_renames[alias] = "lat"
+                if alias != "latitude":
+                    coord_renames[alias] = "latitude"
                 break
 
-        for alias in ["Longitude", "longitude", "LON", "lon"]:
-            if alias in ds.data_vars and "lon" not in ds.coords:
+        lon_aliases = ["Longitude", "longitude", "LON", "lon",
+                       "Longitude_BENNETT", "G_LONG", "LONGITUDE"]
+        for alias in lon_aliases:
+            if alias in ds.data_vars and "longitude" not in ds.coords:
                 ds = ds.set_coords(alias)
-                if alias != "lon":
-                    coord_renames[alias] = "lon"
+                if alias != "longitude":
+                    coord_renames[alias] = "longitude"
                 break
 
-        for alias in ["Altitude", "altitude", "GPS_Altitude", "ALT", "alt"]:
-            if alias in ds.data_vars and "alt" not in ds.coords:
+        # For altitude, prefer pressure for vertical interpolation
+        alt_aliases = ["Static_Pressure_BENNETT", "Static_Pressure", "PRESSURE",
+                       "Altitude", "altitude", "GPS_Altitude", "ALT", "alt",
+                       "Pressure_Altitude_BENNETT", "GPS_Altitude_BENNETT"]
+        for alias in alt_aliases:
+            if alias in ds.data_vars and "altitude" not in ds.coords:
                 ds = ds.set_coords(alias)
-                if alias != "alt":
-                    coord_renames[alias] = "alt"
+                if alias != "altitude":
+                    coord_renames[alias] = "altitude"
                 break
 
         if coord_renames:

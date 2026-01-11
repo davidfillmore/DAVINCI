@@ -311,20 +311,27 @@ class LoadObservationsStage(BaseStage):
                 data = None
                 if filename:
                     file_path = Path(filename)
+                    # Expand user home directory first (before checking absolute)
+                    file_path = file_path.expanduser()
+
                     # Handle relative paths
                     if not file_path.is_absolute():
                         file_path = base_path / file_path
-
-                    # Expand user home directory
-                    file_path = file_path.expanduser()
 
                     # Handle glob patterns
                     if "*" in str(file_path) or "?" in str(file_path):
                         files = sorted(glob(str(file_path)))
                         if files:
-                            data = xr.open_mfdataset(files, combine="by_coords")
+                            # Check if ICARTT files (.ict extension)
+                            if files[0].endswith(".ict"):
+                                data = self._load_icartt_files(files)
+                            else:
+                                data = xr.open_mfdataset(files, combine="by_coords")
                     elif file_path.exists():
-                        data = xr.open_dataset(str(file_path))
+                        if str(file_path).endswith(".ict"):
+                            data = self._load_icartt_files([str(file_path)])
+                        else:
+                            data = xr.open_dataset(str(file_path))
 
                 obs_data = create_observation_data(
                     label=label,
@@ -362,6 +369,24 @@ class LoadObservationsStage(BaseStage):
             duration=time.time() - start,
             count=loaded_count,
         )
+
+    def _load_icartt_files(self, files: list[str]) -> "xr.Dataset":
+        """Load ICARTT format files using the specialized reader.
+
+        Parameters
+        ----------
+        files
+            List of ICARTT file paths.
+
+        Returns
+        -------
+        xr.Dataset
+            Combined dataset from all files.
+        """
+        from davinci_monet.observations.aircraft.icartt import ICARTTReader
+
+        reader = ICARTTReader()
+        return reader.open(files)
 
 
 class PairingStage(BaseStage):
