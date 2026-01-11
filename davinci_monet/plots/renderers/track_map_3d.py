@@ -17,6 +17,7 @@ from davinci_monet.plots.base import (
     PlotConfig,
     calculate_symmetric_limits,
     format_label_with_units,
+    format_variable_display_name,
     get_variable_label,
     get_variable_units,
 )
@@ -158,7 +159,9 @@ class TrackMap3DPlotter(BasePlotter):
         else:  # bias
             values = model_vals - obs_vals
             default_cmap = "RdBu_r"
-            label = "Bias (Model - Obs)"
+            # Get a nice display name for bias label
+            var_label = get_variable_label(paired_data, obs_var, include_prefix=False)
+            label = f"{var_label} Bias"
 
         cmap = cmap or default_cmap
 
