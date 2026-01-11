@@ -90,6 +90,8 @@ from davinci_monet.plots.renderers import (
     plot_curtain,
     ScorecardPlotter,
     plot_scorecard,
+    TrackMap3DPlotter,
+    plot_track_map_3d,
     # Spatial
     BaseSpatialPlotter,
     MapConfig,
@@ -152,6 +154,8 @@ __all__ = [
     "plot_curtain",
     "ScorecardPlotter",
     "plot_scorecard",
+    "TrackMap3DPlotter",
+    "plot_track_map_3d",
     # Spatial plotters
     "BaseSpatialPlotter",
     "MapConfig",

@@ -382,6 +382,31 @@ plots:
     ncols: 4
     min_points: 10
 
+  # 3D track maps
+  dc8_o3_track_3d:
+    type: track_map_3d
+    pairs: [cesm_dc8_o3]
+    title: "O3 Bias: DC-8 3D Flight Track"
+    show_var: bias
+    elev: 25
+    azim: -60
+
+  dc8_no2_track_3d:
+    type: track_map_3d
+    pairs: [cesm_dc8_no2]
+    title: "NO2 Bias: DC-8 3D Flight Track"
+    show_var: bias
+    elev: 25
+    azim: -60
+
+  dc8_co_track_3d:
+    type: track_map_3d
+    pairs: [cesm_dc8_co]
+    title: "CO Bias: DC-8 3D Flight Track"
+    show_var: bias
+    elev: 25
+    azim: -60
+
 # Statistics configuration
 stats:
   output_table: true

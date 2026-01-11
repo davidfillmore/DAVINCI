@@ -62,6 +62,10 @@ from davinci_monet.plots.renderers.scorecard import (
     ScorecardPlotter,
     plot_scorecard,
 )
+from davinci_monet.plots.renderers.track_map_3d import (
+    TrackMap3DPlotter,
+    plot_track_map_3d,
+)
 
 # Spatial plots (imported from subpackage)
 from davinci_monet.plots.renderers.spatial import (
@@ -99,6 +103,8 @@ __all__ = [
     "plot_curtain",
     "ScorecardPlotter",
     "plot_scorecard",
+    "TrackMap3DPlotter",
+    "plot_track_map_3d",
     # Spatial
     "BaseSpatialPlotter",
     "MapConfig",

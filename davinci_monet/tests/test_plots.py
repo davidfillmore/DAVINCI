@@ -286,6 +286,7 @@ class TestRegistry:
         assert "scorecard" in plotters
         assert "site_timeseries" in plotters
         assert "flight_timeseries" in plotters
+        assert "track_map_3d" in plotters
         assert "spatial_bias" in plotters
         assert "spatial_overlay" in plotters
         assert "spatial_distribution" in plotters
@@ -685,6 +686,74 @@ class TestCurtainPlotter:
             )
             assert fig is not None
             plt.close(fig)
+
+
+class TestTrackMap3DPlotter:
+    """Tests for 3D track map plotter."""
+
+    def test_basic_plot(self, track_paired_data):
+        """Test basic 3D track plot."""
+        from davinci_monet.plots import plot_track_map_3d
+
+        fig = plot_track_map_3d(
+            track_paired_data,
+            "obs_o3",
+            "model_o3",
+            alt_var="altitude",
+        )
+
+        assert fig is not None
+        plt.close(fig)
+
+    def test_show_var_options(self, track_paired_data):
+        """Test different show_var options."""
+        from davinci_monet.plots import TrackMap3DPlotter
+
+        plotter = TrackMap3DPlotter()
+
+        for show_var in ["obs", "model", "bias"]:
+            fig = plotter.plot(
+                track_paired_data,
+                "obs_o3",
+                "model_o3",
+                alt_var="altitude",
+                show_var=show_var,
+            )
+            assert fig is not None
+            plt.close(fig)
+
+    def test_view_angles(self, track_paired_data):
+        """Test different view angles."""
+        from davinci_monet.plots import TrackMap3DPlotter
+
+        plotter = TrackMap3DPlotter()
+        fig = plotter.plot(
+            track_paired_data,
+            "obs_o3",
+            "model_o3",
+            alt_var="altitude",
+            elev=45,
+            azim=-90,
+        )
+
+        assert fig is not None
+        plt.close(fig)
+
+    def test_projection_toggle(self, track_paired_data):
+        """Test show_projection toggle."""
+        from davinci_monet.plots import TrackMap3DPlotter
+
+        plotter = TrackMap3DPlotter()
+        fig = plotter.plot(
+            track_paired_data,
+            "obs_o3",
+            "model_o3",
+            alt_var="altitude",
+            show_projection=False,
+        )
+
+        assert fig is not None
+        plt.close(fig)
 
 
 class TestScorecardPlotter:
