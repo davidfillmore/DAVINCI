@@ -7,6 +7,7 @@ of analysis stages, managing state and handling errors.
 from __future__ import annotations
 
 import logging
+import re
 import sys
 import time
 from dataclasses import dataclass, field
@@ -27,6 +28,329 @@ from davinci_monet.pipeline.stages import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LogEntry:
+    """A single log entry with timing information."""
+
+    name: str
+    category: str  # 'model', 'observation', 'pair', 'stage'
+    start_time: float
+    end_time: float | None = None
+    status: str = "running"
+    details: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def duration(self) -> float:
+        """Duration in seconds."""
+        if self.end_time is None:
+            return time.time() - self.start_time
+        return self.end_time - self.start_time
+
+
+class LogCollector:
+    """Collects structured log data for Markdown report generation."""
+
+    def __init__(self) -> None:
+        self.start_time: datetime | None = None
+        self.end_time: datetime | None = None
+        self.config_path: str | None = None
+        self.entries: list[LogEntry] = []
+        self._current_stage: LogEntry | None = None
+        self._item_start_times: dict[str, float] = {}
+        # Additional data extracted from context
+        self.model_details: dict[str, dict[str, Any]] = {}
+        self.obs_details: dict[str, dict[str, Any]] = {}
+        self.pair_details: dict[str, dict[str, Any]] = {}
+        self.statistics: dict[str, dict[str, Any]] = {}
+
+    def start_pipeline(self, config_path: str | None = None) -> None:
+        """Record pipeline start."""
+        self.start_time = datetime.now()
+        self.config_path = config_path
+
+    def end_pipeline(self, success: bool) -> None:
+        """Record pipeline end."""
+        self.end_time = datetime.now()
+        self.success = success
+
+    def start_stage(self, name: str) -> None:
+        """Record stage start."""
+        self._current_stage = LogEntry(
+            name=name,
+            category="stage",
+            start_time=time.time(),
+        )
+
+    def end_stage(self, name: str, status: str, duration: float) -> None:
+        """Record stage completion."""
+        if self._current_stage and self._current_stage.name == name:
+            self._current_stage.end_time = time.time()
+            self._current_stage.status = status
+            self.entries.append(self._current_stage)
+            self._current_stage = None
+
+    def log_item(self, message: str) -> None:
+        """Parse and log a progress message."""
+        # Parse patterns like "Loading model: cesm_asiaq (1/2)"
+        model_match = re.match(r"\s*Loading model: (\S+)", message)
+        obs_match = re.match(r"\s*Loading obs: (\S+)", message)
+        pair_match = re.match(r"\s*Pairing: (\S+)", message)
+
+        if model_match:
+            name = model_match.group(1)
+            self._start_item(name, "model")
+        elif obs_match:
+            name = obs_match.group(1)
+            self._start_item(name, "observation")
+        elif pair_match:
+            name = pair_match.group(1)
+            self._start_item(name, "pair")
+
+    def _start_item(self, name: str, category: str) -> None:
+        """Start timing an item and close previous in same category."""
+        # Close any previous item in the same category
+        for entry in self.entries:
+            if entry.category == category and entry.end_time is None:
+                entry.end_time = time.time()
+
+        # Also check _item_start_times for any unclosed items
+        for key, start in list(self._item_start_times.items()):
+            if key.startswith(f"{category}:"):
+                old_name = key.split(":", 1)[1]
+                self.entries.append(
+                    LogEntry(
+                        name=old_name,
+                        category=category,
+                        start_time=start,
+                        end_time=time.time(),
+                        status="completed",
+                    )
+                )
+                del self._item_start_times[key]
+
+        self._item_start_times[f"{category}:{name}"] = time.time()
+
+    def finalize_items(self) -> None:
+        """Close any open items when stage ends."""
+        now = time.time()
+        for key, start in list(self._item_start_times.items()):
+            category, name = key.split(":", 1)
+            self.entries.append(
+                LogEntry(
+                    name=name,
+                    category=category,
+                    start_time=start,
+                    end_time=now,
+                    status="completed",
+                )
+            )
+        self._item_start_times.clear()
+
+    def extract_context_data(self, context: "PipelineContext") -> None:
+        """Extract detailed data from pipeline context after execution."""
+        # Extract model details
+        for label, model_data in context.models.items():
+            details: dict[str, Any] = {}
+            if hasattr(model_data, "data") and model_data.data is not None:
+                ds = model_data.data
+                details["variables"] = len(ds.data_vars)
+                if "time" in ds.sizes:
+                    details["time_steps"] = ds.sizes["time"]
+                # Calculate approximate size
+                total_size = sum(
+                    ds[v].size for v in ds.data_vars
+                )
+                details["data_points"] = total_size
+            self.model_details[label] = details
+
+        # Extract observation details
+        for label, obs_data in context.observations.items():
+            details = {}
+            if hasattr(obs_data, "data") and obs_data.data is not None:
+                ds = obs_data.data
+                details["variables"] = len(ds.data_vars)
+                if "time" in ds.sizes:
+                    details["time_steps"] = ds.sizes["time"]
+                elif "obs_time" in ds.sizes:
+                    details["time_steps"] = ds.sizes["obs_time"]
+                # Get observation type
+                if hasattr(obs_data, "obs_type"):
+                    details["type"] = obs_data.obs_type
+                # Count sites/points
+                if "site" in ds.sizes:
+                    details["sites"] = ds.sizes["site"]
+                elif "x" in ds.sizes:
+                    details["points"] = ds.sizes["x"]
+            self.obs_details[label] = details
+
+        # Extract pair details
+        for pair_key, paired_data in context.paired.items():
+            details = {}
+            ds = paired_data.data if hasattr(paired_data, "data") else paired_data
+            if ds is not None:
+                # Count paired points
+                total_points = 1
+                for dim in ds.sizes:
+                    total_points *= ds.sizes[dim]
+                details["paired_points"] = total_points
+                # Count variables
+                model_vars = [v for v in ds.data_vars if v.startswith("model_")]
+                details["variables"] = len(model_vars)
+            self.pair_details[pair_key] = details
+
+        # Extract statistics
+        stats_result = context.results.get("statistics")
+        if stats_result and stats_result.data:
+            self.statistics = stats_result.data
+
+    def _format_number(self, n: int) -> str:
+        """Format large numbers with K/M suffix."""
+        if n >= 1_000_000:
+            return f"{n / 1_000_000:.1f}M"
+        elif n >= 1_000:
+            return f"{n / 1_000:.1f}K"
+        return str(n)
+
+    def to_markdown(self) -> str:
+        """Generate Markdown report."""
+        lines: list[str] = []
+
+        # Header
+        lines.append("# DAVINCI-MONET Pipeline Log")
+        lines.append("")
+
+        # Metadata table
+        lines.append("## Run Information")
+        lines.append("")
+        lines.append("| Property | Value |")
+        lines.append("|----------|-------|")
+        if self.config_path:
+            lines.append(f"| Config | `{self.config_path}` |")
+        if self.start_time:
+            lines.append(f"| Started | {self.start_time.strftime('%Y-%m-%d %H:%M:%S')} |")
+        if self.end_time:
+            lines.append(f"| Finished | {self.end_time.strftime('%Y-%m-%d %H:%M:%S')} |")
+        if self.start_time and self.end_time:
+            duration = (self.end_time - self.start_time).total_seconds()
+            lines.append(f"| Duration | {duration:.1f}s |")
+        if hasattr(self, "success"):
+            status = "Success" if self.success else "Failed"
+            lines.append(f"| Status | **{status}** |")
+        lines.append("")
+
+        # Stage summary table
+        stages = [e for e in self.entries if e.category == "stage"]
+        if stages:
+            lines.append("## Stage Summary")
+            lines.append("")
+            lines.append("| Stage | Status | Duration |")
+            lines.append("|-------|--------|----------|")
+            for entry in stages:
+                status_icon = "✓" if entry.status == "completed" else "✗"
+                lines.append(
+                    f"| {entry.name} | {status_icon} {entry.status.title()} | {entry.duration:.1f}s |"
+                )
+            lines.append("")
+
+        # Models table with details
+        models = [e for e in self.entries if e.category == "model"]
+        if models:
+            lines.append("## Models Loaded")
+            lines.append("")
+            lines.append("| Model | Variables | Time Steps | Data Points | Duration |")
+            lines.append("|-------|-----------|------------|-------------|----------|")
+            for entry in models:
+                details = self.model_details.get(entry.name, {})
+                vars_count = details.get("variables", "-")
+                time_steps = details.get("time_steps", "-")
+                data_points = details.get("data_points")
+                data_str = self._format_number(data_points) if data_points else "-"
+                lines.append(
+                    f"| {entry.name} | {vars_count} | {time_steps} | {data_str} | {entry.duration:.1f}s |"
+                )
+            lines.append("")
+
+        # Observations table with details
+        observations = [e for e in self.entries if e.category == "observation"]
+        if observations:
+            lines.append("## Observations Loaded")
+            lines.append("")
+            lines.append("| Observation | Type | Variables | Records | Duration |")
+            lines.append("|-------------|------|-----------|---------|----------|")
+            for entry in observations:
+                details = self.obs_details.get(entry.name, {})
+                obs_type = details.get("type", "-")
+                vars_count = details.get("variables", "-")
+                # Get record count (sites, points, or time steps)
+                records = (
+                    details.get("sites")
+                    or details.get("points")
+                    or details.get("time_steps")
+                    or "-"
+                )
+                if isinstance(records, int):
+                    records = self._format_number(records)
+                lines.append(
+                    f"| {entry.name} | {obs_type} | {vars_count} | {records} | {entry.duration:.1f}s |"
+                )
+            lines.append("")
+
+        # Pairings table with details
+        pairs = [e for e in self.entries if e.category == "pair"]
+        if pairs:
+            lines.append("## Pairings")
+            lines.append("")
+            lines.append("| Pair | Variables | Paired Points | Duration |")
+            lines.append("|------|-----------|---------------|----------|")
+            for entry in pairs:
+                details = self.pair_details.get(entry.name, {})
+                vars_count = details.get("variables", "-")
+                paired_points = details.get("paired_points")
+                points_str = self._format_number(paired_points) if paired_points else "-"
+                lines.append(
+                    f"| {entry.name} | {vars_count} | {points_str} | {entry.duration:.1f}s |"
+                )
+            lines.append("")
+
+        # Statistics summary
+        if self.statistics:
+            lines.append("## Statistics Summary")
+            lines.append("")
+            for pair_key, pair_stats in self.statistics.items():
+                if not pair_stats:
+                    continue
+                lines.append(f"### {pair_key}")
+                lines.append("")
+                lines.append("| Variable | N | Mean Obs | Mean Model | MB | RMSE | R |")
+                lines.append("|----------|---|----------|------------|-----|------|---|")
+                for var_name, stats in pair_stats.items():
+                    if not isinstance(stats, dict):
+                        continue
+                    n = stats.get("n", "-")
+                    obs_mean = stats.get("obs_mean")
+                    model_mean = stats.get("model_mean")
+                    mb = stats.get("mean_bias")
+                    rmse = stats.get("rmse")
+                    r = stats.get("correlation")
+                    # Format values
+                    obs_str = f"{obs_mean:.2f}" if obs_mean is not None else "-"
+                    model_str = f"{model_mean:.2f}" if model_mean is not None else "-"
+                    mb_str = f"{mb:+.2f}" if mb is not None else "-"
+                    rmse_str = f"{rmse:.2f}" if rmse is not None else "-"
+                    r_str = f"{r:.2f}" if r is not None and not (isinstance(r, float) and r != r) else "-"
+                    lines.append(
+                        f"| {var_name} | {n} | {obs_str} | {model_str} | {mb_str} | {rmse_str} | {r_str} |"
+                    )
+                lines.append("")
+
+        # Footer
+        lines.append("---")
+        lines.append("*Generated by DAVINCI-MONET*")
+        lines.append("")
+
+        return "\n".join(lines)
 
 
 class TeeWriter:
@@ -198,10 +522,9 @@ class PipelineRunner:
         if context is None:
             context = PipelineContext()
 
-        # Set up logging to file if log_dir is configured
-        log_file: TextIO | None = None
+        # Set up logging
         log_path: Path | None = None
-        file_handler: logging.Handler | None = None
+        log_collector: LogCollector | None = None
 
         analysis_config = context.config.get("analysis", {})
         log_dir = analysis_config.get("log_dir")
@@ -210,36 +533,25 @@ class PipelineRunner:
             log_dir_path = Path(log_dir)
             log_dir_path.mkdir(parents=True, exist_ok=True)
 
-            # Create timestamped log file
+            # Create timestamped log file with .md extension
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            log_path = log_dir_path / f"pipeline_{timestamp}.log"
-            log_file = open(log_path, "w")
+            log_path = log_dir_path / f"pipeline_{timestamp}.md"
 
-            # Add file handler to logger
-            file_handler = logging.FileHandler(log_path)
-            file_handler.setLevel(logging.DEBUG)
-            file_handler.setFormatter(
-                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-            )
-            logging.getLogger("davinci_monet").addHandler(file_handler)
+            # Initialize log collector with config path
+            log_collector = LogCollector()
+            config_path = context.metadata.get("config_path")
+            log_collector.start_pipeline(config_path=config_path)
 
-            # Write header to log file
-            log_file.write(f"DAVINCI-MONET Pipeline Log\n")
-            log_file.write(f"Started: {datetime.now().isoformat()}\n")
-            log_file.write("=" * 70 + "\n\n")
-            log_file.flush()
-
-        # Set up progress callback
+        # Set up progress callback that both shows progress and collects data
         def _make_progress_callback(
-            log_f: TextIO | None, show_prog: bool
+            collector: LogCollector | None, show_prog: bool
         ) -> Callable[[str], None]:
-            """Create progress callback that writes to log file and/or stdout."""
+            """Create progress callback for stdout and log collection."""
             def callback(msg: str) -> None:
-                # Always write to log file first
-                if log_f:
-                    log_f.write(msg + "\n")
-                    log_f.flush()
-                # Then try stdout (may fail with broken pipe)
+                # Collect structured data
+                if collector:
+                    collector.log_item(msg)
+                # Show real-time progress to stdout
                 if show_prog:
                     try:
                         tqdm.write(msg, file=sys.stdout)
@@ -247,7 +559,9 @@ class PipelineRunner:
                         pass
             return callback
 
-        context.progress_callback = _make_progress_callback(log_file, self._show_progress)
+        context.progress_callback = _make_progress_callback(
+            log_collector, self._show_progress
+        )
 
         result = PipelineResult(
             success=True,
@@ -275,19 +589,25 @@ class PipelineRunner:
                 if self._show_progress and hasattr(stages_iter, "set_description"):
                     stages_iter.set_description(f"Running {stage.name}")
 
+                # Track stage in collector
+                if log_collector:
+                    log_collector.start_stage(stage.name)
+
                 stage_result = self._execute_stage(stage, context)
                 result.stage_results.append(stage_result)
 
                 # Store result in context
                 context.results[stage.name] = stage_result
 
+                # Finalize any open items before ending stage
+                if log_collector:
+                    log_collector.finalize_items()
+
                 if stage_result.status == StageStatus.FAILED:
                     result.success = False
                     msg = f"  FAILED: {stage.name} - {stage_result.error}"
-                    # Write to log file first (before stdout which may have broken pipe)
-                    if log_file:
-                        log_file.write(msg + "\n")
-                        log_file.flush()
+                    if log_collector:
+                        log_collector.end_stage(stage.name, "failed", stage_result.duration_seconds)
                     if self._show_progress:
                         try:
                             tqdm.write(msg, file=sys.stdout)
@@ -301,10 +621,8 @@ class PipelineRunner:
                         break
                 elif stage_result.status == StageStatus.COMPLETED:
                     msg = f"  {stage.name}: {stage_result.duration_seconds:.1f}s"
-                    # Write to log file first (before stdout which may have broken pipe)
-                    if log_file:
-                        log_file.write(msg + "\n")
-                        log_file.flush()
+                    if log_collector:
+                        log_collector.end_stage(stage.name, "completed", stage_result.duration_seconds)
                     if self._show_progress:
                         try:
                             tqdm.write(msg, file=sys.stdout)
@@ -312,20 +630,20 @@ class PipelineRunner:
                             pass
 
         finally:
-            # Clean up logging
-            if file_handler:
-                logging.getLogger("davinci_monet").removeHandler(file_handler)
-                file_handler.close()
-
-            if log_file:
-                log_file.write("\n" + "=" * 70 + "\n")
-                log_file.write(f"Finished: {datetime.now().isoformat()}\n")
-                log_file.write(f"Duration: {time.time() - start_time:.1f}s\n")
-                log_file.write(f"Success: {result.success}\n")
-                log_file.close()
-
-                if log_path and self._show_progress:
-                    tqdm.write(f"  Log saved: {log_path}", file=sys.stdout)
+            # Write Markdown log file
+            if log_collector and log_path:
+                log_collector.end_pipeline(result.success)
+                # Extract detailed data from context for the report
+                log_collector.extract_context_data(context)
+                try:
+                    log_path.write_text(log_collector.to_markdown())
+                    if self._show_progress:
+                        try:
+                            tqdm.write(f"  Log saved: {log_path}", file=sys.stdout)
+                        except BrokenPipeError:
+                            pass
+                except Exception as e:
+                    logger.warning(f"Failed to write log file: {e}")
 
         result.end_time = datetime.now()
         result.total_duration_seconds = time.time() - start_time
@@ -349,11 +667,15 @@ class PipelineRunner:
         PipelineResult
             Result of pipeline execution.
         """
+        config_path: str | None = None
         if isinstance(config, str):
+            config_path = config
             from davinci_monet.config import load_config
             config = load_config(config).model_dump()
 
         context = PipelineContext(config=config)
+        if config_path:
+            context.metadata["config_path"] = config_path
         return self.run(context)
 
     def _execute_stage(
