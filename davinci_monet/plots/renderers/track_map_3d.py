@@ -2,6 +2,7 @@
 
 This module provides 3D visualization of aircraft flight tracks,
 showing longitude, latitude, and altitude with color-coded values.
+Includes continent outlines and city markers on the surface plane.
 """
 
 from __future__ import annotations
@@ -27,6 +28,179 @@ if TYPE_CHECKING:
     import matplotlib.axes
     import matplotlib.figure
     import xarray as xr
+
+
+def _get_coastline_segments(
+    lon_min: float, lon_max: float, lat_min: float, lat_max: float,
+    scale: str = "10m",
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Extract coastline segments from Natural Earth data within bounds.
+
+    Parameters
+    ----------
+    lon_min, lon_max
+        Longitude bounds.
+    lat_min, lat_max
+        Latitude bounds.
+    scale
+        Natural Earth scale: '110m', '50m', or '10m'.
+
+    Returns
+    -------
+    list[tuple[np.ndarray, np.ndarray]]
+        List of (lons, lats) arrays for each coastline segment.
+    """
+    try:
+        import cartopy.feature as cfeature
+        from shapely.geometry import box
+    except ImportError:
+        return []
+
+    segments = []
+    coastline = cfeature.NaturalEarthFeature(
+        category="physical",
+        name="coastline",
+        scale=scale,
+        facecolor="none",
+    )
+    bbox = box(lon_min, lat_min, lon_max, lat_max)
+
+    for geom in coastline.geometries():
+        # Clip to bounding box
+        try:
+            clipped = geom.intersection(bbox)
+        except Exception:
+            continue
+
+        if clipped.is_empty:
+            continue
+
+        # Handle different geometry types
+        if hasattr(clipped, "geoms"):
+            # MultiLineString or GeometryCollection
+            geoms = list(clipped.geoms)
+        else:
+            geoms = [clipped]
+
+        for g in geoms:
+            if hasattr(g, "coords"):
+                coords = np.array(g.coords)
+                if len(coords) > 1:
+                    segments.append((coords[:, 0], coords[:, 1]))
+
+    return segments
+
+
+def _get_land_polygons(
+    lon_min: float, lon_max: float, lat_min: float, lat_max: float,
+    scale: str = "50m",
+) -> list[np.ndarray]:
+    """Extract land polygon vertices from Natural Earth data within bounds.
+
+    Parameters
+    ----------
+    lon_min, lon_max
+        Longitude bounds.
+    lat_min, lat_max
+        Latitude bounds.
+    scale
+        Natural Earth scale: '110m', '50m', or '10m'.
+
+    Returns
+    -------
+    list[np.ndarray]
+        List of polygon vertex arrays, each with shape (N, 2) for lon, lat.
+    """
+    try:
+        import cartopy.feature as cfeature
+        from shapely.geometry import box
+    except ImportError:
+        return []
+
+    polygons = []
+    # Use specified resolution
+    land = cfeature.NaturalEarthFeature(
+        category="physical",
+        name="land",
+        scale=scale,
+        facecolor="none",
+    )
+    bbox = box(lon_min, lat_min, lon_max, lat_max)
+
+    for geom in land.geometries():
+        # Clip to bounding box
+        try:
+            clipped = geom.intersection(bbox)
+        except Exception:
+            continue
+
+        if clipped.is_empty:
+            continue
+
+        # Handle different geometry types
+        if hasattr(clipped, "geoms"):
+            geoms = list(clipped.geoms)
+        else:
+            geoms = [clipped]
+
+        for g in geoms:
+            # Get exterior ring of polygon
+            if hasattr(g, "exterior"):
+                coords = np.array(g.exterior.coords)
+                if len(coords) >= 3:
+                    polygons.append(coords[:, :2])  # lon, lat only
+
+    return polygons
+
+
+def _get_border_segments(
+    lon_min: float, lon_max: float, lat_min: float, lat_max: float
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Extract country border segments from Natural Earth data within bounds.
+
+    Parameters
+    ----------
+    lon_min, lon_max
+        Longitude bounds.
+    lat_min, lat_max
+        Latitude bounds.
+
+    Returns
+    -------
+    list[tuple[np.ndarray, np.ndarray]]
+        List of (lons, lats) arrays for each border segment.
+    """
+    try:
+        import cartopy.feature as cfeature
+        from shapely.geometry import box
+    except ImportError:
+        return []
+
+    segments = []
+    borders = cfeature.BORDERS
+    bbox = box(lon_min, lat_min, lon_max, lat_max)
+
+    for geom in borders.geometries():
+        try:
+            clipped = geom.intersection(bbox)
+        except Exception:
+            continue
+
+        if clipped.is_empty:
+            continue
+
+        if hasattr(clipped, "geoms"):
+            geoms = list(clipped.geoms)
+        else:
+            geoms = [clipped]
+
+        for g in geoms:
+            if hasattr(g, "coords"):
+                coords = np.array(g.coords)
+                if len(coords) > 1:
+                    segments.append((coords[:, 0], coords[:, 1]))
+
+    return segments
 
 
 @register_plotter("track_map_3d")
@@ -75,6 +249,19 @@ class TrackMap3DPlotter(BasePlotter):
         show_projection: bool = True,
         projection_alpha: float = 0.3,
         alt_scale: float = 0.001,
+        show_coastlines: bool = True,
+        coastline_color: str = "black",
+        coastline_alpha: float = 1.0,
+        coastline_linewidth: float = 0.8,
+        coastline_scale: str = "10m",
+        show_borders: bool = False,
+        border_color: str = "gray",
+        border_alpha: float = 0.5,
+        border_linewidth: float = 0.5,
+        city_labels: dict[str, list[float]] | None = None,
+        city_marker_size: float = 50,
+        city_marker_color: str = "red",
+        city_font_size: float = 8,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Generate a 3D track map.
@@ -113,6 +300,31 @@ class TrackMap3DPlotter(BasePlotter):
             Transparency of projection markers.
         alt_scale
             Scale factor for altitude (e.g., 0.001 to convert m to km).
+        show_coastlines
+            If True, draw continent outlines on the surface plane.
+        coastline_color
+            Color for coastline lines.
+        coastline_alpha
+            Transparency of coastlines.
+        coastline_linewidth
+            Line width for coastlines.
+        show_borders
+            If True, draw country borders on surface plane.
+        border_color
+            Color for border lines.
+        border_alpha
+            Transparency of borders.
+        border_linewidth
+            Line width for borders.
+        city_labels
+            Dictionary of city names to [lat, lon] coordinates.
+            Cities will be plotted as markers on the surface plane.
+        city_marker_size
+            Size of city markers.
+        city_marker_color
+            Color for city markers.
+        city_font_size
+            Font size for city labels.
         **kwargs
             Additional options.
 
@@ -208,6 +420,78 @@ class TrackMap3DPlotter(BasePlotter):
                 vmin=vmin,
                 vmax=vmax,
             )
+
+        # Calculate bounds for map features and set axis limits
+        lon_min, lon_max = np.nanmin(lons), np.nanmax(lons)
+        lat_min, lat_max = np.nanmin(lats), np.nanmax(lats)
+        # Add padding
+        lon_pad = (lon_max - lon_min) * 0.1
+        lat_pad = (lat_max - lat_min) * 0.1
+        lon_min -= lon_pad
+        lon_max += lon_pad
+        lat_min -= lat_pad
+        lat_max += lat_pad
+
+        # Draw coastlines on surface plane (z=0)
+        if show_coastlines:
+            coastline_segments = _get_coastline_segments(
+                lon_min, lon_max, lat_min, lat_max, scale=coastline_scale
+            )
+            for seg_lons, seg_lats in coastline_segments:
+                ax3d.plot(
+                    seg_lons,
+                    seg_lats,
+                    np.zeros(len(seg_lons)),
+                    color=coastline_color,
+                    alpha=coastline_alpha,
+                    linewidth=coastline_linewidth,
+                    zorder=2,
+                )
+
+        # Draw country borders on surface plane (z=0)
+        if show_borders:
+            border_segments = _get_border_segments(lon_min, lon_max, lat_min, lat_max)
+            for seg_lons, seg_lats in border_segments:
+                ax3d.plot(
+                    seg_lons,
+                    seg_lats,
+                    np.zeros(len(seg_lons)),
+                    color=border_color,
+                    alpha=border_alpha,
+                    linewidth=border_linewidth,
+                    linestyle="--",
+                    zorder=2,
+                )
+
+        # Draw city markers and labels on surface plane
+        if city_labels:
+            for city_name, coords in city_labels.items():
+                city_lat, city_lon = coords[0], coords[1]
+                # Only plot if within bounds
+                if lon_min <= city_lon <= lon_max and lat_min <= city_lat <= lat_max:
+                    # Plot marker
+                    ax3d.scatter(
+                        [city_lon], [city_lat], [0],
+                        s=city_marker_size,
+                        c=city_marker_color,
+                        marker="^",
+                        alpha=0.9,
+                        zorder=10,
+                    )
+                    # Add label
+                    ax3d.text(
+                        city_lon, city_lat, 0,
+                        f"  {city_name}",
+                        fontsize=city_font_size,
+                        color="black",
+                        ha="left",
+                        va="bottom",
+                        zorder=11,
+                    )
+
+        # Set axis limits to include padding
+        ax3d.set_xlim(lon_min, lon_max)
+        ax3d.set_ylim(lat_min, lat_max)
 
         # Set view angle
         ax3d.view_init(elev=elev, azim=azim)

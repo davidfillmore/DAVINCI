@@ -44,7 +44,7 @@ class FigureConfig:
     """
 
     figsize: tuple[float, float] = (10, 6)
-    dpi: int = 150
+    dpi: int = 300
     facecolor: str = "white"
     constrained_layout: bool = True
 
