@@ -12,36 +12,31 @@ DAVINCI-MONET is a modular toolkit for evaluating atmospheric chemistry models a
 - **xarray-native data model** throughout the system
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           DAVINCI-MONET System                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  │
-│  │    CLI      │    │   Config    │    │   Pipeline  │    │   Output    │  │
-│  │  (Typer)    │───▶│   (YAML)    │───▶│   Runner    │───▶│  (Plots,    │  │
-│  │             │    │  (Pydantic) │    │             │    │   Stats)    │  │
-│  └─────────────┘    └─────────────┘    └──────┬──────┘    └─────────────┘  │
-│                                               │                             │
-│                     ┌─────────────────────────┼─────────────────────────┐   │
-│                     │                         ▼                         │   │
-│                     │  ┌───────────────────────────────────────────┐   │   │
-│                     │  │              Pipeline Stages              │   │   │
-│                     │  ├───────────────────────────────────────────┤   │   │
-│                     │  │ load_models ──▶ load_observations ──▶     │   │   │
-│                     │  │ pairing ──▶ statistics ──▶ plotting ──▶   │   │   │
-│                     │  │ save_results                              │   │   │
-│                     │  └───────────────────────────────────────────┘   │   │
-│                     │                         │                         │   │
-│                     │                         ▼                         │   │
-│                     │  ┌───────────────────────────────────────────┐   │   │
-│                     │  │             Pairing Engine                │   │   │
-│                     │  ├───────────────────────────────────────────┤   │   │
-│                     │  │  Point │ Track │ Profile │ Swath │ Grid  │   │   │
-│                     │  └───────────────────────────────────────────┘   │   │
-│                     │                                                   │   │
-│                     └───────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+                           DAVINCI-MONET System
+
+    CLI ──────▶ Config ──────▶ Pipeline ──────▶ Output
+   (Typer)      (YAML)          Runner        (Plots,
+              (Pydantic)                       Stats)
+                                  │
+                                  ▼
+                          Pipeline Stages
+                          ---------------
+                          load_models
+                              ▼
+                          load_observations
+                              ▼
+                          pairing
+                              ▼
+                          statistics
+                              ▼
+                          plotting
+                              ▼
+                          save_results
+                                  │
+                                  ▼
+                          Pairing Engine
+                          --------------
+                    Point - Track - Profile - Swath - Grid
 ```
 
 ## Pipeline Architecture
@@ -51,29 +46,24 @@ The pipeline is the central execution mechanism. It orchestrates data loading, p
 ### Pipeline Components
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            PipelineRunner                                   │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  Responsibilities:                                                          │
-│  • Execute stages in sequence                                               │
-│  • Manage PipelineContext (shared state)                                    │
-│  • Handle errors and recovery                                               │
-│  • Report progress with animated display                                    │
-│  • Generate Markdown execution logs                                         │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                      PipelineContext                                │   │
-│  ├─────────────────────────────────────────────────────────────────────┤   │
-│  │  config: dict          # YAML configuration                         │   │
-│  │  models: dict          # Loaded ModelData objects                   │   │
-│  │  observations: dict    # Loaded ObservationData objects             │   │
-│  │  paired: dict          # PairedData from pairing stage              │   │
-│  │  results: dict         # StageResult from each completed stage      │   │
-│  │  metadata: dict        # Runtime metadata (paths, timing)           │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+                             PipelineRunner
+                             --------------
+
+Responsibilities:
+  - Execute stages in sequence
+  - Manage PipelineContext (shared state)
+  - Handle errors and recovery
+  - Report progress with animated display
+  - Generate Markdown execution logs
+
+                           PipelineContext
+                           ---------------
+  config: dict          # YAML configuration
+  models: dict          # Loaded ModelData objects
+  observations: dict    # Loaded ObservationData objects
+  paired: dict          # PairedData from pairing stage
+  results: dict         # StageResult from each completed stage
+  metadata: dict        # Runtime metadata (paths, timing)
 ```
 
 ### Stage Execution Flow
@@ -81,36 +71,29 @@ The pipeline is the central execution mechanism. It orchestrates data loading, p
 Each stage receives the `PipelineContext`, performs its work, and returns a `StageResult`. The context accumulates data as it flows through stages.
 
 ```
-                              PipelineContext
-                                    │
-    ┌───────────────────────────────┼───────────────────────────────┐
-    │                               │                               │
-    ▼                               ▼                               ▼
-┌────────────┐  context.models  ┌────────────┐  context.paired  ┌────────────┐
-│            │ ────────────────▶│            │ ────────────────▶│            │
-│ load_      │                  │  pairing   │                  │ statistics │
-│ models     │                  │            │                  │            │
-│            │                  │            │                  │            │
-└────────────┘                  └────────────┘                  └────────────┘
-      │                               ▲                               │
-      │                               │                               │
-      │         context.observations  │                               │
-      │         ┌────────────┐        │                               │
-      │         │            │────────┘                               │
-      └────────▶│ load_      │                                        │
-                │ observations│                                        │
-                │            │                                        │
-                └────────────┘                                        │
-                                                                      │
-    ┌─────────────────────────────────────────────────────────────────┘
-    │
-    ▼
-┌────────────┐                  ┌────────────┐
-│            │                  │            │
-│  plotting  │─────────────────▶│   save_    │
-│            │                  │  results   │
-│            │                  │            │
-└────────────┘                  └────────────┘
+                           PipelineContext
+                                 │
+         ┌───────────────────────┴───────────────────────┐
+         ▼                                               ▼
+    load_models                                  load_observations
+         │                                               │
+         └──────────────┐           ┌────────────────────┘
+                        ▼           ▼
+                        pairing
+                           │
+                           ▼
+                      statistics
+                           │
+                           ▼
+                       plotting
+                           │
+                           ▼
+                     save_results
+
+  Data flow:
+    load_models ──▶ context.models
+    load_observations ──▶ context.observations
+    pairing ──▶ context.paired (uses models + observations)
 ```
 
 ### Standard Pipeline Stages
@@ -177,31 +160,27 @@ Traditional approaches pair data based on **data source** (e.g., different code 
 ### Pairing Engine Components
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            PairingEngine                                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  pair(model, obs, obs_vars, model_vars, config)                            │
-│    │                                                                        │
-│    ├─1─▶ _detect_geometry(obs)  ──▶  DataGeometry enum                     │
-│    │                                                                        │
-│    ├─2─▶ _check_temporal_overlap(model, obs)                               │
-│    │                                                                        │
-│    ├─3─▶ get_strategy(geometry)  ──▶  PairingStrategy                      │
-│    │                                                                        │
-│    └─4─▶ strategy.pair(model, obs, ...)  ──▶  PairedData                   │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                    Strategy Registry                                │   │
-│  ├─────────────────────────────────────────────────────────────────────┤   │
-│  │  POINT   ──▶  PointStrategy                                         │   │
-│  │  TRACK   ──▶  TrackStrategy                                         │   │
-│  │  PROFILE ──▶  ProfileStrategy                                       │   │
-│  │  SWATH   ──▶  SwathStrategy                                         │   │
-│  │  GRID    ──▶  GridStrategy                                          │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+                            PairingEngine
+                            -------------
+
+  pair(model, obs, obs_vars, model_vars, config)
+      │
+      ├─1─▶ _detect_geometry(obs) ──▶ DataGeometry enum
+      │
+      ├─2─▶ _check_temporal_overlap(model, obs)
+      │
+      ├─3─▶ get_strategy(geometry) ──▶ PairingStrategy
+      │
+      └─4─▶ strategy.pair(model, obs, ...) ──▶ PairedData
+
+
+                        Strategy Registry
+                        -----------------
+  POINT   ──▶ PointStrategy
+  TRACK   ──▶ TrackStrategy
+  PROFILE ──▶ ProfileStrategy
+  SWATH   ──▶ SwathStrategy
+  GRID    ──▶ GridStrategy
 ```
 
 ### Data Geometry Types
@@ -209,65 +188,56 @@ Traditional approaches pair data based on **data source** (e.g., different code 
 The `DataGeometry` enum defines five observation geometries:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         Data Geometry Types                                 │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  POINT                           TRACK                                      │
-│  ─────                           ─────                                      │
-│  dims: (time, site)              dims: (time,)                              │
-│  coords: lat[site], lon[site]    coords: lat[time], lon[time], alt[time]   │
-│                                                                             │
-│  Examples:                       Examples:                                  │
-│  • AirNow surface stations       • DC-8 aircraft                           │
-│  • AERONET ground sites          • Ship tracks                             │
-│  • Pandora spectrometers         • Mobile platforms                        │
-│                                                                             │
-│  ┌─────┐     ┌─────┐                    ╭─────╮                             │
-│  │  ●  │     │  ●  │              ●────●     ●────●                         │
-│  │site1│     │site2│                   ╰─────╯                              │
-│  └─────┘     └─────┘                                                        │
-│                                                                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  PROFILE                         SWATH                                      │
-│  ───────                         ─────                                      │
-│  dims: (time, level)             dims: (time, scanline, pixel)              │
-│  coords: lat[time], lon[time]    coords: lat[scanline,pixel],               │
-│          z[level]                        lon[scanline,pixel]                │
-│                                                                             │
-│  Examples:                       Examples:                                  │
-│  • Ozonesondes                   • TROPOMI L2                               │
-│  • Lidar profiles                • MODIS L2                                 │
-│  • Radiosondes                   • GEMS L2                                  │
-│                                                                             │
-│       z                          ┌───┬───┬───┬───┐                          │
-│       │  ●                       │ ● │ ● │ ● │ ● │ scanline 1               │
-│       │  ●                       ├───┼───┼───┼───┤                          │
-│       │  ●                       │ ● │ ● │ ● │ ● │ scanline 2               │
-│       │  ●                       └───┴───┴───┴───┘                          │
-│       └────                        pixels ──▶                               │
-│                                                                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  GRID                                                                       │
-│  ────                                                                       │
-│  dims: (time, lat, lon)                                                     │
-│                                                                             │
-│  Examples:                                                                  │
-│  • Satellite L3 products                                                    │
-│  • Reanalysis data                                                          │
-│  • Regridded model output                                                   │
-│                                                                             │
-│       lat                                                                   │
-│        │  ┌───┬───┬───┬───┐                                                │
-│        │  │   │   │   │   │                                                │
-│        │  ├───┼───┼───┼───┤                                                │
-│        │  │   │   │   │   │                                                │
-│        │  └───┴───┴───┴───┘                                                │
-│        └─────────────────▶ lon                                             │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+                         Data Geometry Types
+                         -------------------
+
+POINT                              TRACK
+-----                              -----
+dims: (time, site)                 dims: (time,)
+coords: lat[site], lon[site]       coords: lat[time], lon[time], alt[time]
+
+Examples:                          Examples:
+  - AirNow surface stations          - DC-8 aircraft
+  - AERONET ground sites             - Ship tracks
+  - Pandora spectrometers            - Mobile platforms
+
+      ●        ●                         ●────●────●────●
+    site1    site2                         flight path
+
+
+PROFILE                            SWATH
+-------                            -----
+dims: (time, level)                dims: (time, scanline, pixel)
+coords: lat[time], lon[time],      coords: lat[scanline,pixel],
+        z[level]                           lon[scanline,pixel]
+
+Examples:                          Examples:
+  - Ozonesondes                      - TROPOMI L2
+  - Lidar profiles                   - MODIS L2
+  - Radiosondes                      - GEMS L2
+
+     z                               ● ● ● ●  scanline 1
+     │  ●                            ● ● ● ●  scanline 2
+     │  ●                              pixels ──▶
+     │  ●
+     │  ●
+     └────
+
+
+GRID
+----
+dims: (time, lat, lon)
+
+Examples:
+  - Satellite L3 products
+  - Reanalysis data
+  - Regridded model output
+
+     lat
+      │  ● ● ● ●
+      │  ● ● ● ●
+      │  ● ● ● ●
+      └─────────▶ lon
 ```
 
 ### Geometry Detection
@@ -304,48 +274,36 @@ def _detect_geometry(self, obs: xr.Dataset) -> DataGeometry:
 Each strategy inherits from `BasePairingStrategy` and implements the `pair()` method:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        BasePairingStrategy                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  Common Methods:                                                            │
-│  ├── _get_model_coords()      # Extract lat/lon from model                 │
-│  ├── _get_obs_coords()        # Extract lat/lon from observations          │
-│  ├── _find_nearest_indices()  # Spatial matching (1D or 2D grids)          │
-│  ├── _haversine_distance()    # Great-circle distance calculation          │
-│  ├── _interpolate_time()      # Temporal interpolation                     │
-│  ├── _interpolate_vertical()  # Vertical interpolation                     │
-│  └── _extract_surface()       # Get surface level from 3D model            │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-            ┌───────────────────────┼───────────────────────┐
-            │                       │                       │
-            ▼                       ▼                       ▼
-    ┌───────────────┐      ┌───────────────┐      ┌───────────────┐
-    │ PointStrategy │      │ TrackStrategy │      │ProfileStrategy│
-    ├───────────────┤      ├───────────────┤      ├───────────────┤
-    │               │      │               │      │               │
-    │ • Extract     │      │ • Interpolate │      │ • Interpolate │
-    │   surface     │      │   along track │      │   vertical    │
-    │   level       │      │ • 4D matching │      │   levels      │
-    │ • Match by    │      │   (x,y,z,t)   │      │ • Match       │
-    │   site        │      │               │      │   profiles    │
-    │               │      │               │      │               │
-    └───────────────┘      └───────────────┘      └───────────────┘
-            │                       │                       │
-            ▼                       ▼                       ▼
-    ┌───────────────┐      ┌───────────────┐
-    │ SwathStrategy │      │ GridStrategy  │
-    ├───────────────┤      ├───────────────┤
-    │               │      │               │
-    │ • Handle 2D   │      │ • Regrid or   │
-    │   footprints  │      │   interpolate │
-    │ • Apply       │      │ • Direct grid │
-    │   averaging   │      │   matching    │
-    │   kernels     │      │               │
-    │               │      │               │
-    └───────────────┘      └───────────────┘
+                       BasePairingStrategy
+                       -------------------
+
+Common Methods:
+  _get_model_coords()      # Extract lat/lon from model
+  _get_obs_coords()        # Extract lat/lon from observations
+  _find_nearest_indices()  # Spatial matching (1D or 2D grids)
+  _haversine_distance()    # Great-circle distance calculation
+  _interpolate_time()      # Temporal interpolation
+  _interpolate_vertical()  # Vertical interpolation
+  _extract_surface()       # Get surface level from 3D model
+
+                               │
+       ┌───────────────────────┼───────────────────────┐
+       ▼                       ▼                       ▼
+
+PointStrategy           TrackStrategy          ProfileStrategy
+-------------           -------------          ---------------
+  Extract surface         Interpolate            Interpolate
+    level                   along track            vertical levels
+  Match by site           4D matching            Match profiles
+                            (x,y,z,t)
+
+       ┌───────────────────────┴───────────────────────┐
+       ▼                                               ▼
+
+SwathStrategy                                   GridStrategy
+-------------                                   ------------
+  Handle 2D footprints                            Regrid or interpolate
+  Apply averaging kernels                         Direct grid matching
 ```
 
 ### Pairing Configuration
@@ -366,47 +324,42 @@ class PairingConfig:
 ### Pairing Data Flow (Point Example)
 
 ```
-┌─────────────────┐     ┌─────────────────┐
-│   Model Data    │     │ Observation Data│
-│ (time,z,lat,lon)│     │   (time, site)  │
-└────────┬────────┘     └────────┬────────┘
-         │                       │
-         ▼                       ▼
-┌─────────────────────────────────────────┐
-│            PointStrategy.pair()         │
-├─────────────────────────────────────────┤
-│                                         │
-│  1. Extract surface level (z=0)         │
-│     model[time, lat, lon]               │
-│                                         │
-│  2. Find nearest grid cell for each site│
-│     lat_idx, lon_idx = find_nearest()   │
-│                                         │
-│  3. Interpolate model to obs times      │
-│     model.interp(time=obs_times)        │
-│                                         │
-│  4. Extract model values at sites       │
-│     model_at_sites[time, site]          │
-│                                         │
-│  5. Combine with observations           │
-│     paired_ds[obs_var, model_var]       │
-│                                         │
-└─────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────┐
-│            PairedData                   │
-├─────────────────────────────────────────┤
-│  data: xr.Dataset                       │
-│    dims: (time, site)                   │
-│    vars: obs_pm25, model_pm25           │
-│    coords: lat, lon, time               │
-│                                         │
-│  model_label: "cesm_asiaq"              │
-│  obs_label: "airnow"                    │
-│  geometry: DataGeometry.POINT           │
-│  pairing_info: {radius, method, ...}    │
-└─────────────────────────────────────────┘
+    Model Data                    Observation Data
+  (time,z,lat,lon)                  (time, site)
+         │                               │
+         └───────────────┬───────────────┘
+                         ▼
+               PointStrategy.pair()
+               --------------------
+
+  1. Extract surface level (z=0)
+     model[time, lat, lon]
+
+  2. Find nearest grid cell for each site
+     lat_idx, lon_idx = find_nearest()
+
+  3. Interpolate model to obs times
+     model.interp(time=obs_times)
+
+  4. Extract model values at sites
+     model_at_sites[time, site]
+
+  5. Combine with observations
+     paired_ds[obs_var, model_var]
+
+                         │
+                         ▼
+                    PairedData
+                    ----------
+  data: xr.Dataset
+    dims: (time, site)
+    vars: obs_pm25, model_pm25
+    coords: lat, lon, time
+
+  model_label: "cesm_asiaq"
+  obs_label: "airnow"
+  geometry: DataGeometry.POINT
+  pairing_info: {radius, method, ...}
 ```
 
 ---
@@ -416,59 +369,65 @@ class PairingConfig:
 Complete data flow from YAML config to output files:
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                                                                              │
-│   asia-aq.yaml                                                               │
-│   ┌────────────────────┐                                                     │
-│   │ model:             │                                                     │
-│   │   cesm_asiaq:      │                                                     │
-│   │     files: *.nc    │────┐                                                │
-│   │     variables: ... │    │                                                │
-│   │                    │    │     ┌──────────────────┐                       │
-│   │ obs:               │    │     │                  │                       │
-│   │   airnow:          │    ├────▶│  load_models     │──▶ context.models     │
-│   │     filename: ...  │────┤     │                  │    {cesm_asiaq: ds}   │
-│   │   pandora:         │    │     └──────────────────┘                       │
-│   │     filename: ...  │────┤                                                │
-│   │   dc8:             │    │     ┌──────────────────┐                       │
-│   │     filename: ...  │────┴────▶│load_observations │──▶ context.observations│
-│   │                    │          │                  │    {airnow: ds,       │
-│   │ pairs:             │          └──────────────────┘     pandora: ds,      │
-│   │   cesm_airnow_pm25:│                                   dc8: ds}          │
-│   │     model: cesm... │                                                     │
-│   │     obs: airnow    │                  │                                  │
-│   │     variable: ...  │                  ▼                                  │
-│   │                    │          ┌──────────────────┐                       │
-│   │ plots:             │          │                  │                       │
-│   │   pm25_scatter:    │          │     pairing      │──▶ context.paired     │
-│   │     type: scatter  │          │                  │    {cesm_airnow: pd,  │
-│   │     pairs: [...]   │          │  ┌────────────┐  │     cesm_pandora: pd, │
-│   │                    │          │  │ Point      │  │     cesm_dc8: pd}     │
-│   │ stats:             │          │  │ Strategy   │  │                       │
-│   │   metrics: [...]   │          │  └────────────┘  │                       │
-│   └────────────────────┘          │  ┌────────────┐  │                       │
-│                                   │  │ Track      │  │                       │
-│                                   │  │ Strategy   │  │                       │
-│                                   │  └────────────┘  │                       │
-│                                   └──────────────────┘                       │
-│                                            │                                 │
-│                          ┌─────────────────┴─────────────────┐               │
-│                          ▼                                   ▼               │
-│                  ┌──────────────────┐               ┌──────────────────┐     │
-│                  │                  │               │                  │     │
-│                  │   statistics     │               │    plotting      │     │
-│                  │                  │               │                  │     │
-│                  └────────┬─────────┘               └────────┬─────────┘     │
-│                           │                                  │               │
-│                           ▼                                  ▼               │
-│                  ┌──────────────────┐               ┌──────────────────┐     │
-│                  │                  │               │                  │     │
-│                  │  statistics_     │               │  *.png, *.pdf    │     │
-│                  │  summary.csv     │               │  (scatter, ts,   │     │
-│                  │                  │               │   spatial, 3d)   │     │
-│                  └──────────────────┘               └──────────────────┘     │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
+asia-aq.yaml
+------------
+model:
+  cesm_asiaq:
+    files: *.nc
+    variables: ...
+
+obs:
+  airnow:
+    filename: ...
+  pandora:
+    filename: ...
+  dc8:
+    filename: ...
+
+pairs:
+  cesm_airnow_pm25:
+    model: cesm_asiaq
+    obs: airnow
+    variable: ...
+
+plots:
+  pm25_scatter:
+    type: scatter
+    pairs: [...]
+
+stats:
+  metrics: [...]
+
+                         │
+    ┌────────────────────┴────────────────────┐
+    ▼                                         ▼
+load_models                           load_observations
+    │                                         │
+    ▼                                         ▼
+context.models                        context.observations
+  cesm_asiaq: ds                        airnow: ds
+                                        pandora: ds
+                                        dc8: ds
+    │                                         │
+    └────────────────────┬────────────────────┘
+                         ▼
+                      pairing
+              (PointStrategy, TrackStrategy)
+                         │
+                         ▼
+                  context.paired
+                    cesm_airnow: pd
+                    cesm_pandora: pd
+                    cesm_dc8: pd
+                         │
+         ┌───────────────┴───────────────┐
+         ▼                               ▼
+    statistics                       plotting
+         │                               │
+         ▼                               ▼
+  statistics_summary.csv          *.png, *.pdf
+                                  (scatter, timeseries,
+                                   spatial, 3d tracks)
 ```
 
 ---
