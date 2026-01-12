@@ -422,8 +422,20 @@ class TeeWriter:
 class ProgressFormatter:
     """Formats pipeline progress output with rich animated styling.
 
-    Uses rich library for spinners, panels, and color-coded output.
+    Uses rich library for pulsing text, panels, and color-coded output.
+    Features a pulsing "Da Vinci" animation with blue color palette
+    and an elapsed time counter during stage execution.
     """
+
+    # Cyan color palette for brightening effect (dark to bright)
+    CYAN_PALETTE = [
+        "#0e7490",  # Dark cyan
+        "#0891b2",  # Medium-dark cyan
+        "#06b6d4",  # Cyan
+        "#22d3ee",  # Light cyan
+        "#67e8f9",  # Bright cyan
+        "#a5f3fc",  # Very bright cyan
+    ]
 
     def __init__(self, show_output: bool = True) -> None:
         from rich.console import Console
@@ -436,6 +448,9 @@ class ProgressFormatter:
         self._live: Any = None  # Rich Live context
         self._current_status: str = ""
         self._stage_items: list[tuple[str, str]] = []  # (category, name) pairs for current stage
+        self._animation_frame: int = 0
+        self._current_item: str | None = None
+        self._current_progress: tuple[int, int] | None = None  # (index, total)
 
     def _log(self, line: str) -> None:
         """Store a line for log file."""
@@ -445,6 +460,87 @@ class ProgressFormatter:
         """Print via rich console if output enabled."""
         if self.show_output:
             self.console.print(*args, **kwargs)
+
+    def _create_pulsing_davinci(self) -> "Text":
+        """Create 'DAVINCI-MONET' text with left-to-right brightening effect."""
+        from rich.text import Text
+
+        text = "DAVINCI-MONET"
+        result = Text()
+        text_len = len(text)
+        palette_len = len(self.CYAN_PALETTE)
+
+        # Bright spot moves from left to right
+        # Animation frame determines position of the bright spot
+        bright_pos = self._animation_frame % (text_len + 4)  # +4 for trail off
+
+        for i, char in enumerate(text):
+            # Calculate distance from bright spot
+            distance = bright_pos - i
+
+            if distance < 0:
+                # Bright spot hasn't reached this char yet - use darkest
+                color_idx = 0
+            elif distance >= palette_len:
+                # Bright spot has passed - use darkest
+                color_idx = 0
+            else:
+                # In the brightening zone - brighter as distance decreases
+                color_idx = palette_len - 1 - distance
+
+            result.append(char, style=f"bold {self.CYAN_PALETTE[color_idx]}")
+
+        return result
+
+    def _create_stage_display(self) -> "Text":
+        """Create the animated stage display with pulsing text and timer."""
+        from rich.text import Text
+
+        result = Text()
+
+        # Pulsing "Da Vinci" animation
+        result.append("  ")
+        result.append_text(self._create_pulsing_davinci())
+        result.append(" ")
+
+        # Elapsed time counter
+        if self._stage_start is not None:
+            elapsed = time.time() - self._stage_start
+            result.append(f"[{elapsed:5.1f}s] ", style="bold cyan")
+
+        # Stage name
+        if self._current_stage:
+            result.append(self._current_stage, style="bold yellow")
+
+        # Current item being processed
+        if self._current_item:
+            result.append(" › ", style="dim")
+            if self._current_progress:
+                idx, total = self._current_progress
+                result.append(f"[{idx}/{total}] ", style="dim")
+            result.append(self._current_item, style="white")
+
+        return result
+
+    def _start_animation_loop(self) -> None:
+        """Start background thread for animation updates."""
+        import threading
+
+        text_len = len("DAVINCI-MONET")
+
+        def animate() -> None:
+            while self._live is not None:
+                # Cycle through positions for left-to-right sweep
+                self._animation_frame = (self._animation_frame + 1) % (text_len + 4)
+                if self._live is not None:
+                    try:
+                        self._live.update(self._create_stage_display())
+                    except Exception:
+                        break
+                time.sleep(0.15)  # Speed for smooth left-to-right sweep
+
+        self._animation_thread = threading.Thread(target=animate, daemon=True)
+        self._animation_thread.start()
 
     def header(self, config_path: str | None = None) -> None:
         """Print pipeline header."""
@@ -474,28 +570,37 @@ class ProgressFormatter:
         self._print()
 
     def stage_start(self, name: str) -> None:
-        """Print stage start with spinner."""
+        """Print stage start with pulsing Da Vinci animation and timer."""
         from rich.live import Live
-        from rich.spinner import Spinner
-        from rich.text import Text
 
         self._current_stage = name
         self._stage_start = time.time()
         self._stage_items = []  # Reset items for this stage
+        self._current_item = None
+        self._current_progress = None
+        self._animation_frame = 0
         self._log(f"[{name}]")
 
-        # Create spinner with stage name
-        spinner = Spinner("dots", text=Text(f" {name}", style="bold yellow"))
         if self.show_output:
-            self._live = Live(spinner, console=self.console, refresh_per_second=10)
+            self._live = Live(
+                self._create_stage_display(),
+                console=self.console,
+                refresh_per_second=8,  # Smooth animation
+                transient=True,  # Clear when done
+            )
             self._live.start()
+            self._start_animation_loop()
 
     def stage_end(self, name: str, success: bool, duration: float) -> None:
         """Print stage end with status and summary of items processed."""
-        # Stop the live spinner
+        # Stop the live animation
         if self._live is not None:
             self._live.stop()
-            self._live = None
+            self._live = None  # This stops the animation thread too
+
+        # Clear animation state
+        self._current_item = None
+        self._current_progress = None
 
         if success:
             icon = "✓"
@@ -511,11 +616,14 @@ class ProgressFormatter:
         # Show stage completion
         self._print(f"  [{style}]{icon} {name}[/{style}] [dim]({duration:.1f}s)[/dim]")
 
-        # Show summary of items processed in this stage
+        # Show summary of items processed in this stage (exclude plots - shown in preview)
         if self._stage_items and success:
             # Group items by category
             categories: dict[str, list[str]] = {}
             for category, item_name in self._stage_items:
+                # Skip plot items - they'll be shown in the preview slideshow
+                if category == "plot":
+                    continue
                 if category not in categories:
                     categories[category] = []
                 categories[category].append(item_name)
@@ -535,18 +643,9 @@ class ProgressFormatter:
         self._log(f"  → {name} ({index}/{total})")
         self._stage_items.append((category, name))
 
-        # Update live display with current item
-        if self._live is not None and self.show_output:
-            from rich.spinner import Spinner
-            from rich.text import Text
-
-            stage = self._current_stage or category
-            text = Text()
-            text.append(f" {stage} ", style="bold yellow")
-            text.append(f"[{index}/{total}] ", style="dim")
-            text.append(name, style="white")
-            spinner = Spinner("dots", text=text)
-            self._live.update(spinner)
+        # Update the current item for animation display
+        self._current_item = name
+        self._current_progress = (index, total)
 
     def step(self, message: str) -> None:
         """Print a step within an item."""
@@ -566,10 +665,12 @@ class ProgressFormatter:
             error = error[:max_len - 3] + "..."
         self._log(f"      ✗ {error}")
 
-        # Show failure immediately
+        # Stop animation and show failure immediately
         if self._live is not None:
             self._live.stop()
             self._live = None
+        self._current_item = None
+        self._current_progress = None
         self._print(f"    [red]✗ {error}[/red]")
 
     def footer(self, success: bool, duration: float, log_path: Path | None = None) -> None:
@@ -596,6 +697,67 @@ class ProgressFormatter:
         if log_path:
             self._print(f"  [dim]Log:[/dim] [white]{log_path}[/white]")
         self._print()
+
+    def preview_plots(self, plot_paths: list[str], duration: float = 1.0) -> None:
+        """Show a slideshow preview of generated plots.
+
+        Parameters
+        ----------
+        plot_paths
+            List of paths to PNG files to preview.
+        duration
+            How long to show each plot in seconds.
+        """
+        import matplotlib.image as mpimg
+        import matplotlib.pyplot as plt
+        from rich.live import Live
+        from rich.text import Text
+
+        # Filter to only PNG files
+        png_files = [p for p in plot_paths if p.endswith(".png")]
+
+        if not png_files:
+            return
+
+        self._log(f"Previewing {len(png_files)} plots...")
+
+        # Countdown before preview
+        if self.show_output:
+            for countdown in range(10, 0, -1):
+                text = Text()
+                text.append(f"  Preparing to preview {len(png_files)} plots ... ", style="dim")
+                text.append(str(countdown), style="bold cyan")
+                with Live(text, console=self.console, refresh_per_second=4, transient=True):
+                    time.sleep(1.0)
+
+        self._print(f"  [dim]Previewing {len(png_files)} plots...[/dim]")
+
+        # Set up matplotlib for non-blocking display
+        plt.ion()
+        fig, ax = plt.subplots(figsize=(12, 8))
+        fig.canvas.manager.set_window_title("DAVINCI-MONET Plot Preview")
+
+        for i, png_path in enumerate(png_files):
+            try:
+                # Load and display image
+                img = mpimg.imread(png_path)
+                ax.clear()
+                ax.imshow(img)
+                ax.axis("off")
+
+                # Show plot name in window
+                plot_name = Path(png_path).stem
+                ax.set_title(f"[{i + 1}/{len(png_files)}] {plot_name}", fontsize=10)
+
+                fig.canvas.draw()
+                fig.canvas.flush_events()
+                plt.pause(duration)
+
+            except Exception as e:
+                self._log(f"  Error previewing {png_path}: {e}")
+
+        plt.close(fig)
+        plt.ioff()
 
     def get_log_lines(self) -> list[str]:
         """Get all output lines for logging."""
@@ -891,6 +1053,13 @@ class PipelineRunner:
                     log_path.write_text(log_collector.to_markdown())
                 except Exception as e:
                     logger.warning(f"Failed to write log file: {e}")
+
+            # Preview generated plots if pipeline succeeded
+            if result.success and "plotting" in context.results:
+                plotting_result = context.results["plotting"]
+                if plotting_result.data and "plots_generated" in plotting_result.data:
+                    plot_paths = plotting_result.data["plots_generated"]
+                    formatter.preview_plots(plot_paths, duration=1.0)
 
         result.end_time = datetime.now()
         result.total_duration_seconds = time.time() - start_time
