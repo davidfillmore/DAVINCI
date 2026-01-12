@@ -11,6 +11,10 @@ DAVINCI-MONET is a modular toolkit for evaluating atmospheric chemistry models a
 - **Pipeline-based execution** with composable stages
 - **xarray-native data model** throughout the system
 
+*The system uses **Pydantic** for configuration validation. Pydantic is a Python library that uses type annotations to validate data at runtime. When you load a YAML config file, Pydantic automatically checks that all required fields are present, values have the correct types (strings, numbers, lists), and constraints are satisfied (e.g., paths exist, values are in valid ranges). This catches configuration errors early with clear error messages, rather than failing mysteriously deep in the pipeline.*
+
+*All data flows through the system as **xarray Datasets**. xarray extends NumPy arrays with labeled dimensions and coordinates, making it natural to work with geospatial data that has time, latitude, longitude, and vertical dimensions. Operations like slicing by time range, interpolating to new coordinates, and aligning datasets with different grids become simple one-liners. xarray also supports lazy evaluation via Dask, enabling processing of datasets larger than memory.*
+
 <pre>
                            DAVINCI-MONET System
 
@@ -44,6 +48,8 @@ DAVINCI-MONET is a modular toolkit for evaluating atmospheric chemistry models a
 The pipeline is the central execution mechanism. It orchestrates data loading, pairing, analysis, and output generation through a sequence of stages.
 
 ### Pipeline Components
+
+*A **context object** is a common Python pattern for passing shared state between components. Rather than using global variables or passing many individual parameters, a context bundles related data into a single object that flows through the system. Each stage can read from and write to the context, allowing data to accumulate as it moves through the pipeline. This pattern promotes loose coupling—stages don't need to know about each other, only about the context they share.*
 
 ```
                              PipelineRunner
@@ -109,6 +115,8 @@ Each stage receives the `PipelineContext`, performs its work, and returns a `Sta
 
 ### Stage Protocol
 
+*A **Protocol** in Python (from the `typing` module) defines an interface—a contract specifying what methods and properties an object must have. Unlike abstract base classes, protocols use "structural subtyping" (duck typing): any class with the required methods automatically satisfies the protocol, without explicit inheritance. This enables loose coupling—code can depend on the protocol interface rather than specific implementations.*
+
 All stages implement the `Stage` protocol:
 
 ```python
@@ -130,6 +138,8 @@ class Stage(Protocol):
 
 ### StageResult Structure
 
+*A **dataclass** (from Python's `dataclasses` module) is a decorator that automatically generates boilerplate code for classes that primarily hold data. It creates `__init__`, `__repr__`, and `__eq__` methods based on the class attributes you define. This reduces code duplication and makes data structures self-documenting—the class definition clearly shows what fields exist and their types.*
+
 ```python
 @dataclass
 class StageResult:
@@ -148,6 +158,8 @@ class StageResult:
 ## Pairing Engine Architecture
 
 The pairing engine is the core component that matches model output with observations. It uses a **strategy pattern** to handle different observation geometries uniformly.
+
+*The **strategy pattern** is a design pattern that defines a family of interchangeable algorithms. Instead of using conditional logic (if/elif chains) to select behavior, the code delegates to a strategy object that encapsulates the algorithm. This makes it easy to add new strategies without modifying existing code—you simply register a new strategy class. The pairing engine uses this pattern to handle different observation geometries: each geometry type (point, track, profile, swath, grid) has its own strategy that knows how to match that geometry with model data.*
 
 ### Design Philosophy
 
@@ -305,6 +317,42 @@ SwathStrategy                                   GridStrategy
   Handle 2D footprints                            Regrid or interpolate
   Apply averaging kernels                         Direct grid matching
 </pre>
+
+### Interpolation Methods
+
+The pairing engine uses several interpolation techniques to match model grid points with observation locations:
+
+**Spatial Interpolation (Horizontal)**
+
+*Interpolation estimates values at locations between known data points. For spatial matching, we need to find model grid cells that correspond to observation locations.*
+
+- **Nearest-neighbor**: Selects the closest model grid cell to each observation point. Fast and preserves original model values, but can introduce discontinuities at cell boundaries. Uses the haversine formula for great-circle distance on the sphere:
+
+  `d = 2r × arcsin(√(sin²(Δφ/2) + cos(φ₁)cos(φ₂)sin²(Δλ/2)))`
+
+  where φ is latitude, λ is longitude, and r is Earth's radius (~6371 km).
+
+- **Bilinear**: Weighted average of the four surrounding grid cells. Produces smoother fields but can blur sharp gradients. The weight for each corner is proportional to the area of the opposite rectangle formed by the target point.
+
+**Temporal Interpolation**
+
+- **Nearest-neighbor**: Selects the model time step closest to each observation time. Used when model output has coarse temporal resolution (e.g., hourly) relative to observation frequency.
+
+- **Linear**: Linearly interpolates between bracketing time steps. Appropriate for smoothly varying fields but may miss rapid changes. Implemented via xarray's `interp()` method.
+
+**Vertical Interpolation**
+
+*Atmospheric models use various vertical coordinate systems (pressure levels, sigma coordinates, hybrid levels) that rarely match observation altitudes exactly.*
+
+- **Nearest-level**: Selects the model level closest to the observation altitude. Simple but may have large errors in regions with strong vertical gradients.
+
+- **Linear-in-pressure**: Interpolates linearly in pressure coordinates. Appropriate for most atmospheric variables since many quantities vary approximately linearly with log-pressure.
+
+- **Log-pressure**: Interpolates linearly in log(pressure). Better for quantities that vary exponentially with altitude, such as density or trace gas concentrations in the free troposphere.
+
+**Radius of Influence**
+
+The `radius_of_influence` parameter (default: 12 km) defines the maximum distance for spatial matching. Observations with no model grid cell within this radius are excluded from pairing. This prevents spurious matches when observation networks extend beyond the model domain.
 
 ### Pairing Configuration
 
