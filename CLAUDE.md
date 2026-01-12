@@ -2,7 +2,7 @@
 
 **Data Analysis and Validation Infrastructure for Numerical Chemistry Intercomparison - Model and ObservatioN Evaluation Toolkit**
 
-A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air quality models against observations. Claude Code (Opus 4.5) AI assisted refactor of MELODIES-MONET.
+A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air quality models against observations, based on MELODIES-MONET.
 
 ## Quick Start
 
