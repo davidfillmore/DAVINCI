@@ -19,7 +19,7 @@ ASIA-AQ was an international cooperative field study conducted from January-Marc
 
 ## Model Data
 
-**Model:** CESM/CAM with FC (full chemistry) configuration, nudged to meteorology
+**Model:** CESM/CAM-chem with FC (full chemistry) configuration, nudged to meteorology
 
 **Case:** `f.e3b06m.FCnudged.t6s.01x01.01`
 
@@ -27,7 +27,7 @@ ASIA-AQ was an international cooperative field study conducted from January-Marc
 
 **Domain:** 0°-45°N, 90°-140°E (covers Southeast Asia, Korea, Taiwan, S. China, S. Japan)
 
-**Period:** February 1-10, 2024 (hourly output)
+**Period:** February 1-29, 2024 (hourly output, full month)
 
 **Location:** `~/Data/ASIA-AQ/CAM/`
 
@@ -42,12 +42,22 @@ ASIA-AQ was an international cooperative field study conducted from January-Marc
 
 ## Observation Data
 
-| Type | Source | Variables | Status |
-|------|--------|-----------|--------|
-| Surface | AirNow | PM2.5, O3, NO2, CO | ✓ Complete |
-| Surface | AERONET | AOD (500 nm) | ✓ Complete |
-| Aircraft | ICARTT from DC-8/G-III | Various | Pending |
-| Satellite | TROPOMI NO2/CO | NO2, CO | Pending |
+| Type | Source | Variables | Sites | Status |
+|------|--------|-----------|-------|--------|
+| Surface | AirNow | PM2.5, O3, NO2, CO | 36 US Embassy monitors | ✓ Complete |
+| Surface | AERONET | AOD (500 nm) | 68 sites | ✓ Complete |
+| Column | Pandora | Tropospheric NO2 | 13 spectrometers | ✓ Complete |
+| Aircraft | DC-8 (ICARTT) | O3, NO2, CO | 17 flights | ✓ Complete |
+
+### Pandora Sites
+Seoul, Seoul-SNU, Incheon-ESC, Yongin, Seosan, Ulsan, Suwon-USW, Busan (South Korea), Bangkok (Thailand), Vientiane (Laos), Singapore-NUS, Banting (Malaysia), Palau
+
+### DC-8 Aircraft Variables
+| Variable | Instrument | Description |
+|----------|------------|-------------|
+| O3_ROZE_STCLAIR | ROZE | Ozone (ppb) |
+| NO2_CANOE_STCLAIR | CANOE | NO2 (pptv → ppb with scale 0.001) |
+| CO_DACOM_DISKIN | DACOM | CO (ppb) |
 
 ## Directory Structure
 
@@ -57,9 +67,14 @@ asia-aq/
 ├── configs/
 │   └── asia-aq.yaml                # Pipeline configuration
 ├── scripts/
-│   ├── download_airnow.py          # Download AirNow data
-│   └── run_evaluation.py           # Run pipeline
+│   ├── download_observations.py    # Download all obs (AirNow, AERONET, Pandora)
+│   ├── download_airnow.py          # AirNow data download (standalone)
+│   └── run_evaluation.py           # Run pipeline (with NO2 column preprocessing)
 ├── data/                           # Observation data (NetCDF)
+│   ├── airnow_asiaq_*.nc           # AirNow surface observations
+│   ├── AERONET_L15_*.nc            # AERONET AOD
+│   ├── pandora_no2_column_*.nc     # Pandora NO2 columns
+│   └── cesm_no2_column_*.nc        # Precomputed model NO2 columns
 ├── output/                         # Plots and statistics
 ├── logs/                           # Pipeline logs (timestamped)
 └── misc/                           # Exploratory scripts
@@ -84,8 +99,12 @@ The `ASIA_AQ_ANALYSIS` variable is set automatically when running `run_evaluatio
 
 **Download observations:**
 ```bash
+# All observations (AirNow, AERONET, Pandora)
+python scripts/download_observations.py
+
+# Or individual sources
 python scripts/download_airnow.py
-davinci-monet get aeronet -s 2024-02-01 -e 2024-02-03 -d data
+davinci-monet get aeronet -s 2024-02-01 -e 2024-02-29 -d data
 ```
 
 **Run the evaluation pipeline:**
@@ -98,19 +117,64 @@ Or via CLI:
 davinci-monet run configs/asia-aq.yaml
 ```
 
-## Results
+## Results (February 1-29, 2024)
+
+### Surface Species (AirNow)
 
 | Species | N | Mean Obs | Mean Model | R | NMB |
-|---------|---|----------|------------|------|------|
-| PM2.5 | 98 | 37.9 µg/m³ | 48.5 µg/m³ | 0.36 | +28% |
-| O3 | 14 | 11.4 ppb | 3.1 ppb | 0.54 | -73% |
-| NO2 | 5 | 21.4 ppb | 50.9 ppb | 0.72 | +138% |
-| CO | 12 | 1375 ppb | 1182 ppb | -0.16 | -14% |
-| AOD | 498 | 0.43 | 0.19 | 0.59 | -55% |
+|---------|---|----------|------------|-----|------|
+| PM2.5 | 1,008 | 37.3 µg/m³ | 48.2 µg/m³ | 0.21 | +29% |
+| O3 | 152 | 13.0 ppb | 7.1 ppb | 0.48 | -45% |
+| NO2 | 54 | 17.1 ppb | 42.8 ppb | 0.43 | +150% |
+| CO | 133 | 1,376 ppb | 1,002 ppb | 0.07 | -27% |
 
-**Output files:**
-- `output/statistics_summary.csv` - Evaluation metrics
-- `output/*_scatter.png` - Model vs obs scatter plots
-- `output/*_timeseries.png` - Time series with uncertainty bands (mean ± std)
-- `output/*_spatial_bias.png` - Spatial bias maps with city labels
-- `logs/pipeline_YYYYMMDD_HHMMSS.log` - Pipeline execution logs with timing
+### Aerosol Optical Depth (AERONET)
+
+| Variable | N | Mean Obs | Mean Model | R | NMB |
+|----------|---|----------|------------|-----|------|
+| AOD (500nm) | 8,150 | 0.38 | 0.20 | 0.51 | -46% |
+
+### Tropospheric NO2 Column (Pandora)
+
+| Variable | N | Mean Obs | Mean Model | R | NMB |
+|----------|---|----------|------------|-----|------|
+| NO2 Column | 8,886 | 1.56×10⁻⁴ mol/m² | 2.90×10⁻⁴ mol/m² | 0.57 | +86% |
+
+### DC-8 Aircraft
+
+| Variable | N | Mean Obs | Mean Model | R | NMB |
+|----------|---|----------|------------|-----|------|
+| O3 (ROZE) | 3,248 | 37.7 ppb | 50.9 ppb | 0.28 | +35% |
+| NO2 (CANOE) | 3,255 | 0.98 ppb | 6.15 ppb | 0.43 | +529% |
+| CO (DACOM) | 3,244 | 169 ppb | 187 ppb | 0.32 | +10% |
+
+## Output Files
+
+**Statistics:**
+- `output/statistics_summary.csv` - Evaluation metrics (N, MB, RMSE, R, NMB, NME, IOA)
+
+**Surface plots:**
+- `*_scatter.png` - Model vs obs scatter plots with regression
+- `*_timeseries.png` - Time series with uncertainty bands (mean ± std)
+- `*_spatial_bias.png` - Spatial bias maps with city labels
+
+**Pandora plots:**
+- `no2_column_site_timeseries.png` - Multi-panel site-by-site time series
+
+**DC-8 Aircraft plots:**
+- `dc8_*_scatter.png` - Model vs aircraft scatter plots
+- `dc8_*_flight_timeseries.png` - Multi-panel flight-by-flight time series
+- `dc8_*_track_3d.png` - 3D flight track with bias coloring
+
+**Logs:**
+- `logs/pipeline_YYYYMMDD_HHMMSS.md` - Pipeline execution logs with timing
+
+## Key Findings
+
+1. **NO2 biases**: Model overpredicts NO2 at surface (+150%), in column (+86%), and aloft (+529%)
+2. **AOD underprediction**: Model underpredicts aerosol loading by 46%
+3. **O3 mixed**: Surface underpredicted (-45%), free troposphere overpredicted (+35%)
+4. **CO good agreement**: Aircraft CO shows best agreement (+10% bias)
+5. **Pandora correlation**: NO2 column has best correlation (R=0.57) among all species
+
+See the [wiki](https://github.com/NCAR/DAVINCI-MONET/wiki/ASIA-AQ-Analysis) for detailed analysis and interpretation.
