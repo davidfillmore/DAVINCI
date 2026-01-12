@@ -20,7 +20,6 @@ Programmatic Usage
 from davinci_monet.cli.app import (
     DEBUG,
     ERROR_COLOR,
-    HEADER,
     INFO_COLOR,
     SUCCESS_COLOR,
     WARNING_COLOR,
@@ -33,7 +32,6 @@ __all__ = [
     "app",
     "cli",
     "timer",
-    "HEADER",
     "INFO_COLOR",
     "ERROR_COLOR",
     "SUCCESS_COLOR",

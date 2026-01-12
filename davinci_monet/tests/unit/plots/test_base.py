@@ -19,12 +19,12 @@ class TestVariableDisplayNames:
     """Tests for the VARIABLE_DISPLAY_NAMES lookup table."""
 
     def test_common_pollutants_have_subscripts(self):
-        """Chemical formulas should use Unicode subscripts."""
-        assert VARIABLE_DISPLAY_NAMES["pm25"] == "PM₂.₅"
-        assert VARIABLE_DISPLAY_NAMES["o3"] == "O₃"
-        assert VARIABLE_DISPLAY_NAMES["no2"] == "NO₂"
-        assert VARIABLE_DISPLAY_NAMES["so2"] == "SO₂"
-        assert VARIABLE_DISPLAY_NAMES["co2"] == "CO₂"
+        """Chemical formulas should use LaTeX math mode subscripts."""
+        assert VARIABLE_DISPLAY_NAMES["pm25"] == r"PM$_{2.5}$"
+        assert VARIABLE_DISPLAY_NAMES["o3"] == r"O$_3$"
+        assert VARIABLE_DISPLAY_NAMES["no2"] == r"NO$_2$"
+        assert VARIABLE_DISPLAY_NAMES["so2"] == r"SO$_2$"
+        assert VARIABLE_DISPLAY_NAMES["co2"] == r"CO$_2$"
 
     def test_aod_variables(self):
         """AOD variables should have wavelength in name."""
@@ -33,8 +33,8 @@ class TestVariableDisplayNames:
 
     def test_column_variables(self):
         """Column variables should have descriptive names."""
-        assert VARIABLE_DISPLAY_NAMES["no2_trop_column"] == "Tropospheric NO₂ Column"
-        assert VARIABLE_DISPLAY_NAMES["no2_column"] == "NO₂ Column"
+        assert VARIABLE_DISPLAY_NAMES["no2_trop_column"] == r"Tropospheric NO$_2$ Column"
+        assert VARIABLE_DISPLAY_NAMES["no2_column"] == r"NO$_2$ Column"
 
     def test_case_variants(self):
         """Both lowercase and uppercase variants should be present."""
@@ -90,35 +90,35 @@ class TestFormatVariableDisplayName:
 
     def test_lookup_table_match(self):
         """Variables in lookup table should return formatted name."""
-        assert format_variable_display_name("pm25") == "PM₂.₅"
-        assert format_variable_display_name("o3") == "O₃"
+        assert format_variable_display_name("pm25") == r"PM$_{2.5}$"
+        assert format_variable_display_name("o3") == r"O$_3$"
         assert format_variable_display_name("aod_500nm") == "AOD (500 nm)"
 
     def test_case_insensitive_lookup(self):
         """Lookup should be case-insensitive."""
-        assert format_variable_display_name("PM25") == "PM₂.₅"
-        assert format_variable_display_name("O3") == "O₃"
-        assert format_variable_display_name("NO2") == "NO₂"
+        assert format_variable_display_name("PM25") == r"PM$_{2.5}$"
+        assert format_variable_display_name("O3") == r"O$_3$"
+        assert format_variable_display_name("NO2") == r"NO$_2$"
 
     def test_obs_prefix_with_include_prefix_true(self):
         """obs_ prefix should add 'Observed ' when include_prefix=True."""
-        assert format_variable_display_name("obs_pm25", include_prefix=True) == "Observed PM₂.₅"
-        assert format_variable_display_name("obs_o3", include_prefix=True) == "Observed O₃"
+        assert format_variable_display_name("obs_pm25", include_prefix=True) == r"Observed PM$_{2.5}$"
+        assert format_variable_display_name("obs_o3", include_prefix=True) == r"Observed O$_3$"
 
     def test_model_prefix_with_include_prefix_true(self):
         """model_ prefix should add 'Modeled ' when include_prefix=True."""
-        assert format_variable_display_name("model_pm25", include_prefix=True) == "Modeled PM₂.₅"
-        assert format_variable_display_name("model_o3", include_prefix=True) == "Modeled O₃"
+        assert format_variable_display_name("model_pm25", include_prefix=True) == r"Modeled PM$_{2.5}$"
+        assert format_variable_display_name("model_o3", include_prefix=True) == r"Modeled O$_3$"
 
     def test_obs_prefix_with_include_prefix_false(self):
         """obs_ prefix should not add 'Observed ' when include_prefix=False."""
-        assert format_variable_display_name("obs_pm25", include_prefix=False) == "PM₂.₅"
-        assert format_variable_display_name("obs_o3", include_prefix=False) == "O₃"
+        assert format_variable_display_name("obs_pm25", include_prefix=False) == r"PM$_{2.5}$"
+        assert format_variable_display_name("obs_o3", include_prefix=False) == r"O$_3$"
 
     def test_model_prefix_with_include_prefix_false(self):
         """model_ prefix should not add 'Modeled ' when include_prefix=False."""
-        assert format_variable_display_name("model_pm25", include_prefix=False) == "PM₂.₅"
-        assert format_variable_display_name("model_o3", include_prefix=False) == "O₃"
+        assert format_variable_display_name("model_pm25", include_prefix=False) == r"PM$_{2.5}$"
+        assert format_variable_display_name("model_o3", include_prefix=False) == r"O$_3$"
 
     def test_unknown_variable_formatting(self):
         """Unknown variables should get basic formatting."""
@@ -205,15 +205,15 @@ class TestGetVariableLabel:
         """Variables not in dataset should use lookup table."""
         empty_ds = xr.Dataset()
         result = get_variable_label(empty_ds, "obs_pm25")
-        assert result == "Observed PM₂.₅"
+        assert result == r"Observed PM$_{2.5}$"
 
     def test_include_prefix_parameter(self):
         """include_prefix should control prefix for lookup table fallback."""
         empty_ds = xr.Dataset()
         with_prefix = get_variable_label(empty_ds, "obs_pm25", include_prefix=True)
         without_prefix = get_variable_label(empty_ds, "obs_pm25", include_prefix=False)
-        assert with_prefix == "Observed PM₂.₅"
-        assert without_prefix == "PM₂.₅"
+        assert with_prefix == r"Observed PM$_{2.5}$"
+        assert without_prefix == r"PM$_{2.5}$"
 
     def test_none_display_name_attr_ignored(self):
         """display_name attr set to None should be ignored."""
@@ -225,7 +225,7 @@ class TestGetVariableLabel:
         })
         result = get_variable_label(ds, "obs_pm25")
         # Should fall back to lookup table, not return "None"
-        assert result == "Observed PM₂.₅"
+        assert result == r"Observed PM$_{2.5}$"
         assert result != "None"
 
 

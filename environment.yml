@@ -14,6 +14,7 @@ dependencies:
 
   # Progress display
   - tqdm
+  - rich
 
   # Development tools
   - pytest

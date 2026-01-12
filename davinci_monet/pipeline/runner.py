@@ -420,111 +420,182 @@ class TeeWriter:
 
 
 class ProgressFormatter:
-    """Formats pipeline progress output with nice ASCII styling.
+    """Formats pipeline progress output with rich animated styling.
 
-    Uses box-drawing characters and status icons for clear, readable output.
+    Uses rich library for spinners, panels, and color-coded output.
     """
 
-    # Box drawing characters
-    BOX_TL = "┌"
-    BOX_TR = "┐"
-    BOX_BL = "└"
-    BOX_BR = "┘"
-    BOX_H = "─"
-    BOX_V = "│"
-    BOX_T = "┬"
-    BOX_B = "┴"
-
-    # Status icons
-    ICON_OK = "✓"
-    ICON_FAIL = "✗"
-    ICON_ARROW = "→"
-    ICON_BULLET = "•"
-    ICON_SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-
-    # Width for formatting
-    WIDTH = 72
-
     def __init__(self, show_output: bool = True) -> None:
+        from rich.console import Console
+
         self.show_output = show_output
+        self.console = Console(force_terminal=show_output, no_color=not show_output)
         self._current_stage: str | None = None
         self._stage_start: float | None = None
         self._lines: list[str] = []  # For log file
+        self._live: Any = None  # Rich Live context
+        self._current_status: str = ""
+        self._stage_items: list[tuple[str, str]] = []  # (category, name) pairs for current stage
 
-    def _emit(self, line: str) -> None:
-        """Output a line and store for logging."""
+    def _log(self, line: str) -> None:
+        """Store a line for log file."""
         self._lines.append(line)
+
+    def _print(self, *args: Any, **kwargs: Any) -> None:
+        """Print via rich console if output enabled."""
         if self.show_output:
-            try:
-                print(line, file=sys.stdout, flush=True)
-            except BrokenPipeError:
-                pass
+            self.console.print(*args, **kwargs)
 
     def header(self, config_path: str | None = None) -> None:
         """Print pipeline header."""
-        self._emit("")
-        self._emit(self.BOX_TL + self.BOX_H * (self.WIDTH - 2) + self.BOX_TR)
-        title = "DAVINCI-MONET Pipeline"
-        padding = (self.WIDTH - 2 - len(title)) // 2
-        self._emit(self.BOX_V + " " * padding + title + " " * (self.WIDTH - 2 - padding - len(title)) + self.BOX_V)
-        self._emit(self.BOX_BL + self.BOX_H * (self.WIDTH - 2) + self.BOX_BR)
-        self._emit("")
+        from rich.panel import Panel
+        from rich.text import Text
+
+        # Log file header (plain text)
+        self._log("DAVINCI-MONET Pipeline")
+        if config_path:
+            self._log(f"Config: {config_path}")
+        self._log("")
+
+        # Rich console output
+        title = Text("DAVINCI-MONET Pipeline", style="bold cyan")
+
+        self._print()
+        self._print(Panel(title, border_style="cyan", padding=(0, 2)))
+
+        # Config path below the panel
         if config_path:
             # Truncate path if too long
-            max_path_len = self.WIDTH - 10
+            max_path_len = 70
             display_path = config_path
             if len(config_path) > max_path_len:
                 display_path = "..." + config_path[-(max_path_len - 3):]
-            self._emit(f"  Config: {display_path}")
-            self._emit("")
+            self._print(f"  [dim]Config:[/dim] {display_path}")
+        self._print()
 
     def stage_start(self, name: str) -> None:
-        """Print stage start."""
+        """Print stage start with spinner."""
+        from rich.live import Live
+        from rich.spinner import Spinner
+        from rich.text import Text
+
         self._current_stage = name
         self._stage_start = time.time()
-        self._emit(self.BOX_TL + self.BOX_H + f" {name} " + self.BOX_H * (self.WIDTH - len(name) - 5))
+        self._stage_items = []  # Reset items for this stage
+        self._log(f"[{name}]")
+
+        # Create spinner with stage name
+        spinner = Spinner("dots", text=Text(f" {name}", style="bold yellow"))
+        if self.show_output:
+            self._live = Live(spinner, console=self.console, refresh_per_second=10)
+            self._live.start()
 
     def stage_end(self, name: str, success: bool, duration: float) -> None:
-        """Print stage end."""
-        icon = self.ICON_OK if success else self.ICON_FAIL
-        status = "completed" if success else "FAILED"
-        self._emit(self.BOX_BL + self.BOX_H + f" {icon} {name} {status} ({duration:.1f}s)")
-        self._emit("")
+        """Print stage end with status and summary of items processed."""
+        # Stop the live spinner
+        if self._live is not None:
+            self._live.stop()
+            self._live = None
+
+        if success:
+            icon = "✓"
+            style = "bold green"
+            status = "completed"
+        else:
+            icon = "✗"
+            style = "bold red"
+            status = "FAILED"
+
+        self._log(f"  {icon} {status} ({duration:.1f}s)")
+
+        # Show stage completion
+        self._print(f"  [{style}]{icon} {name}[/{style}] [dim]({duration:.1f}s)[/dim]")
+
+        # Show summary of items processed in this stage
+        if self._stage_items and success:
+            # Group items by category
+            categories: dict[str, list[str]] = {}
+            for category, item_name in self._stage_items:
+                if category not in categories:
+                    categories[category] = []
+                categories[category].append(item_name)
+
+            # Display each category
+            for category, items in categories.items():
+                items_str = ", ".join(items)
+                self._log(f"    {category}: {items_str}")
+                self._print(f"    [dim]{category}:[/dim] [white]{items_str}[/white]")
+
+        self._print()
         self._current_stage = None
+        self._stage_items = []
 
     def item_start(self, category: str, name: str, index: int, total: int) -> None:
         """Print item start (model, observation, pair)."""
-        self._emit(f"{self.BOX_V}  {self.ICON_ARROW} {name} ({index}/{total})")
+        self._log(f"  → {name} ({index}/{total})")
+        self._stage_items.append((category, name))
+
+        # Update live display with current item
+        if self._live is not None and self.show_output:
+            from rich.spinner import Spinner
+            from rich.text import Text
+
+            stage = self._current_stage or category
+            text = Text()
+            text.append(f" {stage} ", style="bold yellow")
+            text.append(f"[{index}/{total}] ", style="dim")
+            text.append(name, style="white")
+            spinner = Spinner("dots", text=text)
+            self._live.update(spinner)
 
     def step(self, message: str) -> None:
         """Print a step within an item."""
-        self._emit(f"{self.BOX_V}      {self.ICON_BULLET} {message}")
+        self._log(f"      • {message}")
+        # Steps are logged but not displayed during animation
 
     def item_done(self, summary: str) -> None:
         """Print item completion with summary."""
-        self._emit(f"{self.BOX_V}      {self.ICON_OK} {summary}")
+        self._log(f"      ✓ {summary}")
+        # Completion is logged but animation continues
 
     def item_fail(self, error: str) -> None:
         """Print item failure."""
         # Truncate error if too long
-        max_len = self.WIDTH - 12
+        max_len = 60
         if len(error) > max_len:
             error = error[:max_len - 3] + "..."
-        self._emit(f"{self.BOX_V}      {self.ICON_FAIL} {error}")
+        self._log(f"      ✗ {error}")
+
+        # Show failure immediately
+        if self._live is not None:
+            self._live.stop()
+            self._live = None
+        self._print(f"    [red]✗ {error}[/red]")
 
     def footer(self, success: bool, duration: float, log_path: Path | None = None) -> None:
         """Print pipeline footer."""
-        self._emit(self.BOX_TL + self.BOX_H * (self.WIDTH - 2) + self.BOX_TR)
+        from rich.panel import Panel
+        from rich.text import Text
+
         if success:
-            msg = f"{self.ICON_OK} Pipeline completed successfully in {duration:.1f}s"
+            msg = f"✓ Pipeline completed successfully in {duration:.1f}s"
+            style = "bold green"
         else:
-            msg = f"{self.ICON_FAIL} Pipeline failed after {duration:.1f}s"
-        padding = (self.WIDTH - 2 - len(msg)) // 2
-        self._emit(self.BOX_V + " " * padding + msg + " " * (self.WIDTH - 2 - padding - len(msg)) + self.BOX_V)
-        self._emit(self.BOX_BL + self.BOX_H * (self.WIDTH - 2) + self.BOX_BR)
+            msg = f"✗ Pipeline failed after {duration:.1f}s"
+            style = "bold red"
+
+        self._log("")
+        self._log(msg)
         if log_path:
-            self._emit(f"  Log: {log_path}")
-        self._emit("")
+            self._log(f"Log: {log_path}")
+
+        text = Text(msg, style=style)
+        border_style = "green" if success else "red"
+        self._print(Panel(text, border_style=border_style, padding=(0, 2)))
+
+        if log_path:
+            self._print(f"  [dim]Log:[/dim] [white]{log_path}[/white]")
+        self._print()
 
     def get_log_lines(self) -> list[str]:
         """Get all output lines for logging."""

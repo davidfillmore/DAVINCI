@@ -31,11 +31,6 @@ ERROR_COLOR = typer.colors.BRIGHT_RED
 SUCCESS_COLOR = typer.colors.GREEN
 WARNING_COLOR = typer.colors.YELLOW
 
-HEADER = """
-------------------
-| DAVINCI-MONET  |
-------------------
-""".strip()
 
 
 def _get_full_name(obj: object) -> str:
@@ -159,7 +154,6 @@ def run(
     global DEBUG
     DEBUG = debug
 
-    typer.echo(HEADER)
     run_analysis(control, debug=debug)
 
 
@@ -184,7 +178,6 @@ def validate(
     """Validate a DAVINCI-MONET configuration file."""
     from davinci_monet.cli.commands.validate import validate_config_command
 
-    typer.echo(HEADER)
     validate_config_command(control, strict=strict, show_config=show_config)
 
 

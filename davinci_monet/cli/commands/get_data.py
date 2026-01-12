@@ -13,7 +13,6 @@ import typer
 
 from davinci_monet.cli.app import (
     ERROR_COLOR,
-    HEADER,
     INFO_COLOR,
     SUCCESS_COLOR,
     timer,
@@ -131,8 +130,7 @@ def get_aeronet(
 
     app_module.DEBUG = debug
 
-    typer.echo(HEADER)
-
+    
     dst, out_name = _parse_output_path(out_name, dst, "AERONET_L15", start_date, end_date)
 
     with timer("Fetching AERONET data with monetio"):
@@ -214,8 +212,7 @@ def get_airnow(
 
     app_module.DEBUG = debug
 
-    typer.echo(HEADER)
-
+    
     dst, out_name = _parse_output_path(out_name, dst, "AirNow", start_date, end_date)
 
     with timer("Fetching AirNow data with monetio"):
@@ -314,8 +311,7 @@ def get_aqs(
 
     app_module.DEBUG = debug
 
-    typer.echo(HEADER)
-
+    
     dst, out_name = _parse_output_path(out_name, dst, "AQS", start_date, end_date)
 
     with timer("Fetching AQS data with monetio"):
@@ -419,8 +415,7 @@ def get_openaq(
 
     app_module.DEBUG = debug
 
-    typer.echo(HEADER)
-
+    
     dst, out_name = _parse_output_path(out_name, dst, "OpenAQ", start_date, end_date)
 
     # Validate sensor type selection
