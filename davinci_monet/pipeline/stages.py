@@ -44,6 +44,10 @@ class StageResult:
         Additional metadata about the execution.
     error
         Error message if the stage failed.
+    error_type
+        Exception class name if the stage failed (e.g., 'ValueError').
+    traceback_str
+        Full traceback string if the stage failed with an exception.
     duration_seconds
         Execution time in seconds.
     """
@@ -53,6 +57,8 @@ class StageResult:
     data: Any = None
     metadata: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
+    error_type: str | None = None
+    traceback_str: str | None = None
     duration_seconds: float = 0.0
 
 

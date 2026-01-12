@@ -10,6 +10,7 @@ import logging
 import re
 import sys
 import time
+import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -64,6 +65,8 @@ class LogCollector:
         self.obs_details: dict[str, dict[str, Any]] = {}
         self.pair_details: dict[str, dict[str, Any]] = {}
         self.statistics: dict[str, dict[str, Any]] = {}
+        # Error tracking
+        self.errors: list[dict[str, Any]] = []
 
     def start_pipeline(self, config_path: str | None = None) -> None:
         """Record pipeline start."""
@@ -74,6 +77,34 @@ class LogCollector:
         """Record pipeline end."""
         self.end_time = datetime.now()
         self.success = success
+
+    def log_error(
+        self,
+        stage_name: str,
+        error_type: str,
+        error_message: str,
+        traceback_str: str | None = None,
+    ) -> None:
+        """Record an error that occurred during pipeline execution.
+
+        Parameters
+        ----------
+        stage_name
+            Name of the stage where the error occurred.
+        error_type
+            The exception class name (e.g., 'ValueError', 'DataNotFoundError').
+        error_message
+            The error message string.
+        traceback_str
+            Optional formatted traceback string.
+        """
+        self.errors.append({
+            "stage": stage_name,
+            "error_type": error_type,
+            "error_message": error_message,
+            "traceback": traceback_str,
+            "timestamp": datetime.now().isoformat(),
+        })
 
     def start_stage(self, name: str) -> None:
         """Record stage start."""
@@ -344,6 +375,25 @@ class LogCollector:
                         f"| {var_name} | {n} | {obs_str} | {model_str} | {mb_str} | {rmse_str} | {r_str} |"
                     )
                 lines.append("")
+
+        # Errors section (if any)
+        if self.errors:
+            lines.append("## Errors")
+            lines.append("")
+            for i, error in enumerate(self.errors, 1):
+                lines.append(f"### Error {i}: {error['error_type']} in `{error['stage']}`")
+                lines.append("")
+                lines.append(f"**Time:** {error['timestamp']}")
+                lines.append("")
+                lines.append(f"**Message:** {error['error_message']}")
+                lines.append("")
+                if error.get("traceback"):
+                    lines.append("**Traceback:**")
+                    lines.append("```")
+                    lines.append(error["traceback"])
+                    lines.append("```")
+                    lines.append("")
+            lines.append("")
 
         # Footer
         lines.append("---")
@@ -737,6 +787,14 @@ class PipelineRunner:
                     formatter.stage_end(stage.name, False, stage_result.duration_seconds)
                     if log_collector:
                         log_collector.end_stage(stage.name, "failed", stage_result.duration_seconds)
+                        # Log the error with traceback for the Markdown report
+                        if stage_result.error:
+                            log_collector.log_error(
+                                stage_name=stage.name,
+                                error_type=stage_result.error_type or "Exception",
+                                error_message=stage_result.error,
+                                traceback_str=stage_result.traceback_str,
+                            )
                     if self._fail_fast:
                         logger.error(
                             f"Pipeline failed at stage '{stage.name}': "
@@ -839,10 +897,13 @@ class PipelineRunner:
 
         except Exception as e:
             logger.exception(f"Stage '{stage.name}' raised exception")
+            tb_str = traceback.format_exc()
             result = StageResult(
                 stage_name=stage.name,
                 status=StageStatus.FAILED,
                 error=str(e),
+                error_type=type(e).__name__,
+                traceback_str=tb_str,
                 duration_seconds=time.time() - start_time,
             )
 

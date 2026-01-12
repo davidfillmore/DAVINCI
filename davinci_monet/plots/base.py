@@ -498,24 +498,24 @@ def merge_config_dicts(
 # Lookup table for common atmospheric variable display names
 # Maps lowercase variable names (or patterns) to display names with proper formatting
 VARIABLE_DISPLAY_NAMES: dict[str, str] = {
-    # Surface pollutants
-    "pm25": "PM₂.₅",
-    "pm2.5": "PM₂.₅",
-    "pm10": "PM₁₀",
-    "o3": "O₃",
-    "ozone": "O₃",
-    "no2": "NO₂",
+    # Surface pollutants (using LaTeX math mode for subscripts)
+    "pm25": r"PM$_{2.5}$",
+    "pm2.5": r"PM$_{2.5}$",
+    "pm10": r"PM$_{10}$",
+    "o3": r"O$_3$",
+    "ozone": r"O$_3$",
+    "no2": r"NO$_2$",
     "no": "NO",
-    "nox": "NOₓ",
+    "nox": r"NO$_x$",
     "co": "CO",
-    "co2": "CO₂",
-    "so2": "SO₂",
+    "co2": r"CO$_2$",
+    "so2": r"SO$_2$",
     "hcho": "HCHO",
-    "nh3": "NH₃",
-    "hno3": "HNO₃",
-    "n2o": "N₂O",
-    "n2o5": "N₂O₅",
-    "ch4": "CH₄",
+    "nh3": r"NH$_3$",
+    "hno3": r"HNO$_3$",
+    "n2o": r"N$_2$O",
+    "n2o5": r"N$_2$O$_5$",
+    "ch4": r"CH$_4$",
     # AOD variables
     "aod": "AOD",
     "aod_500nm": "AOD (500 nm)",
@@ -523,18 +523,22 @@ VARIABLE_DISPLAY_NAMES: dict[str, str] = {
     "aod_440nm": "AOD (440 nm)",
     "aodvisdn": "AOD",
     # Column variables
-    "no2_trop_column": "Tropospheric NO₂ Column",
-    "no2_column": "NO₂ Column",
-    "o3_column": "O₃ Column",
-    "trop_no2": "Tropospheric NO₂",
+    "no2_trop_column": r"Tropospheric NO$_2$ Column",
+    "no2_column": r"NO$_2$ Column",
+    "o3_column": r"O$_3$ Column",
+    "trop_no2": r"Tropospheric NO$_2$",
     # Model variables (uppercase)
-    "PM25": "PM₂.₅",
-    "O3": "O₃",
-    "NO2": "NO₂",
+    "PM25": r"PM$_{2.5}$",
+    "O3": r"O$_3$",
+    "NO2": r"NO$_2$",
     "CO": "CO",
-    "SO2": "SO₂",
+    "SO2": r"SO$_2$",
     "AODVISdn": "AOD",
-    "NO2_column": "NO₂ Column",
+    "NO2_column": r"NO$_2$ Column",
+    # ASIA-AQ DC-8 aircraft variables (ICARTT naming convention)
+    "O3_ROZE_STCLAIR": r"O$_3$",
+    "NO2_CANOE_STCLAIR": r"NO$_2$",
+    "CO_DACOM_DISKIN": "CO",
 }
 
 # Patterns for title formatting (case-insensitive replacements)

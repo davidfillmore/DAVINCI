@@ -51,14 +51,14 @@ model:
       O3:
         unit_scale: 1.0e9  # mol/mol to ppb
         units: ppb
-        ylabel_plot: "O3 (ppb)"
+        ylabel_plot: "O$_3$ (ppb)"
         vmin_plot: 0
         vmax_plot: 100
         vdiff_plot: 30
       NO2:
         unit_scale: 1.0e9  # mol/mol to ppb
         units: ppb
-        ylabel_plot: "NO2 (ppb)"
+        ylabel_plot: "NO$_2$ (ppb)"
         vmin_plot: 0
         vmax_plot: 50
         vdiff_plot: 20
@@ -72,7 +72,7 @@ model:
       PM25:
         unit_scale: 1.2e9  # kg/kg to ug/m3 (× air density × 1e9)
         units: μg/m³
-        ylabel_plot: "PM2.5 (μg/m³)"
+        ylabel_plot: "PM$_{2.5}$ (μg/m³)"
         vmin_plot: 0
         vmax_plot: 150
         vdiff_plot: 50
@@ -96,7 +96,7 @@ model:
       NO2_column:
         unit_scale: 1.0
         units: mol/m²
-        ylabel_plot: "NO2 Column (mol/m²)"
+        ylabel_plot: "NO$_2$ Column (mol/m²)"
         vmin_plot: 0
         vmax_plot: 5.0e-4
         vdiff_plot: 2.0e-4
@@ -111,17 +111,17 @@ obs:
         obs_min: 0
         obs_max: 500
         units: μg/m³
-        ylabel_plot: "PM2.5 (μg/m³)"
+        ylabel_plot: "PM$_{2.5}$ (μg/m³)"
       ozone:
         obs_min: 0
         obs_max: 200
         units: ppb
-        ylabel_plot: "O3 (ppb)"
+        ylabel_plot: "O$_3$ (ppb)"
       no2:
         obs_min: 0
         obs_max: 100
         units: ppb
-        ylabel_plot: "NO2 (ppb)"
+        ylabel_plot: "NO$_2$ (ppb)"
       co:
         unit_scale: 1000  # ppm to ppb
         obs_min: 0
@@ -147,7 +147,7 @@ obs:
         obs_min: 0
         obs_max: 5.0e-3  # mol/m2
         units: mol/m²
-        ylabel_plot: "NO2 Column (mol/m²)"
+        ylabel_plot: "NO$_2$ Column (mol/m²)"
 
   # DC-8 aircraft observations (ASIA-AQ campaign)
   dc8:
@@ -158,15 +158,15 @@ obs:
         obs_min: 0
         obs_max: 200
         units: ppb
-        ylabel_plot: "O3 (ppb)"
-        display_name: "O3 (ROZE)"
+        ylabel_plot: "O$_3$ (ppb)"
+        display_name: "O$_3$ (ROZE)"
       NO2_CANOE_STCLAIR:
         unit_scale: 0.001  # pptv to ppbv
         obs_min: 0
         obs_max: 50
         units: ppb
-        ylabel_plot: "NO2 (ppb)"
-        display_name: "NO2 (CANOE)"
+        ylabel_plot: "NO$_2$ (ppb)"
+        display_name: "NO$_2$ (CANOE)"
       CO_DACOM_DISKIN:
         obs_min: 0
         obs_max: 500
