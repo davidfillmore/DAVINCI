@@ -11,33 +11,33 @@ DAVINCI-MONET is a modular toolkit for evaluating atmospheric chemistry models a
 - **Pipeline-based execution** with composable stages
 - **xarray-native data model** throughout the system
 
-```
+<pre>
                            DAVINCI-MONET System
 
-    CLI ──────▶ Config ──────▶ Pipeline ──────▶ Output
+    CLI <span style="color: #06b6d4">──────▶</span> Config <span style="color: #06b6d4">──────▶</span> Pipeline <span style="color: #06b6d4">──────▶</span> Output
    (Typer)      (YAML)          Runner        (Plots,
               (Pydantic)                       Stats)
-                                  │
-                                  ▼
+                                  <span style="color: #06b6d4">│</span>
+                                  <span style="color: #06b6d4">▼</span>
                           Pipeline Stages
                           ---------------
                           load_models
-                              ▼
+                              <span style="color: #06b6d4">▼</span>
                           load_observations
-                              ▼
+                              <span style="color: #06b6d4">▼</span>
                           pairing
-                              ▼
+                              <span style="color: #06b6d4">▼</span>
                           statistics
-                              ▼
+                              <span style="color: #06b6d4">▼</span>
                           plotting
-                              ▼
+                              <span style="color: #06b6d4">▼</span>
                           save_results
-                                  │
-                                  ▼
+                                  <span style="color: #06b6d4">│</span>
+                                  <span style="color: #06b6d4">▼</span>
                           Pairing Engine
                           --------------
                     Point - Track - Profile - Swath - Grid
-```
+</pre>
 
 ## Pipeline Architecture
 
@@ -70,31 +70,31 @@ Responsibilities:
 
 Each stage receives the `PipelineContext`, performs its work, and returns a `StageResult`. The context accumulates data as it flows through stages.
 
-```
+<pre>
                            PipelineContext
-                                 │
-         ┌───────────────────────┴───────────────────────┐
-         ▼                                               ▼
+                                 <span style="color: #06b6d4">│</span>
+         <span style="color: #06b6d4">┌───────────────────────┴───────────────────────┐</span>
+         <span style="color: #06b6d4">▼</span>                                               <span style="color: #06b6d4">▼</span>
     load_models                                  load_observations
-         │                                               │
-         └──────────────┐           ┌────────────────────┘
-                        ▼           ▼
+         <span style="color: #06b6d4">│</span>                                               <span style="color: #06b6d4">│</span>
+         <span style="color: #06b6d4">└──────────────┐           ┌────────────────────┘</span>
+                        <span style="color: #06b6d4">▼           ▼</span>
                         pairing
-                           │
-                           ▼
+                           <span style="color: #06b6d4">│</span>
+                           <span style="color: #06b6d4">▼</span>
                       statistics
-                           │
-                           ▼
+                           <span style="color: #06b6d4">│</span>
+                           <span style="color: #06b6d4">▼</span>
                        plotting
-                           │
-                           ▼
+                           <span style="color: #06b6d4">│</span>
+                           <span style="color: #06b6d4">▼</span>
                      save_results
 
   Data flow:
-    load_models ──▶ context.models
-    load_observations ──▶ context.observations
-    pairing ──▶ context.paired (uses models + observations)
-```
+    load_models <span style="color: #06b6d4">──▶</span> context.models
+    load_observations <span style="color: #06b6d4">──▶</span> context.observations
+    pairing <span style="color: #06b6d4">──▶</span> context.paired (uses models + observations)
+</pre>
 
 ### Standard Pipeline Stages
 
@@ -159,35 +159,35 @@ Traditional approaches pair data based on **data source** (e.g., different code 
 
 ### Pairing Engine Components
 
-```
+<pre>
                             PairingEngine
                             -------------
 
   pair(model, obs, obs_vars, model_vars, config)
-      │
-      ├─1─▶ _detect_geometry(obs) ──▶ DataGeometry enum
-      │
-      ├─2─▶ _check_temporal_overlap(model, obs)
-      │
-      ├─3─▶ get_strategy(geometry) ──▶ PairingStrategy
-      │
-      └─4─▶ strategy.pair(model, obs, ...) ──▶ PairedData
+      <span style="color: #06b6d4">│</span>
+      <span style="color: #06b6d4">├─1─▶</span> _detect_geometry(obs) <span style="color: #06b6d4">──▶</span> DataGeometry enum
+      <span style="color: #06b6d4">│</span>
+      <span style="color: #06b6d4">├─2─▶</span> _check_temporal_overlap(model, obs)
+      <span style="color: #06b6d4">│</span>
+      <span style="color: #06b6d4">├─3─▶</span> get_strategy(geometry) <span style="color: #06b6d4">──▶</span> PairingStrategy
+      <span style="color: #06b6d4">│</span>
+      <span style="color: #06b6d4">└─4─▶</span> strategy.pair(model, obs, ...) <span style="color: #06b6d4">──▶</span> PairedData
 
 
                         Strategy Registry
                         -----------------
-  POINT   ──▶ PointStrategy
-  TRACK   ──▶ TrackStrategy
-  PROFILE ──▶ ProfileStrategy
-  SWATH   ──▶ SwathStrategy
-  GRID    ──▶ GridStrategy
-```
+  POINT   <span style="color: #06b6d4">──▶</span> PointStrategy
+  TRACK   <span style="color: #06b6d4">──▶</span> TrackStrategy
+  PROFILE <span style="color: #06b6d4">──▶</span> ProfileStrategy
+  SWATH   <span style="color: #06b6d4">──▶</span> SwathStrategy
+  GRID    <span style="color: #06b6d4">──▶</span> GridStrategy
+</pre>
 
 ### Data Geometry Types
 
 The `DataGeometry` enum defines five observation geometries:
 
-```
+<pre>
                          Data Geometry Types
                          -------------------
 
@@ -201,7 +201,7 @@ Examples:                          Examples:
   - AERONET ground sites             - Ship tracks
   - Pandora spectrometers            - Mobile platforms
 
-      ●        ●                         ●────●────●────●
+      ●        ●                         <span style="color: #06b6d4">●────●────●────●</span>
     site1    site2                         flight path
 
 
@@ -217,11 +217,11 @@ Examples:                          Examples:
   - Radiosondes                      - GEMS L2
 
      z                               ● ● ● ●  scanline 1
-     │  ●                            ● ● ● ●  scanline 2
-     │  ●                              pixels ──▶
-     │  ●
-     │  ●
-     └────
+     <span style="color: #06b6d4">│</span>  ●                            ● ● ● ●  scanline 2
+     <span style="color: #06b6d4">│</span>  ●                              pixels <span style="color: #06b6d4">──▶</span>
+     <span style="color: #06b6d4">│</span>  ●
+     <span style="color: #06b6d4">│</span>  ●
+     <span style="color: #06b6d4">└────</span>
 
 
 GRID
@@ -234,11 +234,11 @@ Examples:
   - Regridded model output
 
      lat
-      │  ● ● ● ●
-      │  ● ● ● ●
-      │  ● ● ● ●
-      └─────────▶ lon
-```
+      <span style="color: #06b6d4">│</span>  ● ● ● ●
+      <span style="color: #06b6d4">│</span>  ● ● ● ●
+      <span style="color: #06b6d4">│</span>  ● ● ● ●
+      <span style="color: #06b6d4">└─────────▶</span> lon
+</pre>
 
 ### Geometry Detection
 
@@ -273,7 +273,7 @@ def _detect_geometry(self, obs: xr.Dataset) -> DataGeometry:
 
 Each strategy inherits from `BasePairingStrategy` and implements the `pair()` method:
 
-```
+<pre>
                        BasePairingStrategy
                        -------------------
 
@@ -286,9 +286,9 @@ Common Methods:
   _interpolate_vertical()  # Vertical interpolation
   _extract_surface()       # Get surface level from 3D model
 
-                               │
-       ┌───────────────────────┼───────────────────────┐
-       ▼                       ▼                       ▼
+                               <span style="color: #06b6d4">│</span>
+       <span style="color: #06b6d4">┌───────────────────────┼───────────────────────┐</span>
+       <span style="color: #06b6d4">▼</span>                       <span style="color: #06b6d4">▼</span>                       <span style="color: #06b6d4">▼</span>
 
 PointStrategy           TrackStrategy          ProfileStrategy
 -------------           -------------          ---------------
@@ -297,14 +297,14 @@ PointStrategy           TrackStrategy          ProfileStrategy
   Match by site           4D matching            Match profiles
                             (x,y,z,t)
 
-       ┌───────────────────────┴───────────────────────┐
-       ▼                                               ▼
+       <span style="color: #06b6d4">┌───────────────────────┴───────────────────────┐</span>
+       <span style="color: #06b6d4">▼</span>                                               <span style="color: #06b6d4">▼</span>
 
 SwathStrategy                                   GridStrategy
 -------------                                   ------------
   Handle 2D footprints                            Regrid or interpolate
   Apply averaging kernels                         Direct grid matching
-```
+</pre>
 
 ### Pairing Configuration
 
@@ -323,12 +323,12 @@ class PairingConfig:
 
 ### Pairing Data Flow (Point Example)
 
-```
+<pre>
     Model Data                    Observation Data
   (time,z,lat,lon)                  (time, site)
-         │                               │
-         └───────────────┬───────────────┘
-                         ▼
+         <span style="color: #06b6d4">│</span>                               <span style="color: #06b6d4">│</span>
+         <span style="color: #06b6d4">└───────────────┬───────────────┘</span>
+                         <span style="color: #06b6d4">▼</span>
                PointStrategy.pair()
                --------------------
 
@@ -347,8 +347,8 @@ class PairingConfig:
   5. Combine with observations
      paired_ds[obs_var, model_var]
 
-                         │
-                         ▼
+                         <span style="color: #06b6d4">│</span>
+                         <span style="color: #06b6d4">▼</span>
                     PairedData
                     ----------
   data: xr.Dataset
@@ -360,7 +360,7 @@ class PairingConfig:
   obs_label: "airnow"
   geometry: DataGeometry.POINT
   pairing_info: {radius, method, ...}
-```
+</pre>
 
 ---
 
@@ -368,7 +368,7 @@ class PairingConfig:
 
 Complete data flow from YAML config to output files:
 
-```
+<pre>
 asia-aq.yaml
 ------------
 model:
@@ -398,119 +398,119 @@ plots:
 stats:
   metrics: [...]
 
-                         │
-    ┌────────────────────┴────────────────────┐
-    ▼                                         ▼
+                         <span style="color: #06b6d4">│</span>
+    <span style="color: #06b6d4">┌────────────────────┴────────────────────┐</span>
+    <span style="color: #06b6d4">▼</span>                                         <span style="color: #06b6d4">▼</span>
 load_models                           load_observations
-    │                                         │
-    ▼                                         ▼
+    <span style="color: #06b6d4">│</span>                                         <span style="color: #06b6d4">│</span>
+    <span style="color: #06b6d4">▼</span>                                         <span style="color: #06b6d4">▼</span>
 context.models                        context.observations
   cesm_asiaq: ds                        airnow: ds
                                         pandora: ds
                                         dc8: ds
-    │                                         │
-    └────────────────────┬────────────────────┘
-                         ▼
+    <span style="color: #06b6d4">│</span>                                         <span style="color: #06b6d4">│</span>
+    <span style="color: #06b6d4">└────────────────────┬────────────────────┘</span>
+                         <span style="color: #06b6d4">▼</span>
                       pairing
               (PointStrategy, TrackStrategy)
-                         │
-                         ▼
+                         <span style="color: #06b6d4">│</span>
+                         <span style="color: #06b6d4">▼</span>
                   context.paired
                     cesm_airnow: pd
                     cesm_pandora: pd
                     cesm_dc8: pd
-                         │
-         ┌───────────────┴───────────────┐
-         ▼                               ▼
+                         <span style="color: #06b6d4">│</span>
+         <span style="color: #06b6d4">┌───────────────┴───────────────┐</span>
+         <span style="color: #06b6d4">▼</span>                               <span style="color: #06b6d4">▼</span>
     statistics                       plotting
-         │                               │
-         ▼                               ▼
+         <span style="color: #06b6d4">│</span>                               <span style="color: #06b6d4">│</span>
+         <span style="color: #06b6d4">▼</span>                               <span style="color: #06b6d4">▼</span>
   statistics_summary.csv          *.png, *.pdf
                                   (scatter, timeseries,
                                    spatial, 3d tracks)
-```
+</pre>
 
 ---
 
 ## Module Structure
 
-```
+<pre>
 davinci_monet/
-├── core/                    # Foundation layer
-│   ├── protocols.py         # Interface definitions (ModelReader, etc.)
-│   ├── registry.py          # Plugin registration system
-│   ├── exceptions.py        # Custom exception hierarchy
-│   ├── types.py             # Type aliases and helpers
-│   └── base.py              # Base classes (PairedData, etc.)
-│
-├── config/                  # Configuration handling
-│   ├── schemas.py           # Pydantic models for YAML validation
-│   └── loader.py            # YAML parsing with env var expansion
-│
-├── models/                  # Model readers
-│   ├── base.py              # BaseModelReader
-│   ├── cmaq.py              # CMAQ reader
-│   ├── wrfchem.py           # WRF-Chem reader
-│   ├── cesm.py              # CESM/CAM-chem reader
-│   ├── ufs.py               # UFS reader
-│   └── generic.py           # Generic NetCDF reader
-│
-├── observations/            # Observation readers
-│   ├── base.py              # BaseObservationReader
-│   ├── surface/             # Surface observations
-│   │   ├── airnow.py        # AirNow (US Embassy monitors)
-│   │   ├── aeronet.py       # AERONET AOD
-│   │   ├── aqs.py           # EPA AQS
-│   │   ├── openaq.py        # OpenAQ
-│   │   └── pandora.py       # Pandora NO2 columns
-│   ├── aircraft/            # Aircraft observations
-│   │   └── icartt.py        # ICARTT format reader
-│   └── satellite/           # Satellite observations
-│       ├── tropomi.py       # TROPOMI L2
-│       └── goes.py          # GOES-16/17 AOD
-│
-├── pairing/                 # Pairing engine
-│   ├── engine.py            # PairingEngine orchestrator
-│   └── strategies/          # Geometry-specific strategies
-│       ├── base.py          # BasePairingStrategy
-│       ├── point.py         # Fixed locations
-│       ├── track.py         # Aircraft/mobile tracks
-│       ├── profile.py       # Vertical profiles
-│       ├── swath.py         # Satellite swaths
-│       └── grid.py          # Gridded data
-│
-├── pipeline/                # Execution engine
-│   ├── runner.py            # PipelineRunner + ProgressFormatter
-│   ├── stages.py            # Stage protocol + implementations
-│   └── parallel.py          # Parallel execution utilities
-│
-├── plots/                   # Plotting system
-│   ├── base.py              # BasePlotter + label formatting
-│   ├── registry.py          # Plot type registration
-│   └── renderers/           # Plot implementations
-│       ├── scatter.py       # Scatter plots
-│       ├── timeseries.py    # Time series
-│       ├── spatial_bias.py  # Spatial bias maps
-│       ├── site_timeseries.py    # Multi-panel site plots
-│       ├── flight_timeseries.py  # Multi-panel flight plots
-│       └── track_map_3d.py       # 3D flight track visualization
-│
-├── stats/                   # Statistics
-│   ├── calculator.py        # MetricsCalculator
-│   ├── metrics.py           # Individual metric implementations
-│   └── output.py            # CSV/table formatters
-│
-├── io/                      # File I/O
-│   ├── readers.py           # Generic readers
-│   └── writers.py           # NetCDF writers with compression
-│
-└── cli/                     # Command-line interface
-    ├── app.py               # Main Typer application
-    └── commands/            # Subcommands
-        ├── run.py           # Pipeline execution
-        ├── validate.py      # Config validation
-        └── get_data.py      # Data download
-```
+<span style="color: #06b6d4">├──</span> core/                    # Foundation layer
+<span style="color: #06b6d4">│   ├──</span> protocols.py         # Interface definitions (ModelReader, etc.)
+<span style="color: #06b6d4">│   ├──</span> registry.py          # Plugin registration system
+<span style="color: #06b6d4">│   ├──</span> exceptions.py        # Custom exception hierarchy
+<span style="color: #06b6d4">│   ├──</span> types.py             # Type aliases and helpers
+<span style="color: #06b6d4">│   └──</span> base.py              # Base classes (PairedData, etc.)
+<span style="color: #06b6d4">│</span>
+<span style="color: #06b6d4">├──</span> config/                  # Configuration handling
+<span style="color: #06b6d4">│   ├──</span> schemas.py           # Pydantic models for YAML validation
+<span style="color: #06b6d4">│   └──</span> loader.py            # YAML parsing with env var expansion
+<span style="color: #06b6d4">│</span>
+<span style="color: #06b6d4">├──</span> models/                  # Model readers
+<span style="color: #06b6d4">│   ├──</span> base.py              # BaseModelReader
+<span style="color: #06b6d4">│   ├──</span> cmaq.py              # CMAQ reader
+<span style="color: #06b6d4">│   ├──</span> wrfchem.py           # WRF-Chem reader
+<span style="color: #06b6d4">│   ├──</span> cesm.py              # CESM/CAM-chem reader
+<span style="color: #06b6d4">│   ├──</span> ufs.py               # UFS reader
+<span style="color: #06b6d4">│   └──</span> generic.py           # Generic NetCDF reader
+<span style="color: #06b6d4">│</span>
+<span style="color: #06b6d4">├──</span> observations/            # Observation readers
+<span style="color: #06b6d4">│   ├──</span> base.py              # BaseObservationReader
+<span style="color: #06b6d4">│   ├──</span> surface/             # Surface observations
+<span style="color: #06b6d4">│   │   ├──</span> airnow.py        # AirNow (US Embassy monitors)
+<span style="color: #06b6d4">│   │   ├──</span> aeronet.py       # AERONET AOD
+<span style="color: #06b6d4">│   │   ├──</span> aqs.py           # EPA AQS
+<span style="color: #06b6d4">│   │   ├──</span> openaq.py        # OpenAQ
+<span style="color: #06b6d4">│   │   └──</span> pandora.py       # Pandora NO2 columns
+<span style="color: #06b6d4">│   ├──</span> aircraft/            # Aircraft observations
+<span style="color: #06b6d4">│   │   └──</span> icartt.py        # ICARTT format reader
+<span style="color: #06b6d4">│   └──</span> satellite/           # Satellite observations
+<span style="color: #06b6d4">│       ├──</span> tropomi.py       # TROPOMI L2
+<span style="color: #06b6d4">│       └──</span> goes.py          # GOES-16/17 AOD
+<span style="color: #06b6d4">│</span>
+<span style="color: #06b6d4">├──</span> pairing/                 # Pairing engine
+<span style="color: #06b6d4">│   ├──</span> engine.py            # PairingEngine orchestrator
+<span style="color: #06b6d4">│   └──</span> strategies/          # Geometry-specific strategies
+<span style="color: #06b6d4">│       ├──</span> base.py          # BasePairingStrategy
+<span style="color: #06b6d4">│       ├──</span> point.py         # Fixed locations
+<span style="color: #06b6d4">│       ├──</span> track.py         # Aircraft/mobile tracks
+<span style="color: #06b6d4">│       ├──</span> profile.py       # Vertical profiles
+<span style="color: #06b6d4">│       ├──</span> swath.py         # Satellite swaths
+<span style="color: #06b6d4">│       └──</span> grid.py          # Gridded data
+<span style="color: #06b6d4">│</span>
+<span style="color: #06b6d4">├──</span> pipeline/                # Execution engine
+<span style="color: #06b6d4">│   ├──</span> runner.py            # PipelineRunner + ProgressFormatter
+<span style="color: #06b6d4">│   ├──</span> stages.py            # Stage protocol + implementations
+<span style="color: #06b6d4">│   └──</span> parallel.py          # Parallel execution utilities
+<span style="color: #06b6d4">│</span>
+<span style="color: #06b6d4">├──</span> plots/                   # Plotting system
+<span style="color: #06b6d4">│   ├──</span> base.py              # BasePlotter + label formatting
+<span style="color: #06b6d4">│   ├──</span> registry.py          # Plot type registration
+<span style="color: #06b6d4">│   └──</span> renderers/           # Plot implementations
+<span style="color: #06b6d4">│       ├──</span> scatter.py       # Scatter plots
+<span style="color: #06b6d4">│       ├──</span> timeseries.py    # Time series
+<span style="color: #06b6d4">│       ├──</span> spatial_bias.py  # Spatial bias maps
+<span style="color: #06b6d4">│       ├──</span> site_timeseries.py    # Multi-panel site plots
+<span style="color: #06b6d4">│       ├──</span> flight_timeseries.py  # Multi-panel flight plots
+<span style="color: #06b6d4">│       └──</span> track_map_3d.py       # 3D flight track visualization
+<span style="color: #06b6d4">│</span>
+<span style="color: #06b6d4">├──</span> stats/                   # Statistics
+<span style="color: #06b6d4">│   ├──</span> calculator.py        # MetricsCalculator
+<span style="color: #06b6d4">│   ├──</span> metrics.py           # Individual metric implementations
+<span style="color: #06b6d4">│   └──</span> output.py            # CSV/table formatters
+<span style="color: #06b6d4">│</span>
+<span style="color: #06b6d4">├──</span> io/                      # File I/O
+<span style="color: #06b6d4">│   ├──</span> readers.py           # Generic readers
+<span style="color: #06b6d4">│   └──</span> writers.py           # NetCDF writers with compression
+<span style="color: #06b6d4">│</span>
+<span style="color: #06b6d4">└──</span> cli/                     # Command-line interface
+    <span style="color: #06b6d4">├──</span> app.py               # Main Typer application
+    <span style="color: #06b6d4">└──</span> commands/            # Subcommands
+        <span style="color: #06b6d4">├──</span> run.py           # Pipeline execution
+        <span style="color: #06b6d4">├──</span> validate.py      # Config validation
+        <span style="color: #06b6d4">└──</span> get_data.py      # Data download
+</pre>
 
 ---
 
