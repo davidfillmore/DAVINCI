@@ -146,6 +146,36 @@ To preview plots interactively (requires X11 forwarding):
 davinci-monet run analyses/asia-aq/configs/asia-aq-derecho.yaml --show-plots
 ```
 
+## Storage Performance
+
+| Storage | Type | Characteristics |
+|---------|------|-----------------|
+| `/glade/campaign` | Tape-backed | Slow for I/O, optimized for archival |
+| `/glade/work` | Parallel FS (GPFS) | Good throughput, high metadata latency |
+| `/glade/scratch` | Parallel FS | Faster, but temporary (purged) |
+| Mac SSD | Flash | Low latency, fast random I/O |
+
+**Why Derecho feels slower than a Mac**:
+- Parallel file systems have high latency for metadata operations
+- Opening 696 hourly files = 696 metadata lookups (slow)
+- Campaign storage adds tape-staging delays
+
+**Optimization strategies**:
+1. Narrow file glob for testing: `2024-02-0[1-3]-*.nc` (3 days instead of 29)
+2. Pre-concatenate files into daily/weekly chunks
+3. Copy working subset to `/glade/scratch` for faster I/O
+4. Use `xr.open_mfdataset(..., parallel=True)` with Dask
+
+**Observed performance (Feb 2024 full month)**:
+
+| Stage | Mac (SSD) | Derecho (GPFS) | Slowdown |
+|-------|-----------|----------------|----------|
+| load_models | ~1 min | ~5+ min | ~5x |
+| load_obs | fast | slow | TBD |
+| pairing (AERONET) | ~30 sec | 10+ min | **~20x** |
+
+Pairing performance needs investigation - likely not utilizing parallel processing.
+
 ## File Transfer Notes
 
 Tar archives created for transferring data:
