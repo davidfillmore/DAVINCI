@@ -67,16 +67,61 @@ export ASIA_AQ_DATA=/glade/campaign/acom/acom-weather/emmons
 export ASIA_AQ_ANALYSIS=/glade/work/fillmore/ASIA-AQ
 ```
 
-## Running Analyses (Headless Mode)
+## Running on Compute Nodes
 
-Derecho login/compute nodes have no display, so use headless mode (default):
+**Do not run compute-intensive jobs on login nodes!** Use an interactive session or batch job.
+
+### Interactive Session
 
 ```bash
+qsub -I -A P19010000 -l select=1:ncpus=64:mpiprocs=64:ngpus=4 -l walltime=02:00:00 -q main
+```
+
+Once on a compute node:
+```bash
+conda activate davinci-monet
 cd /glade/work/fillmore/DAVINCI-MONET
 davinci-monet run analyses/asia-aq/configs/asia-aq-derecho.yaml
 ```
 
 Output goes to `/glade/work/fillmore/ASIA-AQ/output/`.
+
+### Batch Job
+
+Create `run_asia_aq.pbs`:
+```bash
+#!/bin/bash
+#PBS -N asia-aq
+#PBS -A P19010000
+#PBS -l select=1:ncpus=64:mpiprocs=64:ngpus=4
+#PBS -l walltime=04:00:00
+#PBS -q main
+#PBS -j oe
+
+conda activate davinci-monet
+cd /glade/work/fillmore/DAVINCI-MONET
+davinci-monet run analyses/asia-aq/configs/asia-aq-derecho.yaml
+```
+
+Submit with: `qsub run_asia_aq.pbs`
+
+## Parallel Processing
+
+The pipeline leverages parallelism at multiple levels:
+
+1. **Xarray + Dask**: Lazy loading and parallel computation on chunked arrays
+   - Dask 2024.2.1 available in environment
+   - Automatically uses multiple cores for array operations
+
+2. **Pipeline ParallelExecutor**: Concurrent model-observation pairing
+   - Uses `concurrent.futures` ThreadPoolExecutor
+   - Located in `davinci_monet/pipeline/parallel.py`
+
+To explicitly configure Dask workers:
+```python
+from dask.distributed import Client
+client = Client(n_workers=16, threads_per_worker=4)
+```
 
 ### Config Files
 
