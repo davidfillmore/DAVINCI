@@ -147,6 +147,11 @@ def run(
         "-d",
         help="Print more messages (including full tracebacks).",
     ),
+    show_plots: bool = typer.Option(
+        False,
+        "--show-plots",
+        help="Display interactive plot preview after pipeline completes (requires display).",
+    ),
 ) -> None:
     """Run DAVINCI-MONET analysis as described in the control file."""
     from davinci_monet.cli.commands.run import run_analysis
@@ -154,7 +159,7 @@ def run(
     global DEBUG
     DEBUG = debug
 
-    run_analysis(control, debug=debug)
+    run_analysis(control, debug=debug, show_plots=show_plots)
 
 
 @app.command()

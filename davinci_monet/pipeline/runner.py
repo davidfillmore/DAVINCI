@@ -843,6 +843,7 @@ class PipelineRunner:
         fail_fast: bool = True,
         hooks: dict[str, Callable[..., None]] | None = None,
         show_progress: bool = True,
+        show_plots: bool = False,
     ) -> None:
         """Initialize pipeline runner.
 
@@ -856,11 +857,14 @@ class PipelineRunner:
             Event callbacks: on_start, on_stage_start, on_stage_end, on_end.
         show_progress
             Display progress bar and stage status to stdout.
+        show_plots
+            Display interactive plot preview after completion (requires display).
         """
         self._stages = list(stages) if stages is not None else create_standard_pipeline()
         self._fail_fast = fail_fast
         self._hooks = hooks or {}
         self._show_progress = show_progress
+        self._show_plots = show_plots
 
     @property
     def stages(self) -> list[Stage]:
@@ -1054,8 +1058,8 @@ class PipelineRunner:
                 except Exception as e:
                     logger.warning(f"Failed to write log file: {e}")
 
-            # Preview generated plots if pipeline succeeded
-            if result.success and "plotting" in context.results:
+            # Preview generated plots if pipeline succeeded and show_plots is enabled
+            if self._show_plots and result.success and "plotting" in context.results:
                 plotting_result = context.results["plotting"]
                 if plotting_result.data and "plots_generated" in plotting_result.data:
                     plot_paths = plotting_result.data["plots_generated"]
@@ -1180,6 +1184,7 @@ class PipelineBuilder:
         self._fail_fast = True
         self._hooks: dict[str, Callable[..., None]] = {}
         self._show_progress = True
+        self._show_plots = False
 
     def add_stage(self, stage: Stage) -> PipelineBuilder:
         """Add a custom stage."""
@@ -1239,6 +1244,11 @@ class PipelineBuilder:
         self._show_progress = enabled
         return self
 
+    def show_plots(self, enabled: bool = True) -> PipelineBuilder:
+        """Set interactive plot preview mode."""
+        self._show_plots = enabled
+        return self
+
     def build(self) -> PipelineRunner:
         """Build the pipeline runner."""
         return PipelineRunner(
@@ -1246,12 +1256,14 @@ class PipelineBuilder:
             fail_fast=self._fail_fast,
             hooks=self._hooks,
             show_progress=self._show_progress,
+            show_plots=self._show_plots,
         )
 
 
 def run_analysis(
     config: dict[str, Any] | str,
     show_progress: bool = True,
+    show_plots: bool = False,
 ) -> PipelineResult:
     """Convenience function to run a complete analysis.
 
@@ -1261,6 +1273,8 @@ def run_analysis(
         Configuration dictionary or path to YAML file.
     show_progress
         Display progress bar and stage timing to stdout.
+    show_plots
+        Display interactive plot preview after completion (requires display).
 
     Returns
     -------
@@ -1273,5 +1287,5 @@ def run_analysis(
     >>> if result.success:
     ...     print("Analysis complete!")
     """
-    runner = PipelineRunner(show_progress=show_progress)
+    runner = PipelineRunner(show_progress=show_progress, show_plots=show_plots)
     return runner.run_from_config(config)
