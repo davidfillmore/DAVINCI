@@ -258,13 +258,41 @@ class PointStrategy(BasePairingStrategy):
         # Add model variables - reassign to obs coordinates to ensure alignment
         # Model was extracted at same site/time locations, just with integer indices
         for var in model_at_sites.data_vars:
-            # Create new DataArray with observation coordinates
-            model_da = xr.DataArray(
-                model_at_sites[var].values,
-                dims=obs[list(obs.data_vars)[0]].dims,
-                coords={d: obs.coords[d] for d in obs[list(obs.data_vars)[0]].dims if d in obs.coords},
-                name=var,
-            )
+            model_var = model_at_sites[var]
+            obs_ref = obs[list(obs.data_vars)[0]]
+
+            # Handle dimension mismatch (e.g., obs has extra y=1 dimension)
+            if model_var.ndim != obs_ref.ndim:
+                # Find extra dims in obs that aren't in model (usually singleton dims like y=1)
+                extra_dims = [d for d in obs_ref.dims if d not in model_var.dims]
+                if all(obs_ref.sizes[d] == 1 for d in extra_dims):
+                    # Squeeze obs to match model dims, then expand model to match obs
+                    target_dims = model_var.dims
+                    target_coords = {d: obs.coords[d] for d in target_dims if d in obs.coords}
+                    model_da = xr.DataArray(
+                        model_var.values,
+                        dims=target_dims,
+                        coords=target_coords,
+                        name=var,
+                    )
+                    # Expand to include the extra singleton dimensions
+                    for ed in extra_dims:
+                        model_da = model_da.expand_dims({ed: obs.coords[ed].values})
+                    # Reorder to match obs dims
+                    model_da = model_da.transpose(*obs_ref.dims)
+                else:
+                    raise PairingError(
+                        f"Dimension mismatch between model ({model_var.dims}) and obs ({obs_ref.dims}). "
+                        f"Extra dimensions {extra_dims} are not singletons."
+                    )
+            else:
+                # Dimensions match - use original logic
+                model_da = xr.DataArray(
+                    model_var.values,
+                    dims=obs_ref.dims,
+                    coords={d: obs.coords[d] for d in obs_ref.dims if d in obs.coords},
+                    name=var,
+                )
             data_vars[str(var)] = model_da
 
         return xr.Dataset(data_vars, coords=dict(obs.coords))

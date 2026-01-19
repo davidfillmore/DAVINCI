@@ -1,0 +1,56 @@
+# ASIA-AQ Minimal Test Config (1 day only)
+# For diagnosing performance bottlenecks on Derecho
+#
+# Changes from full config:
+# - Only Feb 1, 2024 (24 hourly files instead of 1440)
+# - Reduced plots to essentials
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-01"
+  output_dir: /glade/work/fillmore/ASIA-AQ/output-test
+  log_dir: /glade/work/fillmore/ASIA-AQ/logs
+  debug: true
+
+model:
+  cesm_asiaq:
+    mod_type: generic  # Use generic reader for regridded 2D data
+    # Only Feb 1 files (24 hourly files)
+    files: /glade/campaign/acom/acom-weather/emmons/ASIAAQ_sims/f.e3b06m.FCnudged.t6s.GEMSne30x8.01/regridded_0.1deg/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-01-*.nc
+    radius_of_influence: 15000
+
+    mapping:
+      aeronet:
+        aod_500nm: AODVISdn
+
+    variables:
+      AODVISdn:
+        unit_scale: 1.0
+        units: "1"
+
+obs:
+  aeronet:
+    obs_type: pt_sfc
+    filename: /glade/campaign/acom/acom-weather/emmons/ASIAAQ_obs/AERONET/AERONET_L15_20240101_20240501.nc
+    variables:
+      aod_500nm:
+        obs_min: 0
+        obs_max: 5.0
+        units: "1"
+
+pairs:
+  cesm_aeronet_aod:
+    model: cesm_asiaq
+    obs: aeronet
+    variable:
+      model_var: AODVISdn
+      obs_var: aod_500nm
+
+plots:
+  aod_scatter:
+    type: scatter
+    pairs: [cesm_aeronet_aod]
+    title: "AOD Model vs AERONET (1 day test)"
+
+stats:
+  metrics: [N, MB, RMSE, R]

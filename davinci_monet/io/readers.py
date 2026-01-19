@@ -130,6 +130,7 @@ def read_mfdataset(
             file_list,
             engine=engine,
             combine=combine,
+            parallel=True,
             **kwargs,
         )
         return ds

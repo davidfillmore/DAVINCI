@@ -249,6 +249,7 @@ class CESMFVReader:
             ds = xr.open_mfdataset(
                 [str(f) for f in file_paths],
                 combine="by_coords",
+                parallel=True,
                 **kwargs,
             )
         else:
@@ -389,6 +390,7 @@ class CESMSEReader:
             ds = xr.open_mfdataset(
                 [str(f) for f in file_paths],
                 combine="by_coords",
+                parallel=True,
                 **xr_kwargs,
             )
         else:

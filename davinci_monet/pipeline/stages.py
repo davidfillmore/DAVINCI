@@ -226,6 +226,18 @@ def _format_size(n: int) -> str:
     return str(n)
 
 
+def _format_duration(seconds: float) -> str:
+    """Format duration in human-readable format."""
+    if seconds < 1:
+        return f"{seconds * 1000:.0f}ms"
+    elif seconds < 60:
+        return f"{seconds:.1f}s"
+    else:
+        mins = int(seconds // 60)
+        secs = seconds % 60
+        return f"{mins}m{secs:.0f}s"
+
+
 class LoadModelsStage(BaseStage):
     """Stage for loading model data.
 
@@ -249,6 +261,7 @@ class LoadModelsStage(BaseStage):
         start = time.time()
         model_config = context.config.get("model") or context.config.get("models", {})
         total_models = len(model_config)
+        debug = context.config.get("analysis", {}).get("debug", False)
 
         loaded_count = 0
         for label, config in model_config.items():
@@ -260,9 +273,12 @@ class LoadModelsStage(BaseStage):
                 variables = config.get("variables")
 
                 # Count files for progress message
+                t0 = time.time()
                 if isinstance(files, str) and ("*" in files or "?" in files):
                     file_list = glob(files)
                     n_files = len(file_list)
+                    if debug:
+                        context.log_progress(f"      [TIMING] glob: {_format_duration(time.time() - t0)}")
                     context.log_progress(f"step: Opening {n_files} files...")
                 else:
                     context.log_progress(f"step: Opening dataset...")
@@ -272,12 +288,15 @@ class LoadModelsStage(BaseStage):
                 else:
                     var_list = variables
 
+                t0 = time.time()
                 model_data = open_model(
                     files=files,
                     mod_type=mod_type,
                     variables=var_list,
                     label=label,
                 )
+                if debug:
+                    context.log_progress(f"      [TIMING] open_model: {_format_duration(time.time() - t0)}")
 
                 # Apply unit scaling, units, and display_name if configured
                 if isinstance(variables, dict):
@@ -288,6 +307,7 @@ class LoadModelsStage(BaseStage):
                     if has_conversions:
                         context.log_progress("step: Applying unit conversions...")
 
+                    t0 = time.time()
                     for var_name, var_config in variables.items():
                         if isinstance(var_config, dict) and var_name in model_data.data.data_vars:
                             if "unit_scale" in var_config:
@@ -298,6 +318,8 @@ class LoadModelsStage(BaseStage):
                                 model_data.data[var_name].attrs["units"] = var_config["units"]
                             if var_config.get("display_name"):  # Only set if not None/empty
                                 model_data.data[var_name].attrs["display_name"] = var_config["display_name"]
+                    if debug and has_conversions:
+                        context.log_progress(f"      [TIMING] unit_conversions: {_format_duration(time.time() - t0)}")
 
                 context.models[label] = model_data
                 loaded_count += 1
@@ -349,6 +371,7 @@ class LoadObservationsStage(BaseStage):
         start = time.time()
         obs_config = context.config.get("obs") or context.config.get("observations", {})
         total_obs = len(obs_config)
+        debug = context.config.get("analysis", {}).get("debug", False)
 
         # Use current working directory for relative paths
         base_path = Path.cwd()
@@ -375,23 +398,36 @@ class LoadObservationsStage(BaseStage):
 
                     # Handle glob patterns
                     if "*" in str(file_path) or "?" in str(file_path):
+                        t0 = time.time()
                         files = sorted(glob(str(file_path)))
+                        if debug:
+                            context.log_progress(f"      [TIMING] glob: {_format_duration(time.time() - t0)}")
                         if files:
                             n_files = len(files)
                             # Check if ICARTT files (.ict extension)
                             if files[0].endswith(".ict"):
                                 context.log_progress(f"step: Reading {n_files} ICARTT files...")
+                                t0 = time.time()
                                 data = self._load_icartt_files(files)
+                                if debug:
+                                    context.log_progress(f"      [TIMING] load_icartt: {_format_duration(time.time() - t0)}")
                             else:
                                 context.log_progress(f"step: Opening {n_files} files...")
-                                data = xr.open_mfdataset(files, combine="by_coords")
+                                t0 = time.time()
+                                data = xr.open_mfdataset(files, combine="by_coords", parallel=True)
+                                if debug:
+                                    context.log_progress(f"      [TIMING] open_mfdataset: {_format_duration(time.time() - t0)}")
                     elif file_path.exists():
                         context.log_progress("step: Opening dataset...")
+                        t0 = time.time()
                         if str(file_path).endswith(".ict"):
                             data = self._load_icartt_files([str(file_path)])
                         else:
                             data = xr.open_dataset(str(file_path))
+                        if debug:
+                            context.log_progress(f"      [TIMING] open_dataset: {_format_duration(time.time() - t0)}")
 
+                t0 = time.time()
                 obs_data = create_observation_data(
                     label=label,
                     obs_type=obs_type,
@@ -399,6 +435,8 @@ class LoadObservationsStage(BaseStage):
                     filename=filename,
                     variables=variables,
                 )
+                if debug:
+                    context.log_progress(f"      [TIMING] create_observation_data: {_format_duration(time.time() - t0)}")
 
                 # Apply unit scaling, units, and display_name if configured
                 if isinstance(variables, dict):
@@ -475,89 +513,117 @@ class PairingStage(BaseStage):
         return bool(context.models) and bool(context.observations)
 
     def execute(self, context: PipelineContext) -> StageResult:
-        """Pair model and observation data."""
+        """Pair model and observation data using parallel execution."""
+        import os
         import time
+        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         from davinci_monet.pairing import PairingEngine, PairingConfig
 
         start = time.time()
-        paired_count = 0
 
         # Get pairing configuration
         pairing_config_dict = context.config.get("pairing", {})
 
-        # Count expected pairs for progress reporting
-        expected_pairs = []
-        for model_label in context.models:
+        # Build list of pairs to process
+        pairs_to_process: list[tuple[str, Any, str, Any, dict, dict]] = []
+        for model_label, model_data in context.models.items():
             model_config = context.config.get("model", {}).get(model_label, {})
             mapping = model_config.get("mapping", {})
-            for obs_label in context.observations:
-                if mapping and obs_label in mapping:
-                    expected_pairs.append(f"{model_label}_{obs_label}")
-        total_pairs = len(expected_pairs)
 
-        engine = PairingEngine()
-
-        for model_label, model_data in context.models.items():
             for obs_label, obs_data in context.observations.items():
-                try:
-                    pair_key = f"{model_label}_{obs_label}"
+                if mapping and obs_label not in mapping:
+                    continue
 
-                    # Get model-obs variable mapping
-                    model_config = context.config.get("model", {}).get(model_label, {})
-                    mapping = model_config.get("mapping", {})
-                    if mapping and obs_label not in mapping:
-                        continue
+                var_mapping = mapping.get(obs_label, {})
+                if not var_mapping:
+                    continue
 
-                    # Extract variable mappings: {obs_var: model_var}
-                    var_mapping = mapping.get(obs_label, {})
-                    if not var_mapping:
-                        continue
+                pairs_to_process.append((
+                    model_label, model_data,
+                    obs_label, obs_data,
+                    model_config, var_mapping
+                ))
 
-                    context.log_progress(f"    Pairing: {pair_key} ({paired_count + 1}/{total_pairs})")
+        total_pairs = len(pairs_to_process)
+        if total_pairs == 0:
+            return self._create_result(
+                StageStatus.COMPLETED,
+                data={"paired_keys": []},
+                duration=time.time() - start,
+                count=0,
+            )
 
-                    obs_vars = list(var_mapping.keys())
-                    model_vars = list(var_mapping.values())
+        debug = context.config.get("analysis", {}).get("debug", False)
+        context.log_progress(f"    Processing {total_pairs} pairs in parallel...")
 
-                    # Get model and obs datasets
-                    model_ds = model_data.data if hasattr(model_data, "data") else model_data
-                    obs_ds = obs_data.data if hasattr(obs_data, "data") else obs_data
+        def pair_single(args: tuple) -> tuple[str, Any, str | None, float]:
+            """Process a single model-obs pair. Returns (pair_key, paired_ds, error, duration)."""
+            import time as time_mod
+            pair_start = time_mod.time()
+            model_label, model_data, obs_label, obs_data, model_config, var_mapping = args
+            pair_key = f"{model_label}_{obs_label}"
 
-                    if model_ds is None or obs_ds is None:
-                        continue
+            try:
+                obs_vars = list(var_mapping.keys())
+                model_vars = list(var_mapping.values())
 
-                    # Build pairing config
-                    radius = model_config.get("radius_of_influence", 12000.0)
-                    pairing_cfg = PairingConfig(
-                        radius_of_influence=radius,
-                        time_tolerance=pairing_config_dict.get("time_tolerance", "1h"),
+                model_ds = model_data.data if hasattr(model_data, "data") else model_data
+                obs_ds = obs_data.data if hasattr(obs_data, "data") else obs_data
+
+                if model_ds is None or obs_ds is None:
+                    return (pair_key, None, "Model or obs data is None", time_mod.time() - pair_start)
+
+                radius = model_config.get("radius_of_influence", 12000.0)
+                pairing_cfg = PairingConfig(
+                    radius_of_influence=radius,
+                    time_tolerance=pairing_config_dict.get("time_tolerance", "1h"),
+                )
+
+                engine = PairingEngine()
+                paired_ds = engine.pair(
+                    model_ds,
+                    obs_ds,
+                    obs_vars=obs_vars,
+                    model_vars=model_vars,
+                    config=pairing_cfg,
+                )
+
+                return (pair_key, paired_ds, None, time_mod.time() - pair_start)
+
+            except Exception as e:
+                return (pair_key, None, str(e), time_mod.time() - pair_start)
+
+        # Process pairs in parallel using ThreadPoolExecutor
+        max_workers = min(total_pairs, os.cpu_count() or 4)
+        paired_count = 0
+        completed = 0
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(pair_single, args): args for args in pairs_to_process}
+
+            for future in as_completed(futures):
+                completed += 1
+                pair_key, paired_ds, error, pair_duration = future.result()
+
+                if error:
+                    context.metadata.setdefault("pairing_errors", []).append(
+                        f"{pair_key}: {error}"
                     )
-
-                    # Progress: finding grid cells
-                    context.log_progress("step: Finding nearest grid cells...")
-
-                    # Pair data
-                    paired_ds = engine.pair(
-                        model_ds,
-                        obs_ds,
-                        obs_vars=obs_vars,
-                        model_vars=model_vars,
-                        config=pairing_cfg,
-                    )
-
+                    if debug:
+                        context.log_progress(f"      [TIMING] {pair_key} failed: {_format_duration(pair_duration)}")
+                elif paired_ds is not None:
                     context.paired[pair_key] = paired_ds
                     paired_count += 1
 
                     # Summary message
                     paired_data = paired_ds.data if hasattr(paired_ds, "data") else paired_ds
-                    n_vars = len(obs_vars)
+                    n_vars = len(paired_data.data_vars) // 2  # model_ and obs_ vars
                     n_points = paired_data.sizes.get("time", paired_data.sizes.get("x", 0))
-                    context.log_progress(f"done: {n_vars} vars, {_format_size(n_points)} points")
-
-                except Exception as e:
-                    # Log but continue with other pairs
-                    context.metadata.setdefault("pairing_errors", []).append(
-                        f"{pair_key}: {e}"
+                    timing_str = f" [{_format_duration(pair_duration)}]" if debug else ""
+                    context.log_progress(
+                        f"    Paired: {pair_key} ({completed}/{total_pairs}) - "
+                        f"{n_vars} vars, {_format_size(n_points)} points{timing_str}"
                     )
 
         return self._create_result(

@@ -117,6 +117,7 @@ class AQSReader:
                 ds = xr.open_mfdataset(
                     [str(f) for f in file_list],
                     combine="by_coords",
+                    parallel=True,
                     **kwargs,
                 )
             else:
