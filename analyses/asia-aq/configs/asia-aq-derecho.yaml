@@ -30,7 +30,7 @@ analysis:
 # Model configuration
 model:
   cesm_asiaq:
-    mod_type: cesm_fv
+    mod_type: generic  # Regridded 2D data (no vertical dimension)
     # Derecho campaign storage path
     files: /glade/campaign/acom/acom-weather/emmons/ASIAAQ_sims/f.e3b06m.FCnudged.t6s.GEMSne30x8.01/regridded_0.1deg/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc
     radius_of_influence: 15000  # 15 km for 0.1 deg grid
