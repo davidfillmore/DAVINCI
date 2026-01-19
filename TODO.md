@@ -73,8 +73,10 @@ analyses/asia-aq/configs/asia-aq-scratch.yaml   # Derecho: generic, scratch stor
 - [x] Progress output fixes
 
 ### Remaining
-- [ ] Time filtering at observation load (avoid loading 5-month file for 3-day analysis)
-- [ ] Investigate observation load time (~163s for AERONET NetCDF)
+- [x] Time filtering at observation load (avoid loading 5-month file for 3-day analysis)
+  - File-level: filters by YYYYMMDD in filename (e.g., ICARTT files)
+  - Data-level: filters by time dimension after loading (e.g., NetCDF)
+  - Result: load_observations 163s -> 0.1s (1,630x faster)
 - [ ] Pre-chunked model data (daily/weekly concatenated files)
 
 ---

@@ -373,6 +373,11 @@ class LoadObservationsStage(BaseStage):
         total_obs = len(obs_config)
         debug = context.config.get("analysis", {}).get("debug", False)
 
+        # Get analysis time range for filtering
+        analysis_config = context.config.get("analysis", {})
+        analysis_start = analysis_config.get("start_time")
+        analysis_end = analysis_config.get("end_time")
+
         # Use current working directory for relative paths
         base_path = Path.cwd()
 
@@ -402,6 +407,22 @@ class LoadObservationsStage(BaseStage):
                         files = sorted(glob(str(file_path)))
                         if debug:
                             context.log_progress(f"      [TIMING] glob: {_format_duration(time.time() - t0)}")
+
+                        # Pre-filter files by date in filename (if analysis time range specified)
+                        if files and analysis_start and analysis_end:
+                            original_count = len(files)
+                            files = self._filter_files_by_date(files, analysis_start, analysis_end)
+                            if len(files) < original_count:
+                                context.log_progress(
+                                    f"step: Filtered {original_count} -> {len(files)} files by date"
+                                )
+                            if not files:
+                                context.log_progress(
+                                    f"done: No files in analysis date range, skipping"
+                                )
+                                loaded_count += 1
+                                continue  # Skip this observation
+
                         if files:
                             n_files = len(files)
                             # Check if ICARTT files (.ict extension)
@@ -426,6 +447,22 @@ class LoadObservationsStage(BaseStage):
                             data = xr.open_dataset(str(file_path))
                         if debug:
                             context.log_progress(f"      [TIMING] open_dataset: {_format_duration(time.time() - t0)}")
+
+                # Filter by analysis time range if specified
+                if data is not None and "time" in data.dims and analysis_start and analysis_end:
+                    t0 = time.time()
+                    original_size = data.sizes.get("time", 0)
+                    data = self._filter_by_time(data, analysis_start, analysis_end)
+                    filtered_size = data.sizes.get("time", 0)
+                    if debug:
+                        context.log_progress(
+                            f"      [TIMING] time_filter: {_format_duration(time.time() - t0)} "
+                            f"({original_size} -> {filtered_size} times)"
+                        )
+                    elif filtered_size < original_size:
+                        context.log_progress(
+                            f"step: Filtered to analysis period ({filtered_size} times)"
+                        )
 
                 t0 = time.time()
                 obs_data = create_observation_data(
@@ -497,6 +534,91 @@ class LoadObservationsStage(BaseStage):
 
         reader = ICARTTReader()
         return reader.open(files)
+
+    def _filter_files_by_date(
+        self,
+        files: list[str],
+        start_time: str,
+        end_time: str,
+    ) -> list[str]:
+        """Filter file list by dates extracted from filenames.
+
+        Looks for YYYYMMDD patterns in filenames and keeps only files
+        within the analysis date range.
+
+        Parameters
+        ----------
+        files
+            List of file paths.
+        start_time
+            Start of analysis period (ISO format string).
+        end_time
+            End of analysis period (ISO format string).
+
+        Returns
+        -------
+        list[str]
+            Filtered file list.
+        """
+        import re
+        import pandas as pd
+
+        t_start = pd.Timestamp(start_time).date()
+        t_end = pd.Timestamp(end_time).date()
+
+        # Pattern to match YYYYMMDD in filename
+        date_pattern = re.compile(r"(\d{4})(\d{2})(\d{2})")
+
+        filtered = []
+        for f in files:
+            # Search for date pattern in filename (not full path)
+            filename = f.split("/")[-1]
+            match = date_pattern.search(filename)
+            if match:
+                try:
+                    year, month, day = int(match.group(1)), int(match.group(2)), int(match.group(3))
+                    file_date = pd.Timestamp(year=year, month=month, day=day).date()
+                    if t_start <= file_date <= t_end:
+                        filtered.append(f)
+                except ValueError:
+                    # Invalid date, include file to be safe
+                    filtered.append(f)
+            else:
+                # No date in filename, include file
+                filtered.append(f)
+
+        return filtered
+
+    def _filter_by_time(
+        self,
+        data: "xr.Dataset",
+        start_time: str,
+        end_time: str,
+    ) -> "xr.Dataset":
+        """Filter dataset to analysis time range.
+
+        Parameters
+        ----------
+        data
+            Dataset with time dimension.
+        start_time
+            Start of analysis period (ISO format string).
+        end_time
+            End of analysis period (ISO format string).
+
+        Returns
+        -------
+        xr.Dataset
+            Dataset filtered to time range.
+        """
+        import pandas as pd
+
+        # Parse time bounds - add 1 day to end to make it inclusive
+        t_start = pd.Timestamp(start_time)
+        t_end = pd.Timestamp(end_time) + pd.Timedelta(days=1)
+
+        # Use sel with slice for efficient time filtering
+        return data.sel(time=slice(t_start, t_end))
 
 
 class PairingStage(BaseStage):
