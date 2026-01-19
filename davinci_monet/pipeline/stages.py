@@ -555,7 +555,11 @@ class PairingStage(BaseStage):
             )
 
         debug = context.config.get("analysis", {}).get("debug", False)
-        context.log_progress(f"    Processing {total_pairs} pairs in parallel...")
+
+        # Log what pairs we're about to process (shows in animation)
+        for i, (model_label, _, obs_label, _, _, _) in enumerate(pairs_to_process, 1):
+            pair_key = f"{model_label}_{obs_label}"
+            context.log_progress(f"    Pairing: {pair_key} ({i}/{total_pairs})")
 
         def pair_single(args: tuple) -> tuple[str, Any, str | None, float]:
             """Process a single model-obs pair. Returns (pair_key, paired_ds, error, duration)."""

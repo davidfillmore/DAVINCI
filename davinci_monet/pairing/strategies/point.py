@@ -6,8 +6,11 @@ ground sites) with gridded model output.
 
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Hashable
 
+import dask
 import numpy as np
 import xarray as xr
 
@@ -206,8 +209,11 @@ class PointStrategy(BasePairingStrategy):
         # Extract all sites at once using advanced indexing
         extracted = model.isel({lat_dim: lat_indexer, lon_dim: lon_indexer})
 
-        # Load data to numpy (triggers single read instead of per-site reads)
-        extracted = extracted.load()
+        # Load data to numpy with optimized parallel scheduler
+        # Use threaded scheduler with multiple workers for parallel file I/O
+        n_workers = min(32, os.cpu_count() or 4)
+        with dask.config.set(scheduler='threads', num_workers=n_workers):
+            extracted = extracted.compute()
 
         # Mask invalid sites with NaN
         if not valid_mask.all():

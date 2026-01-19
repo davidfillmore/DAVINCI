@@ -39,10 +39,8 @@ def run_analysis(control_path: str, debug: bool = False, show_plots: bool = Fals
         typer.secho(f"Error: control file {control_path!r} does not exist", fg=ERROR_COLOR)
         raise typer.Exit(2)
 
-    typer.secho(f"Config: {p.absolute()}", fg=INFO_COLOR)
-    typer.echo()
-
     # Run the full pipeline with progress bars and logging
+    # Note: ProgressFormatter.header() displays the config path
     from davinci_monet.pipeline.runner import run_analysis as pipeline_run
 
     try:

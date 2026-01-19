@@ -638,10 +638,18 @@ class ProgressFormatter:
         self._current_stage = None
         self._stage_items = []
 
-    def item_start(self, category: str, name: str, index: int, total: int) -> None:
-        """Print item start (model, observation, pair)."""
+    def item_start(self, category: str, name: str, index: int, total: int, track: bool = True) -> None:
+        """Print item start (model, observation, pair).
+
+        Parameters
+        ----------
+        track
+            If True, add to stage_items for summary display. Set False for
+            "in progress" messages where completion is tracked separately.
+        """
         self._log(f"  → {name} ({index}/{total})")
-        self._stage_items.append((category, name))
+        if track:
+            self._stage_items.append((category, name))
 
         # Update the current item for animation display
         self._current_item = name
@@ -967,10 +975,17 @@ class PipelineRunner:
                         name, idx, total = match.groups()
                         fmt.item_start("obs", name, int(idx), int(total))
                 elif msg.strip().startswith("Pairing:"):
+                    # "Pairing:" = start, just update animation (don't track)
                     match = re.match(r"\s*Pairing: (\S+) \((\d+)/(\d+)\)", msg)
                     if match:
                         name, idx, total = match.groups()
-                        fmt.item_start("pair", name, int(idx), int(total))
+                        fmt.item_start("pair", name, int(idx), int(total), track=False)
+                elif msg.strip().startswith("Paired:"):
+                    # "Paired:" = completion, track for summary
+                    match = re.match(r"\s*Paired: (\S+) \((\d+)/(\d+)\)", msg)
+                    if match:
+                        name, idx, total = match.groups()
+                        fmt.item_start("pair", name, int(idx), int(total), track=True)
                 elif msg.strip().startswith("Stats:"):
                     match = re.match(r"\s*Stats: (\S+) \((\d+)/(\d+)\)", msg)
                     if match:

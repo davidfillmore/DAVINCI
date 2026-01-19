@@ -129,6 +129,8 @@ client = Client(n_workers=16, threads_per_worker=4)
 |--------|-------------|
 | `asia-aq.yaml` | Original config (uses `${ASIA_AQ_DATA}` env var) |
 | `asia-aq-derecho.yaml` | Derecho-specific with campaign storage paths |
+| `asia-aq-scratch.yaml` | **Fastest** - uses scratch storage (requires setup above) |
+| `asia-aq-derecho-1day.yaml` | Single day test config |
 
 ### Available Data in Derecho Config
 
@@ -152,29 +154,60 @@ davinci-monet run analyses/asia-aq/configs/asia-aq-derecho.yaml --show-plots
 |---------|------|-----------------|
 | `/glade/campaign` | Tape-backed | Slow for I/O, optimized for archival |
 | `/glade/work` | Parallel FS (GPFS) | Good throughput, high metadata latency |
-| `/glade/scratch` | Parallel FS | Faster, but temporary (purged) |
+| `/glade/derecho/scratch` | Parallel FS | **Fastest**, but temporary (purged after 60 days) |
 | Mac SSD | Flash | Low latency, fast random I/O |
 
 **Why Derecho feels slower than a Mac**:
 - Parallel file systems have high latency for metadata operations
 - Opening 696 hourly files = 696 metadata lookups (slow)
-- Campaign storage adds tape-staging delays
+- Campaign storage adds tape-staging delays even when files are cached
 
 **Optimization strategies**:
-1. Narrow file glob for testing: `2024-02-0[1-3]-*.nc` (3 days instead of 29)
-2. Pre-concatenate files into daily/weekly chunks
-3. Copy working subset to `/glade/scratch` for faster I/O
+1. **Use scratch storage** - Copy data to `/glade/derecho/scratch` for active work
+2. Narrow file glob for testing: `2024-02-0[1-3]-*.nc` (3 days instead of 29)
+3. Pre-concatenate files into daily/weekly chunks
 4. Use `xr.open_mfdataset(..., parallel=True)` with Dask
 
-**Observed performance (Feb 2024 full month)**:
+### Observed Performance (3-day test, 72 model files)
 
-| Stage | Mac (SSD) | Derecho (GPFS) | Slowdown |
-|-------|-----------|----------------|----------|
-| load_models | ~1 min | ~5+ min | ~5x |
-| load_obs | fast | slow | TBD |
-| pairing (AERONET) | ~30 sec | 10+ min | **~20x** |
+| Stage | Campaign Storage | Scratch Storage | Speedup |
+|-------|------------------|-----------------|---------|
+| load_models | 190s | **6.8s** | **28x** |
+| load_observations | 172s | 163s | ~1x |
+| pairing (AERONET) | 10+ min | **2.3s** | **~260x** |
 
-Pairing performance needs investigation - likely not utilizing parallel processing.
+**Key findings**:
+- Scratch storage dramatically improves model loading (28x faster)
+- Pairing bottleneck was fixed by using explicit Dask parallel scheduler
+- Observation loading still slow due to loading full 5-month AERONET file (~1GB)
+  regardless of analysis date range (future optimization: time filtering at load)
+
+### Scratch Storage Setup
+
+Tar archives on scratch need extraction before use:
+
+```bash
+# Create directories
+mkdir -p /glade/derecho/scratch/fillmore/ASIA-AQ/{model,obs,output,logs}
+
+# Extract model data (3 days for testing)
+cd /glade/derecho/scratch/fillmore/ASIA-AQ/model
+for day in 01 02 03; do
+  tar -xf /glade/derecho/scratch/fillmore/ASIA-AQ.2024-02-${day}.tar --strip-components=8
+done
+
+# Extract DC-8 aircraft data
+cd /glade/derecho/scratch/fillmore/ASIA-AQ/obs
+tar -xf /glade/derecho/scratch/fillmore/DC8.tar --strip-components=7
+
+# Copy AERONET
+cp /glade/work/fillmore/ASIA-AQ/model-subset/AERONET_L15_20240101_20240501.nc .
+```
+
+Then run with scratch config:
+```bash
+davinci-monet run analyses/asia-aq/configs/asia-aq-scratch.yaml
+```
 
 ## File Transfer Notes
 
