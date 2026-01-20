@@ -6,8 +6,10 @@ platforms) with gridded model output, including 3D interpolation.
 
 from __future__ import annotations
 
+import os
 from typing import Any, Hashable
 
+import dask
 import numpy as np
 import xarray as xr
 
@@ -205,8 +207,10 @@ class TrackStrategy(BasePairingStrategy):
         # Vectorized spatial extraction - extracts all track points at once
         extracted = model_surface.isel({lat_dim: lat_indexer, lon_dim: lon_indexer})
 
-        # Load data to trigger efficient read (single I/O operation)
-        extracted = extracted.load()
+        # Load data with optimized parallel scheduler for file I/O
+        n_workers = min(32, os.cpu_count() or 4)
+        with dask.config.set(scheduler='threads', num_workers=n_workers):
+            extracted = extracted.compute()
 
         # Interpolate in time: for each track point, find nearest model time
         # Use vectorized nearest-neighbor time matching

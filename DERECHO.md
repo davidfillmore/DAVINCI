@@ -168,7 +168,9 @@ davinci-monet run analyses/asia-aq/configs/asia-aq-derecho.yaml --show-plots
 3. Pre-concatenate files into daily/weekly chunks
 4. Use `xr.open_mfdataset(..., parallel=True)` with Dask
 
-### Observed Performance (3-day test, 72 model files)
+### Observed Performance
+
+**3-day test (72 model files)**:
 
 | Stage | Campaign Storage | Scratch Storage | Speedup |
 |-------|------------------|-----------------|---------|
@@ -176,11 +178,22 @@ davinci-monet run analyses/asia-aq/configs/asia-aq-derecho.yaml --show-plots
 | load_observations | 172s | 163s | ~1x |
 | pairing (AERONET) | 10+ min | **2.3s** | **~260x** |
 
-**Key findings**:
-- Scratch storage dramatically improves model loading (28x faster)
-- Pairing bottleneck was fixed by using explicit Dask parallel scheduler
-- Observation loading still slow due to loading full 5-month AERONET file (~1GB)
-  regardless of analysis date range (future optimization: time filtering at load)
+**Full month (696 model files) with all optimizations**:
+
+| Stage | Before Optimization | After Optimization | Speedup |
+|-------|---------------------|-------------------|---------|
+| load_models | ~190s | **55s** | 3.5x |
+| load_observations | 163s | **0.1s** | **1,630x** |
+| pairing (AERONET) | 10+ min | **2.4s** | **~260x** |
+| **Total pipeline** | ~175s (3-day) | **~8s** (3-day) | **22x** |
+
+**Key optimizations applied**:
+1. **Scratch storage** - Model loading 28x faster than campaign storage
+2. **Dask parallel scheduler** - Pairing uses explicit threaded scheduler with 32 workers
+3. **Time filtering at load** - Two-level filtering:
+   - File-level: filters by YYYYMMDD in filename (skips out-of-range ICARTT files)
+   - Data-level: filters by time dimension after loading (subsets large NetCDF files)
+4. **Track strategy optimization** - Same Dask fix applied to aircraft pairing
 
 ### Scratch Storage Setup
 
@@ -190,11 +203,22 @@ Tar archives on scratch need extraction before use:
 # Create directories
 mkdir -p /glade/derecho/scratch/fillmore/ASIA-AQ/{model,obs,output,logs}
 
-# Extract model data (3 days for testing)
+# Extract model data (full month - Feb 2024)
 cd /glade/derecho/scratch/fillmore/ASIA-AQ/model
-for day in 01 02 03; do
+
+# Daily files (Feb 1-9)
+for day in 01 02 03 04 05 06 07 08 09; do
   tar -xf /glade/derecho/scratch/fillmore/ASIA-AQ.2024-02-${day}.tar --strip-components=8
 done
+
+# Multi-day bundles (Feb 10-28)
+tar -xf /glade/derecho/scratch/fillmore/ASIA-AQ.2024-02-10_19.tar --strip-components=8
+tar -xf /glade/derecho/scratch/fillmore/ASIA-AQ.2024-02-20_28.tar --strip-components=8
+
+# Feb 29
+tar -xf /glade/derecho/scratch/fillmore/ASIA-AQ.2024-02-29.tar --strip-components=8
+
+echo "Total files: $(ls *.nc | wc -l)"  # Should be 696
 
 # Extract DC-8 aircraft data
 cd /glade/derecho/scratch/fillmore/ASIA-AQ/obs
