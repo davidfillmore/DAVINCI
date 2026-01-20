@@ -4,6 +4,15 @@
 
 A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air quality models against observations, based on MELODIES-MONET.
 
+---
+
+**Session Reminder**: Agentic AI coding is cognitively intense - you're managing a fast-moving collaborator while maintaining your own mental model. Remember to:
+- Take breaks between major tasks (stretch, move around)
+- Step away when stuck - insights often come when you're not at the keyboard
+- You control the pace - slow down when needed
+
+---
+
 ## Quick Start
 
 ```bash
