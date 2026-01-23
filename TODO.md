@@ -327,3 +327,34 @@ Full month (Feb 2024) analysis running with AERONET + DC8 on scratch storage.
 - `CLAUDE.md` - Added CRITICAL warning about CESM vertical coordinates
 - `VALIDATION.md` - Corrected vertical coordinate documentation
 - `ARCHITECTURE.md` - Corrected surface level extraction documentation
+
+---
+
+## Session Summary (2026-01-23 continued)
+
+### Key Accomplishments
+1. **Improved pairing progress display**:
+   - Shows loading context during [0/N] phase: `loading cesm_asiaq → airnow, aeronet, dc8`
+   - Makes it clear Dask lazy loading is happening, not one slow pair
+
+2. **Suppressed ugly cleanup tracebacks**:
+   - NetCDF file open errors no longer show `CachingFileManager.__del__` tracebacks
+   - Added `_cleanup_with_suppressed_errors()` in `generic.py`
+
+3. **Updated wiki documentation**:
+   - Home.md: Test count (790+), performance feature
+   - ASIA-AQ-Analysis.md: Performance section, CESM vertical troubleshooting
+   - Configuration.md: `generic` vs `cesm_fv` guidance
+   - API-Reference.md: Two-phase pairing execution
+
+### Files Modified
+- `davinci_monet/pipeline/runner.py` - Added `_parallel_loading_msg` for context display
+- `davinci_monet/pipeline/stages.py` - Build loading message from Dask pairs
+- `davinci_monet/models/generic.py` - Suppress cleanup errors on file open failure
+
+### Environment Setup Note
+`ASIA_AQ_DATA` environment variable must be set for pipeline to find model files:
+```bash
+export ASIA_AQ_DATA=~/Data/ASIA-AQ
+```
+Add to `~/.zshrc` for persistence across sessions.
