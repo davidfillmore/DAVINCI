@@ -132,6 +132,42 @@ analyses/asia-aq/configs/asia-aq-scratch.yaml   # Derecho: generic, scratch stor
 
 ---
 
+## Known Bugs
+
+### Pairing Progress Display Not Updating
+
+**Status**: OPEN
+
+**Symptom**: During pairing stage, the animated status line doesn't show [1/4], [2/4], [3/4] progression. It jumps directly to [4/4] or sits on [3/4] while all pairing completes.
+
+**Location**: `davinci_monet/pipeline/runner.py` (ProgressFormatter), `davinci_monet/pipeline/stages.py` (PairingStage)
+
+**Attempted fixes** (none worked):
+- Force `_live.update()` after each `item_start()` call
+- Add 0.2s delay between pair submissions
+- Separate "Pairing:" (start) and "Paired:" (complete) messages
+
+**Suspected cause**: Rich Live display updates may be buffered or the animation thread timing conflicts with the main thread updates.
+
+**Workaround**: Progress is logged correctly to the log file; only the live terminal display is affected.
+
+### Slideshow First Plot Stays Open
+
+**Status**: OPEN
+
+**Symptom**: When plot preview slideshow starts, the first plot window opens and stays visible while subsequent plots appear in front of it, rather than updating in place.
+
+**Location**: `davinci_monet/pipeline/runner.py` (`preview_plots` method)
+
+**Attempted fixes** (none worked):
+- Add `plt.close("all")` before starting
+- Add `plt.show(block=False)` after creating figure
+- Use `draw_idle()` vs `draw()`
+
+**Suspected cause**: macOS matplotlib backend behavior with interactive mode.
+
+---
+
 ## Priority 3: Feature Additions
 
 - [ ] Pandora NO2 column preprocessing and reader

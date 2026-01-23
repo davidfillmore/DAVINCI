@@ -655,6 +655,10 @@ class ProgressFormatter:
         self._current_item = name
         self._current_progress = (index, total)
 
+        # Force display update so each item is visible
+        if self.show_output and self._live:
+            self._live.update(self._create_stage_display())
+
     def step(self, message: str) -> None:
         """Print a step within an item."""
         self._log(f"      • {message}")
@@ -664,6 +668,20 @@ class ProgressFormatter:
         """Print item completion with summary."""
         self._log(f"      ✓ {summary}")
         # Completion is logged but animation continues
+
+    def item_complete(self, category: str, name: str, index: int, total: int, details: str = "") -> None:
+        """Print item completion with visible output (not just animation update)."""
+        detail_str = f" - {details}" if details else ""
+        self._log(f"  ✓ {name} ({index}/{total}){detail_str}")
+        self._stage_items.append((category, name))
+
+        # Update animation state
+        self._current_item = name
+        self._current_progress = (index, total)
+
+        # Print visible output
+        if self.show_output and self._live:
+            self._live.update(self._create_stage_display())
 
     def item_fail(self, error: str) -> None:
         """Print item failure."""
@@ -984,11 +1002,12 @@ class PipelineRunner:
                         name, idx, total = match.groups()
                         fmt.item_start("pair", name, int(idx), int(total), track=False)
                 elif msg.strip().startswith("Paired:"):
-                    # "Paired:" = completion, track for summary
-                    match = re.match(r"\s*Paired: (\S+) \((\d+)/(\d+)\)", msg)
+                    # "Paired:" = completion, show progress and track for summary
+                    match = re.match(r"\s*Paired: (\S+) \((\d+)/(\d+)\)(.*)", msg)
                     if match:
-                        name, idx, total = match.groups()
-                        fmt.item_start("pair", name, int(idx), int(total), track=True)
+                        name, idx, total, details = match.groups()
+                        details = details.strip(" -") if details else ""
+                        fmt.item_complete("pair", name, int(idx), int(total), details)
                 elif msg.strip().startswith("Stats:"):
                     match = re.match(r"\s*Stats: (\S+) \((\d+)/(\d+)\)", msg)
                     if match:

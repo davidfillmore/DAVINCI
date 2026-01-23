@@ -751,8 +751,15 @@ class PairingStage(BaseStage):
             # Run pairs in parallel
             max_workers = min(len(pairs), os.cpu_count() or 4)
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {executor.submit(pair_single, args): args for args in pairs}
+                futures = {}
+                # Submit each pair and log start message
+                for args in pairs:
+                    idx, model_label, _, obs_label, _, _, _ = args
+                    pair_key = f"{model_label}_{obs_label}"
+                    context.log_progress(f"    Pairing: {pair_key} ({idx}/{total_pairs})")
+                    futures[executor.submit(pair_single, args)] = args
 
+                # Collect results as they complete
                 for future in as_completed(futures):
                     idx, pair_key, paired_ds, error, pair_duration = future.result()
 
