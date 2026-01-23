@@ -1,5 +1,5 @@
 # ASIA-AQ CESM/CAM-chem Evaluation Configuration (Gemini - Mac)
-# AERONET AOD + DC-8 aircraft evaluation
+# Full evaluation: AirNow, AERONET, Pandora, DC-8 aircraft
 #
 # Model: CESM/CAM-chem (f.e3b06m.FCnudged.t6s.01x01.01)
 # Period: February 1-29, 2024 (full month, leap year)
@@ -23,17 +23,24 @@ analysis:
     Manila: [14.6, 121.0]
     Bangkok: [13.75, 100.5]
     Hanoi: [21.0, 105.85]
+    Singapore: [1.35, 103.8]
+    Kuala Lumpur: [3.15, 101.7]
     Hong Kong: [22.3, 114.2]
 
 # Model configuration
 model:
   cesm_asiaq:
-    mod_type: generic  # 2D regridded data (no vertical dimension)
+    mod_type: generic  # 2D regridded data (mixed 2D/3D variables)
     files: ${ASIA_AQ_DATA}/CAM/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc
     radius_of_influence: 15000  # 15 km for 0.1 deg grid
 
     # Variable mapping: obs_label -> {obs_var: model_var}
     mapping:
+      airnow:
+        pm25: PM25
+        ozone: O3
+        no2: NO2
+        co: CO
       aeronet:
         aod_500nm: AODVISdn
       dc8:
@@ -64,6 +71,13 @@ model:
         vmin_plot: 0
         vmax_plot: 1000
         vdiff_plot: 200
+      PM25:
+        unit_scale: 1.2e9  # kg/kg to ug/m3 (× air density × 1e9)
+        units: μg/m³
+        ylabel_plot: "PM$_{2.5}$ (μg/m³)"
+        vmin_plot: 0
+        vmax_plot: 150
+        vdiff_plot: 50
       AODVISdn:
         unit_scale: 1.0
         units: "1"
@@ -72,8 +86,51 @@ model:
         vmax_plot: 2.0
         vdiff_plot: 0.5
 
+  # Precomputed NO2 column (from run_evaluation.py preprocessing)
+  cesm_no2_column:
+    mod_type: generic
+    files: ${ASIA_AQ_ANALYSIS}/data/cesm_no2_column_20240201_20240229.nc
+    radius_of_influence: 15000
+    mapping:
+      pandora:
+        no2_trop_column: NO2_column
+    variables:
+      NO2_column:
+        unit_scale: 1.0
+        units: mol/m²
+        ylabel_plot: "NO$_2$ Column (mol/m²)"
+        vmin_plot: 0
+        vmax_plot: 5.0e-4
+        vdiff_plot: 2.0e-4
+
 # Observation configurations
 obs:
+  airnow:
+    obs_type: pt_sfc
+    filename: ${ASIA_AQ_ANALYSIS}/data/airnow_asiaq_2024-02-01_2024-02-29.nc
+    variables:
+      pm25:
+        obs_min: 0
+        obs_max: 500
+        units: μg/m³
+        ylabel_plot: "PM$_{2.5}$ (μg/m³)"
+      ozone:
+        obs_min: 0
+        obs_max: 200
+        units: ppb
+        ylabel_plot: "O$_3$ (ppb)"
+      no2:
+        obs_min: 0
+        obs_max: 100
+        units: ppb
+        ylabel_plot: "NO$_2$ (ppb)"
+      co:
+        unit_scale: 1000  # ppm to ppb
+        obs_min: 0
+        obs_max: 5000
+        units: ppb
+        ylabel_plot: "CO (ppb)"
+
   aeronet:
     obs_type: pt_sfc
     # New AERONET NetCDF file (5 months, time-filtered at load)
@@ -84,6 +141,16 @@ obs:
         obs_max: 5.0
         units: "1"
         ylabel_plot: "AOD (500 nm)"
+
+  pandora:
+    obs_type: pt_sfc
+    filename: ${ASIA_AQ_ANALYSIS}/data/pandora_no2_column_20240201_20240229.nc
+    variables:
+      no2_trop_column:
+        obs_min: 0
+        obs_max: 5.0e-3  # mol/m2
+        units: mol/m²
+        ylabel_plot: "NO$_2$ Column (mol/m²)"
 
   # DC-8 aircraft observations (ASIA-AQ campaign)
   dc8:
@@ -110,14 +177,52 @@ obs:
         ylabel_plot: "CO (ppb)"
         display_name: "CO (DACOM)"
 
-# Pairing groups
+# Pairing groups (which model-obs combinations to analyze)
 pairs:
+  # AirNow surface pairs
+  cesm_airnow_pm25:
+    model: cesm_asiaq
+    obs: airnow
+    variable:
+      model_var: PM25
+      obs_var: pm25
+
+  cesm_airnow_o3:
+    model: cesm_asiaq
+    obs: airnow
+    variable:
+      model_var: O3
+      obs_var: ozone
+
+  cesm_airnow_no2:
+    model: cesm_asiaq
+    obs: airnow
+    variable:
+      model_var: NO2
+      obs_var: no2
+
+  cesm_airnow_co:
+    model: cesm_asiaq
+    obs: airnow
+    variable:
+      model_var: CO
+      obs_var: co
+
+  # AERONET AOD pair
   cesm_aeronet_aod:
     model: cesm_asiaq
     obs: aeronet
     variable:
       model_var: AODVISdn
       obs_var: aod_500nm
+
+  # Pandora NO2 column pair
+  cesm_pandora_no2_column:
+    model: cesm_no2_column
+    obs: pandora
+    variable:
+      model_var: NO2_column
+      obs_var: no2_trop_column
 
   # DC-8 aircraft pairs
   cesm_dc8_o3:
@@ -143,7 +248,74 @@ pairs:
 
 # Plotting configuration
 plots:
-  # AOD plots
+  # PM2.5 plots (AirNow)
+  pm25_timeseries:
+    type: timeseries
+    pairs: [cesm_airnow_pm25]
+    title: "PM2.5 Time Series - ASIA-AQ (Mean ± Std)"
+    show_uncertainty: true
+    aggregate_dim: site
+
+  pm25_scatter:
+    type: scatter
+    pairs: [cesm_airnow_pm25]
+    title: "PM2.5 Model vs Observations"
+
+  pm25_spatial_bias:
+    type: spatial_bias
+    pairs: [cesm_airnow_pm25]
+    title: "PM2.5 Spatial Bias"
+
+  # Ozone plots (AirNow)
+  o3_timeseries:
+    type: timeseries
+    pairs: [cesm_airnow_o3]
+    title: "O3 Time Series - ASIA-AQ (Mean ± Std)"
+    show_uncertainty: true
+    aggregate_dim: site
+
+  o3_scatter:
+    type: scatter
+    pairs: [cesm_airnow_o3]
+    title: "O3 Model vs Observations"
+
+  # NO2 plots (AirNow)
+  no2_timeseries:
+    type: timeseries
+    pairs: [cesm_airnow_no2]
+    title: "NO2 Time Series - ASIA-AQ (Mean ± Std)"
+    show_uncertainty: true
+    aggregate_dim: site
+
+  no2_scatter:
+    type: scatter
+    pairs: [cesm_airnow_no2]
+    title: "NO2 Model vs Observations"
+
+  no2_spatial_bias:
+    type: spatial_bias
+    pairs: [cesm_airnow_no2]
+    title: "NO2 Spatial Bias"
+
+  # CO plots (AirNow)
+  co_timeseries:
+    type: timeseries
+    pairs: [cesm_airnow_co]
+    title: "CO Time Series - ASIA-AQ (Mean ± Std)"
+    show_uncertainty: true
+    aggregate_dim: site
+
+  co_scatter:
+    type: scatter
+    pairs: [cesm_airnow_co]
+    title: "CO Model vs Observations"
+
+  co_spatial_bias:
+    type: spatial_bias
+    pairs: [cesm_airnow_co]
+    title: "CO Spatial Bias"
+
+  # AOD plots (AERONET)
   aod_timeseries:
     type: timeseries
     pairs: [cesm_aeronet_aod]
@@ -160,6 +332,25 @@ plots:
     type: spatial_bias
     pairs: [cesm_aeronet_aod]
     title: "AOD Spatial Bias"
+
+  # NO2 Column plots (Pandora)
+  no2_column_site_timeseries:
+    type: site_timeseries
+    pairs: [cesm_pandora_no2_column]
+    title: "NO2 Tropospheric Column: Pandora vs CESM"
+    ncols: 3
+    min_points: 50
+    scale_factor: 10000  # mol/m2 -> 10^-4 mol/m2
+
+  no2_column_scatter:
+    type: scatter
+    pairs: [cesm_pandora_no2_column]
+    title: "NO2 Column: Model vs Pandora"
+
+  no2_column_spatial_bias:
+    type: spatial_bias
+    pairs: [cesm_pandora_no2_column]
+    title: "NO2 Column Spatial Bias"
 
   # DC-8 Aircraft plots
   dc8_o3_scatter:
