@@ -43,68 +43,7 @@ The new NetCDF file (`~/Data/ASIA-AQ/AERONET/AERONET_L15_20240101_20240501.nc`):
 
 ---
 
-## Priority 1: Branch Reconciliation (ASIA-AQ)
-
-### Branch Status
-- `asia-aq`: Mac development branch (at `33b3fa3`)
-- `asia-aq-derecho`: Derecho HPC branch (7 commits ahead)
-- **No divergence** - `asia-aq-derecho` is strictly ahead, can fast-forward merge
-
-### AERONET Data Format Differences
-
-| Environment | Format | Source | File |
-|-------------|--------|--------|------|
-| Mac | CSV (date-filtered) | monetio API download | Per-analysis date range |
-| Derecho | NetCDF (5 months) | Pre-processed file | `AERONET_L15_20240101_20240501.nc` (~1GB) |
-
-**Issue**: Loading full 5-month file takes ~163s even for 3-day analysis.
-
-**SOLVED**: Time filtering implemented at `LoadObservationsStage`:
-- File-level: filters ICARTT files by YYYYMMDD in filename
-- Data-level: filters NetCDF by time dimension using `xr.sel(time=slice(...))`
-- Result: 163s → 0.1s (1,630x faster)
-
-### CESM Reader vs Generic Reader
-
-| Environment | Reader | Config `mod_type` |
-|-------------|--------|-------------------|
-| Mac | `cesm_fv` (via monetio) | `cesm_fv` |
-| Derecho | `generic` (xarray only) | `generic` |
-
-**Root cause**: The regridded CESM files have mixed dimensionality:
-- `AODVISdn`: 2D variable (time, lat, lon) - column-integrated AOD
-- `O3`, `NO2`, `CO`: 4D variables (time, lev, lat, lon)
-
-The `cesm_fv` reader via monetio expects consistent vertical structure and fails
-or produces unexpected results with mixed 2D/3D variables in the same file.
-
-**Current workaround** (Derecho): Use `generic` reader which handles mixed dims.
-
-**Proposed solutions**:
-1. Update `cesm_fv` reader to handle 2D column variables gracefully
-2. Add `skip_vertical_standardization` option for 2D variables
-3. Document when to use `generic` vs `cesm_fv` based on file contents
-
-### Files to Reconcile
-
-```
-# Configs using different approaches:
-analyses/asia-aq/configs/asia-aq.yaml           # Mac: cesm_fv, env vars
-analyses/asia-aq/configs/asia-aq-derecho.yaml   # Derecho: generic, hardcoded paths
-analyses/asia-aq/configs/asia-aq-scratch.yaml   # Derecho: generic, scratch storage
-```
-
-### Action Items
-
-- [ ] Merge `asia-aq-derecho` performance fixes back to `asia-aq`
-- [ ] Test `generic` reader on Mac with local CESM files
-- [x] Add time filtering to observation loading stage
-- [ ] Document AERONET data preparation for both environments
-- [ ] Consider unified config with environment-based path switching
-
----
-
-## Priority 2: Performance Optimizations
+## Priority 1: Performance Optimizations
 
 ### Completed (on `asia-aq-derecho`)
 - [x] Dask parallel scheduler for PointStrategy pairing (260x speedup)
@@ -217,7 +156,7 @@ analyses/asia-aq/configs/asia-aq-scratch.yaml   # Derecho: generic, scratch stor
 
 ---
 
-## Priority 3: Feature Additions
+## Priority 2: Feature Additions
 
 - [ ] Pandora NO2 column preprocessing and reader
 - [ ] AirNow data download script for Derecho
@@ -259,7 +198,7 @@ See `DERECHO.md` for full environment setup and data paths.
 
 ---
 
-## Priority 4: Testing Configuration
+## Priority 3: Testing Configuration
 
 ### 1-Week Test Config
 Create a 1-week test configuration for faster iteration on issues:
