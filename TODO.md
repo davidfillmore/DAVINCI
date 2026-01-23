@@ -123,6 +123,14 @@ analyses/asia-aq/configs/asia-aq-scratch.yaml   # Derecho: generic, scratch stor
   **Problem**: Each Dask-backed pair independently calls `.compute()`, reloading/processing
   the 696 model files. With 3 pairs using `cesm_asiaq`, this happens 3 times.
 
+  **ASIA-AQ Pair Configuration**:
+  | Pair | Model | Dask? | Why |
+  |------|-------|-------|-----|
+  | cesm_asiaq_airnow | cesm_asiaq | Yes | 696 files, lazy loading |
+  | cesm_asiaq_aeronet | cesm_asiaq | Yes | 696 files, lazy loading |
+  | cesm_asiaq_dc8 | cesm_asiaq | Yes | 696 files, lazy loading |
+  | cesm_no2_column_pandora | cesm_no2_column | No | 1 file, eager loading |
+
   **Current timing** (from profiling 2026-01-23):
   ```
   cesm_asiaq_airnow:   24.5s  (loads 696 files)
@@ -167,9 +175,10 @@ analyses/asia-aq/configs/asia-aq-scratch.yaml   # Derecho: generic, scratch stor
 
 **Fix**: Implemented "parallel mode" for the progress display with completion-based tracking:
 - `ProgressFormatter.start_parallel(total)` - enters parallel mode, shows `[completed/total]`
-- `ProgressFormatter.parallel_item_completed()` - increments counter with 0.15s delay to ensure visibility
-- Display now shows `[0/4]` when starting, then `[1/4], [2/4], [3/4], [4/4]` as pairs **complete**
-- The delay adds ~0.6s total overhead for 4 pairs (negligible vs 60s pairing time)
+- `ProgressFormatter.parallel_item_completed()` - increments counter with 1.0s pause for visibility
+- Display shows `[0/4]` with **no pair name** during loading (avoids misleading "one slow pair" appearance)
+- Then `[1/4] pair_name`, `[2/4] pair_name`, etc. as pairs **complete** (each visible for 1 second)
+- The delay adds ~4s total overhead for 4 pairs (acceptable vs 60s pairing time)
 
 **Files Modified**:
 - `davinci_monet/pipeline/runner.py` - Added parallel mode to `ProgressFormatter`, updated `LogCollector`
