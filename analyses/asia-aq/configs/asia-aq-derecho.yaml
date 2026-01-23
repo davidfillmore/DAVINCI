@@ -1,11 +1,16 @@
 # ASIA-AQ CESM/CAM-chem Evaluation Configuration (Derecho)
-# Comparing model output with AERONET AOD and DC-8 aircraft
+# Full configuration with all observation datasets
 #
 # Model: CESM/CAM-chem (f.e3b06m.FCnudged.t6s.01x01.01)
 # Period: February 1-29, 2024 (leap year)
 # Domain: 0-45°N, 90-140°E
 #
 # Data location: /glade/derecho/scratch/fillmore/ASIA-AQ (fast parallel FS)
+#
+# For faster runs, use single-obs configs:
+#   - asia-aq-airnow-derecho.yaml   (surface PM2.5, O3)
+#   - asia-aq-aeronet-derecho.yaml  (AOD)
+#   - asia-aq-dc8-derecho.yaml      (aircraft O3, NO2, CO)
 
 analysis:
   start_time: "2024-02-01"
@@ -37,6 +42,9 @@ model:
 
     # Variable mapping: obs_label -> {obs_var: model_var}
     mapping:
+      airnow:
+        pm25: PM25
+        ozone: O3
       aeronet:
         aod_500nm: AODVISdn
       dc8:
@@ -84,9 +92,25 @@ model:
 
 # Observation configurations
 obs:
+  # AirNow surface observations (US Embassy/Consulate monitors in Asia)
+  airnow:
+    obs_type: pt_sfc
+    filename: /glade/derecho/scratch/fillmore/ASIA-AQ/obs/airnow_asiaq_2024-02-01_2024-02-29.nc
+    variables:
+      pm25:
+        obs_min: 0
+        obs_max: 500
+        units: μg/m³
+        ylabel_plot: "PM$_{2.5}$ (μg/m³)"
+      ozone:
+        obs_min: 0
+        obs_max: 200
+        units: ppb
+        ylabel_plot: "O$_3$ (ppb)"
+
+  # AERONET AOD
   aeronet:
     obs_type: pt_sfc
-    # Scratch storage (fast parallel FS)
     filename: /glade/derecho/scratch/fillmore/ASIA-AQ/obs/AERONET_L15_20240101_20240501.nc
     variables:
       aod_500nm:
@@ -121,13 +145,24 @@ obs:
         ylabel_plot: "CO (ppb)"
         display_name: "CO (DACOM)"
 
-  # TODO: Pandora NO2 column data (needs preprocessing from raw txt files)
-  # pandora:
-  #   obs_type: pt_sfc
-  #   filename: ${ASIA_AQ_ANALYSIS}/data/pandora_no2_column_20240201_20240229.nc
-
 # Pairing groups (which model-obs combinations to analyze)
 pairs:
+  # AirNow surface pairs
+  cesm_airnow_pm25:
+    model: cesm_asiaq
+    obs: airnow
+    variable:
+      model_var: PM25
+      obs_var: pm25
+
+  cesm_airnow_o3:
+    model: cesm_asiaq
+    obs: airnow
+    variable:
+      model_var: O3
+      obs_var: ozone
+
+  # AERONET AOD
   cesm_aeronet_aod:
     model: cesm_asiaq
     obs: aeronet
@@ -159,6 +194,37 @@ pairs:
 
 # Plotting configuration
 plots:
+  # AirNow PM2.5 plots
+  airnow_pm25_scatter:
+    type: scatter
+    pairs: [cesm_airnow_pm25]
+    title: "PM2.5: CESM vs AirNow"
+
+  airnow_pm25_timeseries:
+    type: timeseries
+    pairs: [cesm_airnow_pm25]
+    title: "PM2.5 Time Series - ASIA-AQ (Mean ± Std)"
+    show_uncertainty: true
+    aggregate_dim: site
+
+  airnow_pm25_spatial_bias:
+    type: spatial_bias
+    pairs: [cesm_airnow_pm25]
+    title: "PM2.5 Spatial Bias"
+
+  # AirNow O3 plots
+  airnow_o3_scatter:
+    type: scatter
+    pairs: [cesm_airnow_o3]
+    title: "O3: CESM vs AirNow"
+
+  airnow_o3_timeseries:
+    type: timeseries
+    pairs: [cesm_airnow_o3]
+    title: "O3 Time Series - ASIA-AQ (Mean ± Std)"
+    show_uncertainty: true
+    aggregate_dim: site
+
   # AOD plots
   aod_timeseries:
     type: timeseries

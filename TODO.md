@@ -119,7 +119,7 @@ The new NetCDF file (`~/Data/ASIA-AQ/AERONET/AERONET_L15_20240101_20240501.nc`):
 ## Priority 2: Feature Additions
 
 - [ ] Pandora NO2 column preprocessing and reader
-- [ ] AirNow data download script for Derecho
+- [x] AirNow data download and integration (36 sites, PM2.5/O3)
 - [ ] MOPITT CO profile evaluation
 - [ ] MODIS AOD comparison
 
@@ -294,3 +294,43 @@ Add to `~/.zshrc` for persistence across sessions.
 - Pairing is the main bottleneck (600s) due to Dask `.compute()` calls during peak hours
 - Scratch storage essential - campaign storage would be 3-4x slower
 - Working branch: `develop`
+
+---
+
+## Session Summary (2026-01-23 Derecho continued)
+
+### Key Accomplishments
+1. **Added AirNow surface observations**:
+   - Downloaded via `scripts/download_airnow.py` (no API key needed)
+   - 36 sites across Asia (Bangkok network, Beijing, Guangzhou, Shenyang, Hanoi, Manila, Singapore, etc.)
+   - Variables: PM2.5 (1008 values), O3 (152 values)
+   - Data saved to scratch: `airnow_asiaq_2024-02-01_2024-02-29.nc`
+
+2. **Created single-obs config workflow**:
+   - Faster iteration by processing one obs dataset at a time
+   - Avoids "democracy not monarchy" Dask problem (repeated model loading)
+   - Each run loads model once, pairs quickly
+
+3. **Reorganized config files**:
+   - `asia-aq-derecho.yaml` - Full config (all obs: AirNow, AERONET, DC8)
+   - `asia-aq-airnow-derecho.yaml` - AirNow only (PM2.5, O3)
+   - `asia-aq-aeronet-derecho.yaml` - AERONET only (AOD)
+   - `asia-aq-dc8-derecho.yaml` - DC8 only (O3, NO2, CO)
+   - `asia-aq-gemini.yaml` - Mac testing
+   - Deleted old `asia-aq.yaml`
+
+### Files Modified
+- `analyses/asia-aq/scripts/download_airnow.py` - Updated for Feb 29 (leap year)
+- `analyses/asia-aq/configs/asia-aq-derecho.yaml` - Added AirNow, full config
+- `analyses/asia-aq/configs/asia-aq-airnow-derecho.yaml` - New single-obs config
+- `analyses/asia-aq/configs/asia-aq-aeronet-derecho.yaml` - New single-obs config
+- `analyses/asia-aq/configs/asia-aq-dc8-derecho.yaml` - New single-obs config
+
+### Workflow Recommendation
+For faster iteration, run single-obs configs instead of full config:
+```bash
+davinci-monet run analyses/asia-aq/configs/asia-aq-airnow-derecho.yaml
+davinci-monet run analyses/asia-aq/configs/asia-aq-aeronet-derecho.yaml
+davinci-monet run analyses/asia-aq/configs/asia-aq-dc8-derecho.yaml
+```
+All output goes to same directory, plots accumulate.

@@ -50,13 +50,18 @@ conda activate davinci-monet
 ## Directory Structure
 
 ```
-/glade/work/fillmore/
-├── DAVINCI-MONET/          # Code repository
-│   └── analyses/asia-aq/
-│       └── configs/        # YAML config files
-└── ASIA-AQ/                # Project output (separate from repo)
-    ├── output/             # Plots, statistics
-    └── logs/               # Pipeline logs
+/glade/work/fillmore/DAVINCI-MONET/
+├── analyses/asia-aq/
+│   ├── configs/            # YAML config files
+│   ├── scripts/            # Download scripts (download_airnow.py)
+│   ├── data/               # Downloaded observation data (local)
+│   ├── output/             # Plots, statistics
+│   └── logs/               # Pipeline logs
+└── ...
+
+/glade/derecho/scratch/fillmore/ASIA-AQ/
+├── model/                  # 696 CESM NetCDF files (fast storage)
+└── obs/                    # Observation data (AERONET, DC8, AirNow)
 ```
 
 ## Environment Variables (optional)
@@ -85,7 +90,7 @@ cd /glade/work/fillmore/DAVINCI-MONET
 davinci-monet run analyses/asia-aq/configs/asia-aq-derecho.yaml
 ```
 
-Output goes to `/glade/work/fillmore/ASIA-AQ/output/`.
+Output goes to `/glade/work/fillmore/DAVINCI-MONET/analyses/asia-aq/output/`.
 
 ### Batch Job
 
@@ -128,18 +133,30 @@ client = Client(n_workers=16, threads_per_worker=4)
 
 | Config | Description |
 |--------|-------------|
-| `asia-aq.yaml` | Original config (uses `${ASIA_AQ_DATA}` env var) |
-| `asia-aq-derecho.yaml` | Derecho config using scratch storage (fast) |
-| `asia-aq-derecho-1day.yaml` | Single day test config |
+| `asia-aq-derecho.yaml` | Full config - all obs (AirNow, AERONET, DC8) |
+| `asia-aq-airnow-derecho.yaml` | AirNow only (surface PM2.5, O3) |
+| `asia-aq-aeronet-derecho.yaml` | AERONET only (AOD) |
+| `asia-aq-dc8-derecho.yaml` | DC8 only (aircraft O3, NO2, CO) |
+| `asia-aq-gemini.yaml` | Mac testing config |
+
+**Recommended workflow**: Run single-obs configs for faster iteration. Each loads the model
+once and pairs quickly, avoiding the "democracy not monarchy" Dask problem where each pair
+independently loads all 696 model files.
+
+```bash
+davinci-monet run analyses/asia-aq/configs/asia-aq-airnow-derecho.yaml
+davinci-monet run analyses/asia-aq/configs/asia-aq-aeronet-derecho.yaml
+davinci-monet run analyses/asia-aq/configs/asia-aq-dc8-derecho.yaml
+```
 
 ### Available Data in Derecho Config
 
+- **AirNow** - Surface PM2.5, O3 from 36 US Embassy/Consulate monitors (Bangkok, Beijing, etc.)
 - **AERONET AOD** - L1.5 processed NetCDF
 - **DC-8 Aircraft** - 10-second merge ICARTT files (O3, NO2, CO)
 
 ### Not Yet Available
 
-- **AirNow** - Needs download via `scripts/download_airnow.py`
 - **Pandora NO2 columns** - Raw txt files need preprocessing
 
 To preview plots interactively (requires X11 forwarding):
