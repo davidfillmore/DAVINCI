@@ -385,7 +385,7 @@ class BasePairingStrategy(ABC):
             )
 
     def _extract_surface(
-        self, model: xr.Dataset, level_dim: str = "z"
+        self, model: xr.Dataset, level_dim: str | None = None
     ) -> xr.Dataset:
         """Extract surface level from model data.
 
@@ -394,15 +394,31 @@ class BasePairingStrategy(ABC):
         model
             Model dataset.
         level_dim
-            Name of vertical dimension.
+            Name of vertical dimension. If None, auto-detects from common names.
 
         Returns
         -------
         xr.Dataset
             Model data at surface level only.
         """
-        if level_dim not in model.dims:
+        # Auto-detect vertical dimension if not specified
+        if level_dim is None:
+            for dim_name in ["lev", "z", "level", "altitude", "height"]:
+                if dim_name in model.dims:
+                    level_dim = dim_name
+                    break
+
+        if level_dim is None or level_dim not in model.dims:
             return model
 
-        # Assume first level is surface (MONET convention)
-        return model.isel({level_dim: 0})
+        # Determine correct surface index based on coordinate values
+        # For CESM-style hybrid coordinates where pressure increases downward,
+        # surface is at the last index (highest pressure), not first (TOA)
+        surface_idx = 0  # Default: first level is surface
+        if level_dim in model.coords:
+            vert_vals = model.coords[level_dim].values
+            if len(vert_vals) > 1 and vert_vals[-1] > vert_vals[0]:
+                # Values increase (typical hybrid sigma-pressure) -> surface at end
+                surface_idx = -1
+
+        return model.isel({level_dim: surface_idx})

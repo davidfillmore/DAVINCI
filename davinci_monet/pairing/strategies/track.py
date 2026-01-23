@@ -201,11 +201,13 @@ class TrackStrategy(BasePairingStrategy):
         )
 
         # Extract surface level if model is 3D
-        # Use base class method which follows MONET convention (z=0 is surface)
-        model_surface = self._extract_surface(model)
+        # TODO: Implement proper vertical interpolation to aircraft altitude using obs_altitude
+        # For now, extract surface level (base class auto-detects vertical dim and uses
+        # correct surface index for CESM-style coordinates)
+        model_2d = self._extract_surface(model)
 
         # Vectorized spatial extraction - extracts all track points at once
-        extracted = model_surface.isel({lat_dim: lat_indexer, lon_dim: lon_indexer})
+        extracted = model_2d.isel({lat_dim: lat_indexer, lon_dim: lon_indexer})
 
         # Load data with optimized parallel scheduler for file I/O
         n_workers = min(32, os.cpu_count() or 4)
