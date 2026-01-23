@@ -698,8 +698,10 @@ class ProgressFormatter:
     def parallel_item_started(self, name: str) -> None:
         """Record that a parallel item has started (for logging only).
 
-        In parallel mode, we log the start but don't update the display counter
-        since items start nearly simultaneously.
+        In parallel mode, we log the start but don't update the display.
+        The display will show just "[0/N]" until items complete, which
+        accurately reflects that shared work (e.g., Dask model loading)
+        is happening across all items.
 
         Parameters
         ----------
@@ -707,8 +709,7 @@ class ProgressFormatter:
             Name of the item that started.
         """
         self._log(f"  → {name} (started)")
-        # Update current item name for display, but counter stays at completed count
-        self._current_item = name
+        # Don't update _current_item - display shows just [0/N] until completions
 
     def parallel_item_completed(self, category: str, name: str, details: str = "") -> None:
         """Record that a parallel item has completed.
@@ -728,12 +729,11 @@ class ProgressFormatter:
         self._stage_items.append((category, name))
 
         # Update display and ensure it's visible
-        # When completions happen in rapid succession, we need a brief pause
-        # so each progress update is actually rendered to the terminal
+        # When completions happen in rapid succession, pause so user can see each one
         self._current_item = name
         if self.show_output and self._live:
             self._live.update(self._create_stage_display())
-            time.sleep(0.15)  # Ensure update is visible before next completion
+            time.sleep(1.0)  # Pause so each completion is clearly visible
 
     def item_start(self, category: str, name: str, index: int, total: int, track: bool = True) -> None:
         """Print item start (model, observation, pair).
