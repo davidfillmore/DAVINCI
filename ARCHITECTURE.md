@@ -380,7 +380,7 @@ class PairingConfig:
                PointStrategy.pair()
                --------------------
 
-  1. Extract surface level (z=0)
+  1. Extract surface level (auto-detected: lev=-1 for CESM, z=0 for others)
      model[time, lat, lon]
 
   2. Find nearest grid cell for each site

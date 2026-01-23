@@ -13,6 +13,29 @@ A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air 
 
 ---
 
+## ⚠️ CRITICAL: CESM Vertical Coordinate Convention
+
+**This issue has been rediscovered 4+ times. READ THIS FIRST when working with CESM/CAM-chem data.**
+
+CESM uses hybrid sigma-pressure coordinates where **pressure increases with level index**:
+- `lev=0` → **Top of Atmosphere** (stratosphere, ~3 hPa)
+- `lev=-1` (last index) → **Surface** (highest pressure, ~1000 hPa)
+
+**Common symptom**: Model O3 values of 5000-10000 ppb (stratospheric) instead of 30-80 ppb (surface).
+
+**The fix** (implemented in `_extract_surface()` in `base.py`):
+```python
+# Auto-detect if pressure increases with index
+if vert_vals[-1] > vert_vals[0]:
+    surface_idx = -1  # CESM convention: last level is surface
+else:
+    surface_idx = 0   # Other conventions: first level is surface
+```
+
+**If you see impossibly high trace gas values, check vertical level extraction FIRST.**
+
+---
+
 ## Quick Start
 
 ```bash
@@ -290,7 +313,7 @@ Pipeline displays progress with tqdm and logs to `logs/pipeline_YYYYMMDD_HHMMSS.
 
 2. **AERONET wavelengths**: Use `aod_500nm` or `aod_440nm` for Asia (not `aod_551nm`)
 
-3. **CESM vertical levels**: Surface is `lev=-1` after `open_cesm` processing (inverted)
+3. **CESM vertical levels**: Surface is `lev=-1` (last index), NOT `lev=0`. See CRITICAL warning above. This has caused bugs 4+ times.
 
 4. **Observation coordinates**: Must have `latitude`, `longitude` as coordinates or variables
 

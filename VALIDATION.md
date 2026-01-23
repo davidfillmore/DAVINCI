@@ -313,7 +313,7 @@ This document tracks the human validation of DAVINCI-MONET using real observatio
 - Hourly output (696 files for Feb 2024)
 - Variables tested: PM25, O3, NO2, CO, AODVISdn
 - Unit conversions verified: mol/mol → ppb (×1e9), kg/kg → μg/m³ (×1.2e9)
-- Vertical coordinate handling: hybrid sigma-pressure, surface at lev index 0 after processing
+- Vertical coordinate handling: hybrid sigma-pressure, **surface at lev=-1 (last index)**, NOT lev=0 which is TOA/stratosphere
 - NO2 column integration: `compute_tropospheric_column()` function validated against Pandora
 
 #### Statistics Summary

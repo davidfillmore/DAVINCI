@@ -215,8 +215,19 @@ Full month (Feb 2024) analysis running with AERONET + DC8 on scratch storage.
 4. Verified pipeline produces correct results:
    - 731 paired points, R=0.615, NMB=-54%
    - Both scatter and timeseries plots working
+5. **Fixed CESM vertical level extraction (RECURRING ISSUE - 4th time!)**:
+   - Bug: `_extract_surface()` was extracting `lev=0` (stratosphere) instead of `lev=-1` (surface)
+   - Symptom: O3 model values of 7253 ppb instead of ~50 ppb
+   - Fix: Auto-detect vertical dimension and use correct surface index based on coordinate values
+   - Updated CLAUDE.md, VALIDATION.md, ARCHITECTURE.md with consistent documentation
+   - Added prominent "CRITICAL" warning section to CLAUDE.md to prevent future rediscovery
 
 ### Files Modified
 - `davinci_monet/observations/surface/aeronet.py` - Standardize NetCDF dimensions
 - `davinci_monet/pipeline/stages.py` - Use AERONET reader in observation loading
-- `analyses/asia-aq/configs/asia-aq-gemini.yaml` - New Mac config
+- `davinci_monet/pairing/strategies/base.py` - Fixed `_extract_surface()` for CESM coordinates
+- `davinci_monet/pairing/strategies/track.py` - Use fixed base class method
+- `analyses/asia-aq/configs/asia-aq-gemini.yaml` - Full month config with DC8 + AERONET
+- `CLAUDE.md` - Added CRITICAL warning about CESM vertical coordinates
+- `VALIDATION.md` - Corrected vertical coordinate documentation
+- `ARCHITECTURE.md` - Corrected surface level extraction documentation
