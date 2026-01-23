@@ -59,8 +59,14 @@ Responsibilities:
   - Execute stages in sequence
   - Manage PipelineContext (shared state)
   - Handle errors and recovery
-  - Report progress with animated display
-  - Generate Markdown execution logs
+  - Report progress with animated pulsing display
+  - Generate Markdown execution logs with timing tables
+
+Progress Display:
+  - Animated "DAVINCI-MONET" text with left-to-right color sweep
+  - Elapsed time counter during stage execution
+  - Nested progress: stage › substep › item
+  - Summary of loaded models/obs/pairs after each stage
 
                            PipelineContext
                            ---------------
@@ -106,12 +112,16 @@ Each stage receives the `PipelineContext`, performs its work, and returns a `Sta
 
 | Stage | Input | Output | Description |
 |-------|-------|--------|-------------|
-| `load_models` | config.model | context.models | Load model files, apply unit conversions |
-| `load_observations` | config.obs | context.observations | Load observation files, filter by time/space |
-| `pairing` | models + observations | context.paired | Match model to observations by geometry |
+| `load_models` | config.model | context.models | Load model files (glob expansion), apply unit conversions |
+| `load_observations` | config.obs | context.observations | Load obs files with **time filtering** (file-level + data-level) |
+| `pairing` | models + observations | context.paired | Match model to obs by geometry (**Dask parallel**) |
 | `statistics` | context.paired | StageResult.data | Compute N, MB, RMSE, R, NMB, NME, IOA |
-| `plotting` | context.paired | PNG/PDF files | Generate scatter, timeseries, spatial plots |
+| `plotting` | context.paired | PNG/PDF files | Generate scatter, timeseries, spatial, 3D track plots |
 | `save_results` | statistics | CSV files | Write statistics tables |
+
+**Key optimizations** (see Performance Optimizations section):
+- `load_observations`: Time filtering reduces 5-month files to analysis period (1,630x faster)
+- `pairing`: Dask threaded scheduler with 32 workers for parallel I/O (260x faster)
 
 ### Stage Protocol
 
@@ -507,12 +517,12 @@ davinci_monet/
 │   ├── base.py              # BaseObservationReader
 │   ├── surface/             # Surface observations
 │   │   ├── airnow.py        # AirNow (US Embassy monitors)
-│   │   ├── aeronet.py       # AERONET AOD
+│   │   ├── aeronet.py       # AERONET AOD (CSV + NetCDF L1.5 format)
 │   │   ├── aqs.py           # EPA AQS
 │   │   ├── openaq.py        # OpenAQ
 │   │   └── pandora.py       # Pandora NO2 columns
 │   ├── aircraft/            # Aircraft observations
-│   │   └── icartt.py        # ICARTT format reader
+│   │   └── icartt.py        # ICARTT format reader (NASA merge files)
 │   └── satellite/           # Satellite observations
 │       ├── tropomi.py       # TROPOMI L2
 │       └── goes.py          # GOES-16/17 AOD
@@ -570,6 +580,28 @@ davinci_monet/
 2. Register with observation registry
 3. No changes needed to pairing engine (auto-detected by geometry)
 
+### Observation Reader: AERONET Example
+
+The AERONET reader demonstrates handling multiple input formats:
+
+```python
+# aeronet.py - _standardize_dataset()
+#
+# Input formats:
+#   - CSV via monetio API: (time, siteid) → converted to (time, site)
+#   - NetCDF L1.5: (time, y=1, x=508) where y is dummy dimension
+#
+# Standardization:
+#   1. Squeeze dummy y dimension: ds.squeeze("y", drop=True)
+#   2. Rename x → site: ds.rename({"x": "site"})
+#   3. Rename coords: latitude → lat, longitude → lon
+#   4. Set geometry attribute: ds.attrs["geometry"] = "point"
+#
+# Result: (time, site) with lat[site], lon[site] coords
+```
+
+The `LoadObservationsStage` detects AERONET files by label or filename pattern and routes to the specialized reader for proper dimension handling.
+
 ### Adding a New Plot Type
 
 1. Create renderer in `plots/renderers/` inheriting from `BasePlotter`
@@ -584,12 +616,90 @@ davinci_monet/
 
 ---
 
+## Performance Optimizations
+
+### Time Filtering at Observation Load (1,630x speedup)
+
+Large observation files (e.g., 5-month AERONET NetCDF) are filtered at load time rather than loading everything into memory:
+
+```
+LoadObservationsStage
+---------------------
+1. File-level filtering:
+   - Extract YYYYMMDD from filenames (ICARTT convention)
+   - Skip files outside analysis period
+
+2. Data-level filtering:
+   - After xr.open_dataset(), apply xr.sel(time=slice(start, end))
+   - O(1) for sorted time coordinates
+
+Impact: load_observations 163s → 0.1s for 3-day analysis from 5-month file
+```
+
+### Dask Parallel Scheduler (260x speedup)
+
+Point and Track strategies use threaded Dask scheduler for parallel I/O when extracting model values at observation locations:
+
+```python
+# In PointStrategy._extract_at_sites() and TrackStrategy._extract_along_track()
+n_workers = min(32, os.cpu_count() or 4)
+with dask.config.set(scheduler='threads', num_workers=n_workers):
+    extracted = extracted.compute()  # Parallel across 32 threads
+```
+
+Impact: Pairing 10+ min → 2.3s for 3-day analysis
+
+### CESM Vertical Coordinate Handling
+
+CESM hybrid sigma-pressure coordinates have surface at the **last** level index, not the first:
+
+```
+lev=0  → Top of Atmosphere (stratosphere, ~3 hPa)
+lev=-1 → Surface (highest pressure, ~1000 hPa)
+```
+
+The `_extract_surface()` method auto-detects this by checking if coordinate values increase with index:
+
+```python
+if vert_vals[-1] > vert_vals[0]:
+    surface_idx = -1  # CESM convention
+else:
+    surface_idx = 0   # Other conventions
+```
+
+### Performance Benchmarks
+
+**3-Day Test (72 model files, scratch storage)**:
+
+| Stage | Before | After | Speedup |
+|-------|--------|-------|---------|
+| load_models | 190s | 6.8s | 28x |
+| load_observations | 163s | 0.1s | **1,630x** |
+| pairing | 10+ min | 2.3s | **260x** |
+| **Total** | ~175s | ~8s | **22x** |
+
+**Full Month (696 hourly files)**:
+
+| Stage | Time | Notes |
+|-------|------|-------|
+| load_models | 54s | 696 hourly files |
+| load_observations | 0.1s | Time filtering applied |
+| pairing | 2.4s | Dask parallel |
+| statistics | 0.1s | |
+| plotting | 6.5s | |
+| **Total** | ~63s | ~1 min |
+
+---
+
 ## Performance Considerations
 
 - **Lazy loading**: xarray's lazy evaluation defers computation until needed
-- **Chunked processing**: Large files processed in chunks via dask (when available)
+- **Chunked processing**: Large files processed in chunks via Dask
+- **Time filtering**: Observations filtered at load time using `xr.sel(time=slice())`
+- **Parallel I/O**: Dask threaded scheduler with 32 workers for model extraction
 - **Spatial indexing**: 1D grids use binary search; 2D grids use haversine distance
 - **Memory efficiency**: Paired data only includes matched points, not full grids
+- **Storage hierarchy**: On HPC, use scratch storage (parallel FS) over campaign (tape-backed)
 
 ---
 
