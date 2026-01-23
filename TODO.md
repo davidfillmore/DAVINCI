@@ -118,6 +118,11 @@ analyses/asia-aq/configs/asia-aq-scratch.yaml   # Derecho: generic, scratch stor
 
 ### Remaining
 - [ ] Pre-chunked model data (daily/weekly concatenated files)
+- [ ] **Investigate Pandora pairing bottleneck** (60.8s of 94.3s total runtime)
+  - cesm_no2_column_pandora pair takes 60.8s for 128K points
+  - Other pairs (AERONET 354K pts, DC8 3.3K pts) complete in <1s
+  - Likely issue: cesm_no2_column model loading or PointStrategy for this specific pair
+  - Compare with cesm_asiaq pairing which uses same PointStrategy but is fast
 
 ---
 
