@@ -118,6 +118,27 @@ analyses/asia-aq/configs/asia-aq-scratch.yaml   # Derecho: generic, scratch stor
 
 ### Remaining
 - [ ] Pre-chunked model data (daily/weekly concatenated files)
+- [ ] **Compute Dask model once before pairing** (potential 3x speedup)
+
+  **Problem**: Each Dask-backed pair independently calls `.compute()`, reloading/processing
+  the 696 model files. With 3 pairs using `cesm_asiaq`, this happens 3 times.
+
+  **Current timing** (from profiling 2026-01-23):
+  ```
+  cesm_asiaq_airnow:   24.5s  (loads 696 files)
+  cesm_asiaq_aeronet:  24.8s  (loads 696 files again)
+  cesm_asiaq_dc8:      22.3s  (loads 696 files again)
+  cesm_no2_column_pandora: 0.0s  (already in memory)
+  Total: ~72s sequential, ~60s with partial parallelism
+  ```
+
+  **Proposed fix**: Call `.compute()` once per Dask model before pairing stage,
+  converting to in-memory NumPy arrays. All pairings would then be <1s each.
+
+  **Trade-off**: Memory usage increases (must hold full model in RAM).
+
+  See `PERFORMANCE.md` for detailed analysis.
+
 - [x] **Fix Pandora pairing bottleneck** (60.8s reported, actual pairing ~1s) - FIXED
 
   **Root Cause**: ThreadPoolExecutor + Dask GIL contention caused inflated timing.
@@ -136,20 +157,23 @@ analyses/asia-aq/configs/asia-aq-scratch.yaml   # Derecho: generic, scratch stor
 
 ### Pairing Progress Display Not Updating
 
-**Status**: OPEN
+**Status**: FIXED (2026-01-23)
 
-**Symptom**: During pairing stage, the animated status line doesn't show [1/4], [2/4], [3/4] progression. It jumps directly to [4/4] or sits on [3/4] while all pairing completes.
+**Symptom**: During pairing stage, the animated status line doesn't show [1/4], [2/4], [3/4] progression. It jumps directly to [4/4] or only shows [1/4] before completing.
 
-**Location**: `davinci_monet/pipeline/runner.py` (ProgressFormatter), `davinci_monet/pipeline/stages.py` (PairingStage)
+**Root Cause**: Two issues:
+1. In parallel execution, all pairs start nearly simultaneously, so showing start progress doesn't make sense
+2. When Dask pairs complete in rapid succession (after shared data loads), display updates weren't visible
 
-**Attempted fixes** (none worked):
-- Force `_live.update()` after each `item_start()` call
-- Add 0.2s delay between pair submissions
-- Separate "Pairing:" (start) and "Paired:" (complete) messages
+**Fix**: Implemented "parallel mode" for the progress display with completion-based tracking:
+- `ProgressFormatter.start_parallel(total)` - enters parallel mode, shows `[completed/total]`
+- `ProgressFormatter.parallel_item_completed()` - increments counter with 0.15s delay to ensure visibility
+- Display now shows `[0/4]` when starting, then `[1/4], [2/4], [3/4], [4/4]` as pairs **complete**
+- The delay adds ~0.6s total overhead for 4 pairs (negligible vs 60s pairing time)
 
-**Suspected cause**: Rich Live display updates may be buffered or the animation thread timing conflicts with the main thread updates.
-
-**Workaround**: Progress is logged correctly to the log file; only the live terminal display is affected.
+**Files Modified**:
+- `davinci_monet/pipeline/runner.py` - Added parallel mode to `ProgressFormatter`, updated `LogCollector`
+- `davinci_monet/pipeline/stages.py` - Updated `PairingStage` to use parallel progress messages
 
 ### Slideshow First Plot Stays Open
 

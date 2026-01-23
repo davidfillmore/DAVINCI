@@ -756,7 +756,7 @@ class PairingStage(BaseStage):
                 for args in pairs:
                     idx, model_label, _, obs_label, _, _, _ = args
                     pair_key = f"{model_label}_{obs_label}"
-                    context.log_progress(f"    Pairing: {pair_key} ({idx}/{total_pairs})")
+                    context.log_progress(f"    parallel_started: {pair_key}")
                     futures[executor.submit(pair_single, args)] = args
 
                 # Collect results as they complete
@@ -769,19 +769,24 @@ class PairingStage(BaseStage):
                         )
                         if debug:
                             context.log_progress(f"      [TIMING] {pair_key} failed: {_format_duration(pair_duration)}")
+                        # Still count as "completed" for progress display
+                        context.log_progress(f"    parallel_completed: {pair_key} - FAILED")
                     elif paired_ds is not None:
                         context.paired[pair_key] = paired_ds
                         paired_count += 1
 
-                        # Summary message using original index
+                        # Summary message
                         paired_data = paired_ds.data if hasattr(paired_ds, "data") else paired_ds
                         n_vars = len(paired_data.data_vars) // 2  # model_ and obs_ vars
                         n_points = paired_data.sizes.get("time", paired_data.sizes.get("x", 0))
                         timing_str = f" [{_format_duration(pair_duration)}]" if debug else ""
                         context.log_progress(
-                            f"    Paired: {pair_key} ({idx}/{total_pairs}) - "
+                            f"    parallel_completed: {pair_key} - "
                             f"{n_vars} vars, {_format_size(n_points)} points{timing_str}"
                         )
+
+        # Enter parallel mode for progress display
+        context.log_progress(f"    parallel_start: {total_pairs}")
 
         # Phase 1: Process Dask-backed model pairs in parallel
         # These share the same Dask scheduler so can run together efficiently
@@ -790,6 +795,9 @@ class PairingStage(BaseStage):
         # Phase 2: Process eager (non-Dask) model pairs in parallel
         # These run after Dask compute() completes, avoiding GIL contention
         run_phase(eager_pairs, "eager")
+
+        # Exit parallel mode
+        context.log_progress("    parallel_end")
 
         return self._create_result(
             StageStatus.COMPLETED,

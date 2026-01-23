@@ -127,7 +127,11 @@ class LogCollector:
         # Parse patterns like "Loading model: cesm_asiaq (1/2)"
         model_match = re.match(r"\s*Loading model: (\S+)", message)
         obs_match = re.match(r"\s*Loading obs: (\S+)", message)
+        # Legacy pairing pattern
         pair_match = re.match(r"\s*Pairing: (\S+)", message)
+        # New parallel pairing patterns
+        parallel_started_match = re.match(r"\s*parallel_started: (\S+)", message)
+        parallel_completed_match = re.match(r"\s*parallel_completed: (\S+)(.*)", message)
 
         if model_match:
             name = model_match.group(1)
@@ -138,6 +142,25 @@ class LogCollector:
         elif pair_match:
             name = pair_match.group(1)
             self._start_item(name, "pair")
+        elif parallel_started_match:
+            name = parallel_started_match.group(1)
+            self._start_item(name, "pair")
+        elif parallel_completed_match:
+            name = parallel_completed_match.group(1)
+            # Close this specific pair's timing
+            key = f"pair:{name}"
+            if key in self._item_start_times:
+                start = self._item_start_times[key]
+                self.entries.append(
+                    LogEntry(
+                        name=name,
+                        category="pair",
+                        start_time=start,
+                        end_time=time.time(),
+                        status="completed",
+                    )
+                )
+                del self._item_start_times[key]
 
     def _start_item(self, name: str, category: str) -> None:
         """Start timing an item and close previous in same category."""
@@ -451,6 +474,10 @@ class ProgressFormatter:
         self._animation_frame: int = 0
         self._current_item: str | None = None
         self._current_progress: tuple[int, int] | None = None  # (index, total)
+        # For parallel stages: track completed count separately from current item
+        self._parallel_total: int = 0
+        self._parallel_completed: int = 0
+        self._parallel_mode: bool = False
 
     def _log(self, line: str) -> None:
         """Store a line for log file."""
@@ -512,8 +539,17 @@ class ProgressFormatter:
         if self._current_stage:
             result.append(self._current_stage, style="bold yellow")
 
-        # Current item being processed
-        if self._current_item:
+        # Parallel mode: show completion progress
+        if self._parallel_mode and self._parallel_total > 0:
+            result.append(" › ", style="dim")
+            result.append(
+                f"[{self._parallel_completed}/{self._parallel_total}] ",
+                style="dim cyan" if self._parallel_completed > 0 else "dim"
+            )
+            if self._current_item:
+                result.append(self._current_item, style="white")
+        # Sequential mode: show current item
+        elif self._current_item:
             result.append(" › ", style="dim")
             if self._current_progress:
                 idx, total = self._current_progress
@@ -637,6 +673,67 @@ class ProgressFormatter:
         self._print()
         self._current_stage = None
         self._stage_items = []
+
+    def start_parallel(self, total: int) -> None:
+        """Enter parallel mode for tracking completion of multiple items.
+
+        In parallel mode, the display shows "[completed/total]" instead of
+        "[current/total]", which is more meaningful for parallel execution.
+
+        Parameters
+        ----------
+        total
+            Total number of items to process in parallel.
+        """
+        self._parallel_mode = True
+        self._parallel_total = total
+        self._parallel_completed = 0
+
+    def end_parallel(self) -> None:
+        """Exit parallel mode."""
+        self._parallel_mode = False
+        self._parallel_total = 0
+        self._parallel_completed = 0
+
+    def parallel_item_started(self, name: str) -> None:
+        """Record that a parallel item has started (for logging only).
+
+        In parallel mode, we log the start but don't update the display counter
+        since items start nearly simultaneously.
+
+        Parameters
+        ----------
+        name
+            Name of the item that started.
+        """
+        self._log(f"  → {name} (started)")
+        # Update current item name for display, but counter stays at completed count
+        self._current_item = name
+
+    def parallel_item_completed(self, category: str, name: str, details: str = "") -> None:
+        """Record that a parallel item has completed.
+
+        Parameters
+        ----------
+        category
+            Category of item (e.g., "pair").
+        name
+            Name of the completed item.
+        details
+            Optional details string.
+        """
+        self._parallel_completed += 1
+        detail_str = f" - {details}" if details else ""
+        self._log(f"  ✓ {name} ({self._parallel_completed}/{self._parallel_total}){detail_str}")
+        self._stage_items.append((category, name))
+
+        # Update display and ensure it's visible
+        # When completions happen in rapid succession, we need a brief pause
+        # so each progress update is actually rendered to the terminal
+        self._current_item = name
+        if self.show_output and self._live:
+            self._live.update(self._create_stage_display())
+            time.sleep(0.15)  # Ensure update is visible before next completion
 
     def item_start(self, category: str, name: str, index: int, total: int, track: bool = True) -> None:
         """Print item start (model, observation, pair).
@@ -995,6 +1092,28 @@ class PipelineRunner:
                     if match:
                         name, idx, total = match.groups()
                         fmt.item_start("obs", name, int(idx), int(total))
+                # Parallel mode control messages
+                elif msg.strip().startswith("parallel_start:"):
+                    match = re.match(r"\s*parallel_start: (\d+)", msg)
+                    if match:
+                        total = int(match.group(1))
+                        fmt.start_parallel(total)
+                elif msg.strip().startswith("parallel_end"):
+                    fmt.end_parallel()
+                elif msg.strip().startswith("parallel_started:"):
+                    # Item started in parallel mode (for logging, minimal display update)
+                    match = re.match(r"\s*parallel_started: (\S+)", msg)
+                    if match:
+                        name = match.group(1)
+                        fmt.parallel_item_started(name)
+                elif msg.strip().startswith("parallel_completed:"):
+                    # Item completed in parallel mode
+                    match = re.match(r"\s*parallel_completed: (\S+)(.*)", msg)
+                    if match:
+                        name = match.group(1)
+                        details = match.group(2).strip(" -") if match.group(2) else ""
+                        fmt.parallel_item_completed("pair", name, details)
+                # Legacy sequential pairing messages (for backward compatibility)
                 elif msg.strip().startswith("Pairing:"):
                     # "Pairing:" = start, just update animation (don't track)
                     match = re.match(r"\s*Pairing: (\S+) \((\d+)/(\d+)\)", msg)
