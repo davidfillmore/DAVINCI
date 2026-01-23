@@ -10,8 +10,8 @@
 analysis:
   start_time: "2024-02-01"
   end_time: "2024-02-29"
-  output_dir: /glade/derecho/scratch/fillmore/ASIA-AQ/output
-  log_dir: /glade/derecho/scratch/fillmore/ASIA-AQ/logs
+  output_dir: /glade/work/fillmore/DAVINCI-MONET/analyses/asia-aq/output
+  log_dir: /glade/work/fillmore/DAVINCI-MONET/analyses/asia-aq/logs
   debug: false
 
   # City labels for spatial plots: {name: [lat, lon]}
