@@ -118,7 +118,7 @@ The new NetCDF file (`~/Data/ASIA-AQ/AERONET/AERONET_L15_20240101_20240501.nc`):
 
 ## Priority 2: Feature Additions
 
-- [ ] Pandora NO2 column preprocessing and reader
+- [x] Pandora NO2 column preprocessing and reader (14 sites, 8.8k obs)
 - [x] AirNow data download and integration (36 sites, PM2.5/O3)
 - [ ] MOPITT CO profile evaluation
 - [ ] MODIS AOD comparison
@@ -334,3 +334,39 @@ davinci-monet run analyses/asia-aq/configs/asia-aq-aeronet-derecho.yaml
 davinci-monet run analyses/asia-aq/configs/asia-aq-dc8-derecho.yaml
 ```
 All output goes to same directory, plots accumulate.
+
+---
+
+## Session Summary (2026-01-23 Pandora)
+
+### Key Accomplishments
+1. **Added Pandora NO2 column observations**:
+   - Created `preprocess_pandora.py` to read L2 txt files
+   - 14 sites: Korea (Seoul, Busan, Incheon, etc.), Bangkok, Singapore, Philippines, Malaysia, Japan
+   - 9,847 quality-filtered observations in Feb 2024
+   - Output: `pandora_no2_column_20240201_20240229.nc`
+
+2. **Computed CESM NO2 tropospheric column**:
+   - Created `compute_no2_column.py` to integrate 3D NO2 vertically
+   - Uses hybrid pressure coordinates with 200 hPa tropopause threshold
+   - Output: `cesm_no2_column_20240201_20240229.nc` (1.25 GB)
+
+3. **Created Pandora config**:
+   - `asia-aq-pandora-derecho.yaml` for NO2 column evaluation
+   - Uses separate model file (NO2 column, not 3D surface extraction)
+
+### Statistics Results
+| Variable | N | R | NMB |
+|----------|-------|------|------|
+| NO2 column (Pandora) | 8,886 | 0.57 | +60% |
+
+Model overpredicts NO2 column, consistent with DC8 aircraft NO2 (+533% at surface).
+
+### Files Created
+- `analyses/asia-aq/scripts/preprocess_pandora.py`
+- `analyses/asia-aq/scripts/compute_no2_column.py`
+- `analyses/asia-aq/configs/asia-aq-pandora-derecho.yaml`
+
+### Preprocessed Data (on scratch)
+- `/glade/derecho/scratch/fillmore/ASIA-AQ/obs/pandora_no2_column_20240201_20240229.nc`
+- `/glade/derecho/scratch/fillmore/ASIA-AQ/obs/cesm_no2_column_20240201_20240229.nc`

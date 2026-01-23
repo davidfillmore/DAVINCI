@@ -11,6 +11,7 @@
 #   - asia-aq-airnow-derecho.yaml   (surface PM2.5, O3)
 #   - asia-aq-aeronet-derecho.yaml  (AOD)
 #   - asia-aq-dc8-derecho.yaml      (aircraft O3, NO2, CO)
+#   - asia-aq-pandora-derecho.yaml  (NO2 column)
 
 analysis:
   start_time: "2024-02-01"

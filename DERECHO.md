@@ -137,6 +137,7 @@ client = Client(n_workers=16, threads_per_worker=4)
 | `asia-aq-airnow-derecho.yaml` | AirNow only (surface PM2.5, O3) |
 | `asia-aq-aeronet-derecho.yaml` | AERONET only (AOD) |
 | `asia-aq-dc8-derecho.yaml` | DC8 only (aircraft O3, NO2, CO) |
+| `asia-aq-pandora-derecho.yaml` | Pandora only (NO2 column) |
 | `asia-aq-gemini.yaml` | Mac testing config |
 
 **Recommended workflow**: Run single-obs configs for faster iteration. Each loads the model
@@ -147,6 +148,7 @@ independently loads all 696 model files.
 davinci-monet run analyses/asia-aq/configs/asia-aq-airnow-derecho.yaml
 davinci-monet run analyses/asia-aq/configs/asia-aq-aeronet-derecho.yaml
 davinci-monet run analyses/asia-aq/configs/asia-aq-dc8-derecho.yaml
+davinci-monet run analyses/asia-aq/configs/asia-aq-pandora-derecho.yaml
 ```
 
 ### Available Data in Derecho Config
@@ -154,10 +156,20 @@ davinci-monet run analyses/asia-aq/configs/asia-aq-dc8-derecho.yaml
 - **AirNow** - Surface PM2.5, O3 from 36 US Embassy/Consulate monitors (Bangkok, Beijing, etc.)
 - **AERONET AOD** - L1.5 processed NetCDF
 - **DC-8 Aircraft** - 10-second merge ICARTT files (O3, NO2, CO)
+- **Pandora** - NO2 tropospheric column from 14 sites (preprocessed from L2 txt)
 
-### Not Yet Available
+### Preprocessing Scripts
 
-- **Pandora NO2 columns** - Raw txt files need preprocessing
+For Pandora, run these scripts first (already done, output on scratch):
+```bash
+python analyses/asia-aq/scripts/preprocess_pandora.py   # Pandora L2 → NetCDF
+python analyses/asia-aq/scripts/compute_no2_column.py   # CESM 3D NO2 → column
+```
+
+### Not Yet Implemented
+
+- **MOPITT** - CO profile evaluation
+- **MODIS** - AOD comparison
 
 To preview plots interactively (requires X11 forwarding):
 
