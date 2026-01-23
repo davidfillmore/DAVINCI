@@ -40,6 +40,41 @@ cesm_no2_column_pandora     0.0s     9,844   Data already in memory
 3. Dask doesn't cache the full computed result between calls
 4. Result: 696 files processed 3 times for 3 pairs
 
+### Common Misconception: "Parallel Dask Pairs Share Data"
+
+**What you might expect:**
+```
+1. Load model data once → shared in memory
+2. All 3 pairs use the shared data in parallel → each pairs in <1s
+```
+
+**What actually happens:**
+```
+1. All 3 Dask pairs start in parallel (via ThreadPoolExecutor)
+2. Each pair independently calls .compute() on the Dask model
+3. Each .compute() triggers loading/processing of 696 files
+4. Dask's scheduler coordinates somewhat, but computed data isn't shared
+```
+
+**Evidence from timing:**
+```
+If data were shared after first compute:
+  Pair 1: ~24s (loads and computes data)
+  Pair 2:  <1s (reuses computed data)
+  Pair 3:  <1s (reuses computed data)
+  Total:  ~25s
+
+Actual observed timing:
+  Pair 1: 24.5s
+  Pair 2: 24.8s
+  Pair 3: 22.3s
+  Total: ~60s (parallel), ~72s (sequential)
+```
+
+The ~60s total (not ~25s) proves that pairs do **not** share computed data. Each pair does its own full `.compute()`. The 60s vs 72s difference comes from Dask's internal scheduler overlapping some I/O operations, not from sharing computed results.
+
+**This is why pre-computing would help**: forcing `.compute()` once before pairing would put the data in memory as NumPy arrays, which all pairs could then share.
+
 ### Current Architecture
 
 ```
@@ -92,7 +127,7 @@ Pre-computing `cesm_asiaq` requires sufficient RAM. On HPC (Derecho) this is fin
 ### Related Issues
 
 - **GIL contention**: Fixed via two-phase pairing (Dask pairs first, then eager pairs)
-- **Progress display**: Fixed via completion-based tracking with 0.15s visibility delay
+- **Progress display**: Fixed via completion-based tracking with 1.0s visibility delay per pair
 - **Time filtering**: Implemented at observation load (1,630x speedup)
 
 ## Other Performance Findings
