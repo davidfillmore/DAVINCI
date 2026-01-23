@@ -58,20 +58,27 @@ cesm_no2_column_pandora     0.0s     9,844   Data already in memory
 
 **Evidence from timing:**
 ```
-If data were shared after first compute:
-  Pair 1: ~24s (loads and computes data)
-  Pair 2:  <1s (reuses computed data)
-  Pair 3:  <1s (reuses computed data)
+Hypothetical (if computed data were shared):
+  Pair 1: ~24s (loads and computes data into memory)
+  Pair 2:  <1s (reuses in-memory arrays)
+  Pair 3:  <1s (reuses in-memory arrays)
   Total:  ~25s
 
 Actual observed timing:
-  Pair 1: 24.5s
-  Pair 2: 24.8s
-  Pair 3: 22.3s
-  Total: ~60s (parallel), ~72s (sequential)
+  cesm_asiaq_airnow:   24.5s
+  cesm_asiaq_aeronet:  24.8s
+  cesm_asiaq_dc8:      22.3s
+  Total: ~60s (parallel), ~72s (if sequential)
 ```
 
-The ~60s total (not ~25s) proves that pairs do **not** share computed data. Each pair does its own full `.compute()`. The 60s vs 72s difference comes from Dask's internal scheduler overlapping some I/O operations, not from sharing computed results.
+The ~60s total (not ~25s) proves that pairs do **not** share computed NumPy arrays. Each pair does its own full `.compute()`.
+
+The 60s vs 72s difference (~17% savings) comes from lower-level caching:
+- **OS file cache**: Files read by first thread are cached in RAM for others
+- **Dask chunk cache**: Overlapping spatial regions may be computed once
+- **I/O overlap**: Threads can read files while others compute
+
+This is incidental caching, not intentional data sharing.
 
 **This is why pre-computing would help**: forcing `.compute()` once before pairing would put the data in memory as NumPy arrays, which all pairs could then share.
 
