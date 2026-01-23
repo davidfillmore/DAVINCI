@@ -118,10 +118,15 @@ analyses/asia-aq/configs/asia-aq-scratch.yaml   # Derecho: generic, scratch stor
 
 ### Remaining
 - [ ] Pre-chunked model data (daily/weekly concatenated files)
-- [ ] **Compute Dask model once before pairing** (potential 3x speedup)
+- [ ] **Optional: Pre-load Dask model before pairing** (potential 60s → 25s)
 
   **Problem**: Each Dask-backed pair independently calls `.compute()`, reloading/processing
   the 696 model files. With 3 pairs using `cesm_asiaq`, this happens 3 times.
+
+  **Key insight - "Democracy, not monarchy"**: The nearly equal per-pair times (~22-25s each)
+  show that labor is distributed equally - each pair redundantly does the same work. There's
+  no "first thread does heavy lifting, others benefit" pattern. This is actually worse than
+  if one thread warmed the cache for others.
 
   **ASIA-AQ Pair Configuration**:
   | Pair | Model | Dask? | Why |
@@ -137,13 +142,24 @@ analyses/asia-aq/configs/asia-aq-scratch.yaml   # Derecho: generic, scratch stor
   cesm_asiaq_aeronet:  24.8s  (loads 696 files again)
   cesm_asiaq_dc8:      22.3s  (loads 696 files again)
   cesm_no2_column_pandora: 0.0s  (already in memory)
-  Total: ~72s sequential, ~60s with partial parallelism
+  Total: ~72s sequential, ~60s parallel (only 17% savings from incidental caching)
   ```
 
-  **Proposed fix**: Call `.compute()` once per Dask model before pairing stage,
-  converting to in-memory NumPy arrays. All pairings would then be <1s each.
+  **Proposed feature**: Optional `preload: true` in model config to call `.compute()` once
+  before pairing, converting to in-memory NumPy arrays. All pairings would then be <1s each.
 
-  **Trade-off**: Memory usage increases (must hold full model in RAM).
+  ```yaml
+  model:
+    cesm_asiaq:
+      mod_type: generic
+      files: ${DATA}/*.nc
+      preload: true  # Optional: load into memory before pairing
+  ```
+
+  **Trade-offs**:
+  - Pro: 60s → ~25s for pairing stage
+  - Con: Memory usage increases (~20 GB for 1-month CESM at 1°)
+  - Con: Not feasible for 3+ month analyses or high-resolution models
 
   See `PERFORMANCE.md` for detailed analysis.
 

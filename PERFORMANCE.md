@@ -80,6 +80,18 @@ The 60s vs 72s difference (~17% savings) comes from lower-level caching:
 
 This is incidental caching, not intentional data sharing.
 
+### Democracy, Not Monarchy
+
+The nearly equal per-pair times (~22-25s each) show that labor is distributed equally - each pair does roughly the same amount of work independently. If one thread were doing the heavy lifting for others, we'd expect:
+
+```
+Pair 1: 40s  (does most loading, others benefit from cache)
+Pair 2: 15s  (benefits from warm cache)
+Pair 3:  8s  (benefits most from cache)
+```
+
+But we see equal times instead. This is actually **worse** than a "monarchy" model - at least then we'd get ~25s total. Instead, we have 3 equal workers redundantly doing the same job, with only minor (~17%) incidental cache benefits spread evenly across all three.
+
 **This is why pre-computing would help**: forcing `.compute()` once before pairing would put the data in memory as NumPy arrays, which all pairs could then share.
 
 ### Current Architecture
