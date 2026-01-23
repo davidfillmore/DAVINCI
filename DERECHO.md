@@ -8,6 +8,7 @@ Notes for running DAVINCI-MONET on NCAR's Derecho HPC system.
 - **Home**: `/glade/u/home/fillmore`
 - **Work**: `/glade/work/fillmore`
 - **Project**: `/glade/work/fillmore/DAVINCI-MONET`
+- **Branch**: `develop` (primary working branch)
 
 ## Conda Environment
 
@@ -128,8 +129,7 @@ client = Client(n_workers=16, threads_per_worker=4)
 | Config | Description |
 |--------|-------------|
 | `asia-aq.yaml` | Original config (uses `${ASIA_AQ_DATA}` env var) |
-| `asia-aq-derecho.yaml` | Derecho-specific with campaign storage paths |
-| `asia-aq-scratch.yaml` | **Fastest** - uses scratch storage (requires setup above) |
+| `asia-aq-derecho.yaml` | Derecho config using scratch storage (fast) |
 | `asia-aq-derecho-1day.yaml` | Single day test config |
 
 ### Available Data in Derecho Config
@@ -170,30 +170,26 @@ davinci-monet run analyses/asia-aq/configs/asia-aq-derecho.yaml --show-plots
 
 ### Observed Performance
 
-**3-day test (72 model files)**:
+**Full month (Feb 2024) on scratch storage (2026-01-23, peak hours)**:
 
-| Stage | Campaign Storage | Scratch Storage | Speedup |
-|-------|------------------|-----------------|---------|
-| load_models | 190s | **6.8s** | **28x** |
-| load_observations | 172s | 163s | ~1x |
-| pairing (AERONET) | 10+ min | **2.3s** | **~260x** |
+| Stage | Time | Data | Notes |
+|-------|------|------|-------|
+| load_models | 96s | 696 NetCDF files | Builds Dask task graph |
+| load_observations | 165s | AERONET + DC8 (7 ICARTT) | ICARTT parsing dominates |
+| pairing | 600s | 4 pairs | Each pair loads 696 files |
+| statistics | 0.1s | 4 pairs | |
+| plotting | 31s | 14 plots | |
+| **Total** | **~15 min** | | |
 
-**Full month (696 model files) with all optimizations**:
+**Output (verified 2026-01-23):**
+- 14 plots: scatter, timeseries, spatial_bias, flight_timeseries, track_3d
+- Statistics: N=8.5k-19k paired points, R=0.27-0.52
 
-| Stage | Before Optimization | After Optimization | Speedup |
-|-------|---------------------|-------------------|---------|
-| load_models | ~190s | **55s** | 3.5x |
-| load_observations | 163s | **0.1s** | **1,630x** |
-| pairing (AERONET) | 10+ min | **2.4s** | **~260x** |
-| **Total pipeline** | ~175s (3-day) | **~8s** (3-day) | **22x** |
-
-**Key optimizations applied**:
-1. **Scratch storage** - Model loading 28x faster than campaign storage
-2. **Dask parallel scheduler** - Pairing uses explicit threaded scheduler with 32 workers
-3. **Time filtering at load** - Two-level filtering:
-   - File-level: filters by YYYYMMDD in filename (skips out-of-range ICARTT files)
-   - Data-level: filters by time dimension after loading (subsets large NetCDF files)
-4. **Track strategy optimization** - Same Dask fix applied to aircraft pairing
+**Notes:**
+- Scratch storage performance varies significantly with cluster load
+- ICARTT (ASCII) parsing dominates obs load time, not I/O
+- Pairing is the main bottleneck due to repeated Dask `.compute()` calls
+- The `preload: true` feature (not yet implemented) would help significantly
 
 ### Scratch Storage Setup
 
@@ -228,9 +224,9 @@ tar -xf /glade/derecho/scratch/fillmore/DC8.tar --strip-components=7
 cp /glade/work/fillmore/ASIA-AQ/model-subset/AERONET_L15_20240101_20240501.nc .
 ```
 
-Then run with scratch config:
+Then run:
 ```bash
-davinci-monet run analyses/asia-aq/configs/asia-aq-scratch.yaml
+davinci-monet run analyses/asia-aq/configs/asia-aq-derecho.yaml
 ```
 
 ## File Transfer Notes

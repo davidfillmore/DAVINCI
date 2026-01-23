@@ -5,7 +5,7 @@ Priority items for future development sessions.
 ## Priority 0: AERONET NetCDF Reader (Current Session)
 
 ### Objective
-Get `asia-aq-derecho` branch working on Mac with the new AERONET NetCDF format.
+Get ASIA-AQ analysis working with the new AERONET NetCDF format.
 
 ### AERONET Data Structure
 The new NetCDF file (`~/Data/ASIA-AQ/AERONET/AERONET_L15_20240101_20240501.nc`):
@@ -45,7 +45,7 @@ The new NetCDF file (`~/Data/ASIA-AQ/AERONET/AERONET_L15_20240101_20240501.nc`):
 
 ## Priority 1: Performance Optimizations
 
-### Completed (on `asia-aq-derecho`)
+### Completed
 - [x] Dask parallel scheduler for PointStrategy pairing (260x speedup)
 - [x] Dask parallel scheduler for TrackStrategy pairing (aircraft data)
 - [x] Scratch storage config for Derecho
@@ -113,46 +113,6 @@ The new NetCDF file (`~/Data/ASIA-AQ/AERONET/AERONET_L15_20240101_20240501.nc`):
   **Result**: Per-pair timing now accurate:
   - cesm_asiaq_* pairs: ~24s each (actual Dask compute time)
   - cesm_no2_column_pandora: <1s (was falsely reported as 60s)
-
----
-
-## Known Bugs
-
-### Pairing Progress Display Not Updating
-
-**Status**: FIXED (2026-01-23)
-
-**Symptom**: During pairing stage, the animated status line doesn't show [1/4], [2/4], [3/4] progression. It jumps directly to [4/4] or only shows [1/4] before completing.
-
-**Root Cause**: Two issues:
-1. In parallel execution, all pairs start nearly simultaneously, so showing start progress doesn't make sense
-2. When Dask pairs complete in rapid succession (after shared data loads), display updates weren't visible
-
-**Fix**: Implemented "parallel mode" for the progress display with completion-based tracking:
-- `ProgressFormatter.start_parallel(total)` - enters parallel mode, shows `[completed/total]`
-- `ProgressFormatter.parallel_item_completed()` - increments counter with 1.0s pause for visibility
-- Display shows `[0/4]` with **no pair name** during loading (avoids misleading "one slow pair" appearance)
-- Then `[1/4] pair_name`, `[2/4] pair_name`, etc. as pairs **complete** (each visible for 1 second)
-- The delay adds ~4s total overhead for 4 pairs (acceptable vs 60s pairing time)
-
-**Files Modified**:
-- `davinci_monet/pipeline/runner.py` - Added parallel mode to `ProgressFormatter`, updated `LogCollector`
-- `davinci_monet/pipeline/stages.py` - Updated `PairingStage` to use parallel progress messages
-
-### Slideshow First Plot Stays Open
-
-**Status**: OPEN
-
-**Symptom**: When plot preview slideshow starts, the first plot window opens and stays visible while subsequent plots appear in front of it, rather than updating in place.
-
-**Location**: `davinci_monet/pipeline/runner.py` (`preview_plots` method)
-
-**Attempted fixes** (none worked):
-- Add `plt.close("all")` before starting
-- Add `plt.show(block=False)` after creating figure
-- Use `draw_idle()` vs `draw()`
-
-**Suspected cause**: macOS matplotlib backend behavior with interactive mode.
 
 ---
 
@@ -297,3 +257,40 @@ Full month (Feb 2024) analysis running with AERONET + DC8 on scratch storage.
 export ASIA_AQ_DATA=~/Data/ASIA-AQ
 ```
 Add to `~/.zshrc` for persistence across sessions.
+
+---
+
+## Session Summary (2026-01-23 Derecho)
+
+### Key Accomplishments
+1. **ASIA-AQ analysis working on Derecho**:
+   - Full month (Feb 2024) pipeline completed successfully
+   - 14 plots generated, statistics verified
+   - Output: `/glade/derecho/scratch/fillmore/ASIA-AQ/output/`
+
+2. **Consolidated config files**:
+   - Updated `asia-aq-derecho.yaml` to use scratch storage
+   - Deleted redundant `asia-aq-scratch.yaml`
+
+3. **Updated performance benchmarks** (peak hours):
+   - load_models: 96s (696 files)
+   - load_observations: 165s (AERONET + DC8 ICARTT)
+   - pairing: 600s (4 pairs, cluster load impact)
+   - Total: ~15 min
+
+4. **Cleaned up documentation**:
+   - DERECHO.md: Updated paths, performance stats, removed stale references
+   - TODO.md: Removed stale branch references
+
+### Statistics Results
+| Variable | N | R | NMB |
+|----------|-------|------|------|
+| O3 (DC8) | 19,391 | 0.27 | +35% |
+| NO2 (DC8) | 19,509 | 0.41 | +533% |
+| CO (DC8) | 19,271 | 0.31 | +10% |
+| AOD (AERONET) | 8,559 | 0.52 | -45% |
+
+### Notes
+- Pairing is the main bottleneck (600s) due to Dask `.compute()` calls during peak hours
+- Scratch storage essential - campaign storage would be 3-4x slower
+- Working branch: `develop`

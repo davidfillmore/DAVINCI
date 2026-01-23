@@ -1,17 +1,17 @@
 # ASIA-AQ CESM/CAM-chem Evaluation Configuration (Derecho)
-# Comparing model output with AERONET AOD, Pandora NO2 columns, and DC-8 aircraft
+# Comparing model output with AERONET AOD and DC-8 aircraft
 #
 # Model: CESM/CAM-chem (f.e3b06m.FCnudged.t6s.01x01.01)
 # Period: February 1-29, 2024 (leap year)
 # Domain: 0-45°N, 90-140°E
 #
-# Data location: /glade/campaign/acom/acom-weather/emmons/
+# Data location: /glade/derecho/scratch/fillmore/ASIA-AQ (fast parallel FS)
 
 analysis:
   start_time: "2024-02-01"
   end_time: "2024-02-29"
-  output_dir: /glade/work/fillmore/ASIA-AQ/output
-  log_dir: /glade/work/fillmore/ASIA-AQ/logs
+  output_dir: /glade/derecho/scratch/fillmore/ASIA-AQ/output
+  log_dir: /glade/derecho/scratch/fillmore/ASIA-AQ/logs
   debug: false
 
   # City labels for spatial plots: {name: [lat, lon]}
@@ -31,8 +31,8 @@ analysis:
 model:
   cesm_asiaq:
     mod_type: generic  # Regridded 2D data (no vertical dimension)
-    # Derecho campaign storage path
-    files: /glade/campaign/acom/acom-weather/emmons/ASIAAQ_sims/f.e3b06m.FCnudged.t6s.GEMSne30x8.01/regridded_0.1deg/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc
+    # Scratch storage (fast parallel FS)
+    files: /glade/derecho/scratch/fillmore/ASIA-AQ/model/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc
     radius_of_influence: 15000  # 15 km for 0.1 deg grid
 
     # Variable mapping: obs_label -> {obs_var: model_var}
@@ -86,8 +86,8 @@ model:
 obs:
   aeronet:
     obs_type: pt_sfc
-    # Derecho campaign storage path
-    filename: /glade/campaign/acom/acom-weather/emmons/ASIAAQ_obs/AERONET/AERONET_L15_20240101_20240501.nc
+    # Scratch storage (fast parallel FS)
+    filename: /glade/derecho/scratch/fillmore/ASIA-AQ/obs/AERONET_L15_20240101_20240501.nc
     variables:
       aod_500nm:
         obs_min: 0
@@ -99,7 +99,7 @@ obs:
   # Using 10-second merge files (RA revision)
   dc8:
     obs_type: aircraft
-    filename: /glade/campaign/acom/acom-weather/emmons/ASIAAQ_obs/DC8/asiaaq-mrg10_dc8_202402*_RA_*.ict
+    filename: /glade/derecho/scratch/fillmore/ASIA-AQ/obs/asiaaq-mrg10_dc8_202402*_RA_*.ict
     variables:
       O3_ROZE_STCLAIR:
         obs_min: 0
