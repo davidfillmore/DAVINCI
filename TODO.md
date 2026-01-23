@@ -118,26 +118,17 @@ analyses/asia-aq/configs/asia-aq-scratch.yaml   # Derecho: generic, scratch stor
 
 ### Remaining
 - [ ] Pre-chunked model data (daily/weekly concatenated files)
-- [ ] **Fix Pandora pairing bottleneck** (60.8s reported, actual pairing ~1s)
+- [x] **Fix Pandora pairing bottleneck** (60.8s reported, actual pairing ~1s) - FIXED
 
-  **Root Cause Identified**: ThreadPoolExecutor + Dask GIL contention
+  **Root Cause**: ThreadPoolExecutor + Dask GIL contention caused inflated timing.
 
-  The actual `PointStrategy.pair()` for Pandora only takes **0.9s when run alone**.
-  The 60s timing is an artifact of parallel execution with cesm_asiaq pairings:
+  **Fix Applied**: Two-phase sequential pairing in `PairingStage`:
+  1. Phase 1: Process Dask-backed model pairs (cesm_asiaq_*)
+  2. Phase 2: Process eager model pairs (cesm_no2_column_pandora)
 
-  - `cesm_asiaq` model is Dask-backed (696 files via `open_mfdataset`)
-  - `cesm_no2_column` model is NOT Dask-backed (single file)
-  - When pairs run in parallel via ThreadPoolExecutor:
-    1. cesm_asiaq pairings trigger Dask `compute()` with 32 threads
-    2. These Dask threads hold the GIL during NumPy operations
-    3. cesm_no2_column_pandora pairing waits on GIL
-    4. Reported duration includes wait time, not actual work
-
-  **Proposed Solutions** (choose one):
-  1. **Sequential pairing for mixed Dask/eager models** - Process Dask-backed model pairs first, then eager model pairs
-  2. **ProcessPoolExecutor** - Use processes instead of threads to avoid GIL
-  3. **Compute cesm_asiaq eagerly before pairing** - `model.data = model.data.compute()` to eliminate Dask overhead
-  4. **Consistent chunking** - Make cesm_no2_column Dask-backed too for uniform behavior
+  **Result**: Per-pair timing now accurate:
+  - cesm_asiaq_* pairs: ~24s each (actual Dask compute time)
+  - cesm_no2_column_pandora: <1s (was falsely reported as 60s)
 
 ---
 

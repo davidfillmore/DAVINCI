@@ -640,10 +640,14 @@ class PairingStage(BaseStage):
         return bool(context.models) and bool(context.observations)
 
     def execute(self, context: PipelineContext) -> StageResult:
-        """Pair model and observation data using parallel execution."""
+        """Pair model and observation data.
+
+        Uses two-phase execution to avoid GIL contention between Dask-backed
+        and eager (non-Dask) models. Dask models spawn many threads during
+        compute() which can block eager model pairings if run simultaneously.
+        """
         import os
         import time
-        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         from davinci_monet.pairing import PairingEngine, PairingConfig
 
@@ -652,11 +656,17 @@ class PairingStage(BaseStage):
         # Get pairing configuration
         pairing_config_dict = context.config.get("pairing", {})
 
-        # Build list of pairs to process
-        pairs_to_process: list[tuple[str, Any, str, Any, dict, dict]] = []
+        # Build list of pairs to process, separating Dask-backed from eager models
+        dask_pairs: list[tuple[str, Any, str, Any, dict, dict]] = []
+        eager_pairs: list[tuple[str, Any, str, Any, dict, dict]] = []
+
         for model_label, model_data in context.models.items():
             model_config = context.config.get("model", {}).get(model_label, {})
             mapping = model_config.get("mapping", {})
+
+            # Check if model is Dask-backed
+            model_ds = model_data.data if hasattr(model_data, "data") else model_data
+            is_dask = self._is_dask_backed(model_ds)
 
             for obs_label, obs_data in context.observations.items():
                 if mapping and obs_label not in mapping:
@@ -666,13 +676,18 @@ class PairingStage(BaseStage):
                 if not var_mapping:
                     continue
 
-                pairs_to_process.append((
+                pair_tuple = (
                     model_label, model_data,
                     obs_label, obs_data,
                     model_config, var_mapping
-                ))
+                )
 
-        total_pairs = len(pairs_to_process)
+                if is_dask:
+                    dask_pairs.append(pair_tuple)
+                else:
+                    eager_pairs.append(pair_tuple)
+
+        total_pairs = len(dask_pairs) + len(eager_pairs)
         if total_pairs == 0:
             return self._create_result(
                 StageStatus.COMPLETED,
@@ -682,11 +697,6 @@ class PairingStage(BaseStage):
             )
 
         debug = context.config.get("analysis", {}).get("debug", False)
-
-        # Log what pairs we're about to process (shows in animation)
-        for i, (model_label, _, obs_label, _, _, _) in enumerate(pairs_to_process, 1):
-            pair_key = f"{model_label}_{obs_label}"
-            context.log_progress(f"    Pairing: {pair_key} ({i}/{total_pairs})")
 
         def pair_single(args: tuple) -> tuple[str, Any, str | None, float]:
             """Process a single model-obs pair. Returns (pair_key, paired_ds, error, duration)."""
@@ -725,37 +735,51 @@ class PairingStage(BaseStage):
             except Exception as e:
                 return (pair_key, None, str(e), time_mod.time() - pair_start)
 
-        # Process pairs in parallel using ThreadPoolExecutor
-        max_workers = min(total_pairs, os.cpu_count() or 4)
         paired_count = 0
         completed = 0
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {executor.submit(pair_single, args): args for args in pairs_to_process}
+        def run_pair(args: tuple) -> None:
+            """Run a single pair with proper logging."""
+            nonlocal paired_count, completed
+            model_label, _, obs_label, _, _, _ = args
+            pair_key = f"{model_label}_{obs_label}"
 
-            for future in as_completed(futures):
-                completed += 1
-                pair_key, paired_ds, error, pair_duration = future.result()
+            # Log start (triggers log timer)
+            context.log_progress(f"    Pairing: {pair_key} ({completed + 1}/{total_pairs})")
 
-                if error:
-                    context.metadata.setdefault("pairing_errors", []).append(
-                        f"{pair_key}: {error}"
-                    )
-                    if debug:
-                        context.log_progress(f"      [TIMING] {pair_key} failed: {_format_duration(pair_duration)}")
-                elif paired_ds is not None:
-                    context.paired[pair_key] = paired_ds
-                    paired_count += 1
+            # Run the pairing
+            pair_key, paired_ds, error, pair_duration = pair_single(args)
+            completed += 1
 
-                    # Summary message
-                    paired_data = paired_ds.data if hasattr(paired_ds, "data") else paired_ds
-                    n_vars = len(paired_data.data_vars) // 2  # model_ and obs_ vars
-                    n_points = paired_data.sizes.get("time", paired_data.sizes.get("x", 0))
-                    timing_str = f" [{_format_duration(pair_duration)}]" if debug else ""
-                    context.log_progress(
-                        f"    Paired: {pair_key} ({completed}/{total_pairs}) - "
-                        f"{n_vars} vars, {_format_size(n_points)} points{timing_str}"
-                    )
+            if error:
+                context.metadata.setdefault("pairing_errors", []).append(
+                    f"{pair_key}: {error}"
+                )
+                if debug:
+                    context.log_progress(f"      [TIMING] {pair_key} failed: {_format_duration(pair_duration)}")
+            elif paired_ds is not None:
+                context.paired[pair_key] = paired_ds
+                paired_count += 1
+
+                # Summary message
+                paired_data = paired_ds.data if hasattr(paired_ds, "data") else paired_ds
+                n_vars = len(paired_data.data_vars) // 2  # model_ and obs_ vars
+                n_points = paired_data.sizes.get("time", paired_data.sizes.get("x", 0))
+                timing_str = f" [{_format_duration(pair_duration)}]" if debug else ""
+                context.log_progress(
+                    f"    Paired: {pair_key} ({completed}/{total_pairs}) - "
+                    f"{n_vars} vars, {_format_size(n_points)} points{timing_str}"
+                )
+
+        # Phase 1: Process Dask-backed model pairs first (sequentially)
+        # These trigger compute() which spawns many threads internally
+        for args in dask_pairs:
+            run_pair(args)
+
+        # Phase 2: Process eager (non-Dask) model pairs (sequentially)
+        # These are fast and won't compete with Dask threads for the GIL
+        for args in eager_pairs:
+            run_pair(args)
 
         return self._create_result(
             StageStatus.COMPLETED,
@@ -763,6 +787,24 @@ class PairingStage(BaseStage):
             duration=time.time() - start,
             count=paired_count,
         )
+
+    def _is_dask_backed(self, ds: xr.Dataset) -> bool:
+        """Check if a dataset has Dask-backed arrays.
+
+        Parameters
+        ----------
+        ds
+            xarray Dataset to check.
+
+        Returns
+        -------
+        bool
+            True if any data variable has Dask chunks.
+        """
+        for var in ds.data_vars:
+            if ds[var].chunks is not None:
+                return True
+        return False
 
 
 class StatisticsStage(BaseStage):
