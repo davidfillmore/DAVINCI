@@ -478,6 +478,7 @@ class ProgressFormatter:
         self._parallel_total: int = 0
         self._parallel_completed: int = 0
         self._parallel_mode: bool = False
+        self._parallel_loading_msg: str | None = None  # Message to show during [0/N]
 
     def _log(self, line: str) -> None:
         """Store a line for log file."""
@@ -547,7 +548,11 @@ class ProgressFormatter:
                 style="dim cyan" if self._parallel_completed > 0 else "dim"
             )
             if self._current_item:
+                # After completions start, show the completed item name
                 result.append(self._current_item, style="white")
+            elif self._parallel_loading_msg and self._parallel_completed == 0:
+                # During [0/N] phase, show what's being loaded
+                result.append(self._parallel_loading_msg, style="dim italic")
         # Sequential mode: show current item
         elif self._current_item:
             result.append(" › ", style="dim")
@@ -674,7 +679,7 @@ class ProgressFormatter:
         self._current_stage = None
         self._stage_items = []
 
-    def start_parallel(self, total: int) -> None:
+    def start_parallel(self, total: int, loading_msg: str | None = None) -> None:
         """Enter parallel mode for tracking completion of multiple items.
 
         In parallel mode, the display shows "[completed/total]" instead of
@@ -684,16 +689,20 @@ class ProgressFormatter:
         ----------
         total
             Total number of items to process in parallel.
+        loading_msg
+            Optional message to show during [0/N] phase (e.g., "loading cesm → obs1, obs2").
         """
         self._parallel_mode = True
         self._parallel_total = total
         self._parallel_completed = 0
+        self._parallel_loading_msg = loading_msg
 
     def end_parallel(self) -> None:
         """Exit parallel mode."""
         self._parallel_mode = False
         self._parallel_total = 0
         self._parallel_completed = 0
+        self._parallel_loading_msg = None
 
     def parallel_item_started(self, name: str) -> None:
         """Record that a parallel item has started (for logging only).
@@ -1094,10 +1103,12 @@ class PipelineRunner:
                         fmt.item_start("obs", name, int(idx), int(total))
                 # Parallel mode control messages
                 elif msg.strip().startswith("parallel_start:"):
-                    match = re.match(r"\s*parallel_start: (\d+)", msg)
+                    # Format: "parallel_start: N" or "parallel_start: N | loading_msg"
+                    match = re.match(r"\s*parallel_start: (\d+)(?:\s*\|\s*(.+))?", msg)
                     if match:
                         total = int(match.group(1))
-                        fmt.start_parallel(total)
+                        loading_msg = match.group(2)  # May be None
+                        fmt.start_parallel(total, loading_msg)
                 elif msg.strip().startswith("parallel_end"):
                     fmt.end_parallel()
                 elif msg.strip().startswith("parallel_started:"):
