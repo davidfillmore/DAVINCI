@@ -740,6 +740,9 @@ class ProgressFormatter:
 
         self._print(f"  [dim]Previewing {len(png_files)} plots...[/dim]")
 
+        # Close any existing figures to start fresh
+        plt.close("all")
+
         # Set up matplotlib for non-blocking display
         plt.ion()
         fig, ax = plt.subplots(figsize=(12, 8))
@@ -764,7 +767,7 @@ class ProgressFormatter:
             except Exception as e:
                 self._log(f"  Error previewing {png_path}: {e}")
 
-        plt.close(fig)
+        plt.close("all")
         plt.ioff()
 
     def get_log_lines(self) -> list[str]:

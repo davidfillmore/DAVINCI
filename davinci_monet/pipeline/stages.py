@@ -657,8 +657,10 @@ class PairingStage(BaseStage):
         pairing_config_dict = context.config.get("pairing", {})
 
         # Build list of pairs to process, separating Dask-backed from eager models
-        dask_pairs: list[tuple[str, Any, str, Any, dict, dict]] = []
-        eager_pairs: list[tuple[str, Any, str, Any, dict, dict]] = []
+        # Each tuple includes an index for consistent ordering in output messages
+        dask_pairs: list[tuple[int, str, Any, str, Any, dict, dict]] = []
+        eager_pairs: list[tuple[int, str, Any, str, Any, dict, dict]] = []
+        pair_index = 0
 
         for model_label, model_data in context.models.items():
             model_config = context.config.get("model", {}).get(model_label, {})
@@ -676,8 +678,9 @@ class PairingStage(BaseStage):
                 if not var_mapping:
                     continue
 
+                pair_index += 1
                 pair_tuple = (
-                    model_label, model_data,
+                    pair_index, model_label, model_data,
                     obs_label, obs_data,
                     model_config, var_mapping
                 )
@@ -698,11 +701,11 @@ class PairingStage(BaseStage):
 
         debug = context.config.get("analysis", {}).get("debug", False)
 
-        def pair_single(args: tuple) -> tuple[str, Any, str | None, float]:
-            """Process a single model-obs pair. Returns (pair_key, paired_ds, error, duration)."""
+        def pair_single(args: tuple) -> tuple[int, str, Any, str | None, float]:
+            """Process a single model-obs pair. Returns (index, pair_key, paired_ds, error, duration)."""
             import time as time_mod
             pair_start = time_mod.time()
-            model_label, model_data, obs_label, obs_data, model_config, var_mapping = args
+            idx, model_label, model_data, obs_label, obs_data, model_config, var_mapping = args
             pair_key = f"{model_label}_{obs_label}"
 
             try:
@@ -713,7 +716,7 @@ class PairingStage(BaseStage):
                 obs_ds = obs_data.data if hasattr(obs_data, "data") else obs_data
 
                 if model_ds is None or obs_ds is None:
-                    return (pair_key, None, "Model or obs data is None", time_mod.time() - pair_start)
+                    return (idx, pair_key, None, "Model or obs data is None", time_mod.time() - pair_start)
 
                 radius = model_config.get("radius_of_influence", 12000.0)
                 pairing_cfg = PairingConfig(
@@ -730,31 +733,20 @@ class PairingStage(BaseStage):
                     config=pairing_cfg,
                 )
 
-                return (pair_key, paired_ds, None, time_mod.time() - pair_start)
+                return (idx, pair_key, paired_ds, None, time_mod.time() - pair_start)
 
             except Exception as e:
-                return (pair_key, None, str(e), time_mod.time() - pair_start)
+                return (idx, pair_key, None, str(e), time_mod.time() - pair_start)
 
         paired_count = 0
-        completed = 0
 
         def run_phase(pairs: list, phase_name: str) -> None:
             """Run a phase of pairs in parallel."""
-            nonlocal paired_count, completed
+            nonlocal paired_count
             from concurrent.futures import ThreadPoolExecutor, as_completed
 
             if not pairs:
                 return
-
-            # Log start of each pair (triggers log timers)
-            for args in pairs:
-                model_label, _, obs_label, _, _, _ = args
-                pair_key = f"{model_label}_{obs_label}"
-                context.log_progress(f"    Pairing: {pair_key} ({completed + 1}/{total_pairs})")
-                completed += 1
-
-            # Reset completed for result logging
-            completed -= len(pairs)
 
             # Run pairs in parallel
             max_workers = min(len(pairs), os.cpu_count() or 4)
@@ -762,8 +754,7 @@ class PairingStage(BaseStage):
                 futures = {executor.submit(pair_single, args): args for args in pairs}
 
                 for future in as_completed(futures):
-                    completed += 1
-                    pair_key, paired_ds, error, pair_duration = future.result()
+                    idx, pair_key, paired_ds, error, pair_duration = future.result()
 
                     if error:
                         context.metadata.setdefault("pairing_errors", []).append(
@@ -775,13 +766,13 @@ class PairingStage(BaseStage):
                         context.paired[pair_key] = paired_ds
                         paired_count += 1
 
-                        # Summary message
+                        # Summary message using original index
                         paired_data = paired_ds.data if hasattr(paired_ds, "data") else paired_ds
                         n_vars = len(paired_data.data_vars) // 2  # model_ and obs_ vars
                         n_points = paired_data.sizes.get("time", paired_data.sizes.get("x", 0))
                         timing_str = f" [{_format_duration(pair_duration)}]" if debug else ""
                         context.log_progress(
-                            f"    Paired: {pair_key} ({completed}/{total_pairs}) - "
+                            f"    Paired: {pair_key} ({idx}/{total_pairs}) - "
                             f"{n_vars} vars, {_format_size(n_points)} points{timing_str}"
                         )
 
