@@ -6,6 +6,9 @@ any specific model type. It uses xarray's generic NetCDF/grib readers.
 
 from __future__ import annotations
 
+import gc
+import os
+import sys
 import warnings
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -27,6 +30,22 @@ COMMON_COORDINATE_ALIASES: dict[str, list[str]] = {
     "lon": ["lon", "longitude", "LON", "LONGITUDE", "XLONG", "west_east",
             "nlon", "rlon", "grid_xt", "x"],
 }
+
+
+def _cleanup_with_suppressed_errors() -> None:
+    """Force garbage collection with stderr suppressed to hide cleanup errors.
+
+    When xarray fails to open files, cleanup code in __del__ methods can
+    produce ugly tracebacks like "Exception ignored in: CachingFileManager.__del__".
+    These can't be caught with try/except, so we suppress stderr during gc.
+    """
+    old_stderr = sys.stderr
+    try:
+        sys.stderr = open(os.devnull, "w")
+        gc.collect()
+    finally:
+        sys.stderr.close()
+        sys.stderr = old_stderr
 
 
 @model_registry.register("generic")
@@ -107,6 +126,8 @@ class GenericReader:
             else:
                 ds = xr.open_dataset(str(file_list[0]), **kwargs)
         except Exception as e:
+            # Suppress ugly __del__ cleanup errors from xarray/netCDF4
+            _cleanup_with_suppressed_errors()
             raise DataFormatError(f"Failed to open files: {e}") from e
 
         # Select variables if specified
