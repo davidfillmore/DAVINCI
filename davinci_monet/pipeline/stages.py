@@ -443,6 +443,11 @@ class LoadObservationsStage(BaseStage):
                         t0 = time.time()
                         if str(file_path).endswith(".ict"):
                             data = self._load_icartt_files([str(file_path)])
+                        elif label == "aeronet" or "aeronet" in str(file_path).lower():
+                            # Use AERONET reader for proper dimension handling
+                            from davinci_monet.observations.surface.aeronet import AERONETReader
+                            reader = AERONETReader()
+                            data = reader.open([str(file_path)])
                         else:
                             data = xr.open_dataset(str(file_path))
                         if debug:

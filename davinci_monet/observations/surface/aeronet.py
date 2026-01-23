@@ -198,7 +198,20 @@ class AERONETReader:
         return ds
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
-        """Standardize AERONET dataset dimensions and coordinates."""
+        """Standardize AERONET dataset dimensions and coordinates.
+
+        Handles NetCDF files with dimensions (time, y, x) where y=1 is a dummy
+        dimension. Squeezes out y and renames x to site for point geometry.
+        """
+        # Squeeze out y dimension if it has size 1 (dummy dimension from NetCDF)
+        if "y" in ds.dims and ds.sizes["y"] == 1:
+            ds = ds.squeeze("y", drop=True)
+
+        # Rename x to site for point geometry consistency
+        if "x" in ds.dims and "site" not in ds.dims:
+            ds = ds.rename({"x": "site"})
+
+        # Standardize coordinate names
         coord_renames: dict[str, str] = {}
         if "latitude" in ds.coords and "lat" not in ds.coords:
             coord_renames["latitude"] = "lat"
