@@ -14,7 +14,7 @@ from typing import Any, Callable, Protocol, Sequence, runtime_checkable
 
 import xarray as xr
 
-from davinci_monet.core.exceptions import DataFormatError, PipelineError
+from davinci_monet.core.exceptions import DataFormatError, PipelineError, write_error_log
 from davinci_monet.core.protocols import DataGeometry
 
 
@@ -438,9 +438,12 @@ class LoadObservationsStage(BaseStage):
                                 try:
                                     data = xr.open_mfdataset(files, combine="by_coords", parallel=True)
                                 except Exception as e:
-                                    raise DataFormatError(
-                                        f"Failed to open observation files for '{label}': {e}"
-                                    ) from e
+                                    log_dir = context.config.get("analysis", {}).get("log_dir")
+                                    error_file = write_error_log(e, f"Opening observation files for '{label}'", log_dir)
+                                    msg = f"Failed to open observation files for '{label}': {e}"
+                                    if error_file:
+                                        msg += f" (details: {error_file})"
+                                    raise DataFormatError(msg) from e
                                 if debug:
                                     context.log_progress(f"      [TIMING] open_mfdataset: {_format_duration(time.time() - t0)}")
                     elif file_path.exists():
@@ -457,9 +460,12 @@ class LoadObservationsStage(BaseStage):
                             try:
                                 data = xr.open_dataset(str(file_path))
                             except Exception as e:
-                                raise DataFormatError(
-                                    f"Failed to open observation file '{file_path}': {e}"
-                                ) from e
+                                log_dir = context.config.get("analysis", {}).get("log_dir")
+                                error_file = write_error_log(e, f"Opening observation file '{file_path}'", log_dir)
+                                msg = f"Failed to open observation file '{file_path}': {e}"
+                                if error_file:
+                                    msg += f" (details: {error_file})"
+                                raise DataFormatError(msg) from e
                         if debug:
                             context.log_progress(f"      [TIMING] open_dataset: {_format_duration(time.time() - t0)}")
 

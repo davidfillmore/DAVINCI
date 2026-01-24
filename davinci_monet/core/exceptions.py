@@ -548,3 +548,62 @@ class PipelineAbortError(PipelineError):
         super().__init__(message, details)
         self.completed_stages = completed_stages
         self.pending_stages = pending_stages
+
+
+def write_error_log(
+    error: Exception,
+    context: str,
+    log_dir: str | None = None,
+) -> str | None:
+    """Write error traceback to a log file.
+
+    This utility function saves full exception details to a timestamped log file,
+    which is useful for debugging while keeping user-facing error messages clean.
+
+    Parameters
+    ----------
+    error
+        The exception that occurred.
+    context
+        Description of what operation failed (e.g., "Opening CESM files").
+    log_dir
+        Directory to write log file. Defaults to "./logs".
+
+    Returns
+    -------
+    str or None
+        Path to the error log file, or None if writing failed.
+
+    Examples
+    --------
+    >>> try:
+    ...     ds = xr.open_dataset("bad_file.nc")
+    ... except Exception as e:
+    ...     log_path = write_error_log(e, "Opening model data")
+    ...     raise DataFormatError(f"Failed to open file. Details: {log_path}") from e
+    """
+    import traceback
+    from datetime import datetime
+    from pathlib import Path
+
+    if log_dir is None:
+        log_dir = "logs"
+
+    log_path = Path(log_dir)
+
+    try:
+        log_path.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        error_file = log_path / f"error_{timestamp}.log"
+
+        with open(error_file, "w") as f:
+            f.write(f"Error occurred: {datetime.now().isoformat()}\n")
+            f.write(f"Context: {context}\n")
+            f.write(f"Error type: {type(error).__name__}\n")
+            f.write(f"Error message: {error}\n")
+            f.write("\nFull traceback:\n")
+            f.write(traceback.format_exc())
+
+        return str(error_file)
+    except Exception:
+        return None

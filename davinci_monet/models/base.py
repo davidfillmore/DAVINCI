@@ -19,6 +19,7 @@ from davinci_monet.core.exceptions import (
     DataFormatError,
     DataNotFoundError,
     DataValidationError,
+    write_error_log,
 )
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.types import PathLike, VariableMapping
@@ -114,7 +115,11 @@ class ModelData(DataContainer):
                 with open(pattern) as f:
                     file_list = [Path(line.strip()) for line in f if line.strip()]
             except OSError as e:
-                raise DataFormatError(f"Failed to read file list from '{pattern}': {e}") from e
+                error_file = write_error_log(e, f"Reading file list from '{pattern}'")
+                msg = f"Failed to read file list from '{pattern}': {e}"
+                if error_file:
+                    msg += f" (details: {error_file})"
+                raise DataFormatError(msg) from e
             self.files = file_list
             return file_list
 

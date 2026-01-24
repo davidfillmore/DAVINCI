@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
+from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError, write_error_log
 
 
 def read_dataset(
@@ -280,7 +280,11 @@ def _parse_icartt_basic(path: Path) -> pd.DataFrame:
         with open(path, "r") as f:
             lines = f.readlines()
     except OSError as e:
-        raise DataFormatError(f"Failed to read ICARTT file '{path}': {e}") from e
+        error_file = write_error_log(e, f"Reading ICARTT file '{path}'")
+        msg = f"Failed to read ICARTT file '{path}': {e}"
+        if error_file:
+            msg += f" (details: {error_file})"
+        raise DataFormatError(msg) from e
 
     # Parse header
     first_line = lines[0].strip().split(",")

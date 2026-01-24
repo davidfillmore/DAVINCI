@@ -82,6 +82,47 @@ def _parse_output_path(
     return p.parent, p.name
 
 
+def _write_error_log(error: Exception, context: str, log_dir: Path | None = None) -> Path | None:
+    """Write error traceback to a log file.
+
+    Parameters
+    ----------
+    error
+        The exception that occurred.
+    context
+        Description of what operation failed.
+    log_dir
+        Directory to write log file. Defaults to ./logs.
+
+    Returns
+    -------
+    Path or None
+        Path to the error log file, or None if writing failed.
+    """
+    import traceback
+    from datetime import datetime
+
+    if log_dir is None:
+        log_dir = Path("logs")
+
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        error_file = log_dir / f"error_{timestamp}.log"
+
+        with open(error_file, "w") as f:
+            f.write(f"Error occurred: {datetime.now().isoformat()}\n")
+            f.write(f"Context: {context}\n")
+            f.write(f"Error type: {type(error).__name__}\n")
+            f.write(f"Error message: {error}\n")
+            f.write("\nFull traceback:\n")
+            f.write(traceback.format_exc())
+
+        return error_file
+    except Exception:
+        return None
+
+
 def _write_dataset_safe(ds, output_path: Path, compress: bool = False) -> bool:
     """Write dataset to NetCDF with error handling.
 
@@ -107,14 +148,23 @@ def _write_dataset_safe(ds, output_path: Path, compress: bool = False) -> bool:
         else:
             ds.to_netcdf(output_path)
         return True
-    except PermissionError:
+    except PermissionError as e:
+        error_file = _write_error_log(e, f"Writing dataset to {output_path}")
         typer.secho(f"Error: No write permission for {output_path}", fg=ERROR_COLOR)
+        if error_file:
+            typer.secho(f"  Details saved to: {error_file}", fg=INFO_COLOR)
         return False
     except OSError as e:
+        error_file = _write_error_log(e, f"Writing dataset to {output_path}")
         typer.secho(f"Error writing file {output_path}: {e}", fg=ERROR_COLOR)
+        if error_file:
+            typer.secho(f"  Details saved to: {error_file}", fg=INFO_COLOR)
         return False
     except Exception as e:
+        error_file = _write_error_log(e, f"Writing dataset to {output_path}")
         typer.secho(f"Unexpected error writing {output_path}: {e}", fg=ERROR_COLOR)
+        if error_file:
+            typer.secho(f"  Details saved to: {error_file}", fg=INFO_COLOR)
         return False
 
 

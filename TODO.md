@@ -484,14 +484,24 @@ Scanned codebase for unprotected file I/O operations. Found 17 unprotected locat
 - Wrapped file open in `_parse_icartt_basic()` ICARTT fallback parser
 
 ### Files Modified
-- `davinci_monet/cli/commands/get_data.py` - Safe write helper, updated 4 commands
-- `davinci_monet/pipeline/stages.py` - Wrapped observation loading
-- `davinci_monet/models/base.py` - Wrapped file list reading
-- `davinci_monet/models/cesm.py` - Wrapped xarray calls (FV, SE, SCRIP)
-- `davinci_monet/models/cmaq.py` - Wrapped xarray calls
-- `davinci_monet/models/wrfchem.py` - Wrapped xarray calls
-- `davinci_monet/models/ufs.py` - Wrapped xarray calls
-- `davinci_monet/io/readers.py` - Wrapped ICARTT parser file open
+- `davinci_monet/core/exceptions.py` - Added `write_error_log()` utility function
+- `davinci_monet/cli/commands/get_data.py` - Safe write helper with error logging, updated 4 commands
+- `davinci_monet/pipeline/stages.py` - Wrapped observation loading with error logging
+- `davinci_monet/models/base.py` - Wrapped file list reading with error logging
+- `davinci_monet/models/cesm.py` - Wrapped xarray calls (FV, SE, SCRIP) with error logging
+- `davinci_monet/models/cmaq.py` - Wrapped xarray calls with error logging
+- `davinci_monet/models/wrfchem.py` - Wrapped xarray calls with error logging
+- `davinci_monet/models/ufs.py` - Wrapped xarray calls with error logging
+- `davinci_monet/io/readers.py` - Wrapped ICARTT parser file open with error logging
+
+### Error Log Format
+On I/O errors, a timestamped log file is created in the `logs/` directory containing:
+- Timestamp
+- Context (what operation failed)
+- Error type and message
+- Full traceback
+
+User-facing messages remain clean, with a reference to the error log file for debugging.
 
 ### Test Results
 All 846 tests pass.

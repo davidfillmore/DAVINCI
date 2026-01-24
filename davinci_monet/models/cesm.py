@@ -16,7 +16,7 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 import xarray as xr
 
-from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
+from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError, write_error_log
 from davinci_monet.core.registry import model_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
@@ -256,7 +256,11 @@ class CESMFVReader:
             else:
                 ds = xr.open_dataset(str(file_paths[0]), **kwargs)
         except Exception as e:
-            raise DataFormatError(f"Failed to open CESM-FV files: {e}") from e
+            error_file = write_error_log(e, "Opening CESM-FV files")
+            msg = f"Failed to open CESM-FV files: {e}"
+            if error_file:
+                msg += f" (details: {error_file})"
+            raise DataFormatError(msg) from e
 
         if variables is not None:
             available = [v for v in variables if v in ds.data_vars]
@@ -400,7 +404,11 @@ class CESMSEReader:
             else:
                 ds = xr.open_dataset(str(file_paths[0]), **xr_kwargs)
         except Exception as e:
-            raise DataFormatError(f"Failed to open CESM-SE files: {e}") from e
+            error_file = write_error_log(e, "Opening CESM-SE files")
+            msg = f"Failed to open CESM-SE files: {e}"
+            if error_file:
+                msg += f" (details: {error_file})"
+            raise DataFormatError(msg) from e
 
         # If SCRIP file provided, add coordinates
         if "scrip_file" in kwargs:
@@ -409,7 +417,11 @@ class CESMSEReader:
                 try:
                     scrip = xr.open_dataset(scrip_path)
                 except Exception as e:
-                    raise DataFormatError(f"Failed to open SCRIP file '{scrip_path}': {e}") from e
+                    error_file = write_error_log(e, f"Opening SCRIP file '{scrip_path}'")
+                    msg = f"Failed to open SCRIP file '{scrip_path}': {e}"
+                    if error_file:
+                        msg += f" (details: {error_file})"
+                    raise DataFormatError(msg) from e
                 if "grid_center_lat" in scrip:
                     ds = ds.assign_coords(lat=("ncol", scrip["grid_center_lat"].values))
                 if "grid_center_lon" in scrip:

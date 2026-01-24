@@ -12,7 +12,7 @@ from typing import Any, Mapping, Sequence
 
 import xarray as xr
 
-from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
+from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError, write_error_log
 from davinci_monet.core.registry import model_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
@@ -210,7 +210,11 @@ class UFSReader:
             else:
                 ds = xr.open_dataset(str(file_paths[0]), **xr_kwargs)
         except Exception as e:
-            raise DataFormatError(f"Failed to open UFS files: {e}") from e
+            error_file = write_error_log(e, "Opening UFS files")
+            msg = f"Failed to open UFS files: {e}"
+            if error_file:
+                msg += f" (details: {error_file})"
+            raise DataFormatError(msg) from e
 
         if variables is not None:
             available = [v for v in variables if v in ds.data_vars]
