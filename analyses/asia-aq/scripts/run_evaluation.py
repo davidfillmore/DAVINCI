@@ -105,7 +105,7 @@ def main():
     print()
 
     # Run the pipeline
-    result = run_analysis(str(config_path))
+    result = run_analysis(str(config_path), show_plots=True)
 
     # Report results
     print()
