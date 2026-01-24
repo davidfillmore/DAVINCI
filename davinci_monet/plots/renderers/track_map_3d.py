@@ -653,17 +653,17 @@ class TrackMap3DPlotter(BasePlotter):
 
         # Labels with padding to avoid overlap with tick labels
         ax3d.set_xlabel("Longitude (°E)", fontsize=text_cfg.fontsize * font_scale, labelpad=10)
-        ax3d.set_ylabel("Latitude (°N)", fontsize=text_cfg.fontsize * font_scale, labelpad=10)
+        ax3d.set_ylabel("Latitude (°N)", fontsize=text_cfg.fontsize * font_scale, labelpad=15)
         ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize * font_scale, labelpad=10)
 
         # Tick label size
         ax3d.tick_params(axis='both', labelsize=text_cfg.tick_fontsize * font_scale)
 
-        # Colorbar
+        # Colorbar - increase pad to prevent label clipping
         units = get_variable_units(paired_data, obs_var)
         cbar_label = format_label_with_units(label, units)
         cbar_label = format_plot_title(cbar_label)  # Apply subscript formatting
-        cbar = fig.colorbar(scatter, ax=ax3d, shrink=0.6, pad=0.1)
+        cbar = fig.colorbar(scatter, ax=ax3d, shrink=0.6, pad=0.15)
         cbar.set_label(cbar_label, fontsize=text_cfg.fontsize * font_scale)
         cbar.ax.tick_params(labelsize=text_cfg.tick_fontsize * font_scale)
 
@@ -671,7 +671,7 @@ class TrackMap3DPlotter(BasePlotter):
         if self.config.title:
             ax3d.set_title(format_plot_title(self.config.title), fontsize=text_cfg.title_fontsize * font_scale)
 
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0, 0.95, 1])  # Leave room on right for colorbar label
         return fig
 
     def plot_per_flight(
