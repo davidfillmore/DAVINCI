@@ -1125,12 +1125,12 @@ class PlottingStage(BaseStage):
                             min_points=min_points,
                             **plot_options
                         ):
-                            # Save plot with flight ID in filename (prefixed for ordering)
-                            output_path = obs_output_dir / f"{file_index:02d}_{plot_name}_{flight_id}.png"
+                            # Save plot with flight ID first for grouping by flight in slideshows
+                            output_path = obs_output_dir / f"{flight_id}_{file_index:02d}_{plot_name}.png"
                             plotter.save(fig, output_path, dpi=300)
                             plots_generated.append(str(output_path))
 
-                            pdf_path = obs_output_dir / f"{file_index:02d}_{plot_name}_{flight_id}.pdf"
+                            pdf_path = obs_output_dir / f"{flight_id}_{file_index:02d}_{plot_name}.pdf"
                             plotter.save(fig, pdf_path)
                             plots_generated.append(str(pdf_path))
 
