@@ -120,6 +120,10 @@ The new NetCDF file (`~/Data/ASIA-AQ/AERONET/AERONET_L15_20240101_20240501.nc`):
 
 - [x] Pandora NO2 column preprocessing and reader (14 sites, 8.8k obs)
 - [x] AirNow data download and integration (36 sites, PM2.5/O3)
+- [ ] **Per-flight statistics**: Compute and save statistics for each flight separately
+  - Output CSV with one row per flight per variable (N, R, MB, RMSE, NMB, NME)
+  - Identify best/worst flights for model agreement
+  - Could add stats to scatter plot annotations or generate summary table
 - [ ] MOPITT CO profile evaluation
 - [ ] MODIS AOD comparison
 
