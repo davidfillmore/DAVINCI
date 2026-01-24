@@ -1069,7 +1069,13 @@ class PlottingStage(BaseStage):
                                     "show_uncertainty", "uncertainty_type",
                                     "resample", "aggregate_dim", "label_sites",
                                     "site_label_var", "city_labels",
-                                    "show_density", "density_cmap", "alpha"]:
+                                    "show_density", "density_cmap", "alpha",
+                                    # track_map_3d options
+                                    "show_surface_map", "surface_map_resolution",
+                                    "land_color", "ocean_color",
+                                    "show_var", "elev", "azim",
+                                    "show_coastlines", "show_borders",
+                                    "show_projection", "alt_scale"]:
                         if opt_key in plot_spec:
                             plot_options[opt_key] = plot_spec[opt_key]
 

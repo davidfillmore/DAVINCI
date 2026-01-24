@@ -204,6 +204,108 @@ def _get_border_segments(
     return segments
 
 
+def _render_surface_map(
+    lon_min: float, lon_max: float, lat_min: float, lat_max: float,
+    resolution: int = 250,
+    land_color: str = "#E8E8E8",
+    ocean_color: str = "#D4E9F7",
+    coastline_color: str = "black",
+    coastline_linewidth: float = 0.5,
+    show_borders: bool = True,
+    border_color: str = "#888888",
+    border_linewidth: float = 0.3,
+) -> np.ndarray | None:
+    """Render a map image using cartopy for use as 3D surface texture.
+
+    Parameters
+    ----------
+    lon_min, lon_max
+        Longitude bounds.
+    lat_min, lat_max
+        Latitude bounds.
+    resolution
+        Target image resolution in pixels (e.g., 250 = ~250x250 pixels).
+    land_color
+        Color for land areas.
+    ocean_color
+        Color for ocean areas.
+    coastline_color
+        Color for coastline lines.
+    coastline_linewidth
+        Width of coastline lines.
+    show_borders
+        If True, draw country borders.
+    border_color
+        Color for border lines.
+    border_linewidth
+        Width of border lines.
+
+    Returns
+    -------
+    np.ndarray | None
+        RGBA image array, or None if cartopy unavailable.
+    """
+    try:
+        import cartopy.crs as ccrs
+        import cartopy.feature as cfeature
+        import io
+        from PIL import Image
+    except ImportError:
+        return None
+
+    # Create figure with explicit size control
+    # resolution parameter controls target image size (e.g., 250 pixels)
+    fig_dpi = 100
+    fig_size = resolution / fig_dpi
+    fig = plt.figure(figsize=(fig_size, fig_size), dpi=fig_dpi)
+    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+    ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
+
+    # Remove margins
+    ax.set_frame_on(False)
+    ax.patch.set_visible(False)
+    fig.patch.set_facecolor(ocean_color)
+
+    # Use 50m resolution Natural Earth features (balance of quality and speed)
+    ocean = cfeature.NaturalEarthFeature(
+        'physical', 'ocean', '50m', facecolor=ocean_color, edgecolor='none'
+    )
+    land = cfeature.NaturalEarthFeature(
+        'physical', 'land', '50m', facecolor=land_color, edgecolor='none'
+    )
+    coastline = cfeature.NaturalEarthFeature(
+        'physical', 'coastline', '50m', facecolor='none', edgecolor=coastline_color
+    )
+
+    ax.add_feature(ocean)
+    ax.add_feature(land)
+    ax.add_feature(coastline, linewidth=coastline_linewidth)
+
+    if show_borders:
+        borders = cfeature.NaturalEarthFeature(
+            'cultural', 'admin_0_boundary_lines_land', '50m',
+            facecolor='none', edgecolor=border_color
+        )
+        ax.add_feature(borders, linewidth=border_linewidth)
+
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    # Render to buffer
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=fig_dpi,
+                bbox_inches='tight', pad_inches=0,
+                facecolor=fig.get_facecolor(), edgecolor='none')
+    plt.close(fig)
+    buf.seek(0)
+
+    # Load as numpy array
+    img = Image.open(buf)
+    img_array = np.array(img) / 255.0
+
+    return img_array
+
+
 @register_plotter("track_map_3d")
 class TrackMap3DPlotter(BasePlotter):
     """Plotter for 3D flight track visualization.
@@ -263,6 +365,10 @@ class TrackMap3DPlotter(BasePlotter):
         city_marker_size: float = 50,
         city_marker_color: str = "red",
         city_font_size: float = 8,
+        show_surface_map: bool = False,
+        surface_map_resolution: int = 250,
+        land_color: str = "#E8E8E8",
+        ocean_color: str = "#D4E9F7",
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Generate a 3D track map.
@@ -326,6 +432,15 @@ class TrackMap3DPlotter(BasePlotter):
             Color for city markers.
         city_font_size
             Font size for city labels.
+        show_surface_map
+            If True, render a filled map image on the z=0 plane using cartopy.
+            Shows land and ocean colors. Overrides show_coastlines when True.
+        surface_map_resolution
+            Resolution of surface map image in pixels (default: 250).
+        land_color
+            Color for land areas on surface map.
+        ocean_color
+            Color for ocean areas on surface map.
         **kwargs
             Additional options.
 
@@ -433,8 +548,38 @@ class TrackMap3DPlotter(BasePlotter):
         lat_min -= lat_pad
         lat_max += lat_pad
 
-        # Draw coastlines on surface plane (z=0)
-        if show_coastlines:
+        # Draw surface map or coastlines
+        if show_surface_map:
+            # Render cartopy map as texture on z=0 plane
+            map_img = _render_surface_map(
+                lon_min, lon_max, lat_min, lat_max,
+                resolution=surface_map_resolution,
+                land_color=land_color,
+                ocean_color=ocean_color,
+                coastline_color=coastline_color,
+                coastline_linewidth=coastline_linewidth,
+                show_borders=show_borders,
+                border_color=border_color,
+                border_linewidth=border_linewidth,
+            )
+            if map_img is not None:
+                # Create mesh grid for surface
+                img_h, img_w = map_img.shape[:2]
+                lon_grid = np.linspace(lon_min, lon_max, img_w)
+                lat_grid = np.linspace(lat_max, lat_min, img_h)  # Flip for image coords
+                X, Y = np.meshgrid(lon_grid, lat_grid)
+                Z = np.zeros_like(X)
+
+                # Plot textured surface
+                ax3d.plot_surface(
+                    X, Y, Z,
+                    facecolors=map_img,
+                    rstride=1, cstride=1,
+                    shade=False,
+                    zorder=1,
+                )
+        elif show_coastlines:
+            # Fall back to vector coastlines
             coastline_segments = _get_coastline_segments(
                 lon_min, lon_max, lat_min, lat_max, scale=coastline_scale
             )
@@ -449,8 +594,8 @@ class TrackMap3DPlotter(BasePlotter):
                     zorder=2,
                 )
 
-        # Draw country borders on surface plane (z=0)
-        if show_borders:
+        # Draw country borders on surface plane (z=0) - only if not using surface map
+        if show_borders and not show_surface_map:
             border_segments = _get_border_segments(lon_min, lon_max, lat_min, lat_max)
             for seg_lons, seg_lats in border_segments:
                 ax3d.plot(

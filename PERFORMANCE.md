@@ -185,6 +185,38 @@ def is_dask_backed(ds):
     return any(ds[v].chunks is not None for v in ds.data_vars)
 ```
 
+## NetCDF File Handle Cleanup Errors
+
+When loading many files with `xr.open_mfdataset()` (e.g., 696 hourly CESM files), you may see errors like:
+
+```
+Exception ignored in: <function CachingFileManager.__del__ at 0x...>
+RuntimeError: NetCDF: Not a valid ID
+```
+
+**What's happening:**
+
+1. Dask lazy loading keeps file handles open for all 696 files
+2. If the pipeline fails mid-execution, Python's garbage collector eventually runs
+3. The `CachingFileManager` destructor tries to close files that may already be in a bad state
+4. NetCDF library complains "Not a valid ID" because the handle is stale
+
+**Key points:**
+
+- This error is **cleanup noise**, not the root cause of failure
+- The real error is whatever caused the pipeline stage to fail
+- It's harmless but noisy - files will be cleaned up by the OS anyway
+- More common when memory is constrained or many files are open
+
+**Workarounds:**
+
+- Explicitly close datasets when done: `ds.close()`
+- Use context managers: `with xr.open_mfdataset(...) as ds:`
+- Reduce file count by pre-concatenating to daily/weekly chunks
+- Run with more memory to avoid pressure on file handles
+
+This is a known xarray/netCDF4 interaction issue, not a DAVINCI-MONET bug.
+
 ## References
 
 - Dask documentation: https://docs.dask.org/en/stable/array-best-practices.html
