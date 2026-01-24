@@ -505,3 +505,37 @@ User-facing messages remain clean, with a reference to the error log file for de
 
 ### Test Results
 All 846 tests pass.
+
+---
+
+## Investigate: HDF5 Thread Safety Segfaults
+
+### Issue
+Intermittent HDF5 errors with segfaults when loading model data:
+```
+HDF5-DIAG: Error detected in HDF5 (1.14.6) thread 1:
+  #000: H5A.c line 1866 in H5Aiterate2(): invalid location identifier
+HDF5-DIAG: Error detected in HDF5 (1.14.6) thread 2:
+  #000: H5G.c line 511 in H5Gget_create_plist(): not a group ID
+zsh: segmentation fault
+```
+
+### Workaround
+```bash
+HDF5_USE_FILE_LOCKING=FALSE davinci-monet run config.yaml
+```
+
+If it persists:
+```bash
+DASK_NUM_WORKERS=1 HDF5_USE_FILE_LOCKING=FALSE davinci-monet run config.yaml
+```
+
+### Root Cause
+HDF5 thread safety issue at C library level - crashes before Python exception handling.
+The "thread 1/thread 2" messages indicate concurrent access problems.
+
+### If Recurs Frequently
+- [ ] Add `HDF5_USE_FILE_LOCKING=FALSE` to pipeline startup code
+- [ ] Consider setting `h5py.File` with `locking=False` at module import
+- [ ] Investigate Dask scheduler settings for single-threaded file I/O
+- [ ] Document in DERECHO.md if specific to HPC environment
