@@ -590,10 +590,20 @@ class ProgressFormatter:
         self._animation_thread = threading.Thread(target=animate, daemon=True)
         self._animation_thread.start()
 
-    def header(self, config_path: str | None = None) -> None:
-        """Print pipeline header."""
+    def header(self, config_path: str | None = None, clear_screen: bool = True) -> None:
+        """Print pipeline header with NSF NCAR UCAR logo.
+
+        Parameters
+        ----------
+        config_path
+            Path to configuration file to display.
+        clear_screen
+            If True, clear the terminal before displaying header.
+        """
         from rich.panel import Panel
         from rich.text import Text
+
+        from davinci_monet.assets.logo import get_colored_logo
 
         # Log file header (plain text)
         self._log("DAVINCI-MONET Pipeline")
@@ -601,10 +611,17 @@ class ProgressFormatter:
             self._log(f"Config: {config_path}")
         self._log("")
 
-        # Rich console output
-        title = Text("DAVINCI-MONET Pipeline", style=f"bold {self.NCAR_AQUA}")
+        # Clear screen if requested
+        if clear_screen and self.show_output:
+            self.console.clear()
 
-        self._print()
+        # Show NSF NCAR UCAR logo
+        if self.show_output:
+            self._print()
+            self._print(get_colored_logo())
+
+        # Rich console output - pipeline title
+        title = Text("DAVINCI-MONET Pipeline", style=f"bold {self.NCAR_AQUA}")
         self._print(Panel(title, border_style=self.NCAR_AQUA, padding=(0, 2)))
 
         # Config path below the panel
