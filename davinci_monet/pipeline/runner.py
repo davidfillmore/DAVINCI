@@ -1101,9 +1101,10 @@ class ProgressFormatter:
 
         for i, pdf_path in enumerate(pdf_files):
             try:
-                # Strip numeric prefix from filename for display
+                # Strip date and index prefixes from filename for display
+                # Format: {flight_date}_{index}_{plot_name} -> {plot_name}
                 plot_name = Path(pdf_path).stem
-                plot_name = re.sub(r"^\d+_", "", plot_name)
+                plot_name = re.sub(r"^\d+_\d+_", "", plot_name)
                 self._print(f"  [dim][{i + 1}/{n_files}] {plot_name}[/dim]")
 
                 # Open with Quick Look
@@ -1125,6 +1126,8 @@ class ProgressFormatter:
 
     def _preview_pngs(self, plot_paths: list[str], duration: float = 1.0) -> None:
         """Show PNG plots in matplotlib window."""
+        import re
+
         import matplotlib.image as mpimg
         import matplotlib.pyplot as plt
         from rich.live import Live
@@ -1165,8 +1168,9 @@ class ProgressFormatter:
                 ax.imshow(img)
                 ax.axis("off")
 
-                # Show plot name in window
+                # Show plot name in window (strip date and index prefixes)
                 plot_name = Path(png_path).stem
+                plot_name = re.sub(r"^\d+_\d+_", "", plot_name)
                 ax.set_title(f"[{i + 1}/{len(png_files)}] {plot_name}", fontsize=10)
 
                 fig.canvas.draw()
