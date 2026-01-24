@@ -881,7 +881,7 @@ class ProgressFormatter:
             self._preview_pngs(plot_paths, duration)
 
     def _preview_pdfs(self, plot_paths: list[str], duration: float = 1.0) -> None:
-        """Open PDF plots one at a time in system viewer, like a slideshow.
+        """Show PDF plots one at a time using Quick Look.
 
         Parameters
         ----------
@@ -890,71 +890,20 @@ class ProgressFormatter:
         duration
             Seconds to display each plot before moving to the next.
         """
+        import re
         import subprocess
 
         from rich.live import Live
         from rich.text import Text
 
-        pdf_files = [p for p in plot_paths if p.endswith(".pdf")]
+        pdf_files = sorted(p for p in plot_paths if p.endswith(".pdf"))
 
         if not pdf_files:
             return
 
-        self._log(f"Previewing {len(pdf_files)} PDF plots...")
-
-        self._print(f"  [dim]Previewing {len(pdf_files)} PDF plots...[/dim]")
-
-        # Set Preview to prefer tabs, then open all PDFs
-        subprocess.run(
-            ["defaults", "write", "com.apple.Preview", "AppleWindowTabbingMode", "-string", "always"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        subprocess.run(
-            ["open", "-a", "Preview"] + pdf_files,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        time.sleep(0.5)  # Wait for Preview to open all files
-
-        # Set to Zoom to Fit mode
-        subprocess.run(
-            [
-                "osascript",
-                "-e",
-                '''
-                tell application "Preview" to activate
-                tell application "System Events"
-                    tell process "Preview"
-                        click menu item "Zoom to Fit" of menu "View" of menu bar 1
-                    end tell
-                end tell
-                ''',
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-
-        # Navigate to first tab by going left n-1 times (Cmd+1 doesn't work in Preview)
-        # Use delays between keystrokes to avoid visual blur
         n_files = len(pdf_files)
-        subprocess.run(
-            [
-                "osascript",
-                "-e",
-                f'''
-                tell application "Preview" to activate
-                tell application "System Events"
-                    repeat {n_files - 1} times
-                        keystroke "[" using {{command down, shift down}}
-                        delay 0.08
-                    end repeat
-                end tell
-                ''',
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        self._log(f"Previewing {n_files} PDF plots...")
+        self._print(f"  [dim]Previewing {n_files} PDF plots...[/dim]")
 
         # Countdown before slideshow starts
         if self.show_output:
@@ -967,38 +916,27 @@ class ProgressFormatter:
 
         for i, pdf_path in enumerate(pdf_files):
             try:
+                # Strip numeric prefix from filename for display
                 plot_name = Path(pdf_path).stem
+                plot_name = re.sub(r"^\d+_", "", plot_name)
                 self._print(f"  [dim][{i + 1}/{n_files}] {plot_name}[/dim]")
+
+                # Open with Quick Look
+                ql_proc = subprocess.Popen(
+                    ["qlmanage", "-p", pdf_path],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
 
                 # Wait for display duration
                 time.sleep(duration)
 
-                # Move to next tab (Cmd+Shift+])
-                if i < n_files - 1:
-                    subprocess.run(
-                        [
-                            "osascript",
-                            "-e",
-                            '''
-                            tell application "Preview" to activate
-                            tell application "System Events"
-                                keystroke "]" using {command down, shift down}
-                            end tell
-                            ''',
-                        ],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
+                # Close Quick Look
+                ql_proc.terminate()
+                ql_proc.wait()
 
             except Exception as e:
                 self._log(f"  Error previewing {pdf_path}: {e}")
-
-        # Close all Preview windows at the end
-        subprocess.run(
-            ["osascript", "-e", 'tell application "Preview" to quit'],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
 
     def _preview_pngs(self, plot_paths: list[str], duration: float = 1.0) -> None:
         """Show PNG plots in matplotlib window."""
