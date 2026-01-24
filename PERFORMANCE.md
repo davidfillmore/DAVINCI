@@ -208,14 +208,25 @@ RuntimeError: NetCDF: Not a valid ID
 - It's harmless but noisy - files will be cleaned up by the OS anyway
 - More common when memory is constrained or many files are open
 
-**Workarounds:**
+**Mitigations implemented:**
 
-- Explicitly close datasets when done: `ds.close()`
-- Use context managers: `with xr.open_mfdataset(...) as ds:`
-- Reduce file count by pre-concatenating to daily/weekly chunks
+The pipeline now includes two cleanup mechanisms:
+
+1. **`_cleanup_hdf5_state()`** - Called at pipeline **start** to clear stale file handles from previous runs:
+   - Forces garbage collection
+   - Clears xarray's `FILE_CACHE`
+
+2. **`_cleanup_context_datasets()`** - Called after all stages complete, **before preview/exit**:
+   - Explicitly closes all model and observation datasets in context
+   - Forces garbage collection and clears file caches
+   - Prevents crashes during the preview slideshow or Python exit
+
+**Additional workarounds:**
+
+- Pre-concatenate files to daily/weekly chunks to reduce file handle count
 - Run with more memory to avoid pressure on file handles
 
-This is a known xarray/netCDF4 interaction issue, not a DAVINCI-MONET bug.
+This is a known xarray/netCDF4 interaction issue. The above mitigations address the symptom within DAVINCI-MONET.
 
 ## References
 

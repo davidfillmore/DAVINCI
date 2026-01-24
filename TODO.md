@@ -419,3 +419,24 @@ Model overpredicts NO2 column, consistent with DC8 aircraft NO2 (+533% at surfac
 - `davinci_monet/pipeline/runner.py` - Time display
 - `analyses/asia-aq/scripts/run_evaluation.py` - Enable slideshow
 - `CLAUDE.md` - Git workflow guidelines
+
+---
+
+## Session Summary (2026-01-24) - Transient NetCDF/Dask Error Fix
+
+### Issue
+Python would sometimes exit/crash right after plotting completes but before the preview countdown,
+likely due to stale NetCDF file handles in Dask-backed datasets being garbage collected.
+
+### Fix Applied
+Added `_cleanup_context_datasets()` method to `PipelineRunner`:
+- Called after all stages complete and log data is extracted, but **before** preview/exit
+- Explicitly closes all model and observation datasets in `context.models` and `context.observations`
+- Forces garbage collection and clears xarray's `FILE_CACHE`
+- Does NOT clear the dictionaries (other code may still reference them)
+
+This complements the existing `_cleanup_hdf5_state()` which runs at pipeline **start**.
+
+### Files Modified
+- `davinci_monet/pipeline/runner.py` - Added `_cleanup_context_datasets()` method and call in finally block
+- `PERFORMANCE.md` - Updated "NetCDF File Handle Cleanup Errors" section with mitigation details

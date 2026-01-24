@@ -1380,6 +1380,48 @@ class PipelineRunner:
 
         logger.debug("Cleared HDF5/NetCDF file state")
 
+    def _cleanup_context_datasets(self, context: PipelineContext) -> None:
+        """Close all datasets in context to avoid transient file handle errors.
+
+        This prevents crashes that can occur when Python's garbage collector
+        tries to close stale NetCDF file handles after the pipeline completes.
+        Should be called after log data extraction but before preview/exit.
+
+        Note: Does NOT clear the dictionaries, as other code may still reference them.
+        """
+        import gc
+
+        # Close model datasets
+        for label, model_data in list(context.models.items()):
+            try:
+                if hasattr(model_data, "data") and hasattr(model_data.data, "close"):
+                    model_data.data.close()
+                elif hasattr(model_data, "close"):
+                    model_data.close()
+            except Exception:
+                pass  # Ignore errors during cleanup
+
+        # Close observation datasets
+        for label, obs_data in list(context.observations.items()):
+            try:
+                if hasattr(obs_data, "data") and hasattr(obs_data.data, "close"):
+                    obs_data.data.close()
+                elif hasattr(obs_data, "close"):
+                    obs_data.close()
+            except Exception:
+                pass  # Ignore errors during cleanup
+
+        # Force garbage collection and clear file caches
+        gc.collect()
+
+        try:
+            from xarray.backends.file_manager import FILE_CACHE
+            FILE_CACHE.clear()
+        except (ImportError, AttributeError):
+            pass
+
+        logger.debug("Closed all context datasets")
+
     def run(self, context: PipelineContext | None = None) -> PipelineResult:
         """Execute the pipeline.
 
@@ -1570,6 +1612,9 @@ class PipelineRunner:
                     log_path.write_text(log_collector.to_markdown())
                 except Exception as e:
                     logger.warning(f"Failed to write log file: {e}")
+
+            # Close all datasets to prevent transient file handle errors during preview/exit
+            self._cleanup_context_datasets(context)
 
             # Preview generated plots if pipeline succeeded and show_plots is enabled
             if self._show_plots and result.success and "plotting" in context.results:
