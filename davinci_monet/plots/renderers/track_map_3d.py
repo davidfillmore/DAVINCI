@@ -650,25 +650,25 @@ class TrackMap3DPlotter(BasePlotter):
         ax3d.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.1f}"))
         ax3d.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.1f}"))
 
-        # Labels - keep close to axes
-        ax3d.set_xlabel("Longitude (°E)", fontsize=text_cfg.fontsize, labelpad=2)
-        ax3d.set_ylabel("Latitude (°N)", fontsize=text_cfg.fontsize, labelpad=2)
-        ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize, labelpad=2)
+        # Labels
+        ax3d.set_xlabel("Longitude (°E)", fontsize=text_cfg.fontsize, labelpad=8)
+        ax3d.set_ylabel("Latitude (°N)", fontsize=text_cfg.fontsize, labelpad=8)
+        ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize, labelpad=8)
 
         # Tick label size
         ax3d.tick_params(axis='both', labelsize=text_cfg.tick_fontsize)
 
-        # Colorbar - keep close to plot
+        # Colorbar
         units = get_variable_units(paired_data, obs_var)
         cbar_label = format_label_with_units(label, units)
         cbar_label = format_plot_title(cbar_label)  # Apply subscript formatting
-        cbar = fig.colorbar(scatter, ax=ax3d, shrink=0.6, pad=0.02)
+        cbar = fig.colorbar(scatter, ax=ax3d, shrink=0.6, pad=0.1)
         cbar.set_label(cbar_label, fontsize=text_cfg.fontsize)
         cbar.ax.tick_params(labelsize=text_cfg.tick_fontsize)
 
         # Title - centered above plot
         if self.config.title:
-            fig.suptitle(format_plot_title(self.config.title), fontsize=text_cfg.title_fontsize, y=0.92)
+            fig.suptitle(format_plot_title(self.config.title), fontsize=text_cfg.title_fontsize, y=0.85)
 
         plt.tight_layout(rect=[0, 0, 1, 0.95])  # Leave room at top for title
         return fig
