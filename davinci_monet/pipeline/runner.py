@@ -14,7 +14,7 @@ import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Sequence, TextIO
+from typing import Any, Callable, Literal, Sequence, TextIO
 
 from tqdm import tqdm
 
@@ -855,28 +855,99 @@ class ProgressFormatter:
             self._print(f"  [dim]Log:[/dim] [white]{log_path}[/white]")
         self._print()
 
-    def preview_plots(self, plot_paths: list[str], duration: float = 1.0) -> None:
+    def preview_plots(
+        self,
+        plot_paths: list[str],
+        duration: float = 1.0,
+        preview_format: Literal["pdf", "png"] = "pdf",
+    ) -> None:
         """Show a slideshow preview of generated plots.
 
         Parameters
         ----------
         plot_paths
-            List of paths to PNG files to preview.
+            List of paths to plot files to preview.
         duration
-            How long to show each plot in seconds.
+            How long to show each plot in seconds (for png format).
+        preview_format
+            Format to preview: "pdf" opens in system viewer, "png" shows in matplotlib.
         """
+        from rich.live import Live
+        from rich.text import Text
+
+        if preview_format == "pdf":
+            self._preview_pdfs(plot_paths, duration)
+        else:
+            self._preview_pngs(plot_paths, duration)
+
+    def _preview_pdfs(self, plot_paths: list[str], duration: float = 1.0) -> None:
+        """Open PDF plots one at a time in system viewer, like a slideshow.
+
+        Parameters
+        ----------
+        plot_paths
+            List of paths to PDF files.
+        duration
+            Seconds to display each plot before moving to the next.
+        """
+        import subprocess
+
+        from rich.live import Live
+        from rich.text import Text
+
+        pdf_files = [p for p in plot_paths if p.endswith(".pdf")]
+
+        if not pdf_files:
+            return
+
+        self._log(f"Previewing {len(pdf_files)} PDF plots...")
+
+        # Countdown before preview
+        if self.show_output:
+            for countdown in range(10, 0, -1):
+                text = Text()
+                text.append(f"  Preparing to preview {len(pdf_files)} plots ... ", style="dim")
+                text.append(str(countdown), style=f"bold {self.NCAR_AQUA}")
+                with Live(text, console=self.console, refresh_per_second=4, transient=True):
+                    time.sleep(1.0)
+
+        self._print(f"  [dim]Previewing {len(pdf_files)} PDF plots...[/dim]")
+
+        # Open each PDF, wait, close, then move to next
+        for i, pdf_path in enumerate(pdf_files):
+            try:
+                # Show current plot info
+                plot_name = Path(pdf_path).stem
+                self._print(f"  [dim][{i + 1}/{len(pdf_files)}] {plot_name}[/dim]")
+
+                # Open PDF in Preview
+                subprocess.run(["open", "-a", "Preview", pdf_path], check=True)
+
+                # Wait for duration
+                time.sleep(duration)
+
+                # Close the frontmost Preview window
+                applescript = 'tell application "Preview" to close front window'
+                subprocess.run(
+                    ["osascript", "-e", applescript], check=True, capture_output=True
+                )
+
+            except Exception as e:
+                self._log(f"  Error previewing {pdf_path}: {e}")
+
+    def _preview_pngs(self, plot_paths: list[str], duration: float = 1.0) -> None:
+        """Show PNG plots in matplotlib window."""
         import matplotlib.image as mpimg
         import matplotlib.pyplot as plt
         from rich.live import Live
         from rich.text import Text
 
-        # Filter to only PNG files
         png_files = [p for p in plot_paths if p.endswith(".png")]
 
         if not png_files:
             return
 
-        self._log(f"Previewing {len(png_files)} plots...")
+        self._log(f"Previewing {len(png_files)} PNG plots...")
 
         # Countdown before preview
         if self.show_output:
@@ -1004,6 +1075,7 @@ class PipelineRunner:
         hooks: dict[str, Callable[..., None]] | None = None,
         show_progress: bool = True,
         show_plots: bool = False,
+        preview_format: Literal["pdf", "png"] = "pdf",
     ) -> None:
         """Initialize pipeline runner.
 
@@ -1019,12 +1091,15 @@ class PipelineRunner:
             Display progress bar and stage status to stdout.
         show_plots
             Display interactive plot preview after completion (requires display).
+        preview_format
+            Format for plot preview: "pdf" opens in system viewer, "png" in matplotlib.
         """
         self._stages = list(stages) if stages is not None else create_standard_pipeline()
         self._fail_fast = fail_fast
         self._hooks = hooks or {}
         self._show_progress = show_progress
         self._show_plots = show_plots
+        self._preview_format = preview_format
 
     @property
     def stages(self) -> list[Stage]:
@@ -1297,7 +1372,9 @@ class PipelineRunner:
                 plotting_result = context.results["plotting"]
                 if plotting_result.data and "plots_generated" in plotting_result.data:
                     plot_paths = plotting_result.data["plots_generated"]
-                    formatter.preview_plots(plot_paths, duration=1.0)
+                    formatter.preview_plots(
+                        plot_paths, duration=1.0, preview_format=self._preview_format
+                    )
 
         result.end_time = datetime.now()
         result.total_duration_seconds = time.time() - start_time
@@ -1419,6 +1496,7 @@ class PipelineBuilder:
         self._hooks: dict[str, Callable[..., None]] = {}
         self._show_progress = True
         self._show_plots = False
+        self._preview_format: Literal["pdf", "png"] = "pdf"
 
     def add_stage(self, stage: Stage) -> PipelineBuilder:
         """Add a custom stage."""
@@ -1478,9 +1556,12 @@ class PipelineBuilder:
         self._show_progress = enabled
         return self
 
-    def show_plots(self, enabled: bool = True) -> PipelineBuilder:
+    def show_plots(
+        self, enabled: bool = True, preview_format: Literal["pdf", "png"] = "pdf"
+    ) -> PipelineBuilder:
         """Set interactive plot preview mode."""
         self._show_plots = enabled
+        self._preview_format = preview_format
         return self
 
     def build(self) -> PipelineRunner:
@@ -1491,6 +1572,7 @@ class PipelineBuilder:
             hooks=self._hooks,
             show_progress=self._show_progress,
             show_plots=self._show_plots,
+            preview_format=self._preview_format,
         )
 
 
@@ -1498,6 +1580,7 @@ def run_analysis(
     config: dict[str, Any] | str,
     show_progress: bool = True,
     show_plots: bool = False,
+    preview_format: Literal["pdf", "png"] = "pdf",
 ) -> PipelineResult:
     """Convenience function to run a complete analysis.
 
@@ -1509,6 +1592,8 @@ def run_analysis(
         Display progress bar and stage timing to stdout.
     show_plots
         Display interactive plot preview after completion (requires display).
+    preview_format
+        Format for plot preview: "pdf" opens in system viewer, "png" in matplotlib.
 
     Returns
     -------
@@ -1521,5 +1606,9 @@ def run_analysis(
     >>> if result.success:
     ...     print("Analysis complete!")
     """
-    runner = PipelineRunner(show_progress=show_progress, show_plots=show_plots)
+    runner = PipelineRunner(
+        show_progress=show_progress,
+        show_plots=show_plots,
+        preview_format=preview_format,
+    )
     return runner.run_from_config(config)

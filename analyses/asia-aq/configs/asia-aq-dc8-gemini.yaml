@@ -164,7 +164,7 @@ plots:
     show_var: bias
     split_by_flight: true
     min_points: 10
-    show_surface_map: true
+    show_surface_map: false
     elev: 25
     azim: -60
 
@@ -175,7 +175,7 @@ plots:
     show_var: bias
     split_by_flight: true
     min_points: 10
-    show_surface_map: true
+    show_surface_map: false
     elev: 25
     azim: -60
 
@@ -186,7 +186,7 @@ plots:
     show_var: bias
     split_by_flight: true
     min_points: 10
-    show_surface_map: true
+    show_surface_map: false
     elev: 25
     azim: -60
 

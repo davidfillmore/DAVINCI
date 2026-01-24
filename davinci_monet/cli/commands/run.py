@@ -17,7 +17,12 @@ from davinci_monet.cli.app import (
 )
 
 
-def run_analysis(control_path: str, debug: bool = False, show_plots: bool = False) -> None:
+def run_analysis(
+    control_path: str,
+    debug: bool = False,
+    show_plots: bool = False,
+    preview_format: str = "pdf",
+) -> None:
     """Execute DAVINCI-MONET analysis from a control file.
 
     Parameters
@@ -28,6 +33,8 @@ def run_analysis(control_path: str, debug: bool = False, show_plots: bool = Fals
         If True, show full tracebacks on error.
     show_plots
         If True, display interactive plot preview after completion.
+    preview_format
+        Format for plot preview: "pdf" or "png".
     """
     # Update global debug flag
     import davinci_monet.cli.app as app_module
@@ -44,7 +51,9 @@ def run_analysis(control_path: str, debug: bool = False, show_plots: bool = Fals
     from davinci_monet.pipeline.runner import run_analysis as pipeline_run
 
     try:
-        result = pipeline_run(str(p), show_progress=True, show_plots=show_plots)
+        result = pipeline_run(
+            str(p), show_progress=True, show_plots=show_plots, preview_format=preview_format
+        )
     except Exception as e:
         typer.secho(f"Pipeline error: {e}", fg=ERROR_COLOR)
         if debug:

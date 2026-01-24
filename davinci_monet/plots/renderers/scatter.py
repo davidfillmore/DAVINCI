@@ -22,6 +22,7 @@ from davinci_monet.plots.base import (
     get_variable_units,
 )
 from davinci_monet.plots.registry import register_plotter
+from davinci_monet.plots.style import NCAR_ACCENT
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -370,7 +371,8 @@ class ScatterPlotter(BasePlotter):
         ax.plot(
             x_line,
             y_line,
-            "r-",
+            color=NCAR_ACCENT,
+            linestyle="-",
             linewidth=1.5,
             label=f"y = {slope:.2f}x + {intercept:.2f}",
             zorder=2,

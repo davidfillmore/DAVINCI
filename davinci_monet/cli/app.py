@@ -152,6 +152,12 @@ def run(
         "--show-plots",
         help="Display interactive plot preview after pipeline completes (requires display).",
     ),
+    preview_format: str = typer.Option(
+        "pdf",
+        "--preview-format",
+        "-p",
+        help="Format for plot preview: 'pdf' (opens in system viewer) or 'png' (matplotlib window).",
+    ),
 ) -> None:
     """Run DAVINCI-MONET analysis as described in the control file."""
     from davinci_monet.cli.commands.run import run_analysis
@@ -159,7 +165,7 @@ def run(
     global DEBUG
     DEBUG = debug
 
-    run_analysis(control, debug=debug, show_plots=show_plots)
+    run_analysis(control, debug=debug, show_plots=show_plots, preview_format=preview_format)
 
 
 @app.command()
