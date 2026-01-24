@@ -590,13 +590,20 @@ class ProgressFormatter:
         self._animation_thread = threading.Thread(target=animate, daemon=True)
         self._animation_thread.start()
 
-    def header(self, config_path: str | None = None, clear_screen: bool = True) -> None:
+    def header(
+        self,
+        config_path: str | None = None,
+        analysis_config: dict[str, Any] | None = None,
+        clear_screen: bool = True,
+    ) -> None:
         """Print pipeline header with NSF NCAR UCAR logo.
 
         Parameters
         ----------
         config_path
             Path to configuration file to display.
+        analysis_config
+            Analysis configuration dict with start_time, end_time, etc.
         clear_screen
             If True, clear the terminal before displaying header.
         """
@@ -632,7 +639,41 @@ class ProgressFormatter:
             if len(config_path) > max_path_len:
                 display_path = "..." + config_path[-(max_path_len - 3):]
             self._print(f"  [dim]Config:[/dim] {display_path}")
+
+        # Display analysis info
+        if analysis_config:
+            start_time = analysis_config.get("start_time")
+            end_time = analysis_config.get("end_time")
+            if start_time and end_time:
+                # Format dates nicely
+                start_str = self._format_datetime(start_time)
+                end_str = self._format_datetime(end_time)
+                self._print(f"  [dim]Period:[/dim] {start_str} → {end_str}")
+
         self._print()
+
+    def _format_datetime(self, dt: Any) -> str:
+        """Format a datetime for display.
+
+        Parameters
+        ----------
+        dt
+            Datetime object or string.
+
+        Returns
+        -------
+        str
+            Formatted date string (e.g., "Feb 1, 2024").
+        """
+        if isinstance(dt, str):
+            # Parse ISO format string
+            try:
+                dt = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+            except ValueError:
+                return dt  # Return as-is if parsing fails
+        if isinstance(dt, datetime):
+            return dt.strftime("%b %-d, %Y")
+        return str(dt)
 
     def stage_start(self, name: str) -> None:
         """Print stage start with pulsing Da Vinci animation and timer."""
@@ -907,11 +948,12 @@ class ProgressFormatter:
 
         # Countdown before slideshow starts
         if self.show_output:
-            for countdown in range(3, 0, -1):
-                text = Text()
-                text.append(f"  Starting slideshow in ", style="dim")
-                text.append(str(countdown), style=f"bold {self.NCAR_AQUA}")
-                with Live(text, console=self.console, refresh_per_second=4, transient=True):
+            with Live(console=self.console, refresh_per_second=4, transient=True) as live:
+                for countdown in range(5, 0, -1):
+                    text = Text()
+                    text.append(f"  Starting slideshow in ", style="dim")
+                    text.append(str(countdown), style=f"bold {self.NCAR_AQUA}")
+                    live.update(text)
                     time.sleep(1.0)
 
         for i, pdf_path in enumerate(pdf_files):
@@ -954,11 +996,12 @@ class ProgressFormatter:
 
         # Countdown before preview
         if self.show_output:
-            for countdown in range(5, 0, -1):
-                text = Text()
-                text.append(f"  Preparing to preview {len(png_files)} plots ... ", style="dim")
-                text.append(str(countdown), style=f"bold {self.NCAR_AQUA}")
-                with Live(text, console=self.console, refresh_per_second=4, transient=True):
+            with Live(console=self.console, refresh_per_second=4, transient=True) as live:
+                for countdown in range(5, 0, -1):
+                    text = Text()
+                    text.append(f"  Preparing to preview {len(png_files)} plots ... ", style="dim")
+                    text.append(str(countdown), style=f"bold {self.NCAR_AQUA}")
+                    live.update(text)
                     time.sleep(1.0)
 
         self._print(f"  [dim]Previewing {len(png_files)} plots...[/dim]")
@@ -1253,7 +1296,7 @@ class PipelineRunner:
             log_collector.start_pipeline(config_path=config_path)
 
         # Print header
-        formatter.header(config_path=config_path)
+        formatter.header(config_path=config_path, analysis_config=analysis_config)
 
         # Set up progress callback that uses formatter and collects data
         def _make_progress_callback(
