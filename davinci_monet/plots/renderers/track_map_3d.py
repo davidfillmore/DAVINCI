@@ -651,10 +651,10 @@ class TrackMap3DPlotter(BasePlotter):
         ax3d.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.1f}"))
         ax3d.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.1f}"))
 
-        # Labels
-        ax3d.set_xlabel("Longitude (°E)", fontsize=text_cfg.fontsize * font_scale)
-        ax3d.set_ylabel("Latitude (°N)", fontsize=text_cfg.fontsize * font_scale)
-        ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize * font_scale)
+        # Labels with padding to avoid overlap with tick labels
+        ax3d.set_xlabel("Longitude (°E)", fontsize=text_cfg.fontsize * font_scale, labelpad=10)
+        ax3d.set_ylabel("Latitude (°N)", fontsize=text_cfg.fontsize * font_scale, labelpad=10)
+        ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize * font_scale, labelpad=10)
 
         # Tick label size
         ax3d.tick_params(axis='both', labelsize=text_cfg.tick_fontsize * font_scale)
