@@ -12,7 +12,13 @@ from typing import Any, Mapping, Sequence
 
 import xarray as xr
 
-from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError, write_error_log
+from davinci_monet.core.exceptions import (
+    DataFormatError,
+    DataNotFoundError,
+    cleanup_netcdf_state,
+    is_transient_error,
+    write_error_log,
+)
 from davinci_monet.core.registry import model_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
@@ -176,29 +182,45 @@ class WRFChemReader:
         xr.Dataset
             Raw WRF-Chem dataset.
         """
-        try:
-            if len(file_paths) > 1:
-                ds = xr.open_mfdataset(
-                    [str(f) for f in file_paths],
-                    combine="by_coords",
-                    parallel=True,
-                    **kwargs,
-                )
-            else:
-                ds = xr.open_dataset(str(file_paths[0]), **kwargs)
-        except Exception as e:
-            error_file = write_error_log(e, "Opening WRF-Chem files")
-            msg = f"Failed to open WRF-Chem files: {e}"
-            if error_file:
-                msg += f" (details: {error_file})"
-            raise DataFormatError(msg) from e
+        max_retries = 3
+        last_error: Exception | None = None
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
+        for attempt in range(max_retries):
+            try:
+                if len(file_paths) > 1:
+                    ds = xr.open_mfdataset(
+                        [str(f) for f in file_paths],
+                        combine="by_coords",
+                        parallel=True,
+                        **kwargs,
+                    )
+                else:
+                    ds = xr.open_dataset(str(file_paths[0]), **kwargs)
 
-        return ds
+                if variables is not None:
+                    available = [v for v in variables if v in ds.data_vars]
+                    if available:
+                        ds = ds[available]
+
+                return ds
+
+            except Exception as e:
+                last_error = e
+                if attempt < max_retries - 1 and is_transient_error(e):
+                    warnings.warn(
+                        f"Transient NetCDF error (attempt {attempt + 1}/{max_retries}), "
+                        f"retrying: {e}",
+                        UserWarning,
+                    )
+                    cleanup_netcdf_state()
+                    continue
+                error_file = write_error_log(e, "Opening WRF-Chem files")
+                msg = f"Failed to open WRF-Chem files: {e}"
+                if error_file:
+                    msg += f" (details: {error_file})"
+                raise DataFormatError(msg) from e
+
+        raise DataFormatError(f"Failed to open WRF-Chem files after {max_retries} attempts") from last_error
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize WRF-Chem dataset dimensions and coordinates.

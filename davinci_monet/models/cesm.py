@@ -16,7 +16,13 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 import xarray as xr
 
-from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError, write_error_log
+from davinci_monet.core.exceptions import (
+    DataFormatError,
+    DataNotFoundError,
+    cleanup_netcdf_state,
+    is_transient_error,
+    write_error_log,
+)
 from davinci_monet.core.registry import model_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
@@ -245,29 +251,48 @@ class CESMFVReader:
         **kwargs: Any,
     ) -> xr.Dataset:
         """Open CESM-FV files using xarray."""
-        try:
-            if len(file_paths) > 1:
-                ds = xr.open_mfdataset(
-                    [str(f) for f in file_paths],
-                    combine="by_coords",
-                    parallel=True,
-                    **kwargs,
-                )
-            else:
-                ds = xr.open_dataset(str(file_paths[0]), **kwargs)
-        except Exception as e:
-            error_file = write_error_log(e, "Opening CESM-FV files")
-            msg = f"Failed to open CESM-FV files: {e}"
-            if error_file:
-                msg += f" (details: {error_file})"
-            raise DataFormatError(msg) from e
+        max_retries = 3
+        last_error: Exception | None = None
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
+        for attempt in range(max_retries):
+            try:
+                if len(file_paths) > 1:
+                    ds = xr.open_mfdataset(
+                        [str(f) for f in file_paths],
+                        combine="by_coords",
+                        parallel=True,
+                        **kwargs,
+                    )
+                else:
+                    ds = xr.open_dataset(str(file_paths[0]), **kwargs)
 
-        return ds
+                if variables is not None:
+                    available = [v for v in variables if v in ds.data_vars]
+                    if available:
+                        ds = ds[available]
+
+                return ds
+
+            except Exception as e:
+                last_error = e
+                if attempt < max_retries - 1 and is_transient_error(e):
+                    # Transient error - clean up and retry
+                    warnings.warn(
+                        f"Transient NetCDF error (attempt {attempt + 1}/{max_retries}), "
+                        f"retrying: {e}",
+                        UserWarning,
+                    )
+                    cleanup_netcdf_state()
+                    continue
+                # Non-transient error or max retries reached
+                error_file = write_error_log(e, "Opening CESM-FV files")
+                msg = f"Failed to open CESM-FV files: {e}"
+                if error_file:
+                    msg += f" (details: {error_file})"
+                raise DataFormatError(msg) from e
+
+        # Should not reach here, but just in case
+        raise DataFormatError(f"Failed to open CESM-FV files after {max_retries} attempts") from last_error
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize CESM-FV dataset dimensions."""
@@ -393,46 +418,65 @@ class CESMSEReader:
         # Remove our custom kwargs
         xr_kwargs = {k: v for k, v in kwargs.items() if k != "scrip_file"}
 
-        try:
-            if len(file_paths) > 1:
-                ds = xr.open_mfdataset(
-                    [str(f) for f in file_paths],
-                    combine="by_coords",
-                    parallel=True,
-                    **xr_kwargs,
-                )
-            else:
-                ds = xr.open_dataset(str(file_paths[0]), **xr_kwargs)
-        except Exception as e:
-            error_file = write_error_log(e, "Opening CESM-SE files")
-            msg = f"Failed to open CESM-SE files: {e}"
-            if error_file:
-                msg += f" (details: {error_file})"
-            raise DataFormatError(msg) from e
+        max_retries = 3
+        last_error: Exception | None = None
 
-        # If SCRIP file provided, add coordinates
-        if "scrip_file" in kwargs:
-            scrip_path = kwargs["scrip_file"]
-            if Path(scrip_path).exists():
-                try:
-                    scrip = xr.open_dataset(scrip_path)
-                except Exception as e:
-                    error_file = write_error_log(e, f"Opening SCRIP file '{scrip_path}'")
-                    msg = f"Failed to open SCRIP file '{scrip_path}': {e}"
-                    if error_file:
-                        msg += f" (details: {error_file})"
-                    raise DataFormatError(msg) from e
-                if "grid_center_lat" in scrip:
-                    ds = ds.assign_coords(lat=("ncol", scrip["grid_center_lat"].values))
-                if "grid_center_lon" in scrip:
-                    ds = ds.assign_coords(lon=("ncol", scrip["grid_center_lon"].values))
+        for attempt in range(max_retries):
+            try:
+                if len(file_paths) > 1:
+                    ds = xr.open_mfdataset(
+                        [str(f) for f in file_paths],
+                        combine="by_coords",
+                        parallel=True,
+                        **xr_kwargs,
+                    )
+                else:
+                    ds = xr.open_dataset(str(file_paths[0]), **xr_kwargs)
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
+                # If SCRIP file provided, add coordinates
+                if "scrip_file" in kwargs:
+                    scrip_path = kwargs["scrip_file"]
+                    if Path(scrip_path).exists():
+                        try:
+                            scrip = xr.open_dataset(scrip_path)
+                        except Exception as e:
+                            error_file = write_error_log(e, f"Opening SCRIP file '{scrip_path}'")
+                            msg = f"Failed to open SCRIP file '{scrip_path}': {e}"
+                            if error_file:
+                                msg += f" (details: {error_file})"
+                            raise DataFormatError(msg) from e
+                        if "grid_center_lat" in scrip:
+                            ds = ds.assign_coords(lat=("ncol", scrip["grid_center_lat"].values))
+                        if "grid_center_lon" in scrip:
+                            ds = ds.assign_coords(lon=("ncol", scrip["grid_center_lon"].values))
 
-        return ds
+                if variables is not None:
+                    available = [v for v in variables if v in ds.data_vars]
+                    if available:
+                        ds = ds[available]
+
+                return ds
+
+            except DataFormatError:
+                # Re-raise DataFormatError (from SCRIP file) without retry
+                raise
+            except Exception as e:
+                last_error = e
+                if attempt < max_retries - 1 and is_transient_error(e):
+                    warnings.warn(
+                        f"Transient NetCDF error (attempt {attempt + 1}/{max_retries}), "
+                        f"retrying: {e}",
+                        UserWarning,
+                    )
+                    cleanup_netcdf_state()
+                    continue
+                error_file = write_error_log(e, "Opening CESM-SE files")
+                msg = f"Failed to open CESM-SE files: {e}"
+                if error_file:
+                    msg += f" (details: {error_file})"
+                raise DataFormatError(msg) from e
+
+        raise DataFormatError(f"Failed to open CESM-SE files after {max_retries} attempts") from last_error
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize CESM-SE dataset dimensions."""

@@ -550,6 +550,63 @@ class PipelineAbortError(PipelineError):
         self.pending_stages = pending_stages
 
 
+# Known transient NetCDF/HDF5 error patterns that may succeed on retry
+TRANSIENT_ERROR_PATTERNS = [
+    "Not a valid ID",
+    "invalid location identifier",
+    "CachingFileManager",
+    "h5py",
+    "HDF5",
+    "NetCDF",
+]
+
+
+def is_transient_error(error: Exception) -> bool:
+    """Check if an error appears to be a transient NetCDF/HDF5 error.
+
+    Parameters
+    ----------
+    error
+        The exception to check.
+
+    Returns
+    -------
+    bool
+        True if the error matches known transient patterns.
+    """
+    error_str = str(error)
+    error_type = type(error).__name__
+    combined = f"{error_type}: {error_str}"
+
+    return any(pattern in combined for pattern in TRANSIENT_ERROR_PATTERNS)
+
+
+def cleanup_netcdf_state() -> None:
+    """Clean up NetCDF/HDF5 state to help recover from transient errors.
+
+    This function forces garbage collection and clears xarray's file cache,
+    which can help recover from stale file handle errors.
+    """
+    import gc
+
+    # Force garbage collection
+    gc.collect()
+
+    # Clear xarray's file manager cache
+    try:
+        from xarray.backends.file_manager import FILE_CACHE
+        FILE_CACHE.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Try to clear any HDF5 state
+    try:
+        import h5py
+        h5py._errors.silence_errors()
+    except (ImportError, AttributeError):
+        pass
+
+
 def write_error_log(
     error: Exception,
     context: str,
