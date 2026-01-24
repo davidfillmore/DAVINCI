@@ -913,15 +913,57 @@ class ProgressFormatter:
 
         self._print(f"  [dim]Previewing {len(pdf_files)} PDF plots...[/dim]")
 
-        # Open each PDF one at a time with Quick Look
+        # Set Preview to prefer tabs, then open all PDFs
+        subprocess.run(
+            ["defaults", "write", "com.apple.Preview", "AppleWindowTabbingMode", "-string", "always"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        subprocess.run(
+            ["open", "-a", "Preview"] + pdf_files,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        time.sleep(0.5)  # Wait for Preview to open all files
+
+        # Set to Zoom to Fit mode
+        subprocess.run(
+            [
+                "osascript",
+                "-e",
+                '''
+                tell application "Preview" to activate
+                tell application "System Events"
+                    tell process "Preview"
+                        click menu item "Zoom to Fit" of menu "View" of menu bar 1
+                    end tell
+                end tell
+                ''',
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        # Cycle through tabs
         for i, pdf_path in enumerate(pdf_files):
             try:
                 plot_name = Path(pdf_path).stem
                 self._print(f"  [dim][{i + 1}/{len(pdf_files)}] {plot_name}[/dim]")
 
-                # Start Quick Look for this file
-                ql_process = subprocess.Popen(
-                    ["qlmanage", "-p", pdf_path],
+                # Select tab by index (1-based)
+                subprocess.run(
+                    [
+                        "osascript",
+                        "-e",
+                        f'''
+                        tell application "Preview" to activate
+                        tell application "System Events"
+                            tell process "Preview"
+                                click radio button {i + 1} of tab group 1 of window 1
+                            end tell
+                        end tell
+                        ''',
+                    ],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
@@ -929,15 +971,15 @@ class ProgressFormatter:
                 # Wait for display duration
                 time.sleep(duration)
 
-                # Close Quick Look
-                ql_process.terminate()
-                try:
-                    ql_process.wait(timeout=1)
-                except subprocess.TimeoutExpired:
-                    ql_process.kill()
-
             except Exception as e:
                 self._log(f"  Error previewing {pdf_path}: {e}")
+
+        # Close all Preview windows at the end
+        subprocess.run(
+            ["osascript", "-e", 'tell application "Preview" to quit'],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
     def _preview_pngs(self, plot_paths: list[str], duration: float = 1.0) -> None:
         """Show PNG plots in matplotlib window."""
@@ -1183,6 +1225,33 @@ class PipelineRunner:
             reset_style()
             logger.info("Reset to default matplotlib style")
 
+    def _cleanup_hdf5_state(self) -> None:
+        """Clear HDF5/NetCDF state to avoid transient file handle errors.
+
+        This helps prevent "invalid location identifier" errors that can occur
+        when HDF5 has stale file handles from previous runs.
+        """
+        import gc
+
+        # Force garbage collection to close any dangling file handles
+        gc.collect()
+
+        # Clear xarray's file manager cache if available
+        try:
+            from xarray.backends.file_manager import FILE_CACHE
+            FILE_CACHE.clear()
+        except (ImportError, AttributeError):
+            pass
+
+        # Clear netCDF4's file cache if available
+        try:
+            import netCDF4
+            # netCDF4 doesn't have a public cache clear, but gc.collect handles it
+        except ImportError:
+            pass
+
+        logger.debug("Cleared HDF5/NetCDF file state")
+
     def run(self, context: PipelineContext | None = None) -> PipelineResult:
         """Execute the pipeline.
 
@@ -1198,6 +1267,9 @@ class PipelineRunner:
         """
         if context is None:
             context = PipelineContext()
+
+        # Clear HDF5/NetCDF state to avoid transient file handle errors
+        self._cleanup_hdf5_state()
 
         # Apply plot styling from config if specified
         self._apply_plot_style(context)
@@ -1377,7 +1449,7 @@ class PipelineRunner:
                 if plotting_result.data and "plots_generated" in plotting_result.data:
                     plot_paths = plotting_result.data["plots_generated"]
                     formatter.preview_plots(
-                        plot_paths, duration=3.0, preview_format=self._preview_format
+                        plot_paths, duration=1.0, preview_format=self._preview_format
                     )
 
         result.end_time = datetime.now()

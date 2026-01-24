@@ -130,12 +130,10 @@ class SiteTimeSeriesPlotter(BasePlotter):
         n_sites = len(valid_sites)
         nrows = (n_sites + ncols - 1) // ncols
 
-        # Create figure
-        fig_width = 5 * ncols
-        fig_height = 3.5 * nrows
+        # Create figure with standard size
         fig, axes = plt.subplots(
             nrows, ncols,
-            figsize=(fig_width, fig_height),
+            figsize=(8, 5),
             sharex=True,
             squeeze=False,
         )

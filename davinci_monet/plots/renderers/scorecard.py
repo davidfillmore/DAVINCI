@@ -160,13 +160,7 @@ class ScorecardPlotter(BasePlotter):
         """
         # Create figure if needed
         if ax is None:
-            # Size based on dataframe dimensions
-            n_rows, n_cols = stats_df.shape
-            figsize = (
-                max(6, n_cols * 1.2 + 2),
-                max(4, n_rows * 0.5 + 1),
-            )
-            fig, ax = plt.subplots(figsize=figsize, dpi=self.config.figure.dpi)
+            fig, ax = plt.subplots(figsize=(8, 5), dpi=self.config.figure.dpi)
         else:
             fig = ax.get_figure()
 
@@ -319,10 +313,10 @@ class ScorecardPlotter(BasePlotter):
 
         n_metrics = len(metrics)
 
-        # Create subplots
+        # Create subplots with standard size
         fig, axes = plt.subplots(
             1, n_metrics,
-            figsize=(4 * n_metrics, 6),
+            figsize=(8, 5),
             dpi=self.config.figure.dpi,
             squeeze=False,
         )

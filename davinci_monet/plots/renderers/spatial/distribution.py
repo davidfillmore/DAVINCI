@@ -115,10 +115,10 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         # Create figure if needed
         if ax is None:
             if show_var == "both":
-                # Create side-by-side subplots
+                # Create side-by-side subplots with standard size
                 fig, axes = plt.subplots(
                     1, 2,
-                    figsize=(self.config.figure.figsize[0] * 1.8, self.config.figure.figsize[1]),
+                    figsize=(8, 5),
                     dpi=self.config.figure.dpi,
                     subplot_kw={"projection": ccrs.PlateCarree()},
                 )

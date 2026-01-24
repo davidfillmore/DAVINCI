@@ -131,12 +131,10 @@ class FlightTimeSeriesPlotter(BasePlotter):
         n_flights = len(valid_flights)
         nrows = (n_flights + ncols - 1) // ncols
 
-        # Create figure
-        fig_width = 5 * ncols
-        fig_height = 3.5 * nrows
+        # Create figure with standard size
         fig, axes = plt.subplots(
             nrows, ncols,
-            figsize=(fig_width, fig_height),
+            figsize=(8, 5),
             squeeze=False,
         )
         axes_flat = axes.flatten()
