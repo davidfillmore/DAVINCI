@@ -417,7 +417,7 @@ class ScatterPlotter(BasePlotter):
             0.05,
             stats_text,
             transform=ax.transAxes,
-            fontsize=self.config.text.fontsize - 2,
+            fontsize=self.config.text.annotation,
             verticalalignment="bottom",
             horizontalalignment="right",
             bbox=props,

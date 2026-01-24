@@ -56,21 +56,39 @@ class FigureConfig:
 class TextConfig:
     """Configuration for text styling.
 
+    All sizes are in points (1/72 inch). These are absolute measurements
+    that do not scale with figure size.
+
     Attributes
     ----------
     fontsize : float
-        Base font size for labels.
+        Base font size for axis labels.
     title_fontsize : float
-        Font size for titles.
+        Font size for figure/axes titles.
     tick_fontsize : float
         Font size for tick labels.
+    legend : float
+        Font size for primary legend text.
+    legend_small : float
+        Font size for crowded multi-panel legends.
+    annotation : float
+        Font size for text annotations (stats boxes).
+    annotation_small : float
+        Font size for dense multi-panel annotations.
+    site_label : float
+        Font size for map site markers and city labels.
     fontweight : str
         Font weight ('normal', 'bold').
     """
 
-    fontsize: float = 16.0
-    title_fontsize: float = 18.0
-    tick_fontsize: float = 14.0
+    fontsize: float = 14.0
+    title_fontsize: float = 16.0
+    tick_fontsize: float = 12.0
+    legend: float = 12.0
+    legend_small: float = 10.0
+    annotation: float = 12.0
+    annotation_small: float = 10.0
+    site_label: float = 10.0
     fontweight: str = "normal"
 
 
@@ -421,7 +439,7 @@ class BasePlotter(ABC):
         """
         legend_kwargs = {
             "loc": loc,
-            "fontsize": self.config.text.fontsize - 2,
+            "fontsize": self.config.text.legend,
             "framealpha": 0.9,
             **kwargs,
         }

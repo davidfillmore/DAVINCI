@@ -365,7 +365,7 @@ class TrackMap3DPlotter(BasePlotter):
         city_labels: dict[str, list[float]] | None = None,
         city_marker_size: float = 50,
         city_marker_color: str = "red",
-        city_font_size: float = 16,  # Scaled up for 3D rendering
+        city_font_size: float = 10,  # City label font size
         show_surface_map: bool = False,
         surface_map_resolution: int = 250,
         land_color: str = "#E8E8E8",
@@ -507,9 +507,8 @@ class TrackMap3DPlotter(BasePlotter):
         fig = plt.figure(figsize=self.config.figure.figsize)
         ax3d = fig.add_subplot(111, projection="3d")
 
-        # Text settings - 3D plots render fonts smaller due to perspective, scale up by 1.5x
+        # Text settings - use absolute point sizes from config
         text_cfg = self.config.text
-        font_scale = 0.8  # Scale down for smaller figure size
 
         # Set color limits
         if show_var == "bias":
@@ -629,11 +628,11 @@ class TrackMap3DPlotter(BasePlotter):
                         alpha=0.9,
                         zorder=10,
                     )
-                    # Add label (use scaled font size for consistency)
+                    # Add label
                     ax3d.text(
                         city_lon, city_lat, 0,
                         f"  {city_name}",
-                        fontsize=city_font_size * font_scale,
+                        fontsize=city_font_size,
                         color="black",
                         ha="left",
                         va="bottom",
@@ -652,24 +651,24 @@ class TrackMap3DPlotter(BasePlotter):
         ax3d.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.1f}"))
 
         # Labels with padding to avoid overlap with tick labels
-        ax3d.set_xlabel("Longitude (°E)", fontsize=text_cfg.fontsize * font_scale, labelpad=10)
-        ax3d.set_ylabel("Latitude (°N)", fontsize=text_cfg.fontsize * font_scale, labelpad=15)
-        ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize * font_scale, labelpad=10)
+        ax3d.set_xlabel("Longitude (°E)", fontsize=text_cfg.fontsize, labelpad=10)
+        ax3d.set_ylabel("Latitude (°N)", fontsize=text_cfg.fontsize, labelpad=15)
+        ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize, labelpad=10)
 
         # Tick label size
-        ax3d.tick_params(axis='both', labelsize=text_cfg.tick_fontsize * font_scale)
+        ax3d.tick_params(axis='both', labelsize=text_cfg.tick_fontsize)
 
         # Colorbar - increase pad to prevent label clipping
         units = get_variable_units(paired_data, obs_var)
         cbar_label = format_label_with_units(label, units)
         cbar_label = format_plot_title(cbar_label)  # Apply subscript formatting
         cbar = fig.colorbar(scatter, ax=ax3d, shrink=0.6, pad=0.15)
-        cbar.set_label(cbar_label, fontsize=text_cfg.fontsize * font_scale)
-        cbar.ax.tick_params(labelsize=text_cfg.tick_fontsize * font_scale)
+        cbar.set_label(cbar_label, fontsize=text_cfg.fontsize)
+        cbar.ax.tick_params(labelsize=text_cfg.tick_fontsize)
 
         # Title
         if self.config.title:
-            ax3d.set_title(format_plot_title(self.config.title), fontsize=text_cfg.title_fontsize * font_scale)
+            ax3d.set_title(format_plot_title(self.config.title), fontsize=text_cfg.title_fontsize)
 
         plt.tight_layout(rect=[0, 0, 0.95, 1])  # Leave room on right for colorbar label
         return fig

@@ -78,7 +78,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         site_label_var: str = "site_name",
         label_sites: list[str] | None = None,
         city_labels: dict[str, tuple[float, float]] | None = None,
-        label_fontsize: int = 8,
+        label_fontsize: int | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Generate a spatial bias plot.
@@ -203,6 +203,10 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         units = get_variable_units(paired_data, obs_var)
         label = format_label_with_units("Bias (Model - Obs)", units)
         self.add_colorbar(fig, scatter, ax, label=label)
+
+        # Use config site_label size if not specified
+        if label_fontsize is None:
+            label_fontsize = self.config.text.site_label
 
         # Add site labels if requested
         if show_site_labels and site_label_var in paired_data.coords:

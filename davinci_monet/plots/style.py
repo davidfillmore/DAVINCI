@@ -99,47 +99,66 @@ NCAR_FONT_SANS_SERIF = [
 class FontSizes:
     """Font size configuration for different contexts.
 
+    All sizes are in points (1/72 inch). These are absolute measurements
+    that do not scale with figure size - 12pt text is always 12pt regardless
+    of whether the figure is 6" or 12" wide.
+
     Attributes
     ----------
+    figure_title : float
+        Font size for figure suptitle (overall title).
+    axes_title : float
+        Font size for subplot/panel titles.
     axes_label : float
         Font size for axis labels (xlabel, ylabel).
-    axes_title : float
-        Font size for subplot titles.
     tick_label : float
-        Font size for tick labels.
+        Font size for tick labels (numbers on axes).
     legend : float
-        Font size for legend text.
-    figure_title : float
-        Font size for figure suptitle.
+        Font size for primary legend text.
+    legend_small : float
+        Font size for crowded multi-panel legends.
     annotation : float
         Font size for text annotations (stats boxes, etc.).
+    annotation_small : float
+        Font size for dense multi-panel annotations.
+    site_label : float
+        Font size for map site markers and city labels.
     """
 
-    axes_label: float = 14.0
+    figure_title: float = 20.0
     axes_title: float = 16.0
+    axes_label: float = 14.0
     tick_label: float = 12.0
     legend: float = 12.0
-    figure_title: float = 18.0
-    annotation: float = 10.0
+    legend_small: float = 10.0
+    annotation: float = 12.0
+    annotation_small: float = 10.0
+    site_label: float = 10.0
 
 
 # Preset font sizes for different contexts
 FONT_SIZES_PRESENTATION = FontSizes(
-    axes_label=16.0,
+    figure_title=24.0,
     axes_title=18.0,
+    axes_label=16.0,
     tick_label=14.0,
     legend=14.0,
-    figure_title=20.0,
-    annotation=12.0,
+    legend_small=12.0,
+    annotation=14.0,
+    annotation_small=12.0,
+    site_label=12.0,
 )
 
 FONT_SIZES_PUBLICATION = FontSizes(
-    axes_label=12.0,
+    figure_title=18.0,
     axes_title=14.0,
+    axes_label=12.0,
     tick_label=10.0,
     legend=10.0,
-    figure_title=16.0,
-    annotation=9.0,
+    legend_small=9.0,
+    annotation=10.0,
+    annotation_small=9.0,
+    site_label=9.0,
 )
 
 FONT_SIZES_DEFAULT = FontSizes()

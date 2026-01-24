@@ -201,30 +201,28 @@ class SiteTimeSeriesPlotter(BasePlotter):
                 if not np.isnan(r):
                     stats_text += f"\nR={r:.2f}"
 
-                # Multi-panel font sizes (reduced from config for small panels)
-                panel_fontsize = self.config.text.fontsize - 6
+                # Multi-panel font sizes (smaller for dense panels)
                 ax.text(
                     0.97, 0.97, stats_text,
-                    transform=ax.transAxes, fontsize=panel_fontsize,
+                    transform=ax.transAxes, fontsize=self.config.text.annotation_small,
                     verticalalignment="top", horizontalalignment="right",
                     bbox=dict(boxstyle="round", facecolor="white", alpha=0.8)
                 )
 
             # Title with site name and coordinates
-            panel_title_fontsize = self.config.text.title_fontsize - 6
             if has_coords:
                 lat = float(paired_data["latitude"].sel({site_dim: site}).values)
                 lon = float(paired_data["longitude"].sel({site_dim: site}).values)
-                ax.set_title(f"{site} ({lat:.1f}°N, {lon:.1f}°E)", fontsize=panel_title_fontsize)
+                ax.set_title(f"{site} ({lat:.1f}°N, {lon:.1f}°E)", fontsize=self.config.text.annotation_small)
             else:
-                ax.set_title(str(site), fontsize=panel_title_fontsize)
+                ax.set_title(str(site), fontsize=self.config.text.annotation_small)
 
             ax.set_ylim(bottom=0)
             ax.grid(True, alpha=0.3)
 
             # Legend on first panel only
             if idx == 0:
-                ax.legend(loc="upper left", fontsize=self.config.text.fontsize - 6)
+                ax.legend(loc="upper left", fontsize=self.config.text.legend_small)
 
             # Y-axis label on left column - use automatic variable display name (no prefix)
             if idx % ncols == 0:
@@ -235,7 +233,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
                     ylabel = f"{ylabel}\n(×10{_superscript(exp)} {units})" if units and units != "1" else f"{ylabel}\n(×10{_superscript(exp)})"
                 else:
                     ylabel = format_label_with_units(ylabel, units)
-                ax.set_ylabel(ylabel, fontsize=self.config.text.fontsize - 5)
+                ax.set_ylabel(ylabel, fontsize=self.config.text.legend_small)
 
         # Set x-axis limits to actual data range (avoid extra ticks beyond data)
         all_times = pd.to_datetime(paired_data[time_dim].values)
