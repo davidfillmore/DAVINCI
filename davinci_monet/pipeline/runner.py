@@ -1700,8 +1700,10 @@ class PipelineRunner:
                 )
 
         except Exception as e:
-            logger.exception(f"Stage '{stage.name}' raised exception")
+            # Don't use logger.exception() - it prints traceback to console
+            # We capture the traceback and store it in the result for the log file
             tb_str = traceback.format_exc()
+            logger.error(f"Stage '{stage.name}' failed: {e}")
             result = StageResult(
                 stage_name=stage.name,
                 status=StageStatus.FAILED,

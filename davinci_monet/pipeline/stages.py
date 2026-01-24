@@ -1014,7 +1014,8 @@ class PlottingStage(BaseStage):
 
         # Get output directory
         analysis_config = context.config.get("analysis", {})
-        output_dir = Path(analysis_config.get("output_dir", "."))
+        output_dir_str = analysis_config.get("output_dir") or "."
+        output_dir = Path(output_dir_str)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Get pairs config for variable mapping
@@ -1187,7 +1188,8 @@ class SaveResultsStage(BaseStage):
 
         # Get output directory from analysis config
         analysis_config = context.config.get("analysis", {})
-        output_dir = Path(analysis_config.get("output_dir", "."))
+        output_dir_str = analysis_config.get("output_dir") or "."
+        output_dir = Path(output_dir_str)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Save statistics summary from statistics stage
