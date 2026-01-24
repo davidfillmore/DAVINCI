@@ -480,6 +480,31 @@ class LoadObservationsStage(BaseStage):
                 if debug:
                     context.log_progress(f"      [TIMING] create_observation_data: {_format_duration(time.time() - t0)}")
 
+                # Apply temporal averaging if configured
+                resample_freq = config.get("resample")
+                if resample_freq:
+                    min_count = config.get("min_obs_count")
+                    track_count = config.get("track_obs_count", False)
+                    original_times = obs_data.data.sizes.get("time", 0) if obs_data.data is not None else 0
+
+                    t0 = time.time()
+                    obs_data.resample_data(
+                        freq=resample_freq,
+                        min_count=min_count,
+                        track_count=track_count,
+                    )
+                    new_times = obs_data.data.sizes.get("time", 0) if obs_data.data is not None else 0
+
+                    if debug:
+                        context.log_progress(
+                            f"      [TIMING] resample ({resample_freq}): {_format_duration(time.time() - t0)} "
+                            f"({original_times} -> {new_times} times)"
+                        )
+                    else:
+                        context.log_progress(
+                            f"step: Resampled to {resample_freq} ({original_times} -> {new_times} times)"
+                        )
+
                 # Apply unit scaling, units, and display_name if configured
                 if isinstance(variables, dict):
                     for var_name, var_config in variables.items():
@@ -1043,7 +1068,8 @@ class PlottingStage(BaseStage):
                     for opt_key in ["show_site_labels", "show_individual_sites",
                                     "show_uncertainty", "uncertainty_type",
                                     "resample", "aggregate_dim", "label_sites",
-                                    "site_label_var", "city_labels"]:
+                                    "site_label_var", "city_labels",
+                                    "show_density", "density_cmap", "alpha"]:
                         if opt_key in plot_spec:
                             plot_options[opt_key] = plot_spec[opt_key]
 

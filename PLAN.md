@@ -294,6 +294,16 @@ Each observation reader tags its data with geometry type for the pairing engine.
 ## Phase 9: Plotting
 **Status: COMPLETE**
 
+**PRIMARY OBJECTIVE: Publication-quality figures.** All plots must be suitable for direct inclusion in peer-reviewed journal articles. This means:
+- Clean, professional styling (NCAR branding with Poppins font)
+- Appropriate axis labels with units
+- Legends that don't obscure data
+- Consistent color schemes (gray for obs, NCAR blue for model)
+- High DPI output (300 for PNG, vector PDF)
+- Density coloring for busy scatter plots (`show_density: true`)
+
+### Implemented Plot Types
+
 - [x] Implement `plots/base.py` - BasePlotter, PlotConfig, utility functions
 - [x] Implement `plots/registry.py` - Plot registry and factory functions
 - [x] Implement `plots/renderers/timeseries.py` - Time series comparisons

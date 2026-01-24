@@ -359,3 +359,22 @@ fig = plot_timeseries(paired_data, "obs_o3", "model_o3")
 4. **Observation coordinates**: Must have `latitude`, `longitude` as coordinates or variables
 
 5. **Time alignment**: Pipeline uses nearest-neighbor interpolation for model→obs times
+
+6. **High-frequency observations**: Use `resample` to average sub-hourly data to match model resolution:
+   ```yaml
+   obs:
+     pandora:
+       obs_type: pt_sfc
+       filename: /data/pandora/*.nc
+       resample: "h"           # Average to hourly
+       min_obs_count: 3        # Require ≥3 obs per hour (reject sparse hours)
+       track_obs_count: true   # Add obs_count variable for diagnostics
+   ```
+
+7. **Scatter plot density**: For busy scatter plots with many points, enable density coloring:
+   ```yaml
+   plots:
+     my_scatter:
+       type: scatter
+       show_density: true      # Color points by local density
+   ```

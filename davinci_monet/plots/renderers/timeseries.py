@@ -6,6 +6,7 @@ model output with observations over time.
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, Literal
 
 import matplotlib.pyplot as plt
@@ -388,12 +389,16 @@ class TimeSeriesPlotter(BasePlotter):
         # Calculate uncertainty bounds
         if uncertainty_type == "std":
             obs_mean = obs_data.mean(dim=aggregate_dim)
-            obs_std = obs_data.std(dim=aggregate_dim)
+            model_mean = model_data.mean(dim=aggregate_dim)
+
+            # Suppress warnings for time bins with single observations (ddof > n)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", "Degrees of freedom", RuntimeWarning)
+                obs_std = obs_data.std(dim=aggregate_dim)
+                model_std = model_data.std(dim=aggregate_dim)
+
             obs_lower = obs_mean - obs_std
             obs_upper = obs_mean + obs_std
-
-            model_mean = model_data.mean(dim=aggregate_dim)
-            model_std = model_data.std(dim=aggregate_dim)
             model_lower = model_mean - model_std
             model_upper = model_mean + model_std
 
@@ -481,9 +486,13 @@ class TimeSeriesPlotter(BasePlotter):
             # Need to include uncertainty bands in range calculation
             if uncertainty_type == "std":
                 obs_mean = obs_data.mean(dim=aggregate_dim)
-                obs_std = obs_data.std(dim=aggregate_dim)
                 model_mean = model_data.mean(dim=aggregate_dim)
-                model_std = model_data.std(dim=aggregate_dim)
+
+                # Suppress warnings for time bins with single observations (ddof > n)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", "Degrees of freedom", RuntimeWarning)
+                    obs_std = obs_data.std(dim=aggregate_dim)
+                    model_std = model_data.std(dim=aggregate_dim)
 
                 data_min = float(min(
                     np.nanmin(obs_mean.values - obs_std.values),

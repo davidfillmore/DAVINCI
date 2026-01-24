@@ -221,14 +221,29 @@ class ObservationData(DataContainer):
         # Apply mask
         self.data = self.data.where(valid_mask, drop=True)
 
-    def resample_data(self, freq: str | None = None) -> None:
+    def resample_data(
+        self,
+        freq: str | None = None,
+        min_count: int | None = None,
+        track_count: bool = False,
+    ) -> None:
         """Resample observation data to a different frequency.
+
+        Used to average high-frequency observations (e.g., sub-hourly Pandora)
+        to match model output resolution (e.g., hourly). Averaging is applied
+        BEFORE pairing for efficiency.
 
         Parameters
         ----------
         freq
-            Resampling frequency (e.g., 'h', 'D', '6h').
+            Pandas frequency string (e.g., 'h', 'D', '30min').
             If None, uses self.resample.
+        min_count
+            Minimum number of observations required per average.
+            Averages with fewer observations are set to NaN.
+        track_count
+            If True, add 'obs_count' variable tracking number of
+            observations in each average.
         """
         if self.data is None:
             return
@@ -242,7 +257,32 @@ class ObservationData(DataContainer):
         if "time" not in self.data.dims:
             return
 
-        self.data = self.data.resample(time=freq).mean()
+        resampler = self.data.resample(time=freq)
+
+        # Calculate means
+        result = resampler.mean()
+
+        # Track observation counts if requested
+        if track_count or min_count is not None:
+            # Count non-NaN values for first data variable (excluding coords)
+            data_vars = [
+                v for v in self.data.data_vars
+                if v not in ("latitude", "longitude", "altitude")
+            ]
+            if data_vars:
+                counts = resampler.count()[data_vars[0]]
+
+                if track_count:
+                    result["obs_count"] = counts
+
+                if min_count is not None:
+                    # Mask averages with insufficient observations
+                    mask = counts >= min_count
+                    for var in data_vars:
+                        if var in result:
+                            result[var] = result[var].where(mask)
+
+        self.data = result
 
     def filter_by_flag(
         self,

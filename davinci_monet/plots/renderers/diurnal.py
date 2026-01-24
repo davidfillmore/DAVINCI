@@ -6,6 +6,7 @@ model output with observations across the daily cycle.
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, Literal
 
 import matplotlib.pyplot as plt
@@ -224,12 +225,16 @@ class DiurnalPlotter(BasePlotter):
         """
         if spread_type == "std":
             obs_mean = obs_hourly.mean()
-            obs_std = obs_hourly.std()
+            model_mean = model_hourly.mean()
+
+            # Suppress warnings for hours with single observations (ddof > n)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", "Degrees of freedom", RuntimeWarning)
+                obs_std = obs_hourly.std()
+                model_std = model_hourly.std()
+
             obs_lower = obs_mean - obs_std
             obs_upper = obs_mean + obs_std
-
-            model_mean = model_hourly.mean()
-            model_std = model_hourly.std()
             model_lower = model_mean - model_std
             model_upper = model_mean + model_std
 

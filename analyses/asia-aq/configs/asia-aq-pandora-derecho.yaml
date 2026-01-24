@@ -52,6 +52,9 @@ obs:
   pandora:
     obs_type: pt_sfc
     filename: /glade/derecho/scratch/fillmore/ASIA-AQ/obs/pandora_no2_column_20240201_20240229.nc
+    resample: "h"              # Average sub-hourly obs to hourly
+    min_obs_count: 3           # Require at least 3 obs per hour
+    track_obs_count: true      # Add obs_count variable for diagnostics
     variables:
       no2_trop_column:
         obs_min: 0
@@ -68,22 +71,31 @@ pairs:
       obs_var: no2_trop_column
 
 plots:
-  pandora_no2_scatter:
+  no2_column_scatter:
     type: scatter
     pairs: [cesm_pandora_no2]
     title: "NO2 Column: CESM vs Pandora"
+    show_density: true
 
-  pandora_no2_timeseries:
+  no2_column_timeseries:
     type: timeseries
     pairs: [cesm_pandora_no2]
     title: "NO2 Column Time Series (Mean ± Std)"
     show_uncertainty: true
     aggregate_dim: site
 
-  pandora_no2_spatial_bias:
+  no2_column_spatial_bias:
     type: spatial_bias
     pairs: [cesm_pandora_no2]
     title: "NO2 Column Spatial Bias"
+
+  no2_column_site_timeseries:
+    type: site_timeseries
+    pairs: [cesm_pandora_no2]
+    title: "NO2 Tropospheric Column: Pandora vs CESM"
+    ncols: 3
+    min_points: 50
+    scale_factor: 10000  # mol/m2 -> 10^-4 mol/m2
 
 stats:
   output_table: true

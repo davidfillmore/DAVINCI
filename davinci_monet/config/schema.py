@@ -336,7 +336,16 @@ class ObservationConfig(FlexibleModel):
     use_airnow
         Use AirNow data (legacy flag).
     resample
-        Pandas resample string (e.g., '600S' for 10 min).
+        Pandas resample string (e.g., 'h' for hourly, '30min' for 30 minutes).
+        Used to average high-frequency observations to match model resolution.
+    min_obs_count
+        Minimum number of observations required per resampled average.
+        Averages with fewer observations are set to NaN. Only used when
+        resample is specified.
+    track_obs_count
+        If True, add 'obs_count' variable to output tracking the number of
+        observations in each resampled average. Only used when resample is
+        specified.
     data_proc
         Data processing options.
     """
@@ -347,6 +356,8 @@ class ObservationConfig(FlexibleModel):
     variables: dict[str, VariableConfig] = Field(default_factory=dict)
     use_airnow: bool | None = None
     resample: str | None = None
+    min_obs_count: int | None = None
+    track_obs_count: bool = False
     data_proc: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("filename", mode="before")
