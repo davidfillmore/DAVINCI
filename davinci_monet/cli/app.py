@@ -35,6 +35,7 @@ WARNING_COLOR = typer.colors.YELLOW
 NCAR_BLUE = "#0A5DDA"
 NCAR_AQUA = "#00A2B4"
 NCAR_RED = "#D62839"
+NCAR_RED_LIGHT = "#E8788A"  # Lighter red for error details
 
 
 def _get_system_info() -> str:
@@ -191,9 +192,9 @@ def display_error(title: str, message: str, config_path: str | None = None) -> N
     console.print()
     console.print(get_colored_logo())
 
-    # Panel content - same style as pipeline header
+    # Panel content - same style as pipeline header (no error type in panel)
     content = Text()
-    content.append(f"DAVINCI-MONET {title}", style=f"bold {NCAR_AQUA}")
+    content.append("DAVINCI-MONET", style=f"bold {NCAR_AQUA}")
     content.append("  ")
     content.append(datetime.now().strftime("%a %b %-d, %Y %H:%M"), style="dim")
     content.append("  ")
@@ -212,8 +213,11 @@ def display_error(title: str, message: str, config_path: str | None = None) -> N
 
     console.print()
 
-    # Error message in red
-    console.print(f"  [bold {NCAR_RED}]{message}[/bold {NCAR_RED}]")
+    # Error type in bold red
+    console.print(f"  [bold {NCAR_RED}]{title}[/bold {NCAR_RED}]")
+
+    # Error details in lighter red
+    console.print(f"  [{NCAR_RED_LIGHT}]{message}[/{NCAR_RED_LIGHT}]")
     console.print()
 
 
