@@ -446,19 +446,26 @@ class ProgressFormatter:
     """Formats pipeline progress output with rich animated styling.
 
     Uses rich library for pulsing text, panels, and color-coded output.
-    Features a pulsing "Da Vinci" animation with blue color palette
+    Features a pulsing "Da Vinci" animation with NCAR blue color palette
     and an elapsed time counter during stage execution.
     """
 
-    # Cyan color palette for brightening effect (dark to bright)
-    CYAN_PALETTE = [
-        "#0e7490",  # Dark cyan
-        "#0891b2",  # Medium-dark cyan
-        "#06b6d4",  # Cyan
-        "#22d3ee",  # Light cyan
-        "#67e8f9",  # Bright cyan
-        "#a5f3fc",  # Very bright cyan
+    # NCAR blue color palette for brightening effect (dark to bright)
+    # Based on NCAR brand colors: space -> dark_blue -> ncar_blue -> light_blue
+    NCAR_BLUE_PALETTE = [
+        "#011837",  # NCAR Space (darkest)
+        "#00357A",  # NCAR Dark Blue
+        "#0A5DDA",  # NCAR Blue (primary)
+        "#22A7F0",  # Bright blue (interpolated)
+        "#67C8F9",  # Light blue
+        "#CEDFF8",  # NCAR Light Blue (brightest)
     ]
+
+    # NCAR accent colors for status
+    NCAR_AQUA = "#00A2B4"      # UCAR Aqua - for accents
+    NCAR_ORANGE = "#FF8C00"    # For warnings/stage names
+    NCAR_GREEN = "#2E8B57"     # For success
+    NCAR_RED = "#D62839"       # For errors
 
     def __init__(self, show_output: bool = True) -> None:
         from rich.console import Console
@@ -496,7 +503,7 @@ class ProgressFormatter:
         text = "DAVINCI-MONET"
         result = Text()
         text_len = len(text)
-        palette_len = len(self.CYAN_PALETTE)
+        palette_len = len(self.NCAR_BLUE_PALETTE)
 
         # Bright spot moves from left to right
         # Animation frame determines position of the bright spot
@@ -516,7 +523,7 @@ class ProgressFormatter:
                 # In the brightening zone - brighter as distance decreases
                 color_idx = palette_len - 1 - distance
 
-            result.append(char, style=f"bold {self.CYAN_PALETTE[color_idx]}")
+            result.append(char, style=f"bold {self.NCAR_BLUE_PALETTE[color_idx]}")
 
         return result
 
@@ -534,18 +541,18 @@ class ProgressFormatter:
         # Elapsed time counter
         if self._stage_start is not None:
             elapsed = time.time() - self._stage_start
-            result.append(f"[{elapsed:5.1f}s] ", style="bold cyan")
+            result.append(f"[{elapsed:5.1f}s] ", style=f"bold {self.NCAR_AQUA}")
 
         # Stage name
         if self._current_stage:
-            result.append(self._current_stage, style="bold yellow")
+            result.append(self._current_stage, style=f"bold {self.NCAR_ORANGE}")
 
         # Parallel mode: show completion progress
         if self._parallel_mode and self._parallel_total > 0:
             result.append(" › ", style="dim")
             result.append(
                 f"[{self._parallel_completed}/{self._parallel_total}] ",
-                style="dim cyan" if self._parallel_completed > 0 else "dim"
+                style=f"dim {self.NCAR_AQUA}" if self._parallel_completed > 0 else "dim"
             )
             if self._current_item:
                 # After completions start, show the completed item name
@@ -595,10 +602,10 @@ class ProgressFormatter:
         self._log("")
 
         # Rich console output
-        title = Text("DAVINCI-MONET Pipeline", style="bold cyan")
+        title = Text("DAVINCI-MONET Pipeline", style=f"bold {self.NCAR_AQUA}")
 
         self._print()
-        self._print(Panel(title, border_style="cyan", padding=(0, 2)))
+        self._print(Panel(title, border_style=self.NCAR_AQUA, padding=(0, 2)))
 
         # Config path below the panel
         if config_path:
@@ -645,11 +652,11 @@ class ProgressFormatter:
 
         if success:
             icon = "✓"
-            style = "bold green"
+            style = f"bold {self.NCAR_GREEN}"
             status = "completed"
         else:
             icon = "✗"
-            style = "bold red"
+            style = f"bold {self.NCAR_RED}"
             status = "FAILED"
 
         self._log(f"  {icon} {status} ({duration:.1f}s)")
@@ -803,7 +810,7 @@ class ProgressFormatter:
             self._live = None
         self._current_item = None
         self._current_progress = None
-        self._print(f"    [red]✗ {error}[/red]")
+        self._print(f"    [{self.NCAR_RED}]✗ {error}[/{self.NCAR_RED}]")
 
     def footer(self, success: bool, duration: float, log_path: Path | None = None) -> None:
         """Print pipeline footer."""
@@ -812,10 +819,12 @@ class ProgressFormatter:
 
         if success:
             msg = f"✓ Pipeline completed successfully in {duration:.1f}s"
-            style = "bold green"
+            style = f"bold {self.NCAR_GREEN}"
+            border_style = self.NCAR_GREEN
         else:
             msg = f"✗ Pipeline failed after {duration:.1f}s"
-            style = "bold red"
+            style = f"bold {self.NCAR_RED}"
+            border_style = self.NCAR_RED
 
         self._log("")
         self._log(msg)
@@ -823,7 +832,6 @@ class ProgressFormatter:
             self._log(f"Log: {log_path}")
 
         text = Text(msg, style=style)
-        border_style = "green" if success else "red"
         self._print(Panel(text, border_style=border_style, padding=(0, 2)))
 
         if log_path:
@@ -858,7 +866,7 @@ class ProgressFormatter:
             for countdown in range(10, 0, -1):
                 text = Text()
                 text.append(f"  Preparing to preview {len(png_files)} plots ... ", style="dim")
-                text.append(str(countdown), style="bold cyan")
+                text.append(str(countdown), style=f"bold {self.NCAR_AQUA}")
                 with Live(text, console=self.console, refresh_per_second=4, transient=True):
                     time.sleep(1.0)
 
