@@ -1006,6 +1006,7 @@ class PlottingStage(BaseStage):
         model_config = context.config.get("model", {})
         total_plots = len(plot_config)
         plot_count = 0
+        file_index = 0  # Global counter for ordering files in preview
 
         for plot_name, plot_spec in plot_config.items():
             try:
@@ -1107,34 +1108,36 @@ class PlottingStage(BaseStage):
                             min_points=min_points,
                             **plot_options
                         ):
-                            # Save plot with flight ID in filename
-                            output_path = obs_output_dir / f"{plot_name}_{flight_id}.png"
+                            # Save plot with flight ID in filename (prefixed for ordering)
+                            output_path = obs_output_dir / f"{file_index:02d}_{plot_name}_{flight_id}.png"
                             plotter.save(fig, output_path, dpi=300)
                             plots_generated.append(str(output_path))
 
-                            pdf_path = obs_output_dir / f"{plot_name}_{flight_id}.pdf"
+                            pdf_path = obs_output_dir / f"{file_index:02d}_{plot_name}_{flight_id}.pdf"
                             plotter.save(fig, pdf_path)
                             plots_generated.append(str(pdf_path))
 
                             plt.close(fig)
                             flight_count += 1
+                            file_index += 1
 
                         context.log_progress(f"done: saved {flight_count} flights to {obs_label}/")
                     else:
                         # Generate single plot (original behavior)
                         fig = plotter.plot(paired_data, obs_var_name, model_var_name, **plot_options)
 
-                        # Save plot
-                        output_path = obs_output_dir / f"{plot_name}.png"
+                        # Save plot (prefixed for ordering)
+                        output_path = obs_output_dir / f"{file_index:02d}_{plot_name}.png"
                         plotter.save(fig, output_path, dpi=300)
                         plots_generated.append(str(output_path))
 
                         # Also save PDF
-                        pdf_path = obs_output_dir / f"{plot_name}.pdf"
+                        pdf_path = obs_output_dir / f"{file_index:02d}_{plot_name}.pdf"
                         plotter.save(fig, pdf_path)
                         plots_generated.append(str(pdf_path))
 
                         plt.close(fig)
+                        file_index += 1
 
                         context.log_progress(f"done: saved to {obs_label}/")
 

@@ -902,15 +902,6 @@ class ProgressFormatter:
 
         self._log(f"Previewing {len(pdf_files)} PDF plots...")
 
-        # Countdown before preview
-        if self.show_output:
-            for countdown in range(5, 0, -1):
-                text = Text()
-                text.append(f"  Preparing to preview {len(pdf_files)} plots ... ", style="dim")
-                text.append(str(countdown), style=f"bold {self.NCAR_AQUA}")
-                with Live(text, console=self.console, refresh_per_second=4, transient=True):
-                    time.sleep(1.0)
-
         self._print(f"  [dim]Previewing {len(pdf_files)} PDF plots...[/dim]")
 
         # Set Preview to prefer tabs, then open all PDFs
@@ -944,32 +935,60 @@ class ProgressFormatter:
             stderr=subprocess.DEVNULL,
         )
 
-        # Cycle through tabs
+        # Navigate to first tab by going left n-1 times (Cmd+1 doesn't work in Preview)
+        # Use delays between keystrokes to avoid visual blur
+        n_files = len(pdf_files)
+        subprocess.run(
+            [
+                "osascript",
+                "-e",
+                f'''
+                tell application "Preview" to activate
+                tell application "System Events"
+                    repeat {n_files - 1} times
+                        keystroke "[" using {{command down, shift down}}
+                        delay 0.08
+                    end repeat
+                end tell
+                ''',
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        # Countdown before slideshow starts
+        if self.show_output:
+            for countdown in range(3, 0, -1):
+                text = Text()
+                text.append(f"  Starting slideshow in ", style="dim")
+                text.append(str(countdown), style=f"bold {self.NCAR_AQUA}")
+                with Live(text, console=self.console, refresh_per_second=4, transient=True):
+                    time.sleep(1.0)
+
         for i, pdf_path in enumerate(pdf_files):
             try:
                 plot_name = Path(pdf_path).stem
-                self._print(f"  [dim][{i + 1}/{len(pdf_files)}] {plot_name}[/dim]")
-
-                # Select tab by index (1-based)
-                subprocess.run(
-                    [
-                        "osascript",
-                        "-e",
-                        f'''
-                        tell application "Preview" to activate
-                        tell application "System Events"
-                            tell process "Preview"
-                                click radio button {i + 1} of tab group 1 of window 1
-                            end tell
-                        end tell
-                        ''',
-                    ],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
+                self._print(f"  [dim][{i + 1}/{n_files}] {plot_name}[/dim]")
 
                 # Wait for display duration
                 time.sleep(duration)
+
+                # Move to next tab (Cmd+Shift+])
+                if i < n_files - 1:
+                    subprocess.run(
+                        [
+                            "osascript",
+                            "-e",
+                            '''
+                            tell application "Preview" to activate
+                            tell application "System Events"
+                                keystroke "]" using {command down, shift down}
+                            end tell
+                            ''',
+                        ],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
 
             except Exception as e:
                 self._log(f"  Error previewing {pdf_path}: {e}")
