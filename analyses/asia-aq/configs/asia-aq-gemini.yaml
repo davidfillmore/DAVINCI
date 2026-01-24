@@ -148,6 +148,9 @@ obs:
   pandora:
     obs_type: pt_sfc
     filename: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/asia-aq/data/pandora_no2_column_20240201_20240229.nc
+    resample: "h"              # Average sub-hourly obs to hourly
+    min_obs_count: 3           # Require at least 3 obs per hour
+    track_obs_count: true      # Add obs_count variable for diagnostics
     variables:
       no2_trop_column:
         obs_min: 0
@@ -348,7 +351,8 @@ plots:
   no2_column_scatter:
     type: scatter
     pairs: [cesm_pandora_no2_column]
-    title: "NO2 Column: Model vs Pandora"
+    title: "NO2 Column: CESM vs Pandora"
+    show_density: true
 
   no2_column_spatial_bias:
     type: spatial_bias
