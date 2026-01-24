@@ -37,11 +37,135 @@ NCAR_AQUA = "#00A2B4"
 NCAR_RED = "#D62839"
 
 
+def _get_system_info() -> str:
+    """Get system information for display.
+
+    Returns
+    -------
+    str
+        Formatted system info string.
+    """
+    import os
+    import platform
+    import subprocess
+
+    parts = []
+
+    # Hostname
+    hostname = platform.node()
+    if hostname:
+        # Remove .local suffix if present
+        hostname = hostname.removesuffix(".local")
+        parts.append(hostname)
+
+    # CPU type - try to get a friendly name
+    cpu_name = None
+    if platform.system() == "Darwin":
+        # macOS: use sysctl
+        try:
+            result = subprocess.run(
+                ["sysctl", "-n", "machdep.cpu.brand_string"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                cpu_name = result.stdout.strip()
+        except Exception:
+            pass
+    elif platform.system() == "Linux":
+        # Linux: parse /proc/cpuinfo
+        try:
+            with open("/proc/cpuinfo") as f:
+                for line in f:
+                    if line.startswith("model name"):
+                        cpu_name = line.split(":")[1].strip()
+                        break
+        except Exception:
+            pass
+
+    if cpu_name:
+        # Shorten common prefixes
+        cpu_name = cpu_name.replace("Intel(R) Core(TM) ", "Intel ")
+        cpu_name = cpu_name.replace("AMD Ryzen ", "Ryzen ")
+
+    # CPU cores
+    cpu_count = os.cpu_count()
+
+    # GPU info (macOS only for now)
+    gpu_cores = None
+    if platform.system() == "Darwin":
+        try:
+            result = subprocess.run(
+                ["system_profiler", "SPDisplaysDataType", "-json"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                import json
+                data = json.loads(result.stdout)
+                displays = data.get("SPDisplaysDataType", [])
+                for display in displays:
+                    gpu_cores = display.get("sppci_cores")
+                    if gpu_cores:
+                        break
+        except Exception:
+            pass
+
+    # Combine CPU name with core counts
+    if cpu_name:
+        core_info = []
+        if cpu_count:
+            core_info.append(f"{cpu_count} CPU")
+        if gpu_cores:
+            core_info.append(f"{gpu_cores} GPU")
+        if core_info:
+            parts.append(f"{cpu_name} ({', '.join(core_info)})")
+        else:
+            parts.append(cpu_name)
+    elif cpu_count:
+        parts.append(f"{cpu_count} cores")
+
+    # RAM
+    ram_gb = None
+    if platform.system() == "Darwin":
+        try:
+            result = subprocess.run(
+                ["sysctl", "-n", "hw.memsize"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            if result.returncode == 0:
+                ram_bytes = int(result.stdout.strip())
+                ram_gb = ram_bytes // (1024**3)
+        except Exception:
+            pass
+    elif platform.system() == "Linux":
+        try:
+            with open("/proc/meminfo") as f:
+                for line in f:
+                    if line.startswith("MemTotal"):
+                        # Format: "MemTotal:       16384000 kB"
+                        kb = int(line.split()[1])
+                        ram_gb = kb // (1024**2)
+                        break
+        except Exception:
+            pass
+
+    if ram_gb:
+        parts.append(f"{ram_gb} GB")
+
+    return " | ".join(parts)
+
+
 def display_error(title: str, message: str, config_path: str | None = None) -> None:
     """Display a styled error message with the DAVINCI-MONET branding.
 
-    Shows the logo, a styled error panel, and the error message in red.
-    Used for early errors (YAML parsing, validation) before the pipeline starts.
+    Shows the logo, a styled panel (matching pipeline header style), and
+    the error message in red. Used for early errors (YAML parsing, validation)
+    before the pipeline starts.
 
     Parameters
     ----------
@@ -52,6 +176,8 @@ def display_error(title: str, message: str, config_path: str | None = None) -> N
     config_path
         Optional path to the config file that caused the error.
     """
+    from datetime import datetime
+
     from rich.console import Console
     from rich.panel import Panel
     from rich.text import Text
@@ -65,17 +191,26 @@ def display_error(title: str, message: str, config_path: str | None = None) -> N
     console.print()
     console.print(get_colored_logo())
 
-    # Error panel header
-    header = Text()
-    header.append("DAVINCI-MONET", style=f"bold {NCAR_BLUE}")
-    header.append("  ")
-    header.append(title, style=f"bold {NCAR_RED}")
-    console.print(Panel(header, border_style=NCAR_RED, padding=(0, 2)))
+    # Panel content - same style as pipeline header
+    content = Text()
+    content.append(f"DAVINCI-MONET {title}", style=f"bold {NCAR_AQUA}")
+    content.append("  ")
+    content.append(datetime.now().strftime("%a %b %-d, %Y %H:%M"), style="dim")
+    content.append("  ")
+    system_info = _get_system_info()
+    content.append(system_info, style="dim")
+    console.print(Panel(content, border_style=NCAR_AQUA, padding=(0, 2)))
 
     # Show config path if provided
     if config_path:
-        console.print(f"  [dim]Config:[/dim] {config_path}")
-        console.print()
+        # Truncate path if too long
+        max_path_len = 70
+        display_path = config_path
+        if len(config_path) > max_path_len:
+            display_path = "..." + config_path[-(max_path_len - 3):]
+        console.print(f"  [dim]Config:[/dim] {display_path}")
+
+    console.print()
 
     # Error message in red
     console.print(f"  [bold {NCAR_RED}]{message}[/bold {NCAR_RED}]")
