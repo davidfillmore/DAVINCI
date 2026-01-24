@@ -46,7 +46,7 @@ class FigureConfig:
         Use constrained layout for automatic spacing.
     """
 
-    figsize: tuple[float, float] = (10, 6)
+    figsize: tuple[float, float] = (14, 9)
     dpi: int = 300
     facecolor: str = "white"
     constrained_layout: bool = True
