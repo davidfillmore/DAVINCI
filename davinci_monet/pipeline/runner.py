@@ -904,7 +904,7 @@ class ProgressFormatter:
 
         # Countdown before preview
         if self.show_output:
-            for countdown in range(10, 0, -1):
+            for countdown in range(5, 0, -1):
                 text = Text()
                 text.append(f"  Preparing to preview {len(pdf_files)} plots ... ", style="dim")
                 text.append(str(countdown), style=f"bold {self.NCAR_AQUA}")
@@ -913,24 +913,28 @@ class ProgressFormatter:
 
         self._print(f"  [dim]Previewing {len(pdf_files)} PDF plots...[/dim]")
 
-        # Open each PDF, wait, close, then move to next
+        # Open each PDF one at a time with Quick Look
         for i, pdf_path in enumerate(pdf_files):
             try:
-                # Show current plot info
                 plot_name = Path(pdf_path).stem
                 self._print(f"  [dim][{i + 1}/{len(pdf_files)}] {plot_name}[/dim]")
 
-                # Open PDF in Preview
-                subprocess.run(["open", "-a", "Preview", pdf_path], check=True)
+                # Start Quick Look for this file
+                ql_process = subprocess.Popen(
+                    ["qlmanage", "-p", pdf_path],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
 
-                # Wait for duration
+                # Wait for display duration
                 time.sleep(duration)
 
-                # Close the frontmost Preview window
-                applescript = 'tell application "Preview" to close front window'
-                subprocess.run(
-                    ["osascript", "-e", applescript], check=True, capture_output=True
-                )
+                # Close Quick Look
+                ql_process.terminate()
+                try:
+                    ql_process.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    ql_process.kill()
 
             except Exception as e:
                 self._log(f"  Error previewing {pdf_path}: {e}")
@@ -951,7 +955,7 @@ class ProgressFormatter:
 
         # Countdown before preview
         if self.show_output:
-            for countdown in range(10, 0, -1):
+            for countdown in range(5, 0, -1):
                 text = Text()
                 text.append(f"  Preparing to preview {len(png_files)} plots ... ", style="dim")
                 text.append(str(countdown), style=f"bold {self.NCAR_AQUA}")
@@ -1373,7 +1377,7 @@ class PipelineRunner:
                 if plotting_result.data and "plots_generated" in plotting_result.data:
                     plot_paths = plotting_result.data["plots_generated"]
                     formatter.preview_plots(
-                        plot_paths, duration=1.0, preview_format=self._preview_format
+                        plot_paths, duration=3.0, preview_format=self._preview_format
                     )
 
         result.end_time = datetime.now()
