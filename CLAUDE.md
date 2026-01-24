@@ -386,3 +386,12 @@ fig = plot_timeseries(paired_data, "obs_o3", "model_o3")
        type: scatter
        show_density: true      # Color points by local density
    ```
+
+8. **HDF5 thread safety segfaults**: If you see HDF5 errors mentioning "thread 1/thread 2" followed by a segmentation fault, this is an HDF5 thread safety issue. The segfault happens at the C level before Python can catch it, so retry logic won't help. Fix by disabling HDF5 file locking:
+   ```bash
+   HDF5_USE_FILE_LOCKING=FALSE davinci-monet run config.yaml
+   ```
+   If it persists, also limit Dask workers:
+   ```bash
+   DASK_NUM_WORKERS=1 HDF5_USE_FILE_LOCKING=FALSE davinci-monet run config.yaml
+   ```
