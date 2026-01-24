@@ -1,0 +1,12 @@
+# Test 03: Missing required 'analysis' section
+# Expected error: Validation error - missing required field
+
+model:
+  test_model:
+    mod_type: cesm_fv
+    files: /nonexistent/path/*.nc
+
+obs:
+  test_obs:
+    obs_type: pt_sfc
+    filename: /nonexistent/path/obs.nc

@@ -9,7 +9,14 @@ from pathlib import Path
 
 import typer
 
-from davinci_monet.cli.app import ERROR_COLOR, INFO_COLOR, SUCCESS_COLOR, WARNING_COLOR
+from davinci_monet.cli.app import (
+    ERROR_COLOR,
+    INFO_COLOR,
+    SUCCESS_COLOR,
+    WARNING_COLOR,
+    display_error,
+)
+from davinci_monet.core.exceptions import ConfigurationError
 
 
 def validate_config_command(
@@ -112,7 +119,11 @@ def validate_config_command(
             config_dict = config.model_dump(exclude_none=True)
             typer.echo(json.dumps(config_dict, indent=2, default=str))
 
+    except ConfigurationError as e:
+        # Styled display for configuration/YAML errors
+        display_error("Validation Error", str(e), config_path=control_path)
+        raise typer.Exit(1)
     except Exception as e:
-        typer.secho(f"\nValidation failed!", fg=ERROR_COLOR)
-        typer.secho(f"Error: {e}", fg=ERROR_COLOR)
+        # Styled display for unexpected errors
+        display_error("Error", str(e), config_path=control_path)
         raise typer.Exit(1)

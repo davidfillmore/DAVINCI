@@ -1,0 +1,12 @@
+# Test 02: Bad YAML indentation
+# Expected error: YAML parsing error
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-03"
+output_dir: ./output  # Should be indented under analysis
+
+model:
+  test_model:
+  mod_type: cesm_fv  # Should be indented under test_model
+    files: /nonexistent/path/*.nc

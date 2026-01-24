@@ -1,0 +1,12 @@
+# Test 08: End date before start date
+# Expected error: Validation error - date range invalid
+
+analysis:
+  start_time: "2024-02-15"
+  end_time: "2024-02-01"
+  output_dir: ./output
+
+model:
+  cesm:
+    mod_type: cesm_fv
+    files: /some/path/*.nc

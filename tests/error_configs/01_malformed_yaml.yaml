@@ -1,0 +1,17 @@
+# Test 01: Malformed YAML - syntax error
+# Expected error: YAML parsing error
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-03"
+  output_dir: ./output
+
+model:
+  test_model:
+    mod_type: cesm_fv
+    files: /nonexistent/path/*.nc
+    # Missing closing quote on next line
+    variables:
+      O3:
+        unit_scale: 1.0e9
+        obs_name: "ozone

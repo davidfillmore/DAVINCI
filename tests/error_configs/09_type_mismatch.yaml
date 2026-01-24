@@ -1,0 +1,16 @@
+# Test 09: Type mismatch - string where number expected
+# Expected error: Validation error - type mismatch
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-03"
+  output_dir: ./output
+
+model:
+  cesm:
+    mod_type: cesm_fv
+    files: /some/path/*.nc
+    radius_of_influence: "not_a_number"
+    variables:
+      O3:
+        unit_scale: "should be a float"

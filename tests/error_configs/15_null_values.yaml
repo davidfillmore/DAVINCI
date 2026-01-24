@@ -1,0 +1,12 @@
+# Test 15: Null/None values where strings expected
+# Expected error: Validation error - null not allowed
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-03"
+  output_dir: ~
+
+model:
+  cesm:
+    mod_type: ~
+    files: ~

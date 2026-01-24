@@ -1,0 +1,20 @@
+# Test 05: Invalid model type
+# Expected error: ValidationError or registry lookup failure
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-03"
+  output_dir: ./output
+
+model:
+  bad_model:
+    mod_type: totally_fake_model_type_xyz
+    files: /some/path/*.nc
+    variables:
+      O3:
+        unit_scale: 1.0
+
+obs:
+  surface:
+    obs_type: pt_sfc
+    filename: /some/path/obs.nc

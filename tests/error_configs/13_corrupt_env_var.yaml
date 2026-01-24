@@ -1,0 +1,12 @@
+# Test 13: Undefined environment variable
+# Expected error: Environment variable not found
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-03"
+  output_dir: ${UNDEFINED_ENV_VAR_XYZ_123}/output
+
+model:
+  cesm:
+    mod_type: cesm_fv
+    files: ${ANOTHER_UNDEFINED_VAR}/model_*.nc

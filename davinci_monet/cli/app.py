@@ -31,6 +31,56 @@ ERROR_COLOR = typer.colors.BRIGHT_RED
 SUCCESS_COLOR = typer.colors.GREEN
 WARNING_COLOR = typer.colors.YELLOW
 
+# Rich color constants (for styled error display)
+NCAR_BLUE = "#0A5DDA"
+NCAR_AQUA = "#00A2B4"
+NCAR_RED = "#D62839"
+
+
+def display_error(title: str, message: str, config_path: str | None = None) -> None:
+    """Display a styled error message with the DAVINCI-MONET branding.
+
+    Shows the logo, a styled error panel, and the error message in red.
+    Used for early errors (YAML parsing, validation) before the pipeline starts.
+
+    Parameters
+    ----------
+    title
+        Error title (e.g., "Configuration Error", "File Not Found").
+    message
+        The error message to display.
+    config_path
+        Optional path to the config file that caused the error.
+    """
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.text import Text
+
+    from davinci_monet.assets.logo import get_colored_logo
+
+    console = Console()
+
+    # Clear screen and show logo
+    console.clear()
+    console.print()
+    console.print(get_colored_logo())
+
+    # Error panel header
+    header = Text()
+    header.append("DAVINCI-MONET", style=f"bold {NCAR_BLUE}")
+    header.append("  ")
+    header.append(title, style=f"bold {NCAR_RED}")
+    console.print(Panel(header, border_style=NCAR_RED, padding=(0, 2)))
+
+    # Show config path if provided
+    if config_path:
+        console.print(f"  [dim]Config:[/dim] {config_path}")
+        console.print()
+
+    # Error message in red
+    console.print(f"  [bold {NCAR_RED}]{message}[/bold {NCAR_RED}]")
+    console.print()
+
 
 
 def _get_full_name(obj: object) -> str:

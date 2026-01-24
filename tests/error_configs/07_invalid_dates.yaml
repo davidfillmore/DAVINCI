@@ -1,0 +1,12 @@
+# Test 07: Invalid date format
+# Expected error: Validation error - date parsing
+
+analysis:
+  start_time: "not-a-real-date"
+  end_time: "also-not-a-date"
+  output_dir: ./output
+
+model:
+  cesm:
+    mod_type: cesm_fv
+    files: /some/path/*.nc

@@ -1,0 +1,16 @@
+# Test 14: Duplicate keys (YAML allows but may cause issues)
+# Expected error: May parse but overwrite values unexpectedly
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-03"
+  output_dir: ./output
+  start_time: "2024-03-01"
+
+model:
+  cesm:
+    mod_type: cesm_fv
+    files: /some/path/*.nc
+  cesm:
+    mod_type: wrfchem
+    files: /other/path/*.nc

@@ -14,7 +14,9 @@ from davinci_monet.cli.app import (
     INFO_COLOR,
     SUCCESS_COLOR,
     WARNING_COLOR,
+    display_error,
 )
+from davinci_monet.core.exceptions import ConfigurationError, PipelineError
 
 
 def run_analysis(
@@ -54,8 +56,21 @@ def run_analysis(
         result = pipeline_run(
             str(p), show_progress=True, show_plots=show_plots, preview_format=preview_format
         )
+    except ConfigurationError as e:
+        # Styled display for configuration/YAML errors (before pipeline starts)
+        display_error("Configuration Error", str(e), config_path=control_path)
+        if debug:
+            raise
+        raise typer.Exit(1)
+    except PipelineError as e:
+        # Styled display for pipeline errors
+        display_error("Pipeline Error", str(e), config_path=control_path)
+        if debug:
+            raise
+        raise typer.Exit(1)
     except Exception as e:
-        typer.secho(f"Pipeline error: {e}", fg=ERROR_COLOR)
+        # Styled display for unexpected errors
+        display_error("Error", str(e), config_path=control_path)
         if debug:
             raise
         raise typer.Exit(1)

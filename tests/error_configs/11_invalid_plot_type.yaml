@@ -1,0 +1,30 @@
+# Test 11: Invalid plot type
+# Expected error: Validation or registry error
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-03"
+  output_dir: ./output
+
+model:
+  cesm:
+    mod_type: cesm_fv
+    files: /some/path/*.nc
+
+obs:
+  surface:
+    obs_type: pt_sfc
+    filename: /some/path/obs.nc
+
+pairs:
+  cesm_surface:
+    model: cesm
+    obs: surface
+    variable:
+      model_var: O3
+      obs_var: ozone
+
+plots:
+  bad_plot:
+    type: fake_plot_type_xyz
+    pairs: [cesm_surface]

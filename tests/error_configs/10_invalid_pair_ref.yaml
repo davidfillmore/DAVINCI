@@ -1,0 +1,25 @@
+# Test 10: Invalid pair references (model/obs that don't exist)
+# Expected error: Validation error - reference not found
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-03"
+  output_dir: ./output
+
+model:
+  cesm:
+    mod_type: cesm_fv
+    files: /some/path/*.nc
+
+obs:
+  surface:
+    obs_type: pt_sfc
+    filename: /some/path/obs.nc
+
+pairs:
+  my_pair:
+    model: nonexistent_model
+    obs: nonexistent_obs
+    variable:
+      model_var: O3
+      obs_var: ozone

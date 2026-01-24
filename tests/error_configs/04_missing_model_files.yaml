@@ -1,0 +1,20 @@
+# Test 04: Model files don't exist
+# Expected error: DataNotFoundError - files not found
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-03"
+  output_dir: ./output
+
+model:
+  cesm_run:
+    mod_type: cesm_fv
+    files: /this/path/definitely/does/not/exist/model_*.nc
+    variables:
+      O3:
+        unit_scale: 1.0e9
+
+obs:
+  surface:
+    obs_type: pt_sfc
+    filename: /also/nonexistent/obs.nc
