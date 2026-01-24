@@ -370,3 +370,52 @@ Model overpredicts NO2 column, consistent with DC8 aircraft NO2 (+533% at surfac
 ### Preprocessed Data (on scratch)
 - `/glade/derecho/scratch/fillmore/ASIA-AQ/obs/pandora_no2_column_20240201_20240229.nc`
 - `/glade/derecho/scratch/fillmore/ASIA-AQ/obs/cesm_no2_column_20240201_20240229.nc`
+
+---
+
+## Session Summary (2026-01-24) - Plot Refinements
+
+### Status
+**"Last 10% takes 90% of the time"** - In the visual refinement phase where each iteration requires human feedback on generated plots. Slower going but necessary for publication-quality output.
+
+### Key Accomplishments
+1. **Font size standardization**:
+   - Increased base TextConfig: fontsize 14→16, title 16→18, tick 12→14
+   - Flight timeseries uses 0.9x scaling for cleaner appearance
+   - 3D track plots use 0.8x scaling (adjusted down from 1.5x after figure size reduction)
+
+2. **Figure size reduction** (for better Preview.app fit):
+   - Timeseries/Diurnal/Curtain: (14, 6) → (9, 4)
+   - 3D Track: (12, 10) → (7, 6)
+   - Scatter/Taylor: (10, 10) → (6, 6)
+   - Spatial: (14, 8) → (8, 5)
+   - Default/Boxplot/Scorecard: (12, 8) → (8, 5)
+   - PDFs are vector graphics - quality preserved when zooming
+
+3. **3D track plot fixes**:
+   - Added labelpad to axis labels to prevent tick label overlap
+   - Increased colorbar padding to prevent label clipping
+   - Added tight_layout rect for right margin
+
+4. **Pipeline improvements**:
+   - Added time of day (HH:MM) to header display
+   - Enabled slideshow preview in run_evaluation.py
+
+5. **Git workflow documented** in CLAUDE.md:
+   - Auto commit/push on develop
+   - Wait for user verification before merge to main
+   - Return to develop after merge
+
+### Remaining Plot Refinements
+- [ ] Review all plot types at new sizes for visual balance
+- [ ] Check font readability across plot types
+- [ ] Verify colorbar positioning on spatial plots
+- [ ] Test multi-panel layouts (site_timeseries, flight_timeseries grid)
+
+### Files Modified
+- `davinci_monet/plots/base.py` - Font sizes, default figsize
+- `davinci_monet/plots/renderers/*.py` - Figure sizes, font scaling
+- `davinci_monet/plots/renderers/track_map_3d.py` - Label padding, font scale
+- `davinci_monet/pipeline/runner.py` - Time display
+- `analyses/asia-aq/scripts/run_evaluation.py` - Enable slideshow
+- `CLAUDE.md` - Git workflow guidelines
