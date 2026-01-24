@@ -507,9 +507,9 @@ class TrackMap3DPlotter(BasePlotter):
         fig = plt.figure(figsize=self.config.figure.figsize)
         ax3d = fig.add_subplot(111, projection="3d")
 
-        # Text settings - 3D plots render fonts smaller due to perspective, scale up by 2.5x
+        # Text settings - 3D plots render fonts smaller due to perspective, scale up by 1.5x
         text_cfg = self.config.text
-        font_scale = 2.5  # 3D plots need larger fonts to appear same size as 2D plots
+        font_scale = 1.5  # 3D plots need larger fonts to appear same size as 2D plots
 
         # Set color limits
         if show_var == "bias":
