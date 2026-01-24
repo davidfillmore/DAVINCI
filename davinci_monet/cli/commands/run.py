@@ -75,9 +75,9 @@ def run_analysis(
             raise
         raise typer.Exit(1)
 
-    # Report results
-    typer.echo()
+    # Report results (success case only - failure shown by pipeline footer)
     if result.success:
+        typer.echo()
         typer.secho(
             f"Analysis complete! ({result.total_duration_seconds:.1f}s)",
             fg=SUCCESS_COLOR,
@@ -87,7 +87,5 @@ def run_analysis(
             fg=INFO_COLOR,
         )
     else:
-        typer.secho("Analysis failed!", fg=ERROR_COLOR)
-        for failed in result.failed_stages:
-            typer.secho(f"  {failed.stage_name}: {failed.error}", fg=ERROR_COLOR)
+        # Pipeline footer already shows failure - just exit with error code
         raise typer.Exit(1)

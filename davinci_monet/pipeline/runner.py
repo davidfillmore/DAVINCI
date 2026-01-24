@@ -998,10 +998,20 @@ class ProgressFormatter:
         self._current_progress = None
         self._print(f"    [{self.NCAR_RED}]✗ {error}[/{self.NCAR_RED}]")
 
-    def footer(self, success: bool, duration: float, log_path: Path | None = None) -> None:
+    def footer(
+        self,
+        success: bool,
+        duration: float,
+        log_path: Path | None = None,
+        failed_stage: str | None = None,
+        error_message: str | None = None,
+    ) -> None:
         """Print pipeline footer."""
         from rich.panel import Panel
         from rich.text import Text
+
+        # Lighter red for error details
+        NCAR_RED_LIGHT = "#E8788A"
 
         if success:
             msg = f"✓ Pipeline completed successfully in {duration:.1f}s"
@@ -1019,6 +1029,11 @@ class ProgressFormatter:
 
         text = Text(msg, style=style)
         self._print(Panel(text, border_style=border_style, padding=(0, 2)))
+
+        # Show error details for failed pipelines
+        if not success and failed_stage and error_message:
+            self._print(f"  [bold {self.NCAR_RED}]{failed_stage}[/bold {self.NCAR_RED}]")
+            self._print(f"  [{NCAR_RED_LIGHT}]{error_message}[/{NCAR_RED_LIGHT}]")
 
         if log_path:
             self._print(f"  [dim]Log:[/dim] [white]{log_path}[/white]")
@@ -1588,10 +1603,6 @@ class PipelineRunner:
                                 traceback_str=stage_result.traceback_str,
                             )
                     if self._fail_fast:
-                        logger.error(
-                            f"Pipeline failed at stage '{stage.name}': "
-                            f"{stage_result.error}"
-                        )
                         break
                 elif stage_result.status == StageStatus.COMPLETED:
                     formatter.stage_end(stage.name, True, stage_result.duration_seconds)
@@ -1601,7 +1612,19 @@ class PipelineRunner:
         finally:
             # Print footer
             total_duration = time.time() - start_time
-            formatter.footer(result.success, total_duration, log_path)
+            failed_stage = None
+            error_message = None
+            if result.failed_stages:
+                failed = result.failed_stages[0]
+                failed_stage = failed.stage_name
+                error_message = failed.error
+            formatter.footer(
+                result.success,
+                total_duration,
+                log_path,
+                failed_stage=failed_stage,
+                error_message=error_message,
+            )
 
             # Write Markdown log file
             if log_collector and log_path:
