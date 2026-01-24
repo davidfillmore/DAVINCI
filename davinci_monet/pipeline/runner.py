@@ -631,7 +631,7 @@ class ProgressFormatter:
         content = Text()
         content.append("DAVINCI-MONET Pipeline", style=f"bold {self.NCAR_AQUA}")
         content.append("  ")
-        content.append(datetime.now().strftime("%a %b %-d, %Y"), style="dim")
+        content.append(datetime.now().strftime("%a %b %-d, %Y %H:%M"), style="dim")
         content.append("  ")
         system_info = self._get_system_info()
         content.append(system_info, style="dim")
