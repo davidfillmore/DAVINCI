@@ -203,35 +203,38 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 if not np.isnan(r):
                     stats_text += f"\nR={r:.2f}"
 
+                # Multi-panel font sizes (reduced from config for small panels)
+                panel_fontsize = self.config.text.fontsize - 6
                 ax.text(
                     0.97, 0.97, stats_text,
-                    transform=ax.transAxes, fontsize=8,
+                    transform=ax.transAxes, fontsize=panel_fontsize,
                     verticalalignment="top", horizontalalignment="right",
                     bbox=dict(boxstyle="round", facecolor="white", alpha=0.8)
                 )
 
             # Title with flight date
-            ax.set_title(f"Flight {flight}", fontsize=10)
+            panel_title_fontsize = self.config.text.title_fontsize - 6
+            ax.set_title(f"Flight {flight}", fontsize=panel_title_fontsize)
 
             ax.set_ylim(bottom=0)
             ax.grid(True, alpha=0.3)
 
             # Legend on first panel only
             if idx == 0:
-                ax.legend(loc="upper left", fontsize=8)
+                ax.legend(loc="upper left", fontsize=self.config.text.fontsize - 6)
 
             # Y-axis label on left column
             if idx % ncols == 0:
                 units = get_variable_units(paired_data, obs_var)
                 ylabel = get_variable_label(paired_data, obs_var, include_prefix=False)
                 ylabel = format_label_with_units(ylabel, units)
-                ax.set_ylabel(ylabel, fontsize=9)
+                ax.set_ylabel(ylabel, fontsize=self.config.text.fontsize - 5)
 
             # Format x-axis
             ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
             ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
             ax.tick_params(axis="x", rotation=45)
-            ax.set_xlabel("UTC Time", fontsize=9)
+            ax.set_xlabel("UTC Time", fontsize=self.config.text.fontsize - 5)
 
         # Hide unused subplots
         for idx in range(n_flights, len(axes_flat)):
@@ -239,7 +242,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
         # Main title
         if self.config.title:
-            fig.suptitle(format_plot_title(self.config.title), fontsize=12, y=1.02)
+            fig.suptitle(format_plot_title(self.config.title), fontsize=self.config.text.fontsize, y=1.02)
 
         plt.tight_layout()
         return fig
@@ -374,37 +377,39 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 if not np.isnan(r):
                     stats_text += f"\nR={r:.2f}"
 
+                text_cfg = self.config.text
                 ax.text(
                     0.97, 0.97, stats_text,
-                    transform=ax.transAxes, fontsize=10,
+                    transform=ax.transAxes, fontsize=text_cfg.fontsize - 2,
                     verticalalignment="top", horizontalalignment="right",
                     bbox=dict(boxstyle="round", facecolor="white", alpha=0.8)
                 )
 
             # Title
+            text_cfg = self.config.text
             if self.config.title:
                 ax.set_title(
                     format_plot_title(f"{self.config.title} - Flight {flight_str}"),
-                    fontsize=12
+                    fontsize=text_cfg.title_fontsize
                 )
             else:
-                ax.set_title(f"Flight {flight_str}", fontsize=12)
+                ax.set_title(f"Flight {flight_str}", fontsize=text_cfg.title_fontsize)
 
             ax.set_ylim(bottom=0)
             ax.grid(True, alpha=0.3)
-            ax.legend(loc="upper left", fontsize=10)
+            ax.legend(loc="upper left", fontsize=text_cfg.fontsize - 2)
 
             # Y-axis label
             units = get_variable_units(paired_data, obs_var)
             ylabel = get_variable_label(paired_data, obs_var, include_prefix=False)
             ylabel = format_label_with_units(ylabel, units)
-            ax.set_ylabel(ylabel, fontsize=11)
+            ax.set_ylabel(ylabel, fontsize=text_cfg.fontsize)
 
             # Format x-axis
             ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
             ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-            ax.tick_params(axis="x", rotation=45)
-            ax.set_xlabel("UTC Time", fontsize=11)
+            ax.tick_params(axis="x", rotation=45, labelsize=text_cfg.tick_fontsize)
+            ax.set_xlabel("UTC Time", fontsize=text_cfg.fontsize)
 
             plt.tight_layout()
 

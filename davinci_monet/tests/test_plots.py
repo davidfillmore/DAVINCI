@@ -168,7 +168,7 @@ class TestPlotConfig:
 
         config = PlotConfig()
         assert config.figure.figsize == (8, 5)  # FigureConfig default
-        assert config.text.fontsize == 14.0  # Increased for larger default figures
+        assert config.text.fontsize == 16.0  # Increased for larger default figures
         assert config.style.obs_color == OBS_COLOR  # NCAR gray
         assert config.style.model_color == MODEL_COLOR  # NCAR blue
         assert config.debug is False

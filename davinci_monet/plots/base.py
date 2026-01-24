@@ -68,9 +68,9 @@ class TextConfig:
         Font weight ('normal', 'bold').
     """
 
-    fontsize: float = 14.0
-    title_fontsize: float = 16.0
-    tick_fontsize: float = 12.0
+    fontsize: float = 16.0
+    title_fontsize: float = 18.0
+    tick_fontsize: float = 14.0
     fontweight: str = "normal"
 
 

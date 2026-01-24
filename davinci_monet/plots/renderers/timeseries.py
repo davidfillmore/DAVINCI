@@ -335,11 +335,12 @@ class TimeSeriesPlotter(BasePlotter):
         self.set_labels(ax, xlabel="Time", ylabel=ylabel)
 
         # Legend - put outside plot if many sites
+        legend_fontsize = self.config.text.fontsize - 4  # Smaller for legend
         if n_sites > 5:
-            ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=7)
+            ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=legend_fontsize - 1)
             fig.tight_layout()
         else:
-            ax.legend(fontsize=8)
+            ax.legend(fontsize=legend_fontsize)
 
         ax.tick_params(axis="x", rotation=45)
         ax.grid(True, alpha=0.3)

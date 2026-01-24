@@ -158,7 +158,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
 
         if len(bias_values) == 0:
             ax.text(0.5, 0.5, "No valid data", ha="center", va="center",
-                    transform=ax.transAxes, fontsize=14)
+                    transform=ax.transAxes, fontsize=self.config.text.fontsize)
             return fig
 
         # Calculate color limits
