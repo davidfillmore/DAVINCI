@@ -45,7 +45,7 @@ class ScorecardPlotter(BasePlotter):
     """
 
     name: str = "scorecard"
-    default_figsize: tuple[float, float] = (12, 8)  # Balanced
+    default_figsize: tuple[float, float] = (8, 5)  # Balanced
 
     def plot(
         self,

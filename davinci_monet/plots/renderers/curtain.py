@@ -53,7 +53,7 @@ class CurtainPlotter(BasePlotter):
     """
 
     name: str = "curtain"
-    default_figsize: tuple[float, float] = (14, 8)  # Wide for geographic extent
+    default_figsize: tuple[float, float] = (9, 4)  # Wide for distance/time extent
 
     def plot(
         self,

@@ -56,7 +56,7 @@ class ScatterPlotter(BasePlotter):
     """
 
     name: str = "scatter"
-    default_figsize: tuple[float, float] = (10, 10)  # Square for x vs y
+    default_figsize: tuple[float, float] = (6, 6)  # Square for x vs y
 
     def plot(
         self,

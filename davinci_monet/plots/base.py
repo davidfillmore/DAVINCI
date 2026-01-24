@@ -243,7 +243,7 @@ class BasePlotter(ABC):
     name: str = "base"
 
     # Default figure size - subclasses can override for optimal sizing
-    default_figsize: tuple[float, float] = (12, 8)
+    default_figsize: tuple[float, float] = (8, 5)
 
     def __init__(self, config: PlotConfig | None = None) -> None:
         self.config = config or PlotConfig()

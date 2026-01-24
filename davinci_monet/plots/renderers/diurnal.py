@@ -51,7 +51,7 @@ class DiurnalPlotter(BasePlotter):
     """
 
     name: str = "diurnal"
-    default_figsize: tuple[float, float] = (14, 6)  # Wide for temporal data
+    default_figsize: tuple[float, float] = (9, 4)  # Wide for temporal data
 
     def plot(
         self,

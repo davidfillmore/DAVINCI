@@ -59,7 +59,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
     """
 
     name: str = "spatial_bias"
-    default_figsize: tuple[float, float] = (14, 8)  # Wide for geographic extent
+    default_figsize: tuple[float, float] = (8, 5)  # Wide for geographic extent
 
     def plot(
         self,

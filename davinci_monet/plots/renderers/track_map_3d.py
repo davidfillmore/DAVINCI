@@ -333,7 +333,7 @@ class TrackMap3DPlotter(BasePlotter):
     """
 
     name: str = "track_map_3d"
-    default_figsize: tuple[float, float] = (12, 10)  # Near-square for 3D viewing
+    default_figsize: tuple[float, float] = (7, 6)  # Near-square for 3D viewing
 
     def plot(
         self,

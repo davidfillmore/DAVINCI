@@ -44,7 +44,7 @@ class TaylorPlotter(BasePlotter):
     """
 
     name: str = "taylor"
-    default_figsize: tuple[float, float] = (10, 10)  # Square for polar diagram
+    default_figsize: tuple[float, float] = (6, 6)  # Square for polar diagram
 
     def plot(
         self,
