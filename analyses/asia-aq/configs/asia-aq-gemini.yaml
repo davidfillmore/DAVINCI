@@ -314,7 +314,8 @@ plots:
   co_scatter:
     type: scatter
     pairs: [cesm_airnow_co]
-    title: "CO Model vs Observations"
+    title: "CO: CESM vs AirNow"
+    show_density: true  # Note: AirNow CO has discrete reporting values
 
   co_spatial_bias:
     type: spatial_bias
@@ -332,7 +333,8 @@ plots:
   aod_scatter:
     type: scatter
     pairs: [cesm_aeronet_aod]
-    title: "AOD Model vs AERONET"
+    title: "AOD: CESM vs AERONET"
+    show_density: true
 
   aod_spatial_bias:
     type: spatial_bias
