@@ -7,6 +7,7 @@ flight (identified by date) is plotted in a separate panel.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
 
 import matplotlib.dates as mdates
@@ -243,6 +244,175 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
         plt.tight_layout()
         return fig
+
+    def plot_per_flight(
+        self,
+        paired_data: xr.Dataset,
+        obs_var: str,
+        model_var: str,
+        time_dim: str = "time",
+        flight_coord: str = "flight",
+        min_points: int = 10,
+        show_stats: bool = True,
+        scale_factor: float = 1.0,
+        obs_style: str = "scatter",
+        model_style: str = "line",
+        **kwargs: Any,
+    ) -> Iterator[tuple[str, matplotlib.figure.Figure]]:
+        """Generate individual time series plots for each flight.
+
+        Yields one figure per unique flight in the data, each showing
+        a single-panel time series comparison.
+
+        Parameters
+        ----------
+        paired_data
+            Paired dataset with model and observation variables.
+        obs_var
+            Name of observation variable.
+        model_var
+            Name of model variable.
+        time_dim
+            Name of time dimension.
+        flight_coord
+            Name of flight coordinate (default: 'flight').
+        min_points
+            Minimum valid data points required to include a flight.
+        show_stats
+            If True, show N, NMB, R statistics on each panel.
+        scale_factor
+            Scale factor for display values.
+        obs_style
+            Style for observations: 'scatter' or 'line'.
+        model_style
+            Style for model: 'line' or 'scatter'.
+        **kwargs
+            Additional options.
+
+        Yields
+        ------
+        tuple[str, matplotlib.figure.Figure]
+            Tuple of (flight_id, figure) for each flight.
+        """
+        style = self.config.style
+
+        # Check for flight coordinate
+        if flight_coord not in paired_data.coords:
+            raise ValueError(
+                f"Flight coordinate '{flight_coord}' not found in paired data. "
+                f"Available coordinates: {list(paired_data.coords)}"
+            )
+
+        # Get unique flights
+        flights = np.unique(paired_data[flight_coord].values)
+
+        for flight in flights:
+            flight_str = str(flight)
+            mask = paired_data[flight_coord].values == flight
+
+            # Get data for this flight
+            times = pd.to_datetime(paired_data[time_dim].values[mask])
+            obs_vals = paired_data[obs_var].values[mask] * scale_factor
+            mod_vals = paired_data[model_var].values[mask] * scale_factor
+
+            valid_obs = ~np.isnan(obs_vals)
+            valid_both = valid_obs & ~np.isnan(mod_vals)
+
+            # Check minimum points
+            if valid_both.sum() < min_points:
+                continue
+
+            # Sort by time
+            sort_idx = np.argsort(times)
+            times = times[sort_idx]
+            obs_vals = obs_vals[sort_idx]
+            mod_vals = mod_vals[sort_idx]
+            valid_obs = valid_obs[sort_idx]
+            valid_both = valid_both[sort_idx]
+
+            # Create single-panel figure
+            fig, ax = plt.subplots(figsize=(8, 5))
+
+            # Plot observations
+            if obs_style == "scatter":
+                ax.scatter(
+                    times[valid_obs], obs_vals[valid_obs],
+                    s=20, alpha=0.7, color="black", label="Obs", zorder=3
+                )
+            else:
+                ax.plot(
+                    times[valid_obs], obs_vals[valid_obs],
+                    "o-", color="black", markersize=4, linewidth=0.8,
+                    alpha=0.7, label="Obs", zorder=3
+                )
+
+            # Plot model
+            if model_style == "line":
+                ax.plot(
+                    times, mod_vals,
+                    color=style.model_color, linewidth=2, alpha=0.8,
+                    label="Model", zorder=2
+                )
+            else:
+                ax.scatter(
+                    times[valid_both], mod_vals[valid_both],
+                    s=20, alpha=0.7, color=style.model_color,
+                    label="Model", zorder=2
+                )
+
+            # Compute and display stats
+            if show_stats and valid_both.sum() > 0:
+                n = valid_both.sum()
+                obs_mean = obs_vals[valid_both].mean()
+                mod_mean = mod_vals[valid_both].mean()
+                nmb = 100 * (mod_mean - obs_mean) / obs_mean if obs_mean != 0 else 0
+                if valid_both.sum() > 2:
+                    r = np.corrcoef(obs_vals[valid_both], mod_vals[valid_both])[0, 1]
+                else:
+                    r = np.nan
+
+                stats_text = f"N={n}\nNMB={nmb:+.0f}%"
+                if not np.isnan(r):
+                    stats_text += f"\nR={r:.2f}"
+
+                ax.text(
+                    0.97, 0.97, stats_text,
+                    transform=ax.transAxes, fontsize=10,
+                    verticalalignment="top", horizontalalignment="right",
+                    bbox=dict(boxstyle="round", facecolor="white", alpha=0.8)
+                )
+
+            # Title
+            if self.config.title:
+                ax.set_title(
+                    format_plot_title(f"{self.config.title} - Flight {flight_str}"),
+                    fontsize=12
+                )
+            else:
+                ax.set_title(f"Flight {flight_str}", fontsize=12)
+
+            ax.set_ylim(bottom=0)
+            ax.grid(True, alpha=0.3)
+            ax.legend(loc="upper left", fontsize=10)
+
+            # Y-axis label
+            units = get_variable_units(paired_data, obs_var)
+            ylabel = get_variable_label(paired_data, obs_var, include_prefix=False)
+            ylabel = format_label_with_units(ylabel, units)
+            ax.set_ylabel(ylabel, fontsize=11)
+
+            # Format x-axis
+            ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+            ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+            ax.tick_params(axis="x", rotation=45)
+            ax.set_xlabel("UTC Time", fontsize=11)
+
+            plt.tight_layout()
+
+            # Format flight ID for filename (YYYYMMDD format)
+            flight_id = flight_str.replace("-", "")
+
+            yield flight_id, fig
 
 
 def plot_flight_timeseries(

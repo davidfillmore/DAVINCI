@@ -540,6 +540,44 @@ class TestFlightTimeSeriesPlotter:
                 "model_o3",
             )
 
+    def test_plot_per_flight(self, flight_paired_data):
+        """Test per-flight time series plot generation."""
+        from davinci_monet.plots import FlightTimeSeriesPlotter
+
+        plotter = FlightTimeSeriesPlotter()
+        flight_plots = list(plotter.plot_per_flight(
+            flight_paired_data,
+            "obs_o3",
+            "model_o3",
+            min_points=10,
+        ))
+
+        # Should generate 3 flights (from fixture)
+        assert len(flight_plots) == 3
+
+        for flight_id, fig in flight_plots:
+            # Flight ID should be in YYYYMMDD format (no hyphens)
+            assert "-" not in flight_id
+            assert len(flight_id) == 8
+            assert fig is not None
+            plt.close(fig)
+
+    def test_plot_per_flight_min_points(self, flight_paired_data):
+        """Test min_points filter in per-flight time series plotting."""
+        from davinci_monet.plots import FlightTimeSeriesPlotter
+
+        plotter = FlightTimeSeriesPlotter()
+        # Set min_points higher than data available per flight
+        flight_plots = list(plotter.plot_per_flight(
+            flight_paired_data,
+            "obs_o3",
+            "model_o3",
+            min_points=200,  # Each flight has 120 points
+        ))
+
+        # No flights should pass the filter
+        assert len(flight_plots) == 0
+
 
 class TestScatterPlotter:
     """Tests for scatter plotter."""
@@ -583,6 +621,44 @@ class TestScatterPlotter:
 
         assert fig is not None
         plt.close(fig)
+
+    def test_plot_per_flight(self, flight_paired_data):
+        """Test per-flight scatter plot generation."""
+        from davinci_monet.plots import ScatterPlotter
+
+        plotter = ScatterPlotter()
+        flight_plots = list(plotter.plot_per_flight(
+            flight_paired_data,
+            "obs_o3",
+            "model_o3",
+            min_points=10,
+        ))
+
+        # Should generate 3 flights (from fixture)
+        assert len(flight_plots) == 3
+
+        for flight_id, fig in flight_plots:
+            # Flight ID should be in YYYYMMDD format (no hyphens)
+            assert "-" not in flight_id
+            assert len(flight_id) == 8
+            assert fig is not None
+            plt.close(fig)
+
+    def test_plot_per_flight_min_points(self, flight_paired_data):
+        """Test min_points filter in per-flight plotting."""
+        from davinci_monet.plots import ScatterPlotter
+
+        plotter = ScatterPlotter()
+        # Set min_points higher than data available per flight
+        flight_plots = list(plotter.plot_per_flight(
+            flight_paired_data,
+            "obs_o3",
+            "model_o3",
+            min_points=200,  # Each flight has 120 points
+        ))
+
+        # No flights should pass the filter
+        assert len(flight_plots) == 0
 
 
 class TestTaylorPlotter:
@@ -756,6 +832,46 @@ class TestTrackMap3DPlotter:
 
         assert fig is not None
         plt.close(fig)
+
+    def test_plot_per_flight(self, flight_paired_data):
+        """Test per-flight 3D track plot generation."""
+        from davinci_monet.plots import TrackMap3DPlotter
+
+        plotter = TrackMap3DPlotter()
+        flight_plots = list(plotter.plot_per_flight(
+            flight_paired_data,
+            "obs_o3",
+            "model_o3",
+            min_points=10,
+            show_coastlines=False,  # Faster for testing
+        ))
+
+        # Should generate 3 flights (from fixture)
+        assert len(flight_plots) == 3
+
+        for flight_id, fig in flight_plots:
+            # Flight ID should be in YYYYMMDD format (no hyphens)
+            assert "-" not in flight_id
+            assert len(flight_id) == 8
+            assert fig is not None
+            plt.close(fig)
+
+    def test_plot_per_flight_min_points(self, flight_paired_data):
+        """Test min_points filter in per-flight 3D track plotting."""
+        from davinci_monet.plots import TrackMap3DPlotter
+
+        plotter = TrackMap3DPlotter()
+        # Set min_points higher than data available per flight
+        flight_plots = list(plotter.plot_per_flight(
+            flight_paired_data,
+            "obs_o3",
+            "model_o3",
+            min_points=200,  # Each flight has 120 points
+            show_coastlines=False,
+        ))
+
+        # No flights should pass the filter
+        assert len(flight_plots) == 0
 
 
 class TestScorecardPlotter:

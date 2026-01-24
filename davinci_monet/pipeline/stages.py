@@ -1079,23 +1079,58 @@ class PlottingStage(BaseStage):
                         if city_labels:
                             plot_options["city_labels"] = city_labels
 
-                    # Get plotter and generate plot
+                    # Get plotter
                     plotter = get_plotter(plot_type, config=plotter_config)
-                    fig = plotter.plot(paired_data, obs_var_name, model_var_name, **plot_options)
 
-                    # Save plot
-                    output_path = output_dir / f"{plot_name}.png"
-                    plotter.save(fig, output_path, dpi=300)
-                    plots_generated.append(str(output_path))
+                    # Create subdirectory by observation dataset
+                    obs_output_dir = output_dir / obs_label
+                    obs_output_dir.mkdir(parents=True, exist_ok=True)
 
-                    # Also save PDF
-                    pdf_path = output_dir / f"{plot_name}.pdf"
-                    plotter.save(fig, pdf_path)
-                    plots_generated.append(str(pdf_path))
+                    # Check for per-flight splitting
+                    split_by_flight = plot_spec.get("split_by_flight", False)
 
-                    plt.close(fig)
+                    if split_by_flight and hasattr(plotter, "plot_per_flight"):
+                        # Generate separate plot for each flight
+                        flight_coord = plot_spec.get("flight_coord", "flight")
+                        min_points = plot_spec.get("min_points", 10)
 
-                    context.log_progress(f"done: saved PNG + PDF")
+                        flight_count = 0
+                        for flight_id, fig in plotter.plot_per_flight(
+                            paired_data, obs_var_name, model_var_name,
+                            flight_coord=flight_coord,
+                            min_points=min_points,
+                            **plot_options
+                        ):
+                            # Save plot with flight ID in filename
+                            output_path = obs_output_dir / f"{plot_name}_{flight_id}.png"
+                            plotter.save(fig, output_path, dpi=300)
+                            plots_generated.append(str(output_path))
+
+                            pdf_path = obs_output_dir / f"{plot_name}_{flight_id}.pdf"
+                            plotter.save(fig, pdf_path)
+                            plots_generated.append(str(pdf_path))
+
+                            plt.close(fig)
+                            flight_count += 1
+
+                        context.log_progress(f"done: saved {flight_count} flights to {obs_label}/")
+                    else:
+                        # Generate single plot (original behavior)
+                        fig = plotter.plot(paired_data, obs_var_name, model_var_name, **plot_options)
+
+                        # Save plot
+                        output_path = obs_output_dir / f"{plot_name}.png"
+                        plotter.save(fig, output_path, dpi=300)
+                        plots_generated.append(str(output_path))
+
+                        # Also save PDF
+                        pdf_path = obs_output_dir / f"{plot_name}.pdf"
+                        plotter.save(fig, pdf_path)
+                        plots_generated.append(str(pdf_path))
+
+                        plt.close(fig)
+
+                        context.log_progress(f"done: saved to {obs_label}/")
 
             except Exception as e:
                 context.metadata.setdefault("plot_errors", []).append(

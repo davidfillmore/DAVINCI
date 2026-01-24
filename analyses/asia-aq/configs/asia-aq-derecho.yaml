@@ -247,65 +247,77 @@ plots:
     pairs: [cesm_aeronet_aod]
     title: "AOD Spatial Bias"
 
-  # DC-8 Aircraft plots
+  # DC-8 Aircraft plots (per-flight)
   dc8_o3_scatter:
     type: scatter
     pairs: [cesm_dc8_o3]
     title: "O3: CESM vs DC-8 Aircraft"
+    split_by_flight: true
+    min_points: 10
 
   dc8_no2_scatter:
     type: scatter
     pairs: [cesm_dc8_no2]
     title: "NO2: CESM vs DC-8 Aircraft"
+    split_by_flight: true
+    min_points: 10
 
   dc8_co_scatter:
     type: scatter
     pairs: [cesm_dc8_co]
     title: "CO: CESM vs DC-8 Aircraft"
+    split_by_flight: true
+    min_points: 10
 
   dc8_o3_flight_timeseries:
     type: flight_timeseries
     pairs: [cesm_dc8_o3]
-    title: "O3 Flight-by-Flight: CESM vs DC-8"
-    ncols: 4
+    title: "O3: CESM vs DC-8"
+    split_by_flight: true
     min_points: 10
 
   dc8_no2_flight_timeseries:
     type: flight_timeseries
     pairs: [cesm_dc8_no2]
-    title: "NO2 Flight-by-Flight: CESM vs DC-8"
-    ncols: 4
+    title: "NO2: CESM vs DC-8"
+    split_by_flight: true
     min_points: 10
 
   dc8_co_flight_timeseries:
     type: flight_timeseries
     pairs: [cesm_dc8_co]
-    title: "CO Flight-by-Flight: CESM vs DC-8"
-    ncols: 4
+    title: "CO: CESM vs DC-8"
+    split_by_flight: true
     min_points: 10
 
-  # 3D track maps
+  # 3D track maps (per-flight)
   dc8_o3_track_3d:
     type: track_map_3d
     pairs: [cesm_dc8_o3]
-    title: "O3 Bias: DC-8 3D Flight Track"
+    title: "O3 Bias: DC-8 3D Track"
     show_var: bias
+    split_by_flight: true
+    min_points: 10
     elev: 25
     azim: -60
 
   dc8_no2_track_3d:
     type: track_map_3d
     pairs: [cesm_dc8_no2]
-    title: "NO2 Bias: DC-8 3D Flight Track"
+    title: "NO2 Bias: DC-8 3D Track"
     show_var: bias
+    split_by_flight: true
+    min_points: 10
     elev: 25
     azim: -60
 
   dc8_co_track_3d:
     type: track_map_3d
     pairs: [cesm_dc8_co]
-    title: "CO Bias: DC-8 3D Flight Track"
+    title: "CO Bias: DC-8 3D Track"
     show_var: bias
+    split_by_flight: true
+    min_points: 10
     elev: 25
     azim: -60
 

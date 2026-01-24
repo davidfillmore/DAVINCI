@@ -7,6 +7,7 @@ Includes continent outlines and city markers on the surface plane.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, Literal
 
 import matplotlib.pyplot as plt
@@ -514,6 +515,89 @@ class TrackMap3DPlotter(BasePlotter):
 
         plt.tight_layout()
         return fig
+
+    def plot_per_flight(
+        self,
+        paired_data: xr.Dataset,
+        obs_var: str,
+        model_var: str,
+        flight_coord: str = "flight",
+        min_points: int = 10,
+        **kwargs: Any,
+    ) -> Iterator[tuple[str, matplotlib.figure.Figure]]:
+        """Generate 3D track maps for each flight.
+
+        Yields one figure per unique flight in the data.
+
+        Parameters
+        ----------
+        paired_data
+            Paired dataset with model and observation variables.
+        obs_var
+            Name of observation variable.
+        model_var
+            Name of model variable.
+        flight_coord
+            Name of the flight coordinate (default: "flight").
+        min_points
+            Minimum valid data points per flight to generate a plot.
+        **kwargs
+            Additional arguments passed to plot method.
+
+        Yields
+        ------
+        tuple[str, matplotlib.figure.Figure]
+            Tuple of (flight_id, figure) for each flight.
+        """
+        # Check for flight coordinate
+        if flight_coord not in paired_data.coords:
+            raise ValueError(
+                f"Flight coordinate '{flight_coord}' not found in paired data. "
+                f"Available coordinates: {list(paired_data.coords)}"
+            )
+
+        # Get unique flights
+        flight_values = paired_data[flight_coord].values
+        unique_flights = np.unique(flight_values)
+
+        for flight in unique_flights:
+            # Convert to string
+            flight_str = str(flight)
+
+            # Filter data for this flight
+            mask = flight_values == flight
+            flight_data = paired_data.isel(time=mask)
+
+            # Check for minimum points
+            obs_vals = flight_data[obs_var].values.flatten()
+            model_vals = flight_data[model_var].values.flatten()
+            valid = np.isfinite(obs_vals) & np.isfinite(model_vals)
+
+            if valid.sum() < min_points:
+                continue
+
+            # Update title to include flight ID
+            original_title = self.config.title
+            if original_title:
+                self.config.title = f"{original_title} - Flight {flight_str}"
+            else:
+                self.config.title = f"Flight {flight_str}"
+
+            # Generate plot for this flight
+            try:
+                fig = self.plot(flight_data, obs_var, model_var, **kwargs)
+            except ValueError:
+                # Skip if no valid data after filtering
+                self.config.title = original_title
+                continue
+
+            # Restore original title for next iteration
+            self.config.title = original_title
+
+            # Format flight ID for filename (YYYYMMDD format)
+            flight_id = flight_str.replace("-", "")
+
+            yield flight_id, fig
 
 
 def plot_track_map_3d(
