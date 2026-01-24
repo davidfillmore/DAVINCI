@@ -15,7 +15,12 @@ from typing import Any, Mapping, Sequence
 
 import xarray as xr
 
-from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
+from davinci_monet.core.exceptions import (
+    DataFormatError,
+    DataNotFoundError,
+    cleanup_netcdf_state,
+    is_transient_error,
+)
 from davinci_monet.core.registry import model_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
@@ -114,21 +119,42 @@ class GenericReader:
             if engine:
                 kwargs["engine"] = engine
 
-        # Open files
-        try:
-            if len(file_list) > 1:
-                ds = xr.open_mfdataset(
-                    [str(f) for f in file_list],
-                    combine=combine,
-                    parallel=True,
-                    **kwargs,
-                )
-            else:
-                ds = xr.open_dataset(str(file_list[0]), **kwargs)
-        except Exception as e:
-            # Suppress ugly __del__ cleanup errors from xarray/netCDF4
+        # Open files with retry for transient NetCDF errors
+        max_retries = 3
+        last_error: Exception | None = None
+
+        for attempt in range(max_retries):
+            try:
+                if len(file_list) > 1:
+                    ds = xr.open_mfdataset(
+                        [str(f) for f in file_list],
+                        combine=combine,
+                        parallel=True,
+                        **kwargs,
+                    )
+                else:
+                    ds = xr.open_dataset(str(file_list[0]), **kwargs)
+                break  # Success - exit retry loop
+            except Exception as e:
+                last_error = e
+                if attempt < max_retries - 1 and is_transient_error(e):
+                    # Transient error - clean up and retry
+                    warnings.warn(
+                        f"Transient NetCDF error (attempt {attempt + 1}/{max_retries}), "
+                        f"retrying: {e}",
+                        UserWarning,
+                    )
+                    cleanup_netcdf_state()
+                    continue
+                # Non-transient error or max retries reached
+                _cleanup_with_suppressed_errors()
+                raise DataFormatError(f"Failed to open files: {e}") from e
+        else:
+            # All retries exhausted
             _cleanup_with_suppressed_errors()
-            raise DataFormatError(f"Failed to open files: {e}") from e
+            raise DataFormatError(
+                f"Failed to open files after {max_retries} attempts: {last_error}"
+            ) from last_error
 
         # Select variables if specified
         if variables is not None:
