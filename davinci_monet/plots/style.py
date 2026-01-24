@@ -1,0 +1,337 @@
+"""Plot styling configuration for DAVINCI-MONET.
+
+This module provides a standardized styling system based on the official
+NSF NCAR brand guidelines. It includes:
+
+- NCAR brand color palette
+- Font configuration (Poppins with fallbacks)
+- Font size presets for presentations and publications
+- Functions to apply styling globally
+
+Usage
+-----
+>>> from davinci_monet.plots.style import apply_ncar_style
+>>>
+>>> # Apply NCAR styling globally (call once at start of script)
+>>> apply_ncar_style()
+>>>
+>>> # Then create plots as usual
+>>> fig = plot_timeseries(paired_data, "obs_o3", "model_o3")
+
+The apply_ncar_style() function sets matplotlib rcParams globally, affecting
+all subsequent plots. For individual plots, you can also pass style options
+directly through PlotConfig.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Literal
+
+import matplotlib.pyplot as plt
+
+# =============================================================================
+# NSF NCAR Brand Colors
+# =============================================================================
+
+# Official NSF NCAR brand colors from the style guide
+# https://brand.ucar.edu/
+
+NCAR_COLORS = {
+    # Primary colors
+    "space": "#011837",  # Dark backgrounds
+    "dark_blue": "#00357A",  # Secondary blue
+    "ncar_blue": "#0A5DDA",  # Primary brand color
+    "aqua": "#00A2B4",  # UCAR Aqua - accent cyan
+    # Light colors
+    "light_blue": "#CEDFF8",  # Light accents
+    "light_gray": "#F1F0EE",  # Backgrounds
+    # Accent colors
+    "orange": "#FF8C00",  # Accent (dark orange)
+    "yellow": "#FFDD31",  # Accent
+    "gray": "#58595B",  # Gray
+    # Additional colors for data visualization
+    "red": "#D62839",  # Error/negative bias
+    "green": "#2E8B57",  # Positive/good
+    "purple": "#7B68EE",  # Alternative accent
+}
+
+# Convenience aliases for common use cases
+NCAR_PRIMARY = NCAR_COLORS["ncar_blue"]
+NCAR_SECONDARY = NCAR_COLORS["aqua"]
+NCAR_ACCENT = NCAR_COLORS["orange"]
+
+# Color scheme for model-observation comparisons
+OBS_COLOR = NCAR_COLORS["gray"]  # Observations in neutral gray
+MODEL_COLOR = NCAR_COLORS["ncar_blue"]  # Model in primary blue
+BIAS_POSITIVE_COLOR = NCAR_COLORS["red"]  # Model overpredicts
+BIAS_NEGATIVE_COLOR = NCAR_COLORS["ncar_blue"]  # Model underpredicts
+
+# Sequential color palette for multiple models/datasets
+NCAR_PALETTE = [
+    NCAR_COLORS["ncar_blue"],
+    NCAR_COLORS["aqua"],
+    NCAR_COLORS["orange"],
+    NCAR_COLORS["purple"],
+    NCAR_COLORS["green"],
+    NCAR_COLORS["red"],
+    NCAR_COLORS["yellow"],
+    NCAR_COLORS["dark_blue"],
+]
+
+
+# =============================================================================
+# Font Configuration
+# =============================================================================
+
+# Official NSF NCAR brand font is Poppins (with fallbacks)
+NCAR_FONT_FAMILY = "sans-serif"
+NCAR_FONT_SANS_SERIF = [
+    "Poppins",
+    "Helvetica Neue",
+    "Helvetica",
+    "Arial",
+    "DejaVu Sans",
+]
+
+
+@dataclass
+class FontSizes:
+    """Font size configuration for different contexts.
+
+    Attributes
+    ----------
+    axes_label : float
+        Font size for axis labels (xlabel, ylabel).
+    axes_title : float
+        Font size for subplot titles.
+    tick_label : float
+        Font size for tick labels.
+    legend : float
+        Font size for legend text.
+    figure_title : float
+        Font size for figure suptitle.
+    annotation : float
+        Font size for text annotations (stats boxes, etc.).
+    """
+
+    axes_label: float = 14.0
+    axes_title: float = 16.0
+    tick_label: float = 12.0
+    legend: float = 12.0
+    figure_title: float = 18.0
+    annotation: float = 10.0
+
+
+# Preset font sizes for different contexts
+FONT_SIZES_PRESENTATION = FontSizes(
+    axes_label=16.0,
+    axes_title=18.0,
+    tick_label=14.0,
+    legend=14.0,
+    figure_title=20.0,
+    annotation=12.0,
+)
+
+FONT_SIZES_PUBLICATION = FontSizes(
+    axes_label=12.0,
+    axes_title=14.0,
+    tick_label=10.0,
+    legend=10.0,
+    figure_title=16.0,
+    annotation=9.0,
+)
+
+FONT_SIZES_DEFAULT = FontSizes()
+
+
+# =============================================================================
+# Style Application Functions
+# =============================================================================
+
+
+def apply_ncar_style(
+    context: Literal["default", "presentation", "publication"] = "default",
+    use_seaborn: bool = True,
+    seaborn_style: str = "whitegrid",
+) -> None:
+    """Apply NCAR brand styling to matplotlib globally.
+
+    This function configures matplotlib rcParams with NCAR brand fonts,
+    colors, and sizes. Call it once at the beginning of your script
+    to apply consistent styling to all subsequent plots.
+
+    Parameters
+    ----------
+    context
+        Preset context for font sizes:
+        - "default": Standard sizes suitable for most uses
+        - "presentation": Larger sizes for slides
+        - "publication": Smaller sizes for journal figures
+    use_seaborn
+        If True and seaborn is available, apply seaborn theme for
+        cleaner grid styling.
+    seaborn_style
+        Seaborn style to apply if use_seaborn is True.
+        Options: "whitegrid", "darkgrid", "white", "dark", "ticks"
+
+    Examples
+    --------
+    >>> # Apply default NCAR styling
+    >>> apply_ncar_style()
+    >>>
+    >>> # Apply styling for a presentation
+    >>> apply_ncar_style(context="presentation")
+    >>>
+    >>> # Apply without seaborn
+    >>> apply_ncar_style(use_seaborn=False)
+    """
+    # Select font sizes based on context
+    if context == "presentation":
+        sizes = FONT_SIZES_PRESENTATION
+    elif context == "publication":
+        sizes = FONT_SIZES_PUBLICATION
+    else:
+        sizes = FONT_SIZES_DEFAULT
+
+    # Apply seaborn style if requested
+    if use_seaborn:
+        try:
+            import seaborn as sns
+
+            sns.set_theme(style=seaborn_style, palette="deep")
+        except ImportError:
+            pass  # seaborn not available, continue without it
+
+    # Font family
+    plt.rcParams["font.family"] = NCAR_FONT_FAMILY
+    plt.rcParams["font.sans-serif"] = NCAR_FONT_SANS_SERIF
+    plt.rcParams["mathtext.fontset"] = "dejavusans"
+
+    # Font sizes
+    plt.rcParams["axes.labelsize"] = sizes.axes_label
+    plt.rcParams["axes.titlesize"] = sizes.axes_title
+    plt.rcParams["xtick.labelsize"] = sizes.tick_label
+    plt.rcParams["ytick.labelsize"] = sizes.tick_label
+    plt.rcParams["legend.fontsize"] = sizes.legend
+    plt.rcParams["figure.titlesize"] = sizes.figure_title
+
+    # Colors
+    plt.rcParams["axes.prop_cycle"] = plt.cycler(color=NCAR_PALETTE)
+
+    # Line and marker defaults
+    plt.rcParams["lines.linewidth"] = 1.5
+    plt.rcParams["lines.markersize"] = 6
+
+    # Grid styling
+    plt.rcParams["axes.grid"] = True
+    plt.rcParams["grid.alpha"] = 0.3
+    plt.rcParams["grid.linestyle"] = "-"
+
+    # Figure defaults
+    plt.rcParams["figure.facecolor"] = "white"
+    plt.rcParams["axes.facecolor"] = "white"
+    plt.rcParams["savefig.facecolor"] = "white"
+    plt.rcParams["savefig.dpi"] = 300
+    plt.rcParams["savefig.bbox"] = "tight"
+
+
+def reset_style() -> None:
+    """Reset matplotlib to default styling.
+
+    Restores matplotlib rcParams to their default values, undoing
+    any changes made by apply_ncar_style().
+    """
+    plt.rcdefaults()
+
+
+def get_color_for_variable(variable: str) -> str:
+    """Get a color appropriate for a variable type.
+
+    Parameters
+    ----------
+    variable
+        Variable name or type. Recognized prefixes:
+        - "obs_*": Returns observation color
+        - "model_*": Returns model color
+        - "bias_*": Returns bias color
+
+    Returns
+    -------
+    str
+        Hex color code.
+    """
+    var_lower = variable.lower()
+    if var_lower.startswith("obs"):
+        return OBS_COLOR
+    elif var_lower.startswith("model"):
+        return MODEL_COLOR
+    elif var_lower.startswith("bias"):
+        return NCAR_COLORS["red"]
+    else:
+        return NCAR_COLORS["ncar_blue"]
+
+
+def get_palette(n_colors: int | None = None) -> list[str]:
+    """Get a list of colors from the NCAR palette.
+
+    Parameters
+    ----------
+    n_colors
+        Number of colors to return. If None, returns all palette colors.
+        If n_colors > len(NCAR_PALETTE), colors will cycle.
+
+    Returns
+    -------
+    list[str]
+        List of hex color codes.
+    """
+    if n_colors is None:
+        return list(NCAR_PALETTE)
+
+    colors = []
+    for i in range(n_colors):
+        colors.append(NCAR_PALETTE[i % len(NCAR_PALETTE)])
+    return colors
+
+
+# =============================================================================
+# Colormap Utilities
+# =============================================================================
+
+
+def get_bias_cmap() -> str:
+    """Get the recommended colormap for bias plots.
+
+    Returns a diverging colormap centered on zero, with blue for
+    negative bias (model underpredicts) and red for positive bias
+    (model overpredicts).
+
+    Returns
+    -------
+    str
+        Matplotlib colormap name.
+    """
+    return "RdBu_r"
+
+
+def get_sequential_cmap() -> str:
+    """Get the recommended colormap for sequential data.
+
+    Returns
+    -------
+    str
+        Matplotlib colormap name.
+    """
+    return "viridis"
+
+
+def get_density_cmap() -> str:
+    """Get the recommended colormap for density plots.
+
+    Returns
+    -------
+    str
+        Matplotlib colormap name.
+    """
+    return "viridis"

@@ -305,6 +305,47 @@ python scripts/run_evaluation.py
 
 Pipeline displays progress with tqdm and logs to `logs/pipeline_YYYYMMDD_HHMMSS.log`.
 
+## Plot Styling (NCAR Branding)
+
+The plotting system uses NSF NCAR brand colors and fonts. Enable via YAML config or Python:
+
+### YAML Configuration (Recommended)
+
+```yaml
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-03"
+  output_dir: ${MY_ANALYSIS}/output
+  style:
+    theme: ncar                # Apply NCAR branding
+    context: default           # or: presentation, publication
+    use_seaborn: true          # Apply seaborn whitegrid theme
+```
+
+### Python API
+
+```python
+from davinci_monet.plots import apply_ncar_style, plot_timeseries
+
+# Apply NCAR styling globally (call once at start of script)
+apply_ncar_style()
+
+# Create plots with consistent styling
+fig = plot_timeseries(paired_data, "obs_o3", "model_o3")
+```
+
+**Key colors** (`davinci_monet.plots.style`):
+- `OBS_COLOR`: Gray (#58595B) for observations
+- `MODEL_COLOR`: NCAR Blue (#0A5DDA) for model data
+- `NCAR_PALETTE`: 8-color palette for multiple datasets
+
+**Context presets**:
+- `default`: Standard sizes for general use
+- `presentation`: Larger fonts for slides
+- `publication`: Smaller fonts for journal figures
+
+**Font**: Poppins (with Helvetica/Arial fallbacks)
+
 ## Common Gotchas
 
 1. **Unit conversions**: Model variables often need `unit_scale` in config:

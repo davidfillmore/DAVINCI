@@ -19,6 +19,9 @@ analysis:
   output_dir: /glade/work/fillmore/DAVINCI-MONET/analyses/asia-aq/output
   log_dir: /glade/work/fillmore/DAVINCI-MONET/analyses/asia-aq/logs
   debug: false
+  style:
+    theme: ncar
+    context: default
 
   # City labels for spatial plots: {name: [lat, lon]}
   city_labels:

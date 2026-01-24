@@ -51,6 +51,28 @@ from davinci_monet.plots.base import (
     calculate_data_limits,
 )
 
+# Style configuration (NCAR branding)
+from davinci_monet.plots.style import (
+    NCAR_COLORS,
+    NCAR_PALETTE,
+    NCAR_PRIMARY,
+    NCAR_SECONDARY,
+    NCAR_ACCENT,
+    OBS_COLOR,
+    MODEL_COLOR,
+    apply_ncar_style,
+    reset_style,
+    get_color_for_variable,
+    get_palette,
+    get_bias_cmap,
+    get_sequential_cmap,
+    get_density_cmap,
+    FontSizes,
+    FONT_SIZES_DEFAULT,
+    FONT_SIZES_PRESENTATION,
+    FONT_SIZES_PUBLICATION,
+)
+
 # Registry and factory
 from davinci_monet.plots.registry import (
     plotter_registry,
@@ -120,6 +142,25 @@ __all__ = [
     "format_label_with_units",
     "calculate_symmetric_limits",
     "calculate_data_limits",
+    # Style configuration (NCAR branding)
+    "NCAR_COLORS",
+    "NCAR_PALETTE",
+    "NCAR_PRIMARY",
+    "NCAR_SECONDARY",
+    "NCAR_ACCENT",
+    "OBS_COLOR",
+    "MODEL_COLOR",
+    "apply_ncar_style",
+    "reset_style",
+    "get_color_for_variable",
+    "get_palette",
+    "get_bias_cmap",
+    "get_sequential_cmap",
+    "get_density_cmap",
+    "FontSizes",
+    "FONT_SIZES_DEFAULT",
+    "FONT_SIZES_PRESENTATION",
+    "FONT_SIZES_PUBLICATION",
     # Registry
     "plotter_registry",
     "register_plotter",

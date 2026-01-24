@@ -1040,6 +1040,45 @@ class PipelineRunner:
                 return True
         return False
 
+    def _apply_plot_style(self, context: PipelineContext) -> None:
+        """Apply plot styling from configuration.
+
+        Parameters
+        ----------
+        context
+            Pipeline context containing configuration.
+        """
+        analysis_config = context.config.get("analysis", {})
+        style_config = analysis_config.get("style")
+
+        if style_config is None:
+            return
+
+        # Handle both dict and PlotStyleConfig object
+        if hasattr(style_config, "theme"):
+            theme = style_config.theme
+            style_context = style_config.context
+            use_seaborn = style_config.use_seaborn
+            seaborn_style = style_config.seaborn_style
+        else:
+            theme = style_config.get("theme")
+            style_context = style_config.get("context", "default")
+            use_seaborn = style_config.get("use_seaborn", True)
+            seaborn_style = style_config.get("seaborn_style", "whitegrid")
+
+        if theme == "ncar":
+            from davinci_monet.plots.style import apply_ncar_style
+            apply_ncar_style(
+                context=style_context,
+                use_seaborn=use_seaborn,
+                seaborn_style=seaborn_style,
+            )
+            logger.info(f"Applied NCAR plot style (context={style_context})")
+        elif theme == "default":
+            from davinci_monet.plots.style import reset_style
+            reset_style()
+            logger.info("Reset to default matplotlib style")
+
     def run(self, context: PipelineContext | None = None) -> PipelineResult:
         """Execute the pipeline.
 
@@ -1055,6 +1094,9 @@ class PipelineRunner:
         """
         if context is None:
             context = PipelineContext()
+
+        # Apply plot styling from config if specified
+        self._apply_plot_style(context)
 
         # Set up logging and formatting
         log_path: Path | None = None

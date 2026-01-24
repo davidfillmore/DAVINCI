@@ -164,11 +164,13 @@ class TestPlotConfig:
     def test_default_config(self):
         """Test default configuration creation."""
         from davinci_monet.plots.base import PlotConfig
+        from davinci_monet.plots.style import OBS_COLOR, MODEL_COLOR
 
         config = PlotConfig()
         assert config.figure.figsize == (10, 6)
         assert config.text.fontsize == 12.0
-        assert config.style.obs_color == "black"
+        assert config.style.obs_color == OBS_COLOR  # NCAR gray
+        assert config.style.model_color == MODEL_COLOR  # NCAR blue
         assert config.debug is False
 
     def test_from_dict(self):

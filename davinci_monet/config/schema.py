@@ -45,6 +45,40 @@ class FlexibleModel(BaseModel):
 
 
 # =============================================================================
+# Plot Style Configuration
+# =============================================================================
+
+
+class PlotStyleConfig(FlexibleModel):
+    """Configuration for plot styling.
+
+    Parameters
+    ----------
+    theme
+        Plot theme to apply. Options:
+        - "ncar": NSF NCAR brand colors and fonts (Poppins)
+        - "default": matplotlib defaults
+        - None: no theme applied (use current matplotlib state)
+    context
+        Font size context for the theme:
+        - "default": Standard sizes suitable for most uses
+        - "presentation": Larger sizes for slides
+        - "publication": Smaller sizes for journal figures
+    use_seaborn
+        If True and seaborn is available, apply seaborn theme
+        for cleaner grid styling.
+    seaborn_style
+        Seaborn style to apply if use_seaborn is True.
+        Options: "whitegrid", "darkgrid", "white", "dark", "ticks"
+    """
+
+    theme: Literal["ncar", "default"] | None = None
+    context: Literal["default", "presentation", "publication"] = "default"
+    use_seaborn: bool = True
+    seaborn_style: str = "whitegrid"
+
+
+# =============================================================================
 # Analysis Section
 # =============================================================================
 
@@ -60,14 +94,30 @@ class AnalysisConfig(FlexibleModel):
         End time of analysis window (UTC).
     output_dir
         Directory for output files.
+    log_dir
+        Directory for log files.
     debug
         Enable debug mode.
+    style
+        Plot styling configuration (NCAR branding, fonts, colors).
     """
 
     start_time: datetime | str | None = None
     end_time: datetime | str | None = None
     output_dir: Path | str | None = None
+    log_dir: Path | str | None = None
     debug: bool = False
+    style: PlotStyleConfig | dict[str, Any] | None = None
+
+    @field_validator("style", mode="before")
+    @classmethod
+    def parse_style(cls, v: Any) -> PlotStyleConfig | None:
+        """Parse style configuration."""
+        if v is None:
+            return None
+        if isinstance(v, dict):
+            return PlotStyleConfig(**v)
+        return v
 
     @field_validator("start_time", "end_time", mode="before")
     @classmethod

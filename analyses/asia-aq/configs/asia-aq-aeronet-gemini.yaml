@@ -1,17 +1,17 @@
-# ASIA-AQ CESM/CAM-chem Evaluation - AERONET Only
+# ASIA-AQ CESM/CAM-chem Evaluation - AERONET Only (Gemini - Mac)
 # Aerosol Optical Depth (AOD) from AERONET ground stations
 #
 # Model: CESM/CAM-chem (f.e3b06m.FCnudged.t6s.01x01.01)
 # Period: February 1-29, 2024 (leap year)
-# Domain: 0-45°N, 90-140°E
+# Domain: 0-45N, 90-140E
 #
 # Fast run: single obs dataset avoids repeated Dask model loading
 
 analysis:
   start_time: "2024-02-01"
   end_time: "2024-02-29"
-  output_dir: /glade/work/fillmore/DAVINCI-MONET/analyses/asia-aq/output
-  log_dir: /glade/work/fillmore/DAVINCI-MONET/analyses/asia-aq/logs
+  output_dir: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/asia-aq/output
+  log_dir: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/asia-aq/logs
   debug: false
   style:
     theme: ncar
@@ -32,7 +32,7 @@ analysis:
 model:
   cesm_asiaq:
     mod_type: generic
-    files: /glade/derecho/scratch/fillmore/ASIA-AQ/model/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc
+    files: /Users/fillmore/Data/ASIA-AQ/CAM/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc
     radius_of_influence: 15000
 
     mapping:
@@ -51,7 +51,7 @@ model:
 obs:
   aeronet:
     obs_type: pt_sfc
-    filename: /glade/derecho/scratch/fillmore/ASIA-AQ/obs/AERONET_L15_20240101_20240501.nc
+    filename: /Users/fillmore/Data/ASIA-AQ/AERONET/AERONET_L15_20240101_20240501.nc
     variables:
       aod_500nm:
         obs_min: 0
@@ -76,7 +76,7 @@ plots:
   aod_timeseries:
     type: timeseries
     pairs: [cesm_aeronet_aod]
-    title: "AOD Time Series - ASIA-AQ (Mean ± Std)"
+    title: "AOD Time Series - ASIA-AQ (Mean +/- Std)"
     show_uncertainty: true
     aggregate_dim: site
 

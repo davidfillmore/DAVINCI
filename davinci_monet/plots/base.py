@@ -16,6 +16,9 @@ from typing import TYPE_CHECKING, Any, Literal
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Import NCAR style colors for defaults
+from davinci_monet.plots.style import MODEL_COLOR, OBS_COLOR
+
 if TYPE_CHECKING:
     import matplotlib.axes
     import matplotlib.figure
@@ -78,9 +81,9 @@ class StyleConfig:
     Attributes
     ----------
     obs_color : str
-        Color for observation data.
+        Color for observation data (default: NCAR gray #58595B).
     model_color : str
-        Color for model data.
+        Color for model data (default: NCAR blue #0A5DDA).
     obs_marker : str
         Marker style for observations.
     model_marker : str
@@ -97,8 +100,8 @@ class StyleConfig:
         Transparency (0-1).
     """
 
-    obs_color: str = "black"
-    model_color: str = "blue"
+    obs_color: str = OBS_COLOR  # NCAR gray
+    model_color: str = MODEL_COLOR  # NCAR blue
     obs_marker: str = "o"
     model_marker: str = "s"
     obs_linestyle: str = "-"

@@ -15,6 +15,7 @@ from davinci_monet.config.schema import (
     MonetConfig,
     ObservationConfig,
     PlotGroupConfig,
+    PlotStyleConfig,
     StatsConfig,
     VariableConfig,
 )
@@ -55,6 +56,57 @@ class TestAnalysisConfig:
         """Test invalid datetime raises ValueError."""
         with pytest.raises(ValueError):
             AnalysisConfig(start_time="not-a-date")
+
+    def test_style_config_none(self) -> None:
+        """Test style config defaults to None."""
+        config = AnalysisConfig()
+        assert config.style is None
+
+    def test_style_config_from_dict(self) -> None:
+        """Test style config parsed from dict."""
+        config = AnalysisConfig(style={"theme": "ncar", "context": "presentation"})
+        assert config.style is not None
+        assert config.style.theme == "ncar"
+        assert config.style.context == "presentation"
+
+    def test_style_config_object(self) -> None:
+        """Test style config as PlotStyleConfig object."""
+        style = PlotStyleConfig(theme="ncar", context="publication")
+        config = AnalysisConfig(style=style)
+        assert config.style.theme == "ncar"
+        assert config.style.context == "publication"
+
+
+class TestPlotStyleConfig:
+    """Tests for PlotStyleConfig."""
+
+    def test_default_values(self) -> None:
+        """Test default values."""
+        config = PlotStyleConfig()
+        assert config.theme is None
+        assert config.context == "default"
+        assert config.use_seaborn is True
+        assert config.seaborn_style == "whitegrid"
+
+    def test_ncar_theme(self) -> None:
+        """Test NCAR theme configuration."""
+        config = PlotStyleConfig(theme="ncar", context="presentation")
+        assert config.theme == "ncar"
+        assert config.context == "presentation"
+
+    def test_default_theme(self) -> None:
+        """Test explicit default theme."""
+        config = PlotStyleConfig(theme="default")
+        assert config.theme == "default"
+
+    def test_seaborn_options(self) -> None:
+        """Test seaborn configuration options."""
+        config = PlotStyleConfig(
+            use_seaborn=False,
+            seaborn_style="darkgrid",
+        )
+        assert config.use_seaborn is False
+        assert config.seaborn_style == "darkgrid"
 
 
 class TestVariableConfig:

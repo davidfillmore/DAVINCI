@@ -10,9 +10,12 @@
 analysis:
   start_time: "2024-02-01"
   end_time: "2024-02-29"
-  output_dir: ${ASIA_AQ_ANALYSIS}/output
-  log_dir: ${ASIA_AQ_ANALYSIS}/logs
+  output_dir: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/asia-aq/output
+  log_dir: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/asia-aq/logs
   debug: true
+  style:
+    theme: ncar
+    context: default
 
   # City labels for spatial plots: {name: [lat, lon]}
   city_labels:
@@ -31,7 +34,7 @@ analysis:
 model:
   cesm_asiaq:
     mod_type: generic  # 2D regridded data (mixed 2D/3D variables)
-    files: ${ASIA_AQ_DATA}/CAM/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc
+    files: /Users/fillmore/Data/ASIA-AQ/CAM/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc
     radius_of_influence: 15000  # 15 km for 0.1 deg grid
 
     # Variable mapping: obs_label -> {obs_var: model_var}
@@ -89,7 +92,7 @@ model:
   # Precomputed NO2 column (from run_evaluation.py preprocessing)
   cesm_no2_column:
     mod_type: generic
-    files: ${ASIA_AQ_ANALYSIS}/data/cesm_no2_column_20240201_20240229.nc
+    files: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/asia-aq/data/cesm_no2_column_20240201_20240229.nc
     radius_of_influence: 15000
     mapping:
       pandora:
@@ -107,7 +110,7 @@ model:
 obs:
   airnow:
     obs_type: pt_sfc
-    filename: ${ASIA_AQ_ANALYSIS}/data/airnow_asiaq_2024-02-01_2024-02-29.nc
+    filename: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/asia-aq/data/airnow_asiaq_2024-02-01_2024-02-29.nc
     variables:
       pm25:
         obs_min: 0
@@ -134,7 +137,7 @@ obs:
   aeronet:
     obs_type: pt_sfc
     # New AERONET NetCDF file (5 months, time-filtered at load)
-    filename: ${ASIA_AQ_DATA}/AERONET/AERONET_L15_20240101_20240501.nc
+    filename: /Users/fillmore/Data/ASIA-AQ/AERONET/AERONET_L15_20240101_20240501.nc
     variables:
       aod_500nm:
         obs_min: 0
@@ -144,7 +147,7 @@ obs:
 
   pandora:
     obs_type: pt_sfc
-    filename: ${ASIA_AQ_ANALYSIS}/data/pandora_no2_column_20240201_20240229.nc
+    filename: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/asia-aq/data/pandora_no2_column_20240201_20240229.nc
     variables:
       no2_trop_column:
         obs_min: 0
@@ -155,7 +158,7 @@ obs:
   # DC-8 aircraft observations (ASIA-AQ campaign)
   dc8:
     obs_type: aircraft
-    filename: ${ASIA_AQ_DATA}/DC8/asiaaq-mrg60_dc8_202402*_RA_*.ict
+    filename: /Users/fillmore/Data/ASIA-AQ/DC8/asiaaq-mrg60_dc8_202402*_RA_*.ict
     variables:
       O3_ROZE_STCLAIR:
         obs_min: 0
