@@ -68,9 +68,9 @@ class TextConfig:
         Font weight ('normal', 'bold').
     """
 
-    fontsize: float = 12.0
-    title_fontsize: float = 14.0
-    tick_fontsize: float = 10.0
+    fontsize: float = 14.0
+    title_fontsize: float = 16.0
+    tick_fontsize: float = 12.0
     fontweight: str = "normal"
 
 
@@ -235,13 +235,21 @@ class BasePlotter(ABC):
     ----------
     config : PlotConfig
         The plot configuration.
+    default_figsize : tuple[float, float]
+        Default figure size for this plotter type. Subclasses can override.
     """
 
     # Class-level registry name (override in subclasses)
     name: str = "base"
 
+    # Default figure size - subclasses can override for optimal sizing
+    default_figsize: tuple[float, float] = (12, 8)
+
     def __init__(self, config: PlotConfig | None = None) -> None:
         self.config = config or PlotConfig()
+        # Apply plotter-specific default figsize if not explicitly set
+        if self.config.figure.figsize == (8, 5):  # Original default
+            self.config.figure.figsize = self.default_figsize
 
     @abstractmethod
     def plot(

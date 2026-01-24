@@ -57,6 +57,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
     """
 
     name: str = "spatial_distribution"
+    default_figsize: tuple[float, float] = (14, 8)  # Wide for geographic extent
 
     def plot(
         self,

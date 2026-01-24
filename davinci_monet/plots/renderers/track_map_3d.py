@@ -333,6 +333,7 @@ class TrackMap3DPlotter(BasePlotter):
     """
 
     name: str = "track_map_3d"
+    default_figsize: tuple[float, float] = (12, 10)  # Near-square for 3D viewing
 
     def plot(
         self,
@@ -642,21 +643,31 @@ class TrackMap3DPlotter(BasePlotter):
         # Set view angle
         ax3d.view_init(elev=elev, azim=azim)
 
+        # Format lat/lon tick labels with 1 decimal place
+        ax3d.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.1f}"))
+        ax3d.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.1f}"))
+
+        # Use config text settings for consistent styling
+        text_cfg = self.config.text
+
         # Labels
-        ax3d.set_xlabel("Longitude (°E)", fontsize=10)
-        ax3d.set_ylabel("Latitude (°N)", fontsize=10)
-        ax3d.set_zlabel("Altitude (km)", fontsize=10)
+        ax3d.set_xlabel("Longitude (°E)", fontsize=text_cfg.fontsize)
+        ax3d.set_ylabel("Latitude (°N)", fontsize=text_cfg.fontsize)
+        ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize)
+
+        # Tick label size
+        ax3d.tick_params(axis='both', labelsize=text_cfg.tick_fontsize)
 
         # Colorbar
         units = get_variable_units(paired_data, obs_var)
         cbar_label = format_label_with_units(label, units)
         cbar_label = format_plot_title(cbar_label)  # Apply subscript formatting
         cbar = fig.colorbar(scatter, ax=ax3d, shrink=0.6, pad=0.1)
-        cbar.set_label(cbar_label, fontsize=10)
+        cbar.set_label(cbar_label, fontsize=text_cfg.fontsize)
 
         # Title
         if self.config.title:
-            ax3d.set_title(format_plot_title(self.config.title), fontsize=12)
+            ax3d.set_title(format_plot_title(self.config.title), fontsize=text_cfg.title_fontsize)
 
         plt.tight_layout()
         return fig

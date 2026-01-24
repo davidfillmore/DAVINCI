@@ -54,6 +54,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
     """
 
     name: str = "site_timeseries"
+    default_figsize: tuple[float, float] = (14, 6)  # Wide for temporal data
 
     def plot(
         self,

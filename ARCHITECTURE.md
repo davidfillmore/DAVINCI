@@ -608,6 +608,34 @@ The `LoadObservationsStage` detects AERONET files by label or filename pattern a
 2. Register with `@plot_registry.register("type_name")`
 3. Use in YAML config with `type: type_name`
 
+### Plot Figure Sizes
+
+Each plotter has an optimized default figure size based on its content type. These can be overridden via YAML config.
+
+| Plot Type | Default Size | Ratio | Notes |
+|-----------|-------------|-------|-------|
+| `timeseries` | (14, 6) | 2.3:1 | Wide for temporal data |
+| `flight_timeseries` | (14, 6) | 2.3:1 | Wide for temporal data |
+| `site_timeseries` | (14, 6) | 2.3:1 | Wide for temporal data |
+| `diurnal` | (14, 6) | 2.3:1 | Wide for temporal data |
+| `track_map_3d` | (12, 10) | 1.2:1 | Near-square for 3D viewing |
+| `scatter` | (10, 10) | 1:1 | Square for x vs y |
+| `taylor` | (10, 10) | 1:1 | Square for polar diagram |
+| `curtain` | (14, 8) | 1.75:1 | Wide for geographic extent |
+| `spatial_bias` | (14, 8) | 1.75:1 | Wide for geographic extent |
+| `spatial_distribution` | (14, 8) | 1.75:1 | Wide for geographic extent |
+| `spatial_overlay` | (14, 8) | 1.75:1 | Wide for geographic extent |
+| `boxplot` | (12, 8) | 1.5:1 | Balanced |
+| `scorecard` | (12, 8) | 1.5:1 | Balanced |
+
+Override in YAML:
+```yaml
+plots:
+  my_plot:
+    type: scatter
+    figsize: [12, 12]  # Custom size
+```
+
 ### Adding a New Pairing Strategy
 
 1. Create strategy in `pairing/strategies/` inheriting from `BasePairingStrategy`

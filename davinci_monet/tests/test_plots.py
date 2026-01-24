@@ -167,8 +167,8 @@ class TestPlotConfig:
         from davinci_monet.plots.style import OBS_COLOR, MODEL_COLOR
 
         config = PlotConfig()
-        assert config.figure.figsize == (10, 6)
-        assert config.text.fontsize == 12.0
+        assert config.figure.figsize == (8, 5)  # FigureConfig default
+        assert config.text.fontsize == 14.0  # Increased for larger default figures
         assert config.style.obs_color == OBS_COLOR  # NCAR gray
         assert config.style.model_color == MODEL_COLOR  # NCAR blue
         assert config.debug is False

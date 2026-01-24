@@ -50,6 +50,7 @@ class BoxPlotter(BasePlotter):
     """
 
     name: str = "boxplot"
+    default_figsize: tuple[float, float] = (12, 8)  # Balanced
 
     def plot(
         self,
