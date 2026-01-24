@@ -29,27 +29,52 @@ def get_colored_logo() -> Text:
     def dim(s: str) -> None:
         text.append(s, style="dim")
 
-    # Wave pattern using parentheses
-    wave1 = "  ))) )"
-    wave2 = " )))  )"
-    wave3 = "  ))) )"
+    # Wave pattern using parentheses (left side)
+    wave1_l = "  ))) )"
+    wave2_l = " )))  )"
+    wave3_l = "  ))) )"
 
-    # Line 1
-    orange(wave1)
+    # Mirrored wave pattern (right side)
+    wave1_r = "( (((  "
+    wave2_r = "(  ((( "
+    wave3_r = "( (((  "
+
+    # Acronym expansions (DAVINCI split across two lines)
+    davinci_1 = "Data Analysis and Validation Infrastructure"
+    davinci_2 = "for Numerical Chemistry Intercomparison"
+    monet = "Model and ObservatioN Evaluation Toolkit"
+
+    # Line 1 - NSF NCAR + DAVINCI (part 1)
+    orange(wave1_l)
     text.append("    ")
     blue("N S F")
     text.append("  ")
-    blue("N C A R\n")
-
-    # Line 2
-    orange(wave2)
+    blue("N C A R")
+    text.append("    ")
+    orange(wave1_r)
     text.append("  ")
-    dim("------------------\n")
+    blue(davinci_1)
+    text.append("\n")
 
-    # Line 3 - center UCAR under NSF NCAR (offset by 3.5 chars)
-    orange(wave3)
+    # Line 2 - divider + DAVINCI (part 2, "for" aligned under "Analysis")
+    orange(wave2_l)
+    text.append("  ")
+    dim("------------------")
+    text.append("  ")
+    orange(wave2_r)
+    text.append("       ")
+    blue(davinci_2)
+    text.append("\n")
+
+    # Line 3 - UCAR + MONET
+    orange(wave3_l)
+    text.append("       ")
+    aqua("U C A R")
     text.append("        ")
-    aqua("U C A R\n")
+    orange(wave3_r)
+    text.append("  ")
+    aqua(monet)
+    text.append("\n")
 
     return text
 
