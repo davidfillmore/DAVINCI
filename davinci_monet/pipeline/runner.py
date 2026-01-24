@@ -1646,12 +1646,29 @@ class PipelineRunner:
         -------
         PipelineResult
             Result of pipeline execution.
+
+        Raises
+        ------
+        ConfigurationError
+            If configuration is empty or missing required sections.
         """
+        from davinci_monet.core.exceptions import ConfigurationError
+
         config_path: str | None = None
         if isinstance(config, str):
             config_path = config
             from davinci_monet.config import load_config
             config = load_config(config).model_dump()
+
+        # Validate that config has something to process
+        model_config = config.get("model") or {}
+        obs_config = config.get("obs") or {}
+
+        if not model_config and not obs_config:
+            raise ConfigurationError(
+                "Configuration is empty or incomplete. "
+                "At least one model or observation must be defined."
+            )
 
         context = PipelineContext(config=config)
         if config_path:
