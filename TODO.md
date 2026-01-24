@@ -447,3 +447,51 @@ Taking a wait-and-see approach. If transient crashes still occur, potential next
 - Add a brief `time.sleep(0.1)` before preview to let file handles fully release
 - Check if paired datasets in `context.pairs` also need explicit cleanup
 - Profile to identify specific failure points
+
+---
+
+## Session Summary (2026-01-24) - File I/O Error Handling
+
+### Issue
+Rare Python tracebacks on file I/O errors could crash the pipeline. Needed comprehensive
+try/except/raise blocks around file operations.
+
+### Analysis
+Scanned codebase for unprotected file I/O operations. Found 17 unprotected locations,
+15 high-risk (user-facing or fallback paths).
+
+### Fixes Applied
+
+**CLI Commands** (`cli/commands/get_data.py`):
+- Added `_write_dataset_safe()` helper with PermissionError/OSError handling
+- Updated all 4 download commands (aeronet, airnow, aqs, openaq) to use safe writer
+- User-friendly error messages on write failures
+
+**Pipeline Stages** (`pipeline/stages.py`):
+- Wrapped `xr.open_mfdataset()` and `xr.open_dataset()` in observation loading
+- Raises `DataFormatError` with descriptive message on failure
+
+**Model Readers** (`models/*.py`):
+- cesm.py: Wrapped FV and SE `_open_with_xarray()` methods, plus SCRIP file loading
+- cmaq.py: Wrapped `_open_with_xarray()` method
+- wrfchem.py: Wrapped `_open_with_xarray()` method
+- ufs.py: Wrapped `_open_with_xarray()` method
+
+**Base Classes** (`models/base.py`):
+- Wrapped file list reading in `resolve_files()` for .txt pattern files
+
+**I/O Module** (`io/readers.py`):
+- Wrapped file open in `_parse_icartt_basic()` ICARTT fallback parser
+
+### Files Modified
+- `davinci_monet/cli/commands/get_data.py` - Safe write helper, updated 4 commands
+- `davinci_monet/pipeline/stages.py` - Wrapped observation loading
+- `davinci_monet/models/base.py` - Wrapped file list reading
+- `davinci_monet/models/cesm.py` - Wrapped xarray calls (FV, SE, SCRIP)
+- `davinci_monet/models/cmaq.py` - Wrapped xarray calls
+- `davinci_monet/models/wrfchem.py` - Wrapped xarray calls
+- `davinci_monet/models/ufs.py` - Wrapped xarray calls
+- `davinci_monet/io/readers.py` - Wrapped ICARTT parser file open
+
+### Test Results
+All 846 tests pass.

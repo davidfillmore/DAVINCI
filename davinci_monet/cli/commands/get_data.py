@@ -82,6 +82,42 @@ def _parse_output_path(
     return p.parent, p.name
 
 
+def _write_dataset_safe(ds, output_path: Path, compress: bool = False) -> bool:
+    """Write dataset to NetCDF with error handling.
+
+    Parameters
+    ----------
+    ds
+        xarray Dataset to write.
+    output_path
+        Output file path.
+    compress
+        Whether to use compression.
+
+    Returns
+    -------
+    bool
+        True if write succeeded, False otherwise.
+    """
+    try:
+        if compress:
+            from davinci_monet.io.writers import write_dataset
+
+            write_dataset(ds, output_path, compress=True)
+        else:
+            ds.to_netcdf(output_path)
+        return True
+    except PermissionError:
+        typer.secho(f"Error: No write permission for {output_path}", fg=ERROR_COLOR)
+        return False
+    except OSError as e:
+        typer.secho(f"Error writing file {output_path}: {e}", fg=ERROR_COLOR)
+        return False
+    except Exception as e:
+        typer.secho(f"Unexpected error writing {output_path}: {e}", fg=ERROR_COLOR)
+        return False
+
+
 @app.command("aeronet")
 def get_aeronet(
     start_date: str = typer.Option(
@@ -158,14 +194,10 @@ def get_aeronet(
         output_path = dst / out_name
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        if compress:
-            from davinci_monet.io.writers import write_dataset
-
-            write_dataset(ds, output_path, compress=True)
+        if _write_dataset_safe(ds, output_path, compress=compress):
+            typer.secho(f"\nOutput written to: {output_path}", fg=SUCCESS_COLOR)
         else:
-            ds.to_netcdf(output_path)
-
-    typer.secho(f"\nOutput written to: {output_path}", fg=SUCCESS_COLOR)
+            raise typer.Exit(1)
 
 
 @app.command("airnow")
@@ -244,14 +276,10 @@ def get_airnow(
         output_path = dst / out_name
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        if compress:
-            from davinci_monet.io.writers import write_dataset
-
-            write_dataset(ds, output_path, compress=True)
+        if _write_dataset_safe(ds, output_path, compress=compress):
+            typer.secho(f"\nOutput written to: {output_path}", fg=SUCCESS_COLOR)
         else:
-            ds.to_netcdf(output_path)
-
-    typer.secho(f"\nOutput written to: {output_path}", fg=SUCCESS_COLOR)
+            raise typer.Exit(1)
 
 
 @app.command("aqs")
@@ -347,14 +375,10 @@ def get_aqs(
         output_path = dst / out_name
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        if compress:
-            from davinci_monet.io.writers import write_dataset
-
-            write_dataset(ds, output_path, compress=True)
+        if _write_dataset_safe(ds, output_path, compress=compress):
+            typer.secho(f"\nOutput written to: {output_path}", fg=SUCCESS_COLOR)
         else:
-            ds.to_netcdf(output_path)
-
-    typer.secho(f"\nOutput written to: {output_path}", fg=SUCCESS_COLOR)
+            raise typer.Exit(1)
 
 
 @app.command("openaq")
@@ -473,11 +497,7 @@ def get_openaq(
         output_path = dst / out_name
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        if compress:
-            from davinci_monet.io.writers import write_dataset
-
-            write_dataset(ds, output_path, compress=True)
+        if _write_dataset_safe(ds, output_path, compress=compress):
+            typer.secho(f"\nOutput written to: {output_path}", fg=SUCCESS_COLOR)
         else:
-            ds.to_netcdf(output_path)
-
-    typer.secho(f"\nOutput written to: {output_path}", fg=SUCCESS_COLOR)
+            raise typer.Exit(1)

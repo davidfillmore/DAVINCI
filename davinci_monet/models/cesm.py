@@ -245,15 +245,18 @@ class CESMFVReader:
         **kwargs: Any,
     ) -> xr.Dataset:
         """Open CESM-FV files using xarray."""
-        if len(file_paths) > 1:
-            ds = xr.open_mfdataset(
-                [str(f) for f in file_paths],
-                combine="by_coords",
-                parallel=True,
-                **kwargs,
-            )
-        else:
-            ds = xr.open_dataset(str(file_paths[0]), **kwargs)
+        try:
+            if len(file_paths) > 1:
+                ds = xr.open_mfdataset(
+                    [str(f) for f in file_paths],
+                    combine="by_coords",
+                    parallel=True,
+                    **kwargs,
+                )
+            else:
+                ds = xr.open_dataset(str(file_paths[0]), **kwargs)
+        except Exception as e:
+            raise DataFormatError(f"Failed to open CESM-FV files: {e}") from e
 
         if variables is not None:
             available = [v for v in variables if v in ds.data_vars]
@@ -386,21 +389,27 @@ class CESMSEReader:
         # Remove our custom kwargs
         xr_kwargs = {k: v for k, v in kwargs.items() if k != "scrip_file"}
 
-        if len(file_paths) > 1:
-            ds = xr.open_mfdataset(
-                [str(f) for f in file_paths],
-                combine="by_coords",
-                parallel=True,
-                **xr_kwargs,
-            )
-        else:
-            ds = xr.open_dataset(str(file_paths[0]), **xr_kwargs)
+        try:
+            if len(file_paths) > 1:
+                ds = xr.open_mfdataset(
+                    [str(f) for f in file_paths],
+                    combine="by_coords",
+                    parallel=True,
+                    **xr_kwargs,
+                )
+            else:
+                ds = xr.open_dataset(str(file_paths[0]), **xr_kwargs)
+        except Exception as e:
+            raise DataFormatError(f"Failed to open CESM-SE files: {e}") from e
 
         # If SCRIP file provided, add coordinates
         if "scrip_file" in kwargs:
             scrip_path = kwargs["scrip_file"]
             if Path(scrip_path).exists():
-                scrip = xr.open_dataset(scrip_path)
+                try:
+                    scrip = xr.open_dataset(scrip_path)
+                except Exception as e:
+                    raise DataFormatError(f"Failed to open SCRIP file '{scrip_path}': {e}") from e
                 if "grid_center_lat" in scrip:
                     ds = ds.assign_coords(lat=("ncol", scrip["grid_center_lat"].values))
                 if "grid_center_lon" in scrip:

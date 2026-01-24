@@ -176,15 +176,18 @@ class WRFChemReader:
         xr.Dataset
             Raw WRF-Chem dataset.
         """
-        if len(file_paths) > 1:
-            ds = xr.open_mfdataset(
-                [str(f) for f in file_paths],
-                combine="by_coords",
-                parallel=True,
-                **kwargs,
-            )
-        else:
-            ds = xr.open_dataset(str(file_paths[0]), **kwargs)
+        try:
+            if len(file_paths) > 1:
+                ds = xr.open_mfdataset(
+                    [str(f) for f in file_paths],
+                    combine="by_coords",
+                    parallel=True,
+                    **kwargs,
+                )
+            else:
+                ds = xr.open_dataset(str(file_paths[0]), **kwargs)
+        except Exception as e:
+            raise DataFormatError(f"Failed to open WRF-Chem files: {e}") from e
 
         if variables is not None:
             available = [v for v in variables if v in ds.data_vars]

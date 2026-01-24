@@ -110,8 +110,11 @@ class ModelData(DataContainer):
 
         # Check if pattern is a text file containing file list
         if pattern.endswith(".txt") and Path(pattern).exists():
-            with open(pattern) as f:
-                file_list = [Path(line.strip()) for line in f if line.strip()]
+            try:
+                with open(pattern) as f:
+                    file_list = [Path(line.strip()) for line in f if line.strip()]
+            except OSError as e:
+                raise DataFormatError(f"Failed to read file list from '{pattern}': {e}") from e
             self.files = file_list
             return file_list
 

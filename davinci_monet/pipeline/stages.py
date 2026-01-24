@@ -14,7 +14,7 @@ from typing import Any, Callable, Protocol, Sequence, runtime_checkable
 
 import xarray as xr
 
-from davinci_monet.core.exceptions import PipelineError
+from davinci_monet.core.exceptions import DataFormatError, PipelineError
 from davinci_monet.core.protocols import DataGeometry
 
 
@@ -435,7 +435,12 @@ class LoadObservationsStage(BaseStage):
                             else:
                                 context.log_progress(f"step: Opening {n_files} files...")
                                 t0 = time.time()
-                                data = xr.open_mfdataset(files, combine="by_coords", parallel=True)
+                                try:
+                                    data = xr.open_mfdataset(files, combine="by_coords", parallel=True)
+                                except Exception as e:
+                                    raise DataFormatError(
+                                        f"Failed to open observation files for '{label}': {e}"
+                                    ) from e
                                 if debug:
                                     context.log_progress(f"      [TIMING] open_mfdataset: {_format_duration(time.time() - t0)}")
                     elif file_path.exists():
@@ -449,7 +454,12 @@ class LoadObservationsStage(BaseStage):
                             reader = AERONETReader()
                             data = reader.open([str(file_path)])
                         else:
-                            data = xr.open_dataset(str(file_path))
+                            try:
+                                data = xr.open_dataset(str(file_path))
+                            except Exception as e:
+                                raise DataFormatError(
+                                    f"Failed to open observation file '{file_path}': {e}"
+                                ) from e
                         if debug:
                             context.log_progress(f"      [TIMING] open_dataset: {_format_duration(time.time() - t0)}")
 

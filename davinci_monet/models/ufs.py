@@ -199,15 +199,18 @@ class UFSReader:
         if is_grib:
             xr_kwargs.setdefault("engine", "cfgrib")
 
-        if len(file_paths) > 1:
-            ds = xr.open_mfdataset(
-                [str(f) for f in file_paths],
-                combine="by_coords",
-                parallel=True,
-                **xr_kwargs,
-            )
-        else:
-            ds = xr.open_dataset(str(file_paths[0]), **xr_kwargs)
+        try:
+            if len(file_paths) > 1:
+                ds = xr.open_mfdataset(
+                    [str(f) for f in file_paths],
+                    combine="by_coords",
+                    parallel=True,
+                    **xr_kwargs,
+                )
+            else:
+                ds = xr.open_dataset(str(file_paths[0]), **xr_kwargs)
+        except Exception as e:
+            raise DataFormatError(f"Failed to open UFS files: {e}") from e
 
         if variables is not None:
             available = [v for v in variables if v in ds.data_vars]

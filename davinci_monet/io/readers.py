@@ -276,8 +276,11 @@ def _parse_icartt_basic(path: Path) -> pd.DataFrame:
     pd.DataFrame
         Parsed data.
     """
-    with open(path, "r") as f:
-        lines = f.readlines()
+    try:
+        with open(path, "r") as f:
+            lines = f.readlines()
+    except OSError as e:
+        raise DataFormatError(f"Failed to read ICARTT file '{path}': {e}") from e
 
     # Parse header
     first_line = lines[0].strip().split(",")
