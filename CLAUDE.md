@@ -13,6 +13,14 @@ A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air 
 
 ---
 
+## Git Workflow
+
+- **Auto commit and push on develop**: When working on the `develop` branch, automatically commit and push changes after completing tasks
+- **Hold off on merge to main**: Do NOT merge to `main` until the user has verified the runs and explicitly asks for a merge
+- **After merge, return to develop**: Always switch back to `develop` branch after merging to `main`
+
+---
+
 ## ⚠️ CRITICAL: CESM Vertical Coordinate Convention
 
 **This issue has been rediscovered 4+ times. READ THIS FIRST when working with CESM/CAM-chem data.**
