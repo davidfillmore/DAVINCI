@@ -440,3 +440,10 @@ This complements the existing `_cleanup_hdf5_state()` which runs at pipeline **s
 ### Files Modified
 - `davinci_monet/pipeline/runner.py` - Added `_cleanup_context_datasets()` method and call in finally block
 - `PERFORMANCE.md` - Updated "NetCDF File Handle Cleanup Errors" section with mitigation details
+
+### If Errors Recur
+Taking a wait-and-see approach. If transient crashes still occur, potential next steps:
+- Add multiple `gc.collect()` passes (sometimes needed for cyclic references)
+- Add a brief `time.sleep(0.1)` before preview to let file handles fully release
+- Check if paired datasets in `context.pairs` also need explicit cleanup
+- Profile to identify specific failure points
