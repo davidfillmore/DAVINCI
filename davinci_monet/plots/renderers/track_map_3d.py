@@ -509,7 +509,7 @@ class TrackMap3DPlotter(BasePlotter):
 
         # Text settings - 3D plots render fonts smaller due to perspective, scale up by 1.5x
         text_cfg = self.config.text
-        font_scale = 1.5  # 3D plots need larger fonts to appear same size as 2D plots
+        font_scale = 1.0  # No scaling needed at smaller figure size
 
         # Set color limits
         if show_var == "bias":
