@@ -543,3 +543,51 @@ The "thread 1/thread 2" messages indicate concurrent access problems.
 - [ ] Consider setting `h5py.File` with `locking=False` at module import
 - [ ] Investigate Dask scheduler settings for single-threaded file I/O
 - [ ] Document in DERECHO.md if specific to HPC environment
+
+---
+
+## Session Summary (2026-01-27) - Per-Site Timeseries Plots
+
+### Key Accomplishments
+1. **Added `per_site_timeseries` plot type**:
+   - New `PerSiteTimeSeriesPlotter` generates one detailed figure per monitoring site
+   - `plot_per_site()` generator yields `(site_id, figure)` tuples (same pattern as `plot_per_flight()`)
+   - Each figure: obs scatter (black) + model line (NCAR blue), stats box (N, MB, RMSE, NMB, R)
+   - Title with site name and coordinates, smart date formatting, y=0 baseline
+   - Scale factor support for column data (e.g., Pandora NO2)
+   - `sanitize_site_id()` utility for filename-safe site names
+
+2. **Generalized pipeline per-entity splitting**:
+   - Added `split_by_site` support in `PlottingStage` alongside existing `split_by_flight`
+   - Output files: `site_{SiteName}_{index}_{plotname}.png`
+
+3. **Registered in plotting system**:
+   - Added to `TEMPORAL_PLOTS` frozenset in registry
+   - Exported from `renderers/__init__.py` and `plots/__init__.py`
+
+### YAML Configuration
+```yaml
+plots:
+  o3_per_site:
+    type: per_site_timeseries
+    pairs: [cesm_airnow_o3]
+    title: "O3: Model vs AirNow"
+    split_by_site: true
+    min_points: 50
+    show_stats: true
+```
+
+### Test Results
+- 21 new tests in `test_per_site_timeseries.py`
+- 867 total tests passing (21 new + 846 existing)
+- mypy: no new errors (only pre-existing matplotlib stub warnings)
+
+### Files Created
+- `davinci_monet/plots/renderers/per_site_timeseries.py` - New plotter
+- `davinci_monet/tests/test_per_site_timeseries.py` - Tests
+
+### Files Modified
+- `davinci_monet/pipeline/stages.py` - `split_by_site` support
+- `davinci_monet/plots/__init__.py` - Export new plotter
+- `davinci_monet/plots/registry.py` - Add to `TEMPORAL_PLOTS`
+- `davinci_monet/plots/renderers/__init__.py` - Export new plotter
