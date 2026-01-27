@@ -572,22 +572,23 @@ VARIABLE_DISPLAY_NAMES: dict[str, str] = {
 
 # Patterns for title formatting (case-insensitive replacements)
 # Order matters - longer patterns first to avoid partial matches
+# Uses LaTeX math mode subscripts for matplotlib rendering
 TITLE_FORMULA_REPLACEMENTS: list[tuple[str, str]] = [
     # Longer patterns first
-    ("PM2.5", "PM₂.₅"),
-    ("PM25", "PM₂.₅"),
-    ("PM10", "PM₁₀"),
-    ("N2O5", "N₂O₅"),
-    ("HNO3", "HNO₃"),
-    ("N2O", "N₂O"),
-    ("NO2", "NO₂"),
-    ("SO2", "SO₂"),
-    ("CO2", "CO₂"),
-    ("NH3", "NH₃"),
-    ("CH4", "CH₄"),
-    ("NOx", "NOₓ"),
-    ("NOX", "NOₓ"),
-    ("O3", "O₃"),
+    ("PM2.5", r"PM$_{2.5}$"),
+    ("PM25", r"PM$_{2.5}$"),
+    ("PM10", r"PM$_{10}$"),
+    ("N2O5", r"N$_2$O$_5$"),
+    ("HNO3", r"HNO$_3$"),
+    ("N2O", r"N$_2$O"),
+    ("NO2", r"NO$_2$"),
+    ("SO2", r"SO$_2$"),
+    ("CO2", r"CO$_2$"),
+    ("NH3", r"NH$_3$"),
+    ("CH4", r"CH$_4$"),
+    ("NOx", r"NO$_x$"),
+    ("NOX", r"NO$_x$"),
+    ("O3", r"O$_3$"),
 ]
 
 
@@ -595,7 +596,7 @@ def format_plot_title(title: str) -> str:
     """Format a plot title with proper chemical formula subscripts.
 
     Replaces common chemical formulas (NO2, O3, PM2.5, etc.) with
-    Unicode subscript versions for better display.
+    LaTeX subscript versions for matplotlib rendering.
 
     Parameters
     ----------
@@ -605,19 +606,20 @@ def format_plot_title(title: str) -> str:
     Returns
     -------
     str
-        Title with chemical formulas properly formatted.
+        Title with chemical formulas properly formatted with LaTeX.
 
     Examples
     --------
     >>> format_plot_title("PM2.5 Model vs Observations")
-    'PM₂.₅ Model vs Observations'
+    'PM$_{2.5}$ Model vs Observations'
     >>> format_plot_title("NO2 Time Series")
-    'NO₂ Time Series'
+    'NO$_2$ Time Series'
     """
+    import re
+
     result = title
     for pattern, replacement in TITLE_FORMULA_REPLACEMENTS:
         # Case-insensitive replacement while preserving surrounding text
-        import re
         result = re.sub(re.escape(pattern), replacement, result, flags=re.IGNORECASE)
     return result
 

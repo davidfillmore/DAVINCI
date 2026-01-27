@@ -47,31 +47,31 @@ class TestFormatPlotTitle:
     """Tests for format_plot_title function."""
 
     def test_pm25_formatting(self):
-        """PM2.5 should be formatted with subscripts."""
-        assert format_plot_title("PM2.5 Model vs Observations") == "PM₂.₅ Model vs Observations"
-        assert format_plot_title("PM25 Time Series") == "PM₂.₅ Time Series"
+        """PM2.5 should be formatted with LaTeX subscripts."""
+        assert format_plot_title("PM2.5 Model vs Observations") == r"PM$_{2.5}$ Model vs Observations"
+        assert format_plot_title("PM25 Time Series") == r"PM$_{2.5}$ Time Series"
 
     def test_no2_formatting(self):
-        """NO2 should be formatted with subscript."""
-        assert format_plot_title("NO2 Model vs Observations") == "NO₂ Model vs Observations"
-        assert format_plot_title("NO2 Spatial Bias") == "NO₂ Spatial Bias"
+        """NO2 should be formatted with LaTeX subscript."""
+        assert format_plot_title("NO2 Model vs Observations") == r"NO$_2$ Model vs Observations"
+        assert format_plot_title("NO2 Spatial Bias") == r"NO$_2$ Spatial Bias"
 
     def test_o3_formatting(self):
-        """O3 should be formatted with subscript."""
-        assert format_plot_title("O3 Time Series") == "O₃ Time Series"
+        """O3 should be formatted with LaTeX subscript."""
+        assert format_plot_title("O3 Time Series") == r"O$_3$ Time Series"
 
     def test_so2_formatting(self):
-        """SO2 should be formatted with subscript."""
-        assert format_plot_title("SO2 Emissions") == "SO₂ Emissions"
+        """SO2 should be formatted with LaTeX subscript."""
+        assert format_plot_title("SO2 Emissions") == r"SO$_2$ Emissions"
 
     def test_case_insensitive(self):
         """Replacements should be case-insensitive."""
-        assert format_plot_title("no2 analysis") == "NO₂ analysis"
-        assert format_plot_title("o3 profile") == "O₃ profile"
+        assert format_plot_title("no2 analysis") == r"NO$_2$ analysis"
+        assert format_plot_title("o3 profile") == r"O$_3$ profile"
 
     def test_multiple_formulas(self):
         """Multiple formulas in one title should all be formatted."""
-        assert format_plot_title("NO2 and O3 Comparison") == "NO₂ and O₃ Comparison"
+        assert format_plot_title("NO2 and O3 Comparison") == r"NO$_2$ and O$_3$ Comparison"
 
     def test_no_changes_needed(self):
         """Titles without chemical formulas should be unchanged."""
@@ -81,7 +81,7 @@ class TestFormatPlotTitle:
     def test_preserves_other_text(self):
         """Other text in title should be preserved."""
         title = "PM2.5 Time Series - ASIA-AQ (Mean ± Std)"
-        expected = "PM₂.₅ Time Series - ASIA-AQ (Mean ± Std)"
+        expected = r"PM$_{2.5}$ Time Series - ASIA-AQ (Mean ± Std)"
         assert format_plot_title(title) == expected
 
 
