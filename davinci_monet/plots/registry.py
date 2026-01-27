@@ -146,7 +146,7 @@ def has_plotter(name: str) -> bool:
 # =============================================================================
 
 # These are the standard plot type categories for reference
-TEMPORAL_PLOTS = frozenset({"timeseries", "diurnal"})
+TEMPORAL_PLOTS = frozenset({"timeseries", "diurnal", "per_site_timeseries"})
 STATISTICAL_PLOTS = frozenset({"taylor", "boxplot", "scatter"})
 SPATIAL_PLOTS = frozenset({"spatial_bias", "spatial_overlay", "spatial_distribution"})
 SPECIALIZED_PLOTS = frozenset({"curtain", "scorecard"})

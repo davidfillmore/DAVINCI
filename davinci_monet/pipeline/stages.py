@@ -1112,6 +1112,8 @@ class PlottingStage(BaseStage):
 
                     # Check for per-flight splitting
                     split_by_flight = plot_spec.get("split_by_flight", False)
+                    # Check for per-site splitting
+                    split_by_site = plot_spec.get("split_by_site", False)
 
                     if split_by_flight and hasattr(plotter, "plot_per_flight"):
                         # Generate separate plot for each flight
@@ -1139,6 +1141,32 @@ class PlottingStage(BaseStage):
                             file_index += 1
 
                         context.log_progress(f"done: saved {flight_count} flights to {obs_label}/")
+
+                    elif split_by_site and hasattr(plotter, "plot_per_site"):
+                        # Generate separate plot for each site
+                        site_dim = plot_spec.get("site_dim", "site")
+                        min_points = plot_spec.get("min_points", 20)
+
+                        site_count = 0
+                        for site_id, fig in plotter.plot_per_site(
+                            paired_data, obs_var_name, model_var_name,
+                            site_dim=site_dim,
+                            min_points=min_points,
+                            **plot_options
+                        ):
+                            output_path = obs_output_dir / f"site_{site_id}_{file_index:02d}_{plot_name}.png"
+                            plotter.save(fig, output_path, dpi=300)
+                            plots_generated.append(str(output_path))
+
+                            pdf_path = obs_output_dir / f"site_{site_id}_{file_index:02d}_{plot_name}.pdf"
+                            plotter.save(fig, pdf_path)
+                            plots_generated.append(str(pdf_path))
+
+                            plt.close(fig)
+                            site_count += 1
+                            file_index += 1
+
+                        context.log_progress(f"done: saved {site_count} sites to {obs_label}/")
                     else:
                         # Generate single plot (original behavior)
                         fig = plotter.plot(paired_data, obs_var_name, model_var_name, **plot_options)
