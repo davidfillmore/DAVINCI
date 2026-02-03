@@ -3,6 +3,9 @@
 This module provides multi-panel time series plots showing model vs observations
 for individual aircraft flights. Designed for track observations where each
 flight (identified by date) is plotted in a separate panel.
+
+Aircraft altitude is displayed on the right y-axis to provide context for
+vertical sampling during each flight.
 """
 
 from __future__ import annotations
@@ -29,6 +32,47 @@ if TYPE_CHECKING:
     import matplotlib.axes
     import matplotlib.figure
     import xarray as xr
+
+# Default altitude variable names to search for
+ALTITUDE_VAR_NAMES = ("altitude", "alt", "z", "GPS_Altitude", "ALTITUDE", "ALT")
+
+# Altitude color - light gray to not distract from main data
+ALTITUDE_COLOR = "#A0A0A0"
+
+
+def _get_altitude_data(
+    dataset: xr.Dataset,
+    altitude_var: str | None = None,
+) -> tuple[np.ndarray[Any, np.dtype[Any]] | None, str]:
+    """Find and return altitude data from dataset.
+
+    Parameters
+    ----------
+    dataset
+        Dataset to search for altitude.
+    altitude_var
+        Specific altitude variable name. If None, searches common names.
+
+    Returns
+    -------
+    tuple[np.ndarray | None, str]
+        Altitude values (or None if not found) and the variable name used.
+    """
+    # Build search order: specified var first, then defaults
+    search_names = [altitude_var] if altitude_var else []
+    search_names.extend(ALTITUDE_VAR_NAMES)
+
+    for name in search_names:
+        if name is None:
+            continue
+        # Check coordinates first
+        if name in dataset.coords:
+            return dataset.coords[name].values, name
+        # Then data variables
+        if name in dataset.data_vars:
+            return dataset[name].values, name
+
+    return None, ""
 
 
 @register_plotter("flight_timeseries")
@@ -71,6 +115,9 @@ class FlightTimeSeriesPlotter(BasePlotter):
         scale_factor: float = 1.0,
         obs_style: str = "scatter",
         model_style: str = "line",
+        show_altitude: bool = True,
+        altitude_var: str | None = None,
+        altitude_units: str = "km",
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Generate flight-by-flight time series panels.
@@ -101,6 +148,12 @@ class FlightTimeSeriesPlotter(BasePlotter):
             Style for observations: 'scatter' or 'line'.
         model_style
             Style for model: 'line' or 'scatter'.
+        show_altitude
+            If True, show aircraft altitude on right y-axis.
+        altitude_var
+            Name of altitude variable. If None, searches common names.
+        altitude_units
+            Units for altitude display ('km' or 'm'). Data assumed in meters.
         **kwargs
             Additional options.
 
@@ -131,6 +184,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
         n_flights = len(valid_flights)
         nrows = (n_flights + ncols - 1) // ncols
+
+        # Get altitude data if available
+        alt_data, alt_var_name = _get_altitude_data(paired_data, altitude_var)
+        has_altitude = show_altitude and alt_data is not None
+        alt_scale = 0.001 if altitude_units == "km" else 1.0  # Convert m to km if needed
 
         # Create figure with standard size
         fig, axes = plt.subplots(
@@ -187,6 +245,29 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     s=12, alpha=0.7, color=style.model_color,
                     label="Model", zorder=2
                 )
+
+            # Plot altitude on right y-axis
+            if has_altitude:
+                alt_vals = alt_data[mask] * alt_scale  # type: ignore[index]
+                alt_vals = alt_vals[sort_idx]
+                valid_alt = ~np.isnan(alt_vals)
+
+                ax2 = ax.twinx()
+                ax2.plot(
+                    times[valid_alt], alt_vals[valid_alt],
+                    color=ALTITUDE_COLOR, linewidth=1.0, alpha=0.6,
+                    label="Altitude", zorder=1
+                )
+                ax2.set_ylim(bottom=0)
+                ax2.tick_params(axis="y", labelcolor=ALTITUDE_COLOR,
+                               labelsize=self.config.text.annotation_small)
+                # Only label right axis on rightmost column
+                if (idx + 1) % ncols == 0 or idx == n_flights - 1:
+                    ax2.set_ylabel(f"Altitude ({altitude_units})",
+                                  fontsize=self.config.text.annotation_small,
+                                  color=ALTITUDE_COLOR)
+                else:
+                    ax2.set_ylabel("")
 
             # Compute and display stats
             if show_stats and valid_both.sum() > 0:
@@ -257,12 +338,15 @@ class FlightTimeSeriesPlotter(BasePlotter):
         scale_factor: float = 1.0,
         obs_style: str = "scatter",
         model_style: str = "line",
+        show_altitude: bool = True,
+        altitude_var: str | None = None,
+        altitude_units: str = "km",
         **kwargs: Any,
     ) -> Iterator[tuple[str, matplotlib.figure.Figure]]:
         """Generate individual time series plots for each flight.
 
         Yields one figure per unique flight in the data, each showing
-        a single-panel time series comparison.
+        a single-panel time series comparison with altitude on right axis.
 
         Parameters
         ----------
@@ -286,6 +370,12 @@ class FlightTimeSeriesPlotter(BasePlotter):
             Style for observations: 'scatter' or 'line'.
         model_style
             Style for model: 'line' or 'scatter'.
+        show_altitude
+            If True, show aircraft altitude on right y-axis.
+        altitude_var
+            Name of altitude variable. If None, searches common names.
+        altitude_units
+            Units for altitude display ('km' or 'm'). Data assumed in meters.
         **kwargs
             Additional options.
 
@@ -302,6 +392,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 f"Flight coordinate '{flight_coord}' not found in paired data. "
                 f"Available coordinates: {list(paired_data.coords)}"
             )
+
+        # Get altitude data if available
+        alt_data, alt_var_name = _get_altitude_data(paired_data, altitude_var)
+        has_altitude = show_altitude and alt_data is not None
+        alt_scale = 0.001 if altitude_units == "km" else 1.0  # Convert m to km if needed
 
         # Get unique flights
         flights = np.unique(paired_data[flight_coord].values)
@@ -362,6 +457,26 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     s=20, alpha=0.7, color=style.model_color,
                     label="Model", zorder=2
                 )
+
+            # Plot altitude on right y-axis
+            ax2 = None
+            if has_altitude:
+                alt_vals = alt_data[mask] * alt_scale  # type: ignore[index]
+                alt_vals = alt_vals[sort_idx]
+                valid_alt = ~np.isnan(alt_vals)
+
+                ax2 = ax.twinx()
+                ax2.plot(
+                    times[valid_alt], alt_vals[valid_alt],
+                    color=ALTITUDE_COLOR, linewidth=1.2, alpha=0.6,
+                    label="Altitude", zorder=1
+                )
+                ax2.set_ylim(bottom=0)
+                ax2.tick_params(axis="y", labelcolor=ALTITUDE_COLOR,
+                               labelsize=text_cfg.tick_fontsize)
+                ax2.set_ylabel(f"Altitude ({altitude_units})",
+                              fontsize=text_cfg.fontsize,
+                              color=ALTITUDE_COLOR)
 
             # Compute and display stats
             if show_stats and valid_both.sum() > 0:
@@ -426,6 +541,9 @@ def plot_flight_timeseries(
     ncols: int = 3,
     min_points: int = 10,
     scale_factor: float = 1.0,
+    show_altitude: bool = True,
+    altitude_var: str | None = None,
+    altitude_units: str = "km",
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
     """Convenience function for flight-by-flight time series plots.
@@ -446,6 +564,12 @@ def plot_flight_timeseries(
         Minimum valid data points required to include a flight.
     scale_factor
         Scale factor for display values.
+    show_altitude
+        If True, show aircraft altitude on right y-axis.
+    altitude_var
+        Name of altitude variable. If None, searches common names.
+    altitude_units
+        Units for altitude display ('km' or 'm'). Data assumed in meters.
     **kwargs
         Additional options passed to plotter.
 
@@ -463,5 +587,8 @@ def plot_flight_timeseries(
         ncols=ncols,
         min_points=min_points,
         scale_factor=scale_factor,
+        show_altitude=show_altitude,
+        altitude_var=altitude_var,
+        altitude_units=altitude_units,
         **kwargs,
     )

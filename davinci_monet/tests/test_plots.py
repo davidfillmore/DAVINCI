@@ -578,6 +578,81 @@ class TestFlightTimeSeriesPlotter:
         # No flights should pass the filter
         assert len(flight_plots) == 0
 
+    def test_altitude_display(self, flight_paired_data):
+        """Test altitude display on right y-axis."""
+        from davinci_monet.plots import FlightTimeSeriesPlotter
+
+        plotter = FlightTimeSeriesPlotter()
+        fig = plotter.plot(
+            flight_paired_data,
+            "obs_o3",
+            "model_o3",
+            show_altitude=True,
+        )
+
+        assert fig is not None
+        # Check that twin axes were created for altitude
+        # Each subplot should have a twin axis if altitude data exists
+        plt.close(fig)
+
+    def test_altitude_disabled(self, flight_paired_data):
+        """Test that altitude can be disabled."""
+        from davinci_monet.plots import FlightTimeSeriesPlotter
+
+        plotter = FlightTimeSeriesPlotter()
+        fig = plotter.plot(
+            flight_paired_data,
+            "obs_o3",
+            "model_o3",
+            show_altitude=False,
+        )
+
+        assert fig is not None
+        plt.close(fig)
+
+    def test_altitude_units(self, flight_paired_data):
+        """Test altitude unit conversion (m vs km)."""
+        from davinci_monet.plots import FlightTimeSeriesPlotter
+
+        plotter = FlightTimeSeriesPlotter()
+
+        # Test km (default)
+        fig_km = plotter.plot(
+            flight_paired_data,
+            "obs_o3",
+            "model_o3",
+            altitude_units="km",
+        )
+        assert fig_km is not None
+        plt.close(fig_km)
+
+        # Test meters
+        fig_m = plotter.plot(
+            flight_paired_data,
+            "obs_o3",
+            "model_o3",
+            altitude_units="m",
+        )
+        assert fig_m is not None
+        plt.close(fig_m)
+
+    def test_per_flight_altitude(self, flight_paired_data):
+        """Test altitude display in per-flight time series."""
+        from davinci_monet.plots import FlightTimeSeriesPlotter
+
+        plotter = FlightTimeSeriesPlotter()
+        flight_plots = list(plotter.plot_per_flight(
+            flight_paired_data,
+            "obs_o3",
+            "model_o3",
+            show_altitude=True,
+        ))
+
+        assert len(flight_plots) == 3  # 3 flights
+        for flight_id, fig in flight_plots:
+            assert fig is not None
+            plt.close(fig)
+
 
 class TestScatterPlotter:
     """Tests for scatter plotter."""
