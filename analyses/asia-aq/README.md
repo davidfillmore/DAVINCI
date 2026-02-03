@@ -144,14 +144,17 @@ davinci-monet run configs/asia-aq.yaml
 
 | Variable | N | Mean Obs | Mean Model | R | NMB |
 |----------|---|----------|------------|-----|------|
-| O3 (ROZE) | 3,248 | 37.7 ppb | 50.9 ppb | 0.28 | +35% |
-| NO2 (CANOE) | 3,255 | 0.98 ppb | 6.15 ppb | 0.43 | +529% |
-| CO (DACOM) | 3,244 | 169 ppb | 187 ppb | 0.32 | +10% |
+| O3 (ROZE) | 3,248 | 37.7 ppb | 54.3 ppb | 0.42 | +44% |
+| NO2 (CANOE) | 3,255 | 0.98 ppb | 1.25 ppb | 0.67 | +28% |
+| CO (DACOM) | 3,244 | 169 ppb | 123 ppb | 0.77 | -27% |
+
+*Note: Statistics computed with 3D vertical interpolation to aircraft altitude.*
 
 ## Output Files
 
 **Statistics:**
 - `output/statistics_summary.csv` - Evaluation metrics (N, MB, RMSE, R, NMB, NME, IOA)
+- `output/statistics_per_flight.csv` - Per-flight metrics for aircraft data (enable via `per_flight: true` in stats config)
 
 **Surface plots:**
 - `*_scatter.png` - Model vs obs scatter plots with regression
@@ -171,10 +174,11 @@ davinci-monet run configs/asia-aq.yaml
 
 ## Key Findings
 
-1. **NO2 biases**: Model overpredicts NO2 at surface (+150%), in column (+86%), and aloft (+529%)
+1. **NO2 biases**: Model overpredicts NO2 at surface (+150%), in column (+86%), and aloft (+28%)
 2. **AOD underprediction**: Model underpredicts aerosol loading by 46%
-3. **O3 mixed**: Surface underpredicted (-45%), free troposphere overpredicted (+35%)
-4. **CO good agreement**: Aircraft CO shows best agreement (+10% bias)
-5. **Pandora correlation**: NO2 column has best correlation (R=0.57) among all species
+3. **O3 high bias**: Surface underpredicted (-45%), free troposphere overpredicted (+44%)
+4. **CO low bias**: Aircraft CO shows -27% bias but best correlation (R=0.77)
+5. **Pandora correlation**: NO2 column has good correlation (R=0.57) among all species
+6. **Per-flight variability**: Statistics vary significantly by flight date (see `statistics_per_flight.csv`)
 
 See the [wiki](https://github.com/NCAR/DAVINCI-MONET/wiki/ASIA-AQ-Analysis) for detailed analysis and interpretation.

@@ -120,10 +120,11 @@ The new NetCDF file (`~/Data/ASIA-AQ/AERONET/AERONET_L15_20240101_20240501.nc`):
 
 - [x] Pandora NO2 column preprocessing and reader (14 sites, 8.8k obs)
 - [x] AirNow data download and integration (36 sites, PM2.5/O3)
-- [ ] **Per-flight statistics**: Compute and save statistics for each flight separately
-  - Output CSV with one row per flight per variable (N, R, MB, RMSE, NMB, NME)
-  - Identify best/worst flights for model agreement
-  - Could add stats to scatter plot annotations or generate summary table
+- [x] **Per-flight statistics**: Compute and save statistics for each flight separately
+  - Output: `statistics_per_flight.csv` with one row per flight per variable
+  - Metrics: N, MO, MP, MB, RMSE, R, NMB_%, NME_%
+  - Enable via `per_flight: true` in stats config section
+  - Warning added when pairing produces no data (transient HDF5/Dask issue)
 - [ ] MOPITT CO profile evaluation
 - [ ] MODIS AOD comparison
 
@@ -639,3 +640,38 @@ plots:
 - `davinci_monet/tests/test_pairing.py` - Vertical interpolation test
 - `davinci_monet/tests/test_plots.py` - Altitude display tests
 - `CLAUDE.md` - Updated Git Workflow to never auto-commit
+
+---
+
+## Session Summary (2026-02-03 continued) - Per-Flight Statistics
+
+### Key Accomplishments
+
+1. **Implemented per-flight statistics output**:
+   - New `_calculate_per_flight_stats()` method in `StatisticsStage`
+   - Computes N, MO, MP, MB, RMSE, R, NMB_%, NME_% for each flight
+   - Outputs `statistics_per_flight.csv` with one row per flight per variable
+   - Enable via `per_flight: true` in stats config section
+
+2. **Added warning for empty pairing results**:
+   - Detects when pairing produces no data (transient HDF5/Dask issue)
+   - Logs warning with suggested workaround: `DASK_NUM_WORKERS=1 HDF5_USE_FILE_LOCKING=FALSE`
+   - Makes it visible why statistics/plotting stages are skipped
+
+### Per-Flight Statistics Results (DC-8)
+
+| Variable | Flight | N | MO | MP | MB | R |
+|----------|--------|---|-----|-----|-----|-----|
+| O3 | Feb 06 | 498 | 35 ppb | 49 ppb | +14 | 0.51 |
+| O3 | Feb 13 | 492 | 35 ppb | 51 ppb | +17 | 0.73 |
+| NO2 | Feb 17 | 441 | 2.0 ppb | 3.6 ppb | +1.6 | 0.75 |
+| CO | Feb 26 | 448 | 262 ppb | 157 ppb | -104 | 0.87 |
+
+Key patterns:
+- **CO**: Model consistently low (-20 to -40% NMB), good correlations (R=0.53-0.87)
+- **NO2**: Mixed bias, high variability between flights
+- **O3**: Model consistently high (+27 to +54% NMB), moderate correlations
+
+### Files Modified
+- `davinci_monet/pipeline/stages.py` - Per-flight stats calculation and empty pairing warning
+- `analyses/asia-aq/configs/asia-aq-dc8-gemini.yaml` - Added `per_flight: true`
