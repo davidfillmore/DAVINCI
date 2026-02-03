@@ -33,8 +33,25 @@ if TYPE_CHECKING:
     import matplotlib.figure
     import xarray as xr
 
-# Default altitude variable names to search for
-ALTITUDE_VAR_NAMES = ("altitude", "alt", "z", "GPS_Altitude", "ALTITUDE", "ALT")
+# Default altitude variable names to search for (geometric altitude preferred over pressure)
+# Note: DC-8 ICARTT files use Pressure_Altitude_BENNETT (in feet)
+ALTITUDE_VAR_NAMES = (
+    "Pressure_Altitude_BENNETT",  # DC-8 ASIA-AQ (feet)
+    "GPS_Altitude_BENNETT",       # DC-8 GPS altitude (feet)
+    "GPS_Altitude",               # Generic GPS altitude
+    "Altitude",                   # Generic
+    "altitude",                   # Standard name
+    "alt",                        # Short form
+    "z",                          # Vertical coordinate
+    "ALT",                        # Uppercase
+    "ALTITUDE",                   # Uppercase
+)
+
+# Variables that are in feet (not meters) - need conversion
+FEET_ALTITUDE_VARS = {"Pressure_Altitude_BENNETT", "GPS_Altitude_BENNETT"}
+
+# Conversion factor: feet to meters
+FEET_TO_METERS = 0.3048
 
 # Altitude color - light gray to not distract from main data
 ALTITUDE_COLOR = "#A0A0A0"
@@ -43,7 +60,7 @@ ALTITUDE_COLOR = "#A0A0A0"
 def _get_altitude_data(
     dataset: xr.Dataset,
     altitude_var: str | None = None,
-) -> tuple[np.ndarray[Any, np.dtype[Any]] | None, str]:
+) -> tuple[np.ndarray[Any, np.dtype[Any]] | None, str, bool]:
     """Find and return altitude data from dataset.
 
     Parameters
@@ -55,8 +72,9 @@ def _get_altitude_data(
 
     Returns
     -------
-    tuple[np.ndarray | None, str]
-        Altitude values (or None if not found) and the variable name used.
+    tuple[np.ndarray | None, str, bool]
+        Altitude values (or None if not found), the variable name used,
+        and whether the data is in feet (needs conversion to meters).
     """
     # Build search order: specified var first, then defaults
     search_names = [altitude_var] if altitude_var else []
@@ -67,12 +85,14 @@ def _get_altitude_data(
             continue
         # Check coordinates first
         if name in dataset.coords:
-            return dataset.coords[name].values, name
+            is_feet = name in FEET_ALTITUDE_VARS
+            return dataset.coords[name].values, name, is_feet
         # Then data variables
         if name in dataset.data_vars:
-            return dataset[name].values, name
+            is_feet = name in FEET_ALTITUDE_VARS
+            return dataset[name].values, name, is_feet
 
-    return None, ""
+    return None, "", False
 
 
 @register_plotter("flight_timeseries")
@@ -186,9 +206,13 @@ class FlightTimeSeriesPlotter(BasePlotter):
         nrows = (n_flights + ncols - 1) // ncols
 
         # Get altitude data if available
-        alt_data, alt_var_name = _get_altitude_data(paired_data, altitude_var)
+        alt_data, alt_var_name, is_feet = _get_altitude_data(paired_data, altitude_var)
         has_altitude = show_altitude and alt_data is not None
-        alt_scale = 0.001 if altitude_units == "km" else 1.0  # Convert m to km if needed
+        # Convert feet to meters if needed, then meters to km if requested
+        if is_feet:
+            alt_scale = FEET_TO_METERS * (0.001 if altitude_units == "km" else 1.0)
+        else:
+            alt_scale = 0.001 if altitude_units == "km" else 1.0
 
         # Create figure with standard size
         fig, axes = plt.subplots(
@@ -394,9 +418,13 @@ class FlightTimeSeriesPlotter(BasePlotter):
             )
 
         # Get altitude data if available
-        alt_data, alt_var_name = _get_altitude_data(paired_data, altitude_var)
+        alt_data, alt_var_name, is_feet = _get_altitude_data(paired_data, altitude_var)
         has_altitude = show_altitude and alt_data is not None
-        alt_scale = 0.001 if altitude_units == "km" else 1.0  # Convert m to km if needed
+        # Convert feet to meters if needed, then meters to km if requested
+        if is_feet:
+            alt_scale = FEET_TO_METERS * (0.001 if altitude_units == "km" else 1.0)
+        else:
+            alt_scale = 0.001 if altitude_units == "km" else 1.0
 
         # Get unique flights
         flights = np.unique(paired_data[flight_coord].values)
