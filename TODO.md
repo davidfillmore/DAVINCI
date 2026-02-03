@@ -591,3 +591,51 @@ plots:
 - `davinci_monet/plots/__init__.py` - Export new plotter
 - `davinci_monet/plots/registry.py` - Add to `TEMPORAL_PLOTS`
 - `davinci_monet/plots/renderers/__init__.py` - Export new plotter
+
+---
+
+## Session Summary (2026-02-03)
+
+### Key Accomplishments
+
+1. **Added altitude display to flight timeseries plots**:
+   - Right y-axis shows aircraft altitude in km (or m)
+   - Auto-detects altitude variables from ICARTT data
+   - Converts feet to meters for DC-8 `Pressure_Altitude_BENNETT`, `GPS_Altitude_BENNETT`
+   - Light gray line for altitude, distinct from obs/model data
+   - Configurable: `show_altitude`, `altitude_var`, `altitude_units` parameters
+
+2. **Fixed ICARTT altitude coordinate to use geometric altitude**:
+   - Bug: ICARTT reader was putting `Static_Pressure_BENNETT` (hPa) into `altitude` coordinate
+   - Symptom: Flight plots showed narrow altitude range (0.7-1.0 "km" was actually pressure!)
+   - Fix: Reordered alias list to prefer geometric altitude over pressure
+   - Priority: GPS altitude (m) > pressure altitude (ft, converted) > static pressure (last resort)
+
+3. **Implemented 3D vertical interpolation for track pairing**:
+   - Bug: Track pairing always extracted surface model values regardless of aircraft altitude
+   - Symptom: No correlation between altitude and species concentrations in model-obs comparison
+   - Fix: Interpolate 3D model field to aircraft altitude at each track point
+   - New function `altitude_to_pressure()` converts aircraft altitude (m) to pressure (hPa)
+   - Supports both nearest-neighbor and linear (log-pressure space) interpolation
+   - Linear interpolation uses log-pressure for better atmospheric profile representation
+
+4. **Added unit tests for vertical interpolation**:
+   - `test_vertical_interpolation()` verifies O3 increases with altitude in model
+   - Creates model with known vertical profile, verifies interpolation captures altitude dependence
+   - 28 pairing tests now pass
+
+### Statistics After Vertical Interpolation Fix
+
+| Variable | N | R | NMB |
+|----------|-------|------|------|
+| O3 (DC8) | 3,248 | 0.42 | +44% |
+| NO2 (DC8) | 3,255 | 0.67 | +28% |
+| CO (DC8) | 3,244 | 0.77 | -27% |
+
+### Files Modified
+- `davinci_monet/plots/renderers/flight_timeseries.py` - Altitude display on right y-axis
+- `davinci_monet/observations/aircraft/icartt.py` - Fixed altitude coordinate priority
+- `davinci_monet/pairing/strategies/track.py` - 3D vertical interpolation
+- `davinci_monet/tests/test_pairing.py` - Vertical interpolation test
+- `davinci_monet/tests/test_plots.py` - Altitude display tests
+- `CLAUDE.md` - Updated Git Workflow to never auto-commit

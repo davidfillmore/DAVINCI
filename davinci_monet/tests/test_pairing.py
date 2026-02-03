@@ -399,6 +399,68 @@ class TestTrackStrategy:
         # Should have time dimension
         assert "time" in paired.dims
 
+    def test_vertical_interpolation(self) -> None:
+        """Test vertical interpolation to aircraft altitude.
+
+        Creates a model with pressure levels and known O3 profile,
+        then verifies that track pairing interpolates to correct altitude.
+        """
+        # Create model with pressure levels (CESM-style, hPa)
+        # Surface (~sea level) is at highest pressure (~1000 hPa)
+        times = pd.date_range("2024-01-01", periods=4, freq="6h")
+        lev_levels = np.array([100, 300, 500, 700, 850, 925, 1000])  # hPa
+        lats = np.linspace(30, 50, 10)
+        lons = np.linspace(-120, -80, 20)
+
+        # Create O3 profile that increases with altitude (decreasing pressure)
+        # Surface O3 ~ 40 ppb, tropopause O3 ~ 100 ppb
+        lev_3d = lev_levels[:, np.newaxis, np.newaxis]
+        o3_profile = 40 + 60 * (1 - lev_3d / 1000)  # Higher O3 at lower pressure
+        o3_data = np.broadcast_to(o3_profile, (4, 7, 10, 20)).copy()
+
+        model = xr.Dataset(
+            {"O3": (["time", "lev", "lat", "lon"], o3_data)},
+            coords={
+                "time": times,
+                "lev": lev_levels,
+                "lat": lats,
+                "lon": lons,
+            },
+        )
+
+        # Create track observations at different altitudes
+        track_times = pd.date_range("2024-01-01 03:00", periods=10, freq="30min")
+        track_lats = np.linspace(35, 45, 10)
+        track_lons = np.linspace(-100, -95, 10)
+        # Altitudes from 0m (surface) to 9000m (near 300 hPa)
+        track_alts = np.array([0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000])
+
+        track = xr.Dataset(
+            {"obs_o3": ("time", np.full(10, 50.0))},
+            coords={
+                "time": track_times,
+                "latitude": ("time", track_lats),
+                "longitude": ("time", track_lons),
+                "altitude": ("time", track_alts),
+            },
+        )
+
+        # Pair with vertical interpolation
+        strategy = TrackStrategy()
+        paired = strategy.pair(model, track, radius_of_influence=500000.0)
+
+        # Verify model O3 values show altitude dependence
+        model_o3 = paired["O3"].values
+
+        # Surface (0m, ~1000 hPa) should have O3 near 40 ppb
+        assert model_o3[0] < 50, f"Surface O3 should be ~40 ppb, got {model_o3[0]:.1f}"
+
+        # High altitude (9000m, ~300 hPa) should have higher O3 near 80 ppb
+        assert model_o3[-1] > 60, f"High altitude O3 should be >60 ppb, got {model_o3[-1]:.1f}"
+
+        # O3 should generally increase with altitude
+        assert model_o3[-1] > model_o3[0], "O3 should increase with altitude"
+
 
 # =============================================================================
 # Tests for ProfileStrategy
