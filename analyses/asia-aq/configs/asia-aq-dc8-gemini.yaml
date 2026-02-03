@@ -195,3 +195,4 @@ stats:
   output_table_kwargs:
     precision: 3
   metrics: [N, MO, MP, MB, RMSE, R, NMB, NME, IOA]
+  per_flight: true

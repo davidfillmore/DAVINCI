@@ -859,6 +859,19 @@ class PairingStage(BaseStage):
         # Exit parallel mode
         context.log_progress("    parallel_end")
 
+        # Warn if pairing produced no data (transient Dask/HDF5 issue)
+        if total_pairs > 0 and paired_count == 0:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Pairing completed but produced no data ({total_pairs} pairs attempted). "
+                "This may be a transient HDF5/Dask issue. Try: "
+                "DASK_NUM_WORKERS=1 HDF5_USE_FILE_LOCKING=FALSE davinci-monet run ..."
+            )
+            context.log_progress(
+                "    warning: No paired data produced - statistics/plotting will be skipped"
+            )
+
         return self._create_result(
             StageStatus.COMPLETED,
             data={"paired_keys": list(context.paired.keys())},
@@ -976,7 +989,76 @@ class StatisticsStage(BaseStage):
                 "obs_mean": float(np.mean(obs_vals)),
             }
 
+        # Per-flight statistics (if flight coord exists and enabled)
+        per_flight = config.get("per_flight", False)
+        if per_flight and "flight" in paired_data.coords:
+            stats["_per_flight"] = self._calculate_per_flight_stats(paired_data)
+
         return stats
+
+    def _calculate_per_flight_stats(
+        self, paired_data: xr.Dataset
+    ) -> list[dict[str, Any]]:
+        """Calculate statistics for each flight.
+
+        Parameters
+        ----------
+        paired_data : xr.Dataset
+            Paired dataset with model_* and obs_* variables and flight coordinate.
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            List of dictionaries with per-flight statistics.
+        """
+        import numpy as np
+
+        flights = np.unique(paired_data["flight"].values)
+        flight_stats: list[dict[str, Any]] = []
+
+        model_vars = [v for v in paired_data.data_vars if v.startswith("model_")]
+
+        for flight in flights:
+            mask = paired_data["flight"].values == flight
+            flight_data = paired_data.isel(time=mask)
+
+            for model_var in model_vars:
+                base_name = model_var.replace("model_", "", 1)
+                obs_var = f"obs_{base_name}"
+                if obs_var not in flight_data:
+                    continue
+
+                model_vals = flight_data[model_var].values.flatten()
+                obs_vals = flight_data[obs_var].values.flatten()
+
+                # Remove NaNs
+                valid = ~(np.isnan(model_vals) | np.isnan(obs_vals))
+                if valid.sum() < 3:
+                    continue
+
+                m, o = model_vals[valid], obs_vals[valid]
+                diff = m - o
+
+                row: dict[str, Any] = {
+                    "flight": str(flight),
+                    "variable": base_name,
+                    "N": len(m),
+                    "MO": float(np.mean(o)),
+                    "MP": float(np.mean(m)),
+                    "MB": float(np.mean(diff)),
+                    "RMSE": float(np.sqrt(np.mean(diff**2))),
+                    "R": float(np.corrcoef(o, m)[0, 1]) if len(m) > 1 else np.nan,
+                }
+                # NMB/NME
+                if row["MO"] != 0:
+                    row["NMB_%"] = (row["MB"] / row["MO"]) * 100
+                    row["NME_%"] = (float(np.mean(np.abs(diff))) / row["MO"]) * 100
+                else:
+                    row["NMB_%"] = np.nan
+                    row["NME_%"] = np.nan
+                flight_stats.append(row)
+
+        return flight_stats
 
 
 class PlottingStage(BaseStage):
@@ -1227,6 +1309,9 @@ class SaveResultsStage(BaseStage):
             rows = []
             for pair_key, pair_stats in stats_result.data.items():
                 for var_name, var_stats in pair_stats.items():
+                    # Skip internal keys like _per_flight
+                    if var_name.startswith("_"):
+                        continue
                     row = {"Variable": var_name}
                     row["N"] = var_stats.get("n", 0)
                     row["Mean_Obs"] = var_stats.get("obs_mean", float("nan"))
@@ -1252,6 +1337,37 @@ class SaveResultsStage(BaseStage):
                 df.to_csv(stats_file)
                 saved_files.append(str(stats_file))
                 context.log_progress(f"done: {len(rows)} rows saved")
+
+            # Save per-flight statistics if available
+            all_flight_stats: list[dict] = []
+            for pair_key, pair_stats in stats_result.data.items():
+                if "_per_flight" in pair_stats:
+                    all_flight_stats.extend(pair_stats["_per_flight"])
+
+            if all_flight_stats:
+                context.log_progress("step: Writing per-flight statistics CSV...")
+                flight_df = pd.DataFrame(all_flight_stats)
+                # Reorder columns
+                cols = [
+                    "variable",
+                    "flight",
+                    "N",
+                    "MO",
+                    "MP",
+                    "MB",
+                    "RMSE",
+                    "R",
+                    "NMB_%",
+                    "NME_%",
+                ]
+                cols = [c for c in cols if c in flight_df.columns]
+                flight_df = flight_df[cols]
+                flight_df = flight_df.sort_values(["variable", "flight"])
+
+                flight_stats_file = output_dir / "statistics_per_flight.csv"
+                flight_df.to_csv(flight_stats_file, index=False)
+                saved_files.append(str(flight_stats_file))
+                context.log_progress(f"done: {len(flight_df)} rows")
 
         return self._create_result(
             StageStatus.COMPLETED,
