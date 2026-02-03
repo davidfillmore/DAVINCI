@@ -264,12 +264,25 @@ class ICARTTReader:
                     coord_renames[alias] = "longitude"
                 break
 
-        # For altitude, prefer pressure for vertical interpolation
-        alt_aliases = ["Static_Pressure_BENNETT", "Static_Pressure", "PRESSURE",
-                       "Altitude", "altitude", "GPS_Altitude", "ALT", "alt",
-                       "Pressure_Altitude_BENNETT", "GPS_Altitude_BENNETT"]
+        # For altitude, prefer geometric altitude (meters first, then feet)
+        # Variables in feet will be converted to meters
+        FEET_TO_METERS = 0.3048
+        feet_vars = {"Pressure_Altitude_BENNETT", "GPS_Altitude_BENNETT"}
+        alt_aliases = [
+            # Altitude in meters (preferred)
+            "GPS_Altitude_m_DIGANGI", "Altitude_AGL_m_DIGANGI",
+            "GPS_Altitude", "Altitude", "altitude", "ALT", "alt",
+            # Altitude in feet (will be converted)
+            "Pressure_Altitude_BENNETT", "GPS_Altitude_BENNETT",
+            # Pressure as last resort (not recommended for plotting)
+            "Static_Pressure_BENNETT", "Static_Pressure", "PRESSURE",
+        ]
         for alias in alt_aliases:
             if alias in ds.data_vars and "altitude" not in ds.coords:
+                # Convert feet to meters if needed
+                if alias in feet_vars:
+                    ds[alias] = ds[alias] * FEET_TO_METERS
+                    ds[alias].attrs["units"] = "m"
                 ds = ds.set_coords(alias)
                 if alias != "altitude":
                     coord_renames[alias] = "altitude"
