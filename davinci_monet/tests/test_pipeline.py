@@ -278,6 +278,17 @@ class TestLoadModelsStage:
 
         assert stage.validate(ctx) is False
 
+    def test_execute_missing_files(self):
+        """Test execute fails with clear error when files are missing."""
+        stage = LoadModelsStage()
+        ctx = PipelineContext(config={"model": {"m1": {"mod_type": "generic"}}})
+
+        result = stage.execute(ctx)
+
+        assert result.status == StageStatus.FAILED
+        assert result.error is not None
+        assert "missing required 'files'" in result.error
+
 
 class TestLoadObservationsStage:
     """Tests for LoadObservationsStage."""

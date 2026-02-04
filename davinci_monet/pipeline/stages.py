@@ -257,6 +257,7 @@ class LoadModelsStage(BaseStage):
         from glob import glob
 
         from davinci_monet.models import open_model
+        from davinci_monet.core.exceptions import ConfigurationError
 
         start = time.time()
         model_config = context.config.get("model") or context.config.get("models", {})
@@ -282,6 +283,10 @@ class LoadModelsStage(BaseStage):
                 context.log_progress(f"    Loading model: {label} ({loaded_count + 1}/{total_models})")
 
                 files = config.get("files", config.get("filename"))
+                if files is None or (isinstance(files, str) and not files.strip()):
+                    raise ConfigurationError(
+                        f"Model '{label}' is missing required 'files' (or 'filename') setting."
+                    )
                 mod_type = config.get("mod_type", "generic")
                 variables = config.get("variables")
 
