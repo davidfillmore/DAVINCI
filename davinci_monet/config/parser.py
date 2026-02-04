@@ -127,6 +127,11 @@ def preprocess_config(data: dict[str, Any]) -> dict[str, Any]:
         for key in ["start_time", "end_time"]:
             if key in analysis and analysis[key] is None:
                 del analysis[key]
+        # Preserve whether end_time had an explicit time component for inclusive filtering
+        end_time = analysis.get("end_time")
+        if isinstance(end_time, str) and "_end_time_has_time" not in analysis:
+            import re
+            analysis["_end_time_has_time"] = bool(re.search(r"\d{2}:\d{2}", end_time))
 
     # Ensure all sections exist as dicts (not None)
     for section in ["model", "obs", "plots"]:

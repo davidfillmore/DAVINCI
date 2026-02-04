@@ -377,6 +377,7 @@ class LoadObservationsStage(BaseStage):
         analysis_config = context.config.get("analysis", {})
         analysis_start = analysis_config.get("start_time")
         analysis_end = analysis_config.get("end_time")
+        end_time_has_time = analysis_config.get("_end_time_has_time")
 
         # Use current working directory for relative paths
         base_path = Path.cwd()
@@ -473,7 +474,12 @@ class LoadObservationsStage(BaseStage):
                 if data is not None and "time" in data.dims and analysis_start and analysis_end:
                     t0 = time.time()
                     original_size = data.sizes.get("time", 0)
-                    data = self._filter_by_time(data, analysis_start, analysis_end)
+                    data = self._filter_by_time(
+                        data,
+                        analysis_start,
+                        analysis_end,
+                        end_time_has_time=end_time_has_time,
+                    )
                     filtered_size = data.sizes.get("time", 0)
                     if debug:
                         context.log_progress(
@@ -640,6 +646,7 @@ class LoadObservationsStage(BaseStage):
         data: "xr.Dataset",
         start_time: str,
         end_time: str,
+        end_time_has_time: bool | None = None,
     ) -> "xr.Dataset":
         """Filter dataset to analysis time range.
 
@@ -659,9 +666,16 @@ class LoadObservationsStage(BaseStage):
         """
         import pandas as pd
 
-        # Parse time bounds - add 1 day to end to make it inclusive
         t_start = pd.Timestamp(start_time)
-        t_end = pd.Timestamp(end_time) + pd.Timedelta(days=1)
+        t_end = pd.Timestamp(end_time)
+
+        if end_time_has_time is None and isinstance(end_time, str):
+            import re
+            end_time_has_time = bool(re.search(r"\d{2}:\d{2}", end_time))
+
+        # If end_time is date-only, include the full day; otherwise honor exact timestamp.
+        if end_time_has_time is False:
+            t_end = t_end + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
 
         # Use sel with slice for efficient time filtering
         return data.sel(time=slice(t_start, t_end))
