@@ -689,6 +689,8 @@ class PairingStage(BaseStage):
         """
         import os
         import time
+        import platform
+        import subprocess
 
         from davinci_monet.pairing import PairingEngine, PairingConfig
 
@@ -742,6 +744,29 @@ class PairingStage(BaseStage):
 
         debug = context.config.get("analysis", {}).get("debug", False)
         cpu_count = os.cpu_count() or 4
+
+        def _get_ram_gb() -> int | None:
+            try:
+                if platform.system() == "Darwin":
+                    result = subprocess.run(
+                        ["sysctl", "-n", "hw.memsize"],
+                        capture_output=True,
+                        text=True,
+                        timeout=2,
+                    )
+                    if result.returncode == 0 and result.stdout.strip():
+                        return int(result.stdout.strip()) // (1024**3)
+                elif platform.system() == "Linux":
+                    with open("/proc/meminfo") as f:
+                        for line in f:
+                            if line.startswith("MemTotal"):
+                                kb = int(line.split()[1])
+                                return kb // (1024**2)
+            except Exception:
+                return None
+            return None
+
+        ram_gb = _get_ram_gb()
         dask_pair_workers = pairing_config_dict.get("dask_pair_workers")
         if dask_pair_workers is None:
             dask_pair_workers = 1  # Default to serial pairs for Dask-backed data
@@ -749,15 +774,24 @@ class PairingStage(BaseStage):
         dask_num_workers = pairing_config_dict.get("dask_num_workers")
         if dask_num_workers is None:
             dask_num_workers = max(1, cpu_count // dask_pair_workers)
+            if ram_gb is not None:
+                if ram_gb <= 16:
+                    dask_num_workers = min(dask_num_workers, 4)
+                elif ram_gb <= 32:
+                    dask_num_workers = min(dask_num_workers, 6)
             dask_num_workers = min(32, dask_num_workers)
         dask_num_workers = max(1, int(dask_num_workers))
         eager_pair_workers = pairing_config_dict.get("max_workers")
         if eager_pair_workers is None:
-            eager_pair_workers = min(len(eager_pairs), cpu_count) if eager_pairs else 1
+            eager_pair_workers = min(len(eager_pairs), max(1, cpu_count // 2)) if eager_pairs else 1
+            if ram_gb is not None and ram_gb <= 16:
+                eager_pair_workers = min(eager_pair_workers, 4)
         eager_pair_workers = max(1, int(eager_pair_workers))
         if debug and dask_pairs:
             context.log_progress(
-                f"step: Dask pairing workers={dask_pair_workers}, dask_num_workers={dask_num_workers}"
+                f"step: Dask pairing workers={dask_pair_workers}, "
+                f"dask_num_workers={dask_num_workers}, "
+                f"eager_workers={eager_pair_workers}"
             )
 
         def pair_single(args: tuple) -> tuple[int, str, Any, str | None, float]:
