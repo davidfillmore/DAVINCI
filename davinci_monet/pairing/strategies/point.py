@@ -83,6 +83,7 @@ class PointStrategy(BasePairingStrategy):
             radius_of_influence = 12000.0
 
         extract_surface = kwargs.get("extract_surface", True)
+        dask_num_workers = kwargs.get("dask_num_workers")
 
         # Get coordinates
         model_lat, model_lon = self._get_model_coords(model)
@@ -115,7 +116,13 @@ class PointStrategy(BasePairingStrategy):
 
         # Extract model values at observation sites
         model_at_sites = self._extract_at_sites(
-            model_surface, model_lat, model_lon, lat_idx.values, lon_idx.values, site_dim
+            model_surface,
+            model_lat,
+            model_lon,
+            lat_idx.values,
+            lon_idx.values,
+            site_dim,
+            dask_num_workers=dask_num_workers,
         )
 
         # Interpolate model to observation times
@@ -160,6 +167,7 @@ class PointStrategy(BasePairingStrategy):
         lat_idx: np.ndarray[Any, np.dtype[Any]],
         lon_idx: np.ndarray[Any, np.dtype[Any]],
         site_dim: str,
+        dask_num_workers: int | None = None,
     ) -> xr.Dataset:
         """Extract model values at observation site locations.
 
@@ -211,7 +219,10 @@ class PointStrategy(BasePairingStrategy):
 
         # Load data to numpy with optimized parallel scheduler
         # Use threaded scheduler with multiple workers for parallel file I/O
-        n_workers = min(32, os.cpu_count() or 4)
+        if dask_num_workers is not None:
+            n_workers = max(1, int(dask_num_workers))
+        else:
+            n_workers = min(32, os.cpu_count() or 4)
         with dask.config.set(scheduler='threads', num_workers=n_workers):
             extracted = extracted.compute()
 

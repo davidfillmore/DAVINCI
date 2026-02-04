@@ -699,8 +699,8 @@ class PairingStage(BaseStage):
 
         # Build list of pairs to process, separating Dask-backed from eager models
         # Each tuple includes an index for consistent ordering in output messages
-        dask_pairs: list[tuple[int, str, Any, str, Any, dict, dict]] = []
-        eager_pairs: list[tuple[int, str, Any, str, Any, dict, dict]] = []
+        dask_pairs: list[tuple[int, str, Any, str, Any, dict, dict, int | None]] = []
+        eager_pairs: list[tuple[int, str, Any, str, Any, dict, dict, int | None]] = []
         pair_index = 0
 
         for model_label, model_data in context.models.items():
@@ -723,7 +723,7 @@ class PairingStage(BaseStage):
                 pair_tuple = (
                     pair_index, model_label, model_data,
                     obs_label, obs_data,
-                    model_config, var_mapping
+                    model_config, var_mapping, None
                 )
 
                 if is_dask:
@@ -741,12 +741,30 @@ class PairingStage(BaseStage):
             )
 
         debug = context.config.get("analysis", {}).get("debug", False)
+        cpu_count = os.cpu_count() or 4
+        dask_pair_workers = pairing_config_dict.get("dask_pair_workers")
+        if dask_pair_workers is None:
+            dask_pair_workers = 1  # Default to serial pairs for Dask-backed data
+        dask_pair_workers = max(1, int(dask_pair_workers))
+        dask_num_workers = pairing_config_dict.get("dask_num_workers")
+        if dask_num_workers is None:
+            dask_num_workers = max(1, cpu_count // dask_pair_workers)
+            dask_num_workers = min(32, dask_num_workers)
+        dask_num_workers = max(1, int(dask_num_workers))
+        eager_pair_workers = pairing_config_dict.get("max_workers")
+        if eager_pair_workers is None:
+            eager_pair_workers = min(len(eager_pairs), cpu_count) if eager_pairs else 1
+        eager_pair_workers = max(1, int(eager_pair_workers))
+        if debug and dask_pairs:
+            context.log_progress(
+                f"step: Dask pairing workers={dask_pair_workers}, dask_num_workers={dask_num_workers}"
+            )
 
         def pair_single(args: tuple) -> tuple[int, str, Any, str | None, float]:
             """Process a single model-obs pair. Returns (index, pair_key, paired_ds, error, duration)."""
             import time as time_mod
             pair_start = time_mod.time()
-            idx, model_label, model_data, obs_label, obs_data, model_config, var_mapping = args
+            idx, model_label, model_data, obs_label, obs_data, model_config, var_mapping, dask_workers = args
             pair_key = f"{model_label}_{obs_label}"
 
             try:
@@ -766,13 +784,25 @@ class PairingStage(BaseStage):
                 )
 
                 engine = PairingEngine()
-                paired_ds = engine.pair(
-                    model_ds,
-                    obs_ds,
-                    obs_vars=obs_vars,
-                    model_vars=model_vars,
-                    config=pairing_cfg,
-                )
+                if dask_workers is not None:
+                    import dask
+                    with dask.config.set(scheduler="threads", num_workers=dask_workers):
+                        paired_ds = engine.pair(
+                            model_ds,
+                            obs_ds,
+                            obs_vars=obs_vars,
+                            model_vars=model_vars,
+                            config=pairing_cfg,
+                            dask_num_workers=dask_workers,
+                        )
+                else:
+                    paired_ds = engine.pair(
+                        model_ds,
+                        obs_ds,
+                        obs_vars=obs_vars,
+                        model_vars=model_vars,
+                        config=pairing_cfg,
+                    )
 
                 return (idx, pair_key, paired_ds, None, time_mod.time() - pair_start)
 
@@ -781,21 +811,21 @@ class PairingStage(BaseStage):
 
         paired_count = 0
 
-        def run_phase(pairs: list, phase_name: str) -> None:
+        def run_phase(pairs: list, phase_name: str, max_workers: int) -> None:
             """Run a phase of pairs in parallel."""
             nonlocal paired_count
             from concurrent.futures import ThreadPoolExecutor, as_completed
 
             if not pairs:
                 return
+            max_workers = min(max_workers, len(pairs))
 
             # Run pairs in parallel
-            max_workers = min(len(pairs), os.cpu_count() or 4)
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = {}
                 # Submit each pair and log start message
                 for args in pairs:
-                    idx, model_label, _, obs_label, _, _, _ = args
+                    idx, model_label, _, obs_label, _, _, _, _ = args
                     pair_key = f"{model_label}_{obs_label}"
                     context.log_progress(f"    parallel_started: {pair_key}")
                     futures[executor.submit(pair_single, args)] = args
@@ -848,13 +878,14 @@ class PairingStage(BaseStage):
         else:
             context.log_progress(f"    parallel_start: {total_pairs}")
 
-        # Phase 1: Process Dask-backed model pairs in parallel
-        # These share the same Dask scheduler so can run together efficiently
-        run_phase(dask_pairs, "dask")
+        # Phase 1: Process Dask-backed model pairs (default serial to avoid oversubscription)
+        for i, args in enumerate(dask_pairs):
+            dask_pairs[i] = (*args[:-1], dask_num_workers)
+        run_phase(dask_pairs, "dask", max_workers=dask_pair_workers)
 
         # Phase 2: Process eager (non-Dask) model pairs in parallel
         # These run after Dask compute() completes, avoiding GIL contention
-        run_phase(eager_pairs, "eager")
+        run_phase(eager_pairs, "eager", max_workers=eager_pair_workers)
 
         # Exit parallel mode
         context.log_progress("    parallel_end")
