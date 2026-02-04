@@ -896,7 +896,7 @@ class PairingStage(BaseStage):
         if dask_pairs:
             # Extract unique model(s) and their obs from Dask pairs
             dask_models: dict[str, list[str]] = {}
-            for _, model_label, _, obs_label, _, _, _ in dask_pairs:
+            for _, model_label, _, obs_label, _, _, _, _ in dask_pairs:
                 dask_models.setdefault(model_label, []).append(obs_label)
 
             # Format: "loading model → obs1, obs2, obs3"
