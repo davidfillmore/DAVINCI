@@ -203,7 +203,7 @@ class ParallelPairingExecutor:
         dict[str, Any]
             Dictionary of paired datasets keyed by "model_obs".
         """
-        from davinci_monet.pairing import PairingEngine
+        from davinci_monet.pairing import PairingConfig, PairingEngine
 
         config = config or {}
         pairs_to_process = []
@@ -214,6 +214,45 @@ class ParallelPairingExecutor:
                 pairs_to_process.append(
                     (model_label, model_data, obs_label, obs_data, config)
                 )
+
+        def _is_var_mapping(value: Any) -> bool:
+            return isinstance(value, dict) and all(
+                isinstance(k, str) and isinstance(v, str) for k, v in value.items()
+            )
+
+        def _resolve_mapping(
+            model_label: str, obs_label: str, cfg: dict[str, Any]
+        ) -> dict[str, str] | None:
+            # Prefer pipeline-style config: model -> <label> -> mapping -> obs_label
+            model_cfg = cfg.get("model") if isinstance(cfg.get("model"), dict) else None
+            if isinstance(model_cfg, dict) and model_label in model_cfg:
+                mapping = model_cfg[model_label].get("mapping", {})
+                if isinstance(mapping, dict) and obs_label in mapping and _is_var_mapping(mapping[obs_label]):
+                    return mapping[obs_label]
+
+            mapping_cfg = cfg.get("mapping")
+            if isinstance(mapping_cfg, dict):
+                # model_label -> obs_label -> mapping
+                if model_label in mapping_cfg and isinstance(mapping_cfg[model_label], dict):
+                    model_map = mapping_cfg[model_label]
+                    if obs_label in model_map and _is_var_mapping(model_map[obs_label]):
+                        return model_map[obs_label]
+                    if _is_var_mapping(model_map):
+                        return model_map
+                # obs_label -> mapping
+                if obs_label in mapping_cfg and _is_var_mapping(mapping_cfg[obs_label]):
+                    return mapping_cfg[obs_label]
+                # direct mapping dict
+                if _is_var_mapping(mapping_cfg):
+                    return mapping_cfg
+
+            return None
+
+        def _cfg_get(cfg: dict[str, Any], key: str, default: Any) -> Any:
+            pairing_cfg = cfg.get("pairing", {})
+            if isinstance(pairing_cfg, dict) and key in pairing_cfg:
+                return pairing_cfg[key]
+            return cfg.get(key, default)
 
         def pair_single(args: tuple) -> tuple[str, Any]:
             model_label, model_data, obs_label, obs_data, cfg = args
@@ -227,11 +266,45 @@ class ParallelPairingExecutor:
                 if model_ds is None or obs_ds is None:
                     return pair_key, None
 
+                mapping = _resolve_mapping(model_label, obs_label, cfg)
+                if mapping:
+                    obs_vars = list(mapping.keys())
+                    model_vars = list(mapping.values())
+                else:
+                    # Fallback to common variable names (identity mapping)
+                    excluded = {
+                        "lat", "lon", "latitude", "longitude", "time",
+                        "x", "y", "z", "lev", "level", "altitude", "height", "pressure",
+                    }
+                    obs_vars = sorted(
+                        v for v in obs_ds.data_vars
+                        if v in model_ds.data_vars
+                        and v not in excluded
+                        and not v.startswith(("obs_", "model_"))
+                    )
+                    model_vars = list(obs_vars)
+
+                if not obs_vars:
+                    logger.warning(
+                        f"Skipping {pair_key}: no variable mapping or common variables found"
+                    )
+                    return pair_key, None
+
+                pairing_cfg = PairingConfig(
+                    radius_of_influence=_cfg_get(cfg, "radius_of_influence", 1e6),
+                    time_tolerance=_cfg_get(cfg, "time_tolerance", "1h"),
+                    vertical_method=_cfg_get(cfg, "vertical_method", "nearest"),
+                    horizontal_method=_cfg_get(cfg, "horizontal_method", "nearest"),
+                    apply_averaging_kernel=_cfg_get(cfg, "apply_averaging_kernel", False),
+                    require_overlap=_cfg_get(cfg, "require_overlap", True),
+                )
+
                 paired = engine.pair(
                     model_ds,
                     obs_ds,
-                    radius=cfg.get("radius_of_influence", 1e6),
-                    time_tolerance=cfg.get("time_tolerance", "1h"),
+                    obs_vars=obs_vars,
+                    model_vars=model_vars,
+                    config=pairing_cfg,
                 )
                 return pair_key, paired
             except Exception as e:

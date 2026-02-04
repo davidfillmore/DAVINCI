@@ -811,6 +811,45 @@ class TestParallelExecutor:
         assert values == [0, 1, 2, 3, 4]
 
 
+class TestParallelPairingExecutor:
+    """Tests for ParallelPairingExecutor."""
+
+    def test_pair_all_with_mapping(self) -> None:
+        """Test parallel pairing with explicit variable mapping."""
+        times = np.array([np.datetime64("2024-01-01T00:00:00")])
+        lats = np.array([40.0, 41.0])
+        lons = np.array([-105.0, -104.0])
+
+        model = xr.Dataset(
+            {"temperature": (["time", "lat", "lon"], np.full((1, 2, 2), 290.0))},
+            coords={"time": times, "lat": lats, "lon": lons},
+        )
+
+        obs = xr.Dataset(
+            {"temperature": (["time", "site"], np.full((1, 1), 289.0))},
+            coords={
+                "time": times,
+                "site": np.array([0]),
+                "latitude": ("site", np.array([40.0])),
+                "longitude": ("site", np.array([-105.0])),
+            },
+        )
+
+        executor = ParallelPairingExecutor(max_workers=1)
+        result = executor.pair_all(
+            models={"model": model},
+            observations={"obs": obs},
+            config={"mapping": {"obs": {"temperature": "temperature"}}},
+        )
+
+        assert "model_obs" in result
+        paired = result["model_obs"]
+        ds = paired.data if hasattr(paired, "data") else paired
+
+        assert "obs_temperature" in ds.data_vars
+        assert "model_temperature" in ds.data_vars
+
+
 class TestParallelResult:
     """Tests for ParallelResult dataclass."""
 
