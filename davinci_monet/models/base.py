@@ -195,8 +195,8 @@ class ModelData(DataContainer):
                 self.apply_mask(var_name, min_val, max_val, nan_val)
 
             # Apply renaming (do this last)
-            if "rename" in config:
-                new_name = config["rename"]
+            new_name = config.get("rename")
+            if new_name:
                 self.rename_variable(var_name, new_name)
                 # Update the config dict key
                 self.variables[new_name] = self.variables.pop(var_name)

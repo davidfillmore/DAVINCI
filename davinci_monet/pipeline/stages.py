@@ -263,6 +263,19 @@ class LoadModelsStage(BaseStage):
         total_models = len(model_config)
         debug = context.config.get("analysis", {}).get("debug", False)
 
+        def _normalize_var_configs(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
+            normalized: dict[str, dict[str, Any]] = {}
+            for name, cfg in raw.items():
+                if hasattr(cfg, "model_dump"):
+                    normalized[name] = cfg.model_dump()
+                elif isinstance(cfg, dict):
+                    normalized[name] = dict(cfg)
+                elif hasattr(cfg, "__dict__"):
+                    normalized[name] = dict(cfg.__dict__)
+                else:
+                    normalized[name] = {}
+            return normalized
+
         loaded_count = 0
         for label, config in model_config.items():
             try:
@@ -298,28 +311,25 @@ class LoadModelsStage(BaseStage):
                 if debug:
                     context.log_progress(f"      [TIMING] open_model: {_format_duration(time.time() - t0)}")
 
-                # Apply unit scaling, units, and display_name if configured
+                # Apply variable configuration (scaling, masking, renaming) and metadata
                 if isinstance(variables, dict):
-                    has_conversions = any(
-                        isinstance(vc, dict) and "unit_scale" in vc
-                        for vc in variables.values()
-                    )
-                    if has_conversions:
-                        context.log_progress("step: Applying unit conversions...")
+                    model_data.variables = _normalize_var_configs(variables)
 
                     t0 = time.time()
-                    for var_name, var_config in variables.items():
-                        if isinstance(var_config, dict) and var_name in model_data.data.data_vars:
-                            if "unit_scale" in var_config:
-                                scale = var_config["unit_scale"]
-                                method = var_config.get("unit_scale_method", "*")
-                                model_data.apply_unit_scale(var_name, scale, method)
-                            if "units" in var_config:
-                                model_data.data[var_name].attrs["units"] = var_config["units"]
-                            if var_config.get("display_name"):  # Only set if not None/empty
-                                model_data.data[var_name].attrs["display_name"] = var_config["display_name"]
-                    if debug and has_conversions:
-                        context.log_progress(f"      [TIMING] unit_conversions: {_format_duration(time.time() - t0)}")
+                    model_data.apply_variable_config()
+                    if debug:
+                        context.log_progress(
+                            f"      [TIMING] variable_config: {_format_duration(time.time() - t0)}"
+                        )
+
+                    for var_name, var_config in model_data.variables.items():
+                        if var_name in model_data.data.data_vars:
+                            units = var_config.get("units") if isinstance(var_config, dict) else None
+                            display = var_config.get("display_name") if isinstance(var_config, dict) else None
+                            if units:
+                                model_data.data[var_name].attrs["units"] = units
+                            if display:
+                                model_data.data[var_name].attrs["display_name"] = display
 
                 context.models[label] = model_data
                 loaded_count += 1
@@ -382,6 +392,19 @@ class LoadObservationsStage(BaseStage):
         # Use current working directory for relative paths
         base_path = Path.cwd()
 
+        def _normalize_var_configs(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
+            normalized: dict[str, dict[str, Any]] = {}
+            for name, cfg in raw.items():
+                if hasattr(cfg, "model_dump"):
+                    normalized[name] = cfg.model_dump()
+                elif isinstance(cfg, dict):
+                    normalized[name] = dict(cfg)
+                elif hasattr(cfg, "__dict__"):
+                    normalized[name] = dict(cfg.__dict__)
+                else:
+                    normalized[name] = {}
+            return normalized
+
         loaded_count = 0
         for label, config in obs_config.items():
             try:
@@ -390,6 +413,9 @@ class LoadObservationsStage(BaseStage):
                 obs_type = config.get("obs_type", "pt_sfc")
                 filename = config.get("filename")
                 variables = config.get("variables", {})
+                normalized_variables = (
+                    _normalize_var_configs(variables) if isinstance(variables, dict) else variables
+                )
 
                 # Load data from file
                 data = None
@@ -497,7 +523,7 @@ class LoadObservationsStage(BaseStage):
                     obs_type=obs_type,
                     data=data,
                     filename=filename,
-                    variables=variables,
+                    variables=normalized_variables if isinstance(normalized_variables, dict) else variables,
                 )
                 if debug:
                     context.log_progress(f"      [TIMING] create_observation_data: {_format_duration(time.time() - t0)}")
@@ -527,18 +553,24 @@ class LoadObservationsStage(BaseStage):
                             f"step: Resampled to {resample_freq} ({original_times} -> {new_times} times)"
                         )
 
-                # Apply unit scaling, units, and display_name if configured
-                if isinstance(variables, dict):
-                    for var_name, var_config in variables.items():
-                        if isinstance(var_config, dict) and var_name in obs_data.data.data_vars:
-                            if "unit_scale" in var_config:
-                                scale = var_config["unit_scale"]
-                                method = var_config.get("unit_scale_method", "*")
-                                obs_data.apply_unit_scale(var_name, scale, method)
-                            if "units" in var_config:
-                                obs_data.data[var_name].attrs["units"] = var_config["units"]
-                            if var_config.get("display_name"):  # Only set if not None/empty
-                                obs_data.data[var_name].attrs["display_name"] = var_config["display_name"]
+                # Apply variable configuration (scaling, masking, renaming) and metadata
+                if isinstance(normalized_variables, dict):
+                    obs_data.variables = normalized_variables
+                    t0 = time.time()
+                    obs_data.apply_variable_config()
+                    if debug:
+                        context.log_progress(
+                            f"      [TIMING] variable_config: {_format_duration(time.time() - t0)}"
+                        )
+
+                    for var_name, var_config in obs_data.variables.items():
+                        if var_name in obs_data.data.data_vars:
+                            units = var_config.get("units") if isinstance(var_config, dict) else None
+                            display = var_config.get("display_name") if isinstance(var_config, dict) else None
+                            if units:
+                                obs_data.data[var_name].attrs["units"] = units
+                            if display:
+                                obs_data.data[var_name].attrs["display_name"] = display
 
                 context.observations[label] = obs_data
                 loaded_count += 1
