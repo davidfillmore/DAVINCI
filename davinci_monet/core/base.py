@@ -252,13 +252,34 @@ class DataContainer(ABC):
         if lat_name is None or lon_name is None:
             return self
 
+        lat_coord = self.data[lat_name]
+        lon_coord = self.data[lon_name]
+
         # Apply selection
-        subset = self.data.sel(
-            {
-                lat_name: slice(lat_min, lat_max),
-                lon_name: slice(lon_min, lon_max),
-            }
-        )
+        if lat_name in self.data.dims and lon_name in self.data.dims and lat_coord.ndim == 1 and lon_coord.ndim == 1:
+            lat_slice = slice(lat_min, lat_max)
+            lon_slice = slice(lon_min, lon_max)
+
+            if lat_coord.values[0] > lat_coord.values[-1]:
+                lat_slice = slice(lat_max, lat_min)
+            if lon_coord.values[0] > lon_coord.values[-1]:
+                lon_slice = slice(lon_max, lon_min)
+
+            subset = self.data.sel(
+                {
+                    lat_name: lat_slice,
+                    lon_name: lon_slice,
+                }
+            )
+        else:
+            # Curvilinear or non-dimension coords: use mask-based selection
+            mask = (
+                (lat_coord >= lat_min)
+                & (lat_coord <= lat_max)
+                & (lon_coord >= lon_min)
+                & (lon_coord <= lon_max)
+            )
+            subset = self.data.where(mask, drop=True)
 
         return self._copy_with_data(subset)
 
