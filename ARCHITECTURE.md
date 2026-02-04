@@ -114,14 +114,14 @@ Each stage receives the `PipelineContext`, performs its work, and returns a `Sta
 |-------|-------|--------|-------------|
 | `load_models` | config.model | context.models | Load model files (glob expansion), apply unit conversions |
 | `load_observations` | config.obs | context.observations | Load obs files with **time filtering** (file-level + data-level) |
-| `pairing` | models + observations | context.paired | Match model to obs by geometry (**Dask parallel**) |
+| `pairing` | models + observations | context.paired | Match model to obs by geometry (Dask optional, configurable) |
 | `statistics` | context.paired | StageResult.data | Compute N, MB, RMSE, R, NMB, NME, IOA |
 | `plotting` | context.paired | PNG/PDF files | Generate scatter, timeseries, spatial, 3D track plots |
 | `save_results` | statistics | CSV files | Write statistics tables |
 
 **Key optimizations** (see Performance Optimizations section):
 - `load_observations`: Time filtering reduces 5-month files to analysis period (1,630x faster)
-- `pairing`: Dask threaded scheduler with 32 workers for parallel I/O (260x faster)
+- `pairing`: Dask-backed pairs default to serial execution; concurrency and Dask threads are configurable based on CPU/RAM
 
 ### Stage Protocol
 
@@ -664,18 +664,24 @@ LoadObservationsStage
 Impact: load_observations 163s → 0.1s for 3-day analysis from 5-month file
 ```
 
-### Dask Parallel Scheduler (260x speedup)
+### Dask Pairing Concurrency (Configurable)
 
-Point and Track strategies use threaded Dask scheduler for parallel I/O when extracting model values at observation locations:
+Dask-backed model datasets require `.compute()` during pairing. Because each pair can trigger its own compute (and file I/O), the pipeline runs Dask-backed pairs in a dedicated phase and defaults to serial execution for safety.
 
-```python
-# In PointStrategy._extract_at_sites() and TrackStrategy._extract_along_track()
-n_workers = min(32, os.cpu_count() or 4)
-with dask.config.set(scheduler='threads', num_workers=n_workers):
-    extracted = extracted.compute()  # Parallel across 32 threads
+Controls in `pairing` config:
+- `dask_pair_workers`: number of Dask-backed pairs to run concurrently (default: 1).
+- `dask_num_workers`: threads for the Dask scheduler inside each pair. If unset, derived from CPU count and capped by RAM (<=16 GB → 4, <=32 GB → 6, else up to 32).
+- `max_workers`: thread count for eager (non-Dask) pairs (default: ~CPU/2 with low-RAM cap).
+
+Example:
+```yaml
+pairing:
+  dask_pair_workers: 1
+  dask_num_workers: 4
+  max_workers: 4
 ```
 
-Impact: Pairing 10+ min → 2.3s for 3-day analysis
+Increasing `dask_pair_workers` can reduce wall time when model data fits comfortably in memory and I/O bandwidth is high; otherwise it can multiply file reads and slow overall pairing.
 
 ### CESM Vertical Coordinate Handling
 
@@ -697,13 +703,15 @@ else:
 
 ### Performance Benchmarks
 
+These measurements are from specific ASIA-AQ runs and are sensitive to hardware, I/O bandwidth, and Dask concurrency settings.
+
 **3-Day Test (72 model files, scratch storage)**:
 
 | Stage | Before | After | Speedup |
 |-------|--------|-------|---------|
 | load_models | 190s | 6.8s | 28x |
 | load_observations | 163s | 0.1s | **1,630x** |
-| pairing | 10+ min | 2.3s | **260x** |
+| pairing | 10+ min | 2.3s | Dask-enabled (varies) |
 | **Total** | ~175s | ~8s | **22x** |
 
 **Full Month (696 hourly files)**:
@@ -712,7 +720,7 @@ else:
 |-------|------|-------|
 | load_models | 54s | 696 hourly files |
 | load_observations | 0.1s | Time filtering applied |
-| pairing | 2.4s | Dask parallel |
+| pairing | 2.4s | Dask-enabled pairing (configurable) |
 | statistics | 0.1s | |
 | plotting | 6.5s | |
 | **Total** | ~63s | ~1 min |
@@ -724,7 +732,7 @@ else:
 - **Lazy loading**: xarray's lazy evaluation defers computation until needed
 - **Chunked processing**: Large files processed in chunks via Dask
 - **Time filtering**: Observations filtered at load time using `xr.sel(time=slice())`
-- **Parallel I/O**: Dask threaded scheduler with 32 workers for model extraction
+- **Parallel I/O**: Dask threaded scheduler with configurable workers for model extraction
 - **Spatial indexing**: 1D grids use binary search; 2D grids use haversine distance
 - **Memory efficiency**: Paired data only includes matched points, not full grids
 - **Storage hierarchy**: On HPC, use scratch storage (parallel FS) over campaign (tape-backed)

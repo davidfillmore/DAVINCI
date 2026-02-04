@@ -33,16 +33,16 @@ The `apply_expression()` method uses `eval()` for user-provided expressions. Whi
 
 ## P2: Medium
 
-### 5. Silent exception handling masks errors
+### 1. Silent exception handling masks errors
 **Locations**:
 - `davinci_monet/stats/calculator.py:417-418, 555` - Catches all exceptions, returns NaN
 - `davinci_monet/observations/satellite/generic_l3.py:130` - Silent file open failures
-- `davinci_monet/pairing/engine.py:251` - Bare `except KeyError: pass`
+- `davinci_monet/pairing/engine.py:282` - Bare `except KeyError: pass`
 
 **Solution**: Use specific exception types, log warnings with details.
 
-### 6. Global warning suppression
-**Location**: `analyses/asia-aq/scripts/download_observations.py:21`
+### 2. Global warning suppression
+**Location**: `analyses/asia-aq/scripts/download_observations.py:23`
 
 ```python
 warnings.filterwarnings("ignore")
@@ -50,7 +50,7 @@ warnings.filterwarnings("ignore")
 
 **Solution**: Use context managers for targeted suppression.
 
-### 7. Type ignore comments (11+ instances)
+### 3. Type ignore comments (38 instances)
 **Locations**: Various files with `# type: ignore[arg-type]`
 
 **Solution**: Investigate and fix underlying type mismatches where possible.
@@ -59,21 +59,21 @@ warnings.filterwarnings("ignore")
 
 ## P3: Low
 
-### 8. Document deprecated feature removal timeline
+### 1. Document deprecated feature removal timeline
 **Locations**:
 - `davinci_monet/observations/satellite/goes_l3_aod.py:309-315` - `open_goes` deprecated
 - `davinci_monet/models/ufs.py:154-160` - Deprecated aliases
 
 **Solution**: Add version number for planned removal to deprecation warnings.
 
-### 9. Add progress bars for file I/O
+### 2. Add progress bars for file I/O
 **Location**: `davinci_monet/observations/satellite/generic_l3.py:125-140`
 
 When loading many files, no indication of progress.
 
 **Solution**: Add `tqdm` progress bars for file loading loops.
 
-### 10. Analysis script documentation
+### 3. Analysis script documentation
 **Location**: `analyses/asia-aq/scripts/`
 
 Scripts lack clear documentation of:
@@ -81,14 +81,14 @@ Scripts lack clear documentation of:
 - Failure modes and recovery
 - Performance characteristics
 
-### 11. Profile array operations for large datasets
-**Observation**: 46 instances of `.flatten()` or `.ravel()` calls
+### 4. Profile array operations for large datasets
+**Observation**: 50 instances of `.flatten()` or `.ravel()` calls (as of 2026-02-04)
 
 These create copies and may be inefficient for large satellite datasets.
 
 **Solution**: Profile with real-world datasets, optimize hot paths.
 
-### 12. Improve debug logging in data loaders
+### 5. Improve debug logging in data loaders
 Model and observation readers should log:
 - Files being loaded
 - Variable mappings applied
@@ -98,7 +98,7 @@ Model and observation readers should log:
 
 ## Completed
 
-### Use absolute paths for data directories (was P1 #2)
+### Use absolute paths for data directories
 **Location**: `analyses/asia-aq/scripts/`, `analyses/asia-aq/configs/`
 
 - Added `ASIA_AQ_DATA` environment variable support with fallback to `~/Data/ASIA-AQ`
@@ -107,7 +107,7 @@ Model and observation readers should log:
 
 **Completed**: 2026-01-11
 
-### Add STDOUT logging for pipeline progress (was P1 #3)
+### Add STDOUT logging for pipeline progress
 **Location**: `davinci_monet/pipeline/runner.py`
 
 - Added `tqdm` dependency to `environment.yml`
@@ -120,14 +120,14 @@ Model and observation readers should log:
 
 **Completed**: 2026-01-11
 
-### Hardcoded user paths in analysis scripts (was P1 #4)
+### Hardcoded user paths in analysis scripts
 **Location**: `analyses/asia-aq/scripts/`, `analyses/asia-aq/configs/`
 
 Resolved as part of P1 #2 above - all paths now use `ASIA_AQ_DATA` env var.
 
 **Completed**: 2026-01-11
 
-### Update synthetic data plot examples (was P2 #5)
+### Update synthetic data plot examples
 **Location**: `examples/all_plot_types.py`
 
 Added all 13 plot types with synthetic data:
@@ -141,5 +141,5 @@ Added all 13 plot types with synthetic data:
 
 ## Notes
 
-- Test count: 792+ (all passing)
-- Last updated: 2026-01-11
+- Test count: 875 (last full run: 2026-02-04)
+- Last updated: 2026-02-04
