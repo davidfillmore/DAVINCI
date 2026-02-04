@@ -251,7 +251,7 @@ class ModelConfig(FlexibleModel):
     radius_of_influence
         Horizontal radius for spatial matching (meters).
     mapping
-        Variable mapping: {obs_label: {model_var: obs_var}}.
+        Variable mapping: {obs_label: {obs_var: model_var}}.
     variables
         Model variable configurations.
     projection
@@ -463,7 +463,8 @@ class PlotGroupConfig(FlexibleModel):
     domain_name
         List of domain names.
     data
-        List of obs_model pair identifiers.
+        List of model_obs pair identifiers (model label first).
+        Legacy obs_model identifiers are also supported.
     data_proc
         Data processing configuration.
     """
@@ -556,7 +557,8 @@ class StatsConfig(FlexibleModel):
     domain_name
         List of domain names.
     data
-        List of obs_model pair identifiers.
+        List of model_obs pair identifiers (model label first).
+        Legacy obs_model identifiers are also supported.
     data_proc
         Data processing configuration.
     """
@@ -670,8 +672,8 @@ class MonetConfig(FlexibleModel):
         # Check plot data references
         for plot_name, plot_config in self.plots.items():
             for data_ref in plot_config.data:
-                # Data refs are formatted as "obs_model" (e.g., "airnow_cmaq_expt")
-                # We check if it starts with an obs label
+                # Data refs are typically formatted as "model_obs" (e.g., "cmaq_airnow")
+                # Legacy "obs_model" (e.g., "airnow_cmaq") is also supported.
                 found = False
                 for obs_label in obs_labels:
                     if data_ref.startswith(obs_label + "_"):
@@ -679,6 +681,13 @@ class MonetConfig(FlexibleModel):
                         if model_part in model_labels:
                             found = True
                             break
+                if not found:
+                    for model_label in model_labels:
+                        if data_ref.startswith(model_label + "_"):
+                            obs_part = data_ref[len(model_label) + 1 :]
+                            if obs_part in obs_labels:
+                                found = True
+                                break
                 # Don't raise error for now - allow flexible data references
                 # This supports legacy configs that may have different formats
 
@@ -699,17 +708,26 @@ class MonetConfig(FlexibleModel):
             for obs_label in model_config.mapping.keys():
                 pairs.add((obs_label, model_label))
 
-        # Extract from plot data references
+        # Extract from plot data references (support model_obs and legacy obs_model)
         obs_labels = set(self.obs.keys())
         model_labels = set(self.model.keys())
 
         for plot_config in self.plots.values():
             for data_ref in plot_config.data:
+                # Legacy obs_model
                 for obs_label in obs_labels:
                     if data_ref.startswith(obs_label + "_"):
                         model_part = data_ref[len(obs_label) + 1 :]
                         if model_part in model_labels:
                             pairs.add((obs_label, model_part))
+                            break
+                # Preferred model_obs
+                for model_label in model_labels:
+                    if data_ref.startswith(model_label + "_"):
+                        obs_part = data_ref[len(model_label) + 1 :]
+                        if obs_part in obs_labels:
+                            pairs.add((obs_part, model_label))
+                            break
 
         return sorted(pairs)
 

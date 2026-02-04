@@ -352,6 +352,18 @@ class TestMonetConfig:
         assert ("airnow", "cmaq") in pairs
         assert ("airnow", "wrf") in pairs
 
+    def test_get_model_obs_pairs_from_plot_refs(self) -> None:
+        """Test extracting pairs from plot references (model_obs and obs_model)."""
+        config = MonetConfig.model_validate({
+            "model": {"cmaq": {}},
+            "obs": {"airnow": {}},
+            "plots": {
+                "p1": {"type": "timeseries", "data": ["cmaq_airnow", "airnow_cmaq"]},
+            },
+        })
+        pairs = config.get_model_obs_pairs()
+        assert ("airnow", "cmaq") in pairs
+
     def test_full_config(self) -> None:
         """Test full configuration."""
         config = MonetConfig.model_validate({
