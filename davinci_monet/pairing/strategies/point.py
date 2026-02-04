@@ -258,8 +258,11 @@ class PointStrategy(BasePairingStrategy):
         data_vars: dict[str, Any] = {}
 
         # Add observation variables
+        obs_var_names = set()
         for var in obs.data_vars:
-            data_vars[str(var)] = obs[var]
+            var_name = str(var)
+            data_vars[var_name] = obs[var]
+            obs_var_names.add(var_name)
 
         # Add model variables - reassign to obs coordinates to ensure alignment
         # Model was extracted at same site/time locations, just with integer indices
@@ -299,6 +302,9 @@ class PointStrategy(BasePairingStrategy):
                     coords={d: obs.coords[d] for d in obs_ref.dims if d in obs.coords},
                     name=var,
                 )
-            data_vars[str(var)] = model_da
+            var_name = str(var)
+            if var_name in obs_var_names:
+                var_name = f"model_{var_name}"
+            data_vars[var_name] = model_da
 
         return xr.Dataset(data_vars, coords=dict(obs.coords))

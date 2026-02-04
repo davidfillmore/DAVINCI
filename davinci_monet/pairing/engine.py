@@ -12,7 +12,7 @@ from typing import Any, Mapping, Sequence
 
 import xarray as xr
 
-from davinci_monet.core.base import PairedData, create_paired_dataset
+from davinci_monet.core.base import PairedData
 from davinci_monet.core.exceptions import (
     GeometryMismatchError,
     NoOverlapError,
@@ -195,13 +195,10 @@ class PairingEngine:
             **kwargs,
         )
 
-        # Create paired dataset with proper prefixes
-        result_ds = create_paired_dataset(
-            obs_data=paired_ds,
-            model_data=paired_ds,
-            obs_vars=obs_vars,
-            model_vars=model_vars,
-        )
+        # Assemble paired dataset with obs_/model_ prefixes.
+        # Strategy outputs may already prefix model variables to avoid collisions,
+        # so we resolve variables flexibly instead of assuming raw names.
+        result_ds = self._assemble_paired_dataset(paired_ds, obs_vars, model_vars)
 
         # Get labels from attributes if available
         model_label = model.attrs.get("label", "model")
@@ -220,6 +217,41 @@ class PairingEngine:
                 "strategy": strategy.__class__.__name__,
             },
         )
+
+    @staticmethod
+    def _select_var(ds: xr.Dataset, candidates: Sequence[str]) -> str | None:
+        """Return the first matching data variable name from candidates."""
+        for name in candidates:
+            if name in ds.data_vars:
+                return name
+        return None
+
+    def _assemble_paired_dataset(
+        self,
+        paired_ds: xr.Dataset,
+        obs_vars: Sequence[str],
+        model_vars: Sequence[str],
+    ) -> xr.Dataset:
+        """Build a paired dataset with obs_/model_ prefixes from strategy output."""
+        data_vars: dict[str, xr.DataArray] = {}
+        coords = dict(paired_ds.coords)
+
+        for obs_var, model_var in zip(obs_vars, model_vars):
+            obs_key = self._select_var(paired_ds, [f"obs_{obs_var}", obs_var])
+            model_key = self._select_var(
+                paired_ds,
+                [f"model_{model_var}", f"model_{obs_var}", model_var],
+            )
+
+            if obs_key is not None:
+                data_vars[f"obs_{obs_var}"] = paired_ds[obs_key]
+            if model_key is not None:
+                data_vars[f"model_{obs_var}"] = paired_ds[model_key]
+
+        result = xr.Dataset(data_vars, coords=coords)
+        result.attrs = dict(paired_ds.attrs)
+        result.attrs.update({"created_by": "davinci_monet", "paired": True})
+        return result
 
     def _detect_geometry(self, obs: xr.Dataset) -> DataGeometry:
         """Detect observation geometry from dataset attributes or structure.

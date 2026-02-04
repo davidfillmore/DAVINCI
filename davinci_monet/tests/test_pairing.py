@@ -355,10 +355,11 @@ class TestPointStrategy:
         strategy = PointStrategy()
         paired = strategy.pair(model_2d, point_obs, radius_of_influence=100000.0)
 
-        # Should have both obs and model variables (model vars keep original names)
-        # Prefixing is done by create_paired_dataset in the engine, not the strategy
-        assert "temperature" in paired.data_vars  # Model var (same name as obs in this test)
-        assert "humidity" in paired.data_vars
+        # Should have both obs and model variables (model vars are prefixed on collision)
+        assert "temperature" in paired.data_vars  # Obs var
+        assert "model_temperature" in paired.data_vars
+        assert "humidity" in paired.data_vars  # Obs var
+        assert "model_humidity" in paired.data_vars
 
         # Should have site dimension
         assert "site" in paired.dims
@@ -607,6 +608,8 @@ class TestPairingIntegration:
         )
 
         assert paired is not None
+        assert "obs_ozone" in paired.data.data_vars
+        assert "model_ozone" in paired.data.data_vars
 
     def test_engine_pair_grid(
         self, model_2d: xr.Dataset, gridded_obs: xr.Dataset
@@ -624,3 +627,5 @@ class TestPairingIntegration:
         )
 
         assert paired is not None
+        assert "obs_temperature" in paired.data.data_vars
+        assert "model_temperature" in paired.data.data_vars

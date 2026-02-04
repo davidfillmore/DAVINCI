@@ -382,12 +382,18 @@ class LogCollector:
                 for var_name, stats in pair_stats.items():
                     if not isinstance(stats, dict):
                         continue
-                    n = stats.get("n", "-")
-                    obs_mean = stats.get("obs_mean")
-                    model_mean = stats.get("model_mean")
-                    mb = stats.get("mean_bias")
-                    rmse = stats.get("rmse")
-                    r = stats.get("correlation")
+                    def _get_metric(*keys: str, default: Any = None) -> Any:
+                        for key in keys:
+                            if key in stats and stats[key] is not None:
+                                return stats[key]
+                        return default
+
+                    n = _get_metric("N", "n", default="-")
+                    obs_mean = _get_metric("MO", "obs_mean")
+                    model_mean = _get_metric("MP", "model_mean")
+                    mb = _get_metric("MB", "mean_bias")
+                    rmse = _get_metric("RMSE", "rmse")
+                    r = _get_metric("R", "correlation")
                     # Format values
                     obs_str = f"{obs_mean:.2f}" if obs_mean is not None else "-"
                     model_str = f"{model_mean:.2f}" if model_mean is not None else "-"

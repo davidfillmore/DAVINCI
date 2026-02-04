@@ -953,7 +953,27 @@ class StatisticsStage(BaseStage):
         """Calculate statistics for a paired dataset."""
         import numpy as np
 
+        from davinci_monet.stats import StatisticsCalculator, StatisticsConfig
+        from davinci_monet.stats.metrics import STANDARD_METRICS
+
         stats: dict[str, Any] = {}
+
+        metrics = config.get("stat_list") or config.get("metrics")
+        if isinstance(metrics, str):
+            metrics = [metrics]
+        round_precision = config.get("round_output", 3)
+        include_counts = config.get("include_counts", True)
+        remove_nan = config.get("remove_nan", True)
+        min_samples = config.get("min_samples", 3)
+
+        calc_config = StatisticsConfig(
+            metrics=list(metrics) if metrics else list(STANDARD_METRICS),
+            round_precision=round_precision,
+            include_counts=include_counts,
+            remove_nan=remove_nan,
+            min_samples=min_samples,
+        )
+        calculator = StatisticsCalculator(calc_config)
 
         # Find model and obs variable pairs (prefix format: model_*, obs_*)
         model_vars = [v for v in paired_data.data_vars if v.startswith("model_")]
@@ -965,29 +985,36 @@ class StatisticsStage(BaseStage):
             if obs_var not in paired_data:
                 continue
 
-            model_vals = paired_data[model_var].values.flatten()
-            obs_vals = paired_data[obs_var].values.flatten()
+            df = calculator.compute(
+                paired_data,
+                obs_var=obs_var,
+                model_var=model_var,
+                metrics=list(metrics) if metrics else None,
+            )
 
-            # Remove NaNs
-            mask = ~(np.isnan(model_vals) | np.isnan(obs_vals))
-            model_vals = model_vals[mask]
-            obs_vals = obs_vals[mask]
-
-            if len(model_vals) == 0:
+            if df.empty:
                 continue
 
-            # Calculate metrics
-            diff = model_vals - obs_vals
-            stats[base_name] = {
-                "n": len(model_vals),
-                "mean_bias": float(np.mean(diff)),
-                "rmse": float(np.sqrt(np.mean(diff**2))),
-                "correlation": float(np.corrcoef(model_vals, obs_vals)[0, 1])
-                if len(model_vals) > 1
-                else np.nan,
-                "model_mean": float(np.mean(model_vals)),
-                "obs_mean": float(np.mean(obs_vals)),
+            row = df.iloc[0].to_dict()
+            # Normalize numpy scalars to Python types
+            for key, value in list(row.items()):
+                if isinstance(value, (np.floating, np.integer)):
+                    row[key] = float(value)
+
+            # Add legacy keys for backward compatibility
+            legacy_map = {
+                "n": "N",
+                "mean_bias": "MB",
+                "rmse": "RMSE",
+                "correlation": "R",
+                "model_mean": "MP",
+                "obs_mean": "MO",
             }
+            for legacy_key, metric_key in legacy_map.items():
+                if metric_key in row and legacy_key not in row:
+                    row[legacy_key] = row[metric_key]
+
+            stats[base_name] = row
 
         # Per-flight statistics (if flight coord exists and enabled)
         per_flight = config.get("per_flight", False)
@@ -1290,6 +1317,7 @@ class SaveResultsStage(BaseStage):
         """Save analysis results to files."""
         import time
         from pathlib import Path
+        import math
 
         import pandas as pd
 
@@ -1307,27 +1335,46 @@ class SaveResultsStage(BaseStage):
         if stats_result and stats_result.data:
             context.log_progress("step: Writing statistics CSV...")
             rows = []
+
+            def _get_metric(stats: dict[str, Any], *keys: str, default: Any = float("nan")) -> Any:
+                for key in keys:
+                    if key in stats and stats[key] is not None:
+                        return stats[key]
+                return default
+
             for pair_key, pair_stats in stats_result.data.items():
                 for var_name, var_stats in pair_stats.items():
                     # Skip internal keys like _per_flight
                     if var_name.startswith("_"):
                         continue
                     row = {"Variable": var_name}
-                    row["N"] = var_stats.get("n", 0)
-                    row["Mean_Obs"] = var_stats.get("obs_mean", float("nan"))
-                    row["Mean_Model"] = var_stats.get("model_mean", float("nan"))
-                    row["MB"] = var_stats.get("mean_bias", float("nan"))
-                    row["RMSE"] = var_stats.get("rmse", float("nan"))
-                    row["R"] = var_stats.get("correlation", float("nan"))
-                    # Calculate NMB and NME
-                    obs_mean = var_stats.get("obs_mean", 0)
-                    if obs_mean != 0:
-                        row["NMB_%"] = (var_stats.get("mean_bias", 0) / obs_mean) * 100
-                        row["NME_%"] = (var_stats.get("rmse", 0) / abs(obs_mean)) * 100
+                    row["N"] = _get_metric(var_stats, "N", "n", default=0)
+                    row["Mean_Obs"] = _get_metric(var_stats, "MO", "obs_mean")
+                    row["Mean_Model"] = _get_metric(var_stats, "MP", "model_mean")
+                    row["MB"] = _get_metric(var_stats, "MB", "mean_bias")
+                    row["RMSE"] = _get_metric(var_stats, "RMSE", "rmse")
+                    row["R"] = _get_metric(var_stats, "R", "correlation")
+                    row["IOA"] = _get_metric(var_stats, "IOA", "ioa")
+
+                    # Prefer computed NMB/NME if present; otherwise derive as fallback
+                    nmb = _get_metric(var_stats, "NMB", default=float("nan"))
+                    nme = _get_metric(var_stats, "NME", default=float("nan"))
+                    obs_mean = row["Mean_Obs"]
+
+                    if isinstance(nmb, (int, float)) and not math.isnan(float(nmb)):
+                        row["NMB_%"] = nmb
+                    elif isinstance(obs_mean, (int, float)) and obs_mean not in (0, -0.0) and not math.isnan(float(obs_mean)):
+                        row["NMB_%"] = (row["MB"] / obs_mean) * 100 if isinstance(row["MB"], (int, float)) else float("nan")
                     else:
                         row["NMB_%"] = float("nan")
+
+                    if isinstance(nme, (int, float)) and not math.isnan(float(nme)):
+                        row["NME_%"] = nme
+                    elif isinstance(obs_mean, (int, float)) and obs_mean not in (0, -0.0) and not math.isnan(float(obs_mean)):
+                        row["NME_%"] = (row["RMSE"] / abs(obs_mean)) * 100 if isinstance(row["RMSE"], (int, float)) else float("nan")
+                    else:
                         row["NME_%"] = float("nan")
-                    row["IOA"] = var_stats.get("ioa", float("nan"))
+
                     rows.append(row)
 
             if rows:
