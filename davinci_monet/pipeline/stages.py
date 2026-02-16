@@ -1074,7 +1074,7 @@ class StatisticsStage(BaseStage):
 
         stats: dict[str, Any] = {}
 
-        metrics = config.get("stat_list") or config.get("metrics")
+        metrics = config.get("metrics") or config.get("stat_list")
         if isinstance(metrics, str):
             metrics = [metrics]
         round_precision = config.get("round_output", 3)
@@ -1254,7 +1254,7 @@ class PlottingStage(BaseStage):
             try:
                 plot_count += 1
                 plot_type = plot_spec.get("type", "scatter")
-                plot_pairs = plot_spec.get("pairs", [])
+                plot_pairs = plot_spec.get("data") or plot_spec.get("pairs", [])
                 title = format_plot_title(plot_spec.get("title", plot_name))
 
                 context.log_progress(f"    Plot: {plot_name} ({plot_count}/{total_plots})")

@@ -248,6 +248,10 @@ class ModelData(DataContainer):
     def extract_surface(self, level_dim: str = "z") -> ModelData:
         """Extract surface level from 3D model data.
 
+        Auto-detects the correct surface index based on coordinate values.
+        For CESM-style hybrid sigma-pressure coordinates where values increase
+        with index, surface is at the last index (highest pressure).
+
         Parameters
         ----------
         level_dim
@@ -264,8 +268,16 @@ class ModelData(DataContainer):
         if level_dim not in self.data.dims:
             return self
 
-        # Select lowest level (index 0)
-        surface = self.data.isel({level_dim: 0})
+        # Determine correct surface index based on coordinate values
+        # For CESM-style hybrid coordinates where pressure increases downward,
+        # surface is at the last index (highest pressure), not first (TOA)
+        surface_idx = 0  # Default: first level is surface
+        if level_dim in self.data.coords:
+            vert_vals = self.data.coords[level_dim].values
+            if len(vert_vals) > 1 and vert_vals[-1] > vert_vals[0]:
+                surface_idx = -1
+
+        surface = self.data.isel({level_dim: surface_idx})
         return self._copy_with_data(surface)
 
     def extract_level(

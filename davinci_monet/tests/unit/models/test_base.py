@@ -160,6 +160,57 @@ class TestModelData:
         assert "z" not in surface.data.dims  # type: ignore
         assert surface.data["O3"].shape == (10, 20, 30)  # type: ignore
 
+    def test_extract_surface_cesm_convention(self) -> None:
+        """Test surface extraction with CESM-style increasing pressure levels.
+
+        Regression test for review finding #3: CESM hybrid sigma-pressure
+        coordinates have pressure increasing with index, so surface is at
+        the last index (highest pressure), not the first (TOA).
+        """
+        # CESM-like levels: low values (TOA) to high values (surface)
+        lev_vals = np.array([3.0, 10.0, 50.0, 200.0, 500.0, 1000.0])
+        ds = xr.Dataset(
+            {"O3": (["time", "lev", "lat", "lon"], np.random.randn(2, 6, 3, 3))},
+            coords={
+                "time": np.arange(2),
+                "lev": lev_vals,
+                "lat": np.linspace(30, 50, 3),
+                "lon": np.linspace(-100, -70, 3),
+            },
+        )
+        # Put distinct values at TOA (index 0) and surface (index -1)
+        ds["O3"][:, 0, :, :] = 9999.0   # stratospheric (TOA)
+        ds["O3"][:, -1, :, :] = 50.0     # surface
+
+        model = ModelData(data=ds)
+        surface = model.extract_surface(level_dim="lev")
+
+        assert "lev" not in surface.data.dims  # type: ignore
+        # Should get surface values (~50), not stratospheric (~9999)
+        assert float(surface.data["O3"].mean()) == pytest.approx(50.0)  # type: ignore
+
+    def test_extract_surface_standard_convention(self) -> None:
+        """Test surface extraction with standard decreasing levels."""
+        # Standard convention: values decrease with index (surface first)
+        lev_vals = np.array([1000.0, 500.0, 200.0, 50.0, 10.0, 3.0])
+        ds = xr.Dataset(
+            {"O3": (["time", "lev", "lat", "lon"], np.random.randn(2, 6, 3, 3))},
+            coords={
+                "time": np.arange(2),
+                "lev": lev_vals,
+                "lat": np.linspace(30, 50, 3),
+                "lon": np.linspace(-100, -70, 3),
+            },
+        )
+        ds["O3"][:, 0, :, :] = 50.0     # surface (first index)
+        ds["O3"][:, -1, :, :] = 9999.0   # TOA
+
+        model = ModelData(data=ds)
+        surface = model.extract_surface(level_dim="lev")
+
+        assert "lev" not in surface.data.dims  # type: ignore
+        assert float(surface.data["O3"].mean()) == pytest.approx(50.0)  # type: ignore
+
     def test_extract_level(self, sample_model_data: xr.Dataset) -> None:
         """Test extracting specific level."""
         model = ModelData(data=sample_model_data)

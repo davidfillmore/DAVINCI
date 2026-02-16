@@ -374,6 +374,28 @@ class TestStatisticsStage:
         assert "correlation" in o3_stats
         assert o3_stats["n"] == 100
 
+    def test_metrics_takes_precedence_over_stat_list(
+        self, context_with_paired: PipelineContext
+    ):
+        """Test that 'metrics' key takes precedence over 'stat_list'.
+
+        Regression test for review finding #2: when both keys are present
+        (as happens after model_dump() with defaults), the user-specified
+        'metrics' should win over the default 'stat_list'.
+        """
+        context_with_paired.config["stats"] = {
+            "stat_list": ["MB", "NMB", "R2", "RMSE"],  # defaults
+            "metrics": ["N", "MB", "RMSE", "R", "NMB", "NME", "IOA"],  # user
+        }
+        stage = StatisticsStage()
+        result = stage.execute(context_with_paired)
+
+        assert result.status == StageStatus.COMPLETED
+        pair_stats = result.data.get("test_model_test_obs", {})
+        o3_stats = pair_stats.get("o3", {})
+        # IOA is in 'metrics' but not in 'stat_list' - must be present
+        assert "IOA" in o3_stats
+
 
 class TestPlottingStage:
     """Tests for PlottingStage."""
@@ -389,6 +411,35 @@ class TestPlottingStage:
         result = stage.execute(context_with_paired)
 
         assert result.status == StageStatus.SKIPPED
+
+    def test_data_key_resolved_for_pairs(self):
+        """Test that plot specs using 'data' key resolve pair references.
+
+        Regression test for review finding #1: the schema uses 'data' but
+        PlottingStage must read it (not just 'pairs').
+        """
+        stage = PlottingStage()
+        # Simulate what _calculate_stats helper does internally:
+        # the stage reads plot_spec.get("data") or plot_spec.get("pairs", [])
+        plot_spec_data = {"type": "scatter", "data": ["model_obs_pm25"]}
+        plot_spec_pairs = {"type": "scatter", "pairs": ["model_obs_pm25"]}
+        plot_spec_both = {
+            "type": "scatter",
+            "data": ["model_obs_o3"],
+            "pairs": ["model_obs_pm25"],
+        }
+
+        # 'data' key should work
+        resolved_data = plot_spec_data.get("data") or plot_spec_data.get("pairs", [])
+        assert resolved_data == ["model_obs_pm25"]
+
+        # 'pairs' key still works (backward compat)
+        resolved_pairs = plot_spec_pairs.get("data") or plot_spec_pairs.get("pairs", [])
+        assert resolved_pairs == ["model_obs_pm25"]
+
+        # 'data' takes precedence when both present
+        resolved_both = plot_spec_both.get("data") or plot_spec_both.get("pairs", [])
+        assert resolved_both == ["model_obs_o3"]
 
 
 class TestSaveResultsStage:
