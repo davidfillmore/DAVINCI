@@ -13,6 +13,41 @@ A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air 
 
 ---
 
+## Cross-Model Handoff Convention
+
+This repo uses **cross-model code reviews and hand-offs** (e.g., Claude Opus writes implementation, Codex reviews, then back). Handoff files follow a consistent structure so any model can pick up context quickly.
+
+### Handoff File Format
+
+Use `REVIEW_<MODEL>.md` or `HANDOFF_<TOPIC>.md` in the repo root. Structure:
+
+```markdown
+## Context
+Branch, task description, which files are involved
+
+## Changes Made
+What was done, with file paths and line references
+
+## Decisions & Rationale
+Why choices were made — prevents the next model from undoing or redoing work
+
+## Open Questions / Concerns
+Things the next model should investigate or address
+
+## Suggested Next Steps
+Specific actionable items
+```
+
+### Rules
+
+- **One file per task/feature** — scoped context, not a running log
+- **Always include Decisions & Rationale** — this is the highest-value section
+- **Reference file paths and line numbers** — so the next model can verify without searching
+- **Check for handoff files at session start** — look for `REVIEW_*.md` or `HANDOFF_*.md` in repo root
+- **Git diff supplements the handoff** — the file gives intent, `git diff` gives the changes
+
+---
+
 ## Git Workflow
 
 - **NEVER auto commit or push**: Do NOT commit or push changes until the user explicitly confirms
