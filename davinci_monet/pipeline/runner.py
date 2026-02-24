@@ -1614,6 +1614,10 @@ class PipelineRunner:
                             )
                     if self._fail_fast:
                         break
+                elif stage_result.status == StageStatus.SKIPPED:
+                    formatter.stage_end(stage.name, True, stage_result.duration_seconds)
+                    if log_collector:
+                        log_collector.end_stage(stage.name, "skipped", stage_result.duration_seconds)
                 elif stage_result.status == StageStatus.COMPLETED:
                     formatter.stage_end(stage.name, True, stage_result.duration_seconds)
                     if log_collector:

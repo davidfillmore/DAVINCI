@@ -708,7 +708,7 @@ class LoadObservationsStage(BaseStage):
 
         if end_time_has_time is None and isinstance(end_time, str):
             import re
-            end_time_has_time = bool(re.search(r"\d{2}:\d{2}", end_time))
+            end_time_has_time = bool(re.search(r"[T ]\d{2}:\d{2}", end_time))
 
         # If end_time is date-only, include the full day; otherwise honor exact timestamp.
         if end_time_has_time is False:
@@ -1056,6 +1056,7 @@ class StatisticsStage(BaseStage):
                 context.metadata.setdefault("stats_errors", []).append(
                     f"{pair_key}: {e}"
                 )
+                context.log_progress(f"warning: stats failed for {pair_key}: {e}")
 
         return self._create_result(
             StageStatus.COMPLETED,
@@ -1415,6 +1416,7 @@ class PlottingStage(BaseStage):
                 context.metadata.setdefault("plot_errors", []).append(
                     f"{plot_name}: {e}"
                 )
+                context.log_progress(f"warning: plot failed for {plot_name}: {e}")
 
         return self._create_result(
             StageStatus.COMPLETED,
@@ -1486,9 +1488,9 @@ class SaveResultsStage(BaseStage):
 
                     if isinstance(nme, (int, float)) and not math.isnan(float(nme)):
                         row["NME_%"] = nme
-                    elif isinstance(obs_mean, (int, float)) and obs_mean not in (0, -0.0) and not math.isnan(float(obs_mean)):
-                        row["NME_%"] = (row["RMSE"] / abs(obs_mean)) * 100 if isinstance(row["RMSE"], (int, float)) else float("nan")
                     else:
+                        # No correct fallback: NME requires per-point |mod-obs|,
+                        # which can't be derived from RMSE or other summary scalars.
                         row["NME_%"] = float("nan")
 
                     rows.append(row)
