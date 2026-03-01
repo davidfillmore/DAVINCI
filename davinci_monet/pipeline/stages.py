@@ -1541,6 +1541,126 @@ class SaveResultsStage(BaseStage):
         )
 
 
+class ObsPlottingStage(BaseStage):
+    """Pipeline stage for observation-only plots."""
+
+    def __init__(self) -> None:
+        super().__init__("obs_plotting")
+
+    def validate(self, context: PipelineContext) -> bool:
+        return bool(context.observations)
+
+    def execute(self, context: PipelineContext) -> StageResult:
+        """Execute observation-only plotting."""
+        import logging
+        import time
+        from pathlib import Path
+
+        import matplotlib.pyplot as plt
+
+        from davinci_monet.plots.registry import get_plotter
+
+        _logger = logging.getLogger(__name__)
+
+        start = time.time()
+        plots_config = context.config.get("plots", {})
+        output_dir = Path(context.config.get("analysis", {}).get("output_dir", "."))
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        plot_count = 0
+        errors: list[str] = []
+
+        for plot_name, plot_spec in plots_config.items():
+            plot_type = plot_spec.get("type", "")
+            if not plot_type.startswith("obs_"):
+                continue
+
+            obs_label = plot_spec.get("obs", "")
+            variable = plot_spec.get("variable", "")
+
+            if obs_label not in context.observations:
+                errors.append(f"Observation '{obs_label}' not found for plot '{plot_name}'")
+                continue
+
+            obs_data = context.observations[obs_label]
+            ds = obs_data.data if hasattr(obs_data, "data") else obs_data
+
+            if variable not in ds.data_vars:
+                errors.append(f"Variable '{variable}' not in '{obs_label}' for plot '{plot_name}'")
+                continue
+
+            try:
+                plotter = get_plotter(plot_type)
+                plot_kwargs = {k: v for k, v in plot_spec.items() if k not in ("type", "obs", "variable")}
+                fig = plotter.plot(ds, variable, **plot_kwargs)
+                out_path = output_dir / f"{plot_name}.png"
+                plotter.save(fig, out_path)
+                plt.close(fig)
+                plot_count += 1
+                _logger.info(f"Saved obs plot: {out_path}")
+            except Exception as e:
+                errors.append(f"Plot '{plot_name}' failed: {e}")
+                _logger.warning(f"Obs plot '{plot_name}' failed: {e}")
+
+        message = f"Generated {plot_count} obs-only plots"
+        if errors:
+            message += f" ({len(errors)} errors)"
+
+        return self._create_result(
+            StageStatus.COMPLETED if plot_count > 0 or not plots_config else StageStatus.SKIPPED,
+            data={"plot_count": plot_count, "errors": errors},
+            duration=time.time() - start,
+        )
+
+
+class ObsStatisticsStage(BaseStage):
+    """Pipeline stage for observation-only descriptive statistics."""
+
+    def __init__(self) -> None:
+        super().__init__("obs_statistics")
+
+    def validate(self, context: PipelineContext) -> bool:
+        return bool(context.observations)
+
+    def execute(self, context: PipelineContext) -> StageResult:
+        """Compute descriptive statistics for all observation variables."""
+        import time
+
+        import numpy as np
+
+        start = time.time()
+        all_stats: dict[str, dict[str, dict[str, float]]] = {}
+
+        for obs_label, obs_data in context.observations.items():
+            ds = obs_data.data if hasattr(obs_data, "data") else obs_data
+            obs_stats: dict[str, dict[str, float]] = {}
+
+            for var_name in ds.data_vars:
+                values = ds[var_name].values.flatten()
+                values = values[np.isfinite(values)]
+                if len(values) < 1:
+                    continue
+                obs_stats[var_name] = {
+                    "N": len(values),
+                    "mean": float(np.mean(values)),
+                    "median": float(np.median(values)),
+                    "std": float(np.std(values)),
+                    "min": float(np.min(values)),
+                    "max": float(np.max(values)),
+                    "p10": float(np.percentile(values, 10)),
+                    "p25": float(np.percentile(values, 25)),
+                    "p75": float(np.percentile(values, 75)),
+                    "p90": float(np.percentile(values, 90)),
+                }
+            all_stats[obs_label] = obs_stats
+
+        return self._create_result(
+            StageStatus.COMPLETED,
+            data=all_stats,
+            duration=time.time() - start,
+        )
+
+
 # Convenience function to create a standard analysis pipeline
 def create_standard_pipeline() -> list[BaseStage]:
     """Create a standard analysis pipeline with all stages.
@@ -1556,5 +1676,21 @@ def create_standard_pipeline() -> list[BaseStage]:
         PairingStage(),
         StatisticsStage(),
         PlottingStage(),
+        SaveResultsStage(),
+    ]
+
+
+def create_obs_pipeline() -> list[BaseStage]:
+    """Create an observation-only pipeline (no model/pairing stages).
+
+    Returns
+    -------
+    list[BaseStage]
+        List of stages for obs-only analysis.
+    """
+    return [
+        LoadObservationsStage(),
+        ObsStatisticsStage(),
+        ObsPlottingStage(),
         SaveResultsStage(),
     ]

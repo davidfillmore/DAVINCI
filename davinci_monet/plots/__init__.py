@@ -50,6 +50,7 @@ from davinci_monet.plots.base import (
     calculate_symmetric_limits,
     calculate_data_limits,
 )
+from davinci_monet.plots.obs_base import ObsPlotter
 
 # Style configuration (NCAR branding)
 from davinci_monet.plots.style import (
@@ -127,6 +128,14 @@ from davinci_monet.plots.renderers import (
     plot_spatial_distribution,
     get_domain_extent,
     get_projection,
+)
+
+# Observation-only renderers
+from davinci_monet.plots.renderers.obs import (
+    FlightTrackMapPlotter,
+    VerticalProfilePlotter,
+    ObsTimeSeriesPlotter,
+    ObsHistogramPlotter,
 )
 
 __all__ = [
@@ -212,4 +221,10 @@ __all__ = [
     "plot_spatial_distribution",
     "get_domain_extent",
     "get_projection",
+    # Observation-only plotters
+    "ObsPlotter",
+    "FlightTrackMapPlotter",
+    "VerticalProfilePlotter",
+    "ObsTimeSeriesPlotter",
+    "ObsHistogramPlotter",
 ]
