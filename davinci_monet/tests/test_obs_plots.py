@@ -276,3 +276,211 @@ class TestObsPlotterBase:
 
         assert saved_path.exists()
         plt.close(fig)
+
+
+# =============================================================================
+# Flight Track Map Plotter Tests
+# =============================================================================
+
+
+class TestFlightTrackMapPlotter:
+    """Tests for the FlightTrackMapPlotter (obs_flight_track)."""
+
+    def test_basic_plot(self, track_obs_data):
+        """Basic flight track map renders without error."""
+        from davinci_monet.plots.renderers.obs.flight_track_map import FlightTrackMapPlotter
+
+        plotter = FlightTrackMapPlotter()
+        fig = plotter.plot(track_obs_data, "O3")
+
+        assert fig is not None
+        assert len(fig.axes) >= 1
+        plt.close(fig)
+
+    def test_plot_has_colorbar(self, track_obs_data):
+        """Flight track map has a colorbar (figure should have >= 2 axes)."""
+        from davinci_monet.plots.renderers.obs.flight_track_map import FlightTrackMapPlotter
+
+        plotter = FlightTrackMapPlotter()
+        fig = plotter.plot(track_obs_data, "O3")
+
+        # Main axes + colorbar axes
+        assert len(fig.axes) >= 2
+        plt.close(fig)
+
+    def test_multi_flight(self, multi_flight_obs_data):
+        """Flight track map works with multi-flight data."""
+        from davinci_monet.plots.renderers.obs.flight_track_map import FlightTrackMapPlotter
+
+        plotter = FlightTrackMapPlotter()
+        fig = plotter.plot(multi_flight_obs_data, "O3")
+
+        assert fig is not None
+        plt.close(fig)
+
+    def test_save_output(self, track_obs_data, tmp_path):
+        """Flight track map can be saved to disk."""
+        from davinci_monet.plots.renderers.obs.flight_track_map import FlightTrackMapPlotter
+
+        plotter = FlightTrackMapPlotter()
+        fig = plotter.plot(track_obs_data, "O3")
+
+        output_path = tmp_path / "flight_track.png"
+        saved_path = plotter.save(fig, output_path)
+
+        assert saved_path.exists()
+        assert saved_path.stat().st_size > 0
+        plt.close(fig)
+
+    def test_registered_in_registry(self):
+        """FlightTrackMapPlotter is registered as 'obs_flight_track'."""
+        from davinci_monet.plots.renderers.obs.flight_track_map import FlightTrackMapPlotter  # noqa: F401
+        from davinci_monet.plots.registry import has_plotter
+
+        assert has_plotter("obs_flight_track")
+
+
+# =============================================================================
+# Vertical Profile Plotter Tests
+# =============================================================================
+
+
+class TestVerticalProfilePlotter:
+    """Tests for the VerticalProfilePlotter (obs_vertical_profile)."""
+
+    def test_basic_scatter(self, track_obs_data):
+        """Scatter mode renders without error."""
+        from davinci_monet.plots.renderers.obs.vertical_profile import VerticalProfilePlotter
+
+        plotter = VerticalProfilePlotter()
+        fig = plotter.plot(track_obs_data, "O3", mode="scatter")
+
+        assert fig is not None
+        assert len(fig.axes) >= 1
+        plt.close(fig)
+
+    def test_binned_mode(self, track_obs_data):
+        """Binned mode renders means with std envelope."""
+        from davinci_monet.plots.renderers.obs.vertical_profile import VerticalProfilePlotter
+
+        plotter = VerticalProfilePlotter()
+        fig = plotter.plot(track_obs_data, "O3", mode="binned", n_bins=10)
+
+        assert fig is not None
+        assert len(fig.axes) >= 1
+        plt.close(fig)
+
+    def test_multi_flight(self, multi_flight_obs_data):
+        """Vertical profile works with multi-flight data."""
+        from davinci_monet.plots.renderers.obs.vertical_profile import VerticalProfilePlotter
+
+        plotter = VerticalProfilePlotter()
+        fig = plotter.plot(multi_flight_obs_data, "O3")
+
+        assert fig is not None
+        plt.close(fig)
+
+    def test_registered(self):
+        """VerticalProfilePlotter is registered as 'obs_vertical_profile'."""
+        from davinci_monet.plots.renderers.obs.vertical_profile import VerticalProfilePlotter  # noqa: F401
+        from davinci_monet.plots.registry import has_plotter
+
+        assert has_plotter("obs_vertical_profile")
+
+
+# =============================================================================
+# Obs Time Series Plotter Tests
+# =============================================================================
+
+
+class TestObsTimeSeriesPlotter:
+    """Tests for the ObsTimeSeriesPlotter (obs_timeseries)."""
+
+    def test_basic_plot(self, track_obs_data):
+        """Basic obs time series renders without error."""
+        from davinci_monet.plots.renderers.obs.obs_timeseries import ObsTimeSeriesPlotter
+
+        plotter = ObsTimeSeriesPlotter()
+        fig = plotter.plot(track_obs_data, "O3")
+
+        assert fig is not None
+        assert len(fig.axes) >= 1
+        plt.close(fig)
+
+    def test_with_altitude_axis(self, track_obs_data):
+        """Altitude overlay adds a secondary y-axis (>= 2 axes)."""
+        from davinci_monet.plots.renderers.obs.obs_timeseries import ObsTimeSeriesPlotter
+
+        plotter = ObsTimeSeriesPlotter()
+        fig = plotter.plot(track_obs_data, "O3", show_altitude=True)
+
+        # Main axes + secondary y-axis
+        assert len(fig.axes) >= 2
+        plt.close(fig)
+
+    def test_multi_flight(self, multi_flight_obs_data):
+        """Multi-flight data plots each flight in different color."""
+        from davinci_monet.plots.renderers.obs.obs_timeseries import ObsTimeSeriesPlotter
+
+        plotter = ObsTimeSeriesPlotter()
+        fig = plotter.plot(multi_flight_obs_data, "O3")
+
+        assert fig is not None
+        plt.close(fig)
+
+    def test_registered(self):
+        """ObsTimeSeriesPlotter is registered as 'obs_timeseries'."""
+        from davinci_monet.plots.renderers.obs.obs_timeseries import ObsTimeSeriesPlotter  # noqa: F401
+        from davinci_monet.plots.registry import has_plotter
+
+        assert has_plotter("obs_timeseries")
+
+
+# =============================================================================
+# Obs Histogram Plotter Tests
+# =============================================================================
+
+
+class TestObsHistogramPlotter:
+    """Tests for the ObsHistogramPlotter (obs_histogram)."""
+
+    def test_basic_plot(self, track_obs_data):
+        """Basic histogram renders without error."""
+        from davinci_monet.plots.renderers.obs.obs_histogram import ObsHistogramPlotter
+
+        plotter = ObsHistogramPlotter()
+        fig = plotter.plot(track_obs_data, "O3")
+
+        assert fig is not None
+        assert len(fig.axes) >= 1
+        plt.close(fig)
+
+    def test_shows_stats(self, track_obs_data):
+        """Stats annotation box contains N= or Mean text."""
+        from davinci_monet.plots.renderers.obs.obs_histogram import ObsHistogramPlotter
+
+        plotter = ObsHistogramPlotter()
+        fig = plotter.plot(track_obs_data, "O3", show_stats=True)
+
+        ax = fig.axes[0]
+        text_contents = [t.get_text() for t in ax.texts]
+        stats_found = any("N=" in t or "Mean" in t for t in text_contents)
+        assert stats_found, f"Expected stats text, got: {text_contents}"
+        plt.close(fig)
+
+    def test_custom_bins(self, track_obs_data):
+        """Custom n_bins parameter is accepted."""
+        from davinci_monet.plots.renderers.obs.obs_histogram import ObsHistogramPlotter
+
+        plotter = ObsHistogramPlotter()
+        fig = plotter.plot(track_obs_data, "O3", n_bins=15)
+
+        assert fig is not None
+        plt.close(fig)
+
+    def test_registered(self):
+        """ObsHistogramPlotter is registered as 'obs_histogram'."""
+        from davinci_monet.plots.renderers.obs.obs_histogram import ObsHistogramPlotter  # noqa: F401
+        from davinci_monet.plots.registry import has_plotter
+
+        assert has_plotter("obs_histogram")
