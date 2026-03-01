@@ -23,7 +23,7 @@ analysis:
 obs:
   dc8:
     obs_type: icartt
-    filename: ${DC3_DATA}/aircraft/merge/dc3-mrg10-dc8_merge_*.ict
+    filename: ${DC3_DATA}/aircraft/merge/DC3-MRG10-DC8_MERGE_*_R10.ict
     variables:
       NO:  { source_name: NO_ESRL }
       O3:  { source_name: O3_ESRL }
@@ -31,11 +31,11 @@ obs:
 
   gv:
     obs_type: icartt
-    filename: ${DC3_DATA}/aircraft/merge/dc3-mrg10-gv_merge_*.ict
+    filename: ${DC3_DATA}/aircraft/merge/DC3-MRG10-GV_MERGE_*_R6.ict
     variables:
-      NO:  { source_name: NO_NOxyO3 }
-      O3:  { source_name: O3_NOxyO3 }
-      CO:  { source_name: CO_ACOMCO }
+      NO:  {}
+      O3:  {}
+      CO:  {}
 
 plots:
   dc8_track_o3:

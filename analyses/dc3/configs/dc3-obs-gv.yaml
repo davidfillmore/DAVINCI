@@ -23,13 +23,12 @@ analysis:
 obs:
   gv:
     obs_type: icartt
-    filename: ${DC3_DATA}/aircraft/merge/dc3-mrg10-gv_merge_*.ict
+    filename: ${DC3_DATA}/aircraft/merge/DC3-MRG10-GV_MERGE_*_R6.ict
     variables:
-      NO:  { source_name: NO_NOxyO3 }
-      NO2: { source_name: NO2_NOxyO3 }
-      O3:  { source_name: O3_NOxyO3 }
-      CO:  { source_name: CO_ACOMCO }
-      NOy: { source_name: NOy_NOxyO3 }
+      NO:  {}
+      NO2: {}
+      O3:  {}
+      CO:  {}
 
 plots:
   gv_track_o3:

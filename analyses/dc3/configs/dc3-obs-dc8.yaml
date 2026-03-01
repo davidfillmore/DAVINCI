@@ -23,7 +23,7 @@ analysis:
 obs:
   dc8:
     obs_type: icartt
-    filename: ${DC3_DATA}/aircraft/merge/dc3-mrg10-dc8_merge_*.ict
+    filename: ${DC3_DATA}/aircraft/merge/DC3-MRG10-DC8_MERGE_*_R10.ict
     variables:
       NO:  { source_name: NO_ESRL }
       NO2: { source_name: NO2_TDLIF }
