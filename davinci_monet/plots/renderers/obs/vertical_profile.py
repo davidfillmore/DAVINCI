@@ -10,9 +10,10 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
+from davinci_monet.plots.base import format_plot_title, get_variable_label
 from davinci_monet.plots.obs_base import ObsPlotter
 from davinci_monet.plots.registry import register_plotter
-from davinci_monet.plots.style import NCAR_PALETTE, OBS_COLOR
+from davinci_monet.plots.style import NCAR_PALETTE, NCAR_PRIMARY
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -88,10 +89,13 @@ class VerticalProfilePlotter(ObsPlotter):
         else:
             fig = ax.get_figure()
 
-        color = color or OBS_COLOR
+        color = color or NCAR_PRIMARY
 
-        # Check for multi-flight data
-        has_flights = "flight" in obs_data.coords
+        # Check for multi-flight data (>1 unique flight)
+        has_flights = (
+            "flight" in obs_data.coords
+            and len(np.unique(obs_data["flight"].values)) > 1
+        )
 
         if has_flights:
             self._plot_multi_flight(
@@ -107,10 +111,9 @@ class VerticalProfilePlotter(ObsPlotter):
             )
 
         # Labels
+        var_label = get_variable_label(obs_data, variable, include_prefix=False)
         units = obs_data[variable].attrs.get("units", "")
-        xlabel = variable
-        if units:
-            xlabel = f"{variable} ({units})"
+        xlabel = f"{var_label} ({units})" if units else var_label
         ax.set_xlabel(xlabel, fontsize=self.config.text.fontsize)
 
         alt_units = ""
@@ -123,7 +126,9 @@ class VerticalProfilePlotter(ObsPlotter):
 
         # Title
         if title is None:
-            title = f"{variable} Vertical Profile"
+            title = f"{var_label} Vertical Profile"
+        else:
+            title = format_plot_title(title)
         ax.set_title(title, fontsize=self.config.text.title_fontsize)
 
         ax.grid(True, alpha=0.3)

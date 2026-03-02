@@ -11,9 +11,10 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from davinci_monet.plots.base import format_plot_title, get_variable_label
 from davinci_monet.plots.obs_base import ObsPlotter
 from davinci_monet.plots.registry import register_plotter
-from davinci_monet.plots.style import NCAR_PALETTE, OBS_COLOR
+from davinci_monet.plots.style import NCAR_PALETTE, NCAR_PRIMARY
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -43,7 +44,7 @@ class ObsTimeSeriesPlotter(ObsPlotter):
     """
 
     name: str = "obs_timeseries"
-    default_figsize: tuple[float, float] = (10, 4)
+    default_figsize: tuple[float, float] = (10, 5)
 
     def plot(
         self,
@@ -87,11 +88,14 @@ class ObsTimeSeriesPlotter(ObsPlotter):
         else:
             fig = ax.get_figure()
 
-        color = color or OBS_COLOR
+        color = color or NCAR_PRIMARY
         time_values = pd.to_datetime(obs_data["time"].values)
         values = obs_data[variable].values
 
-        has_flights = "flight" in obs_data.coords
+        has_flights = (
+            "flight" in obs_data.coords
+            and len(np.unique(obs_data["flight"].values)) > 1
+        )
 
         if has_flights:
             flight_ids = np.unique(obs_data["flight"].values)
@@ -117,16 +121,17 @@ class ObsTimeSeriesPlotter(ObsPlotter):
             )
 
         # Labels
+        var_label = get_variable_label(obs_data, variable, include_prefix=False)
         units = obs_data[variable].attrs.get("units", "")
-        ylabel = variable
-        if units:
-            ylabel = f"{variable} ({units})"
+        ylabel = f"{var_label} ({units})" if units else var_label
         ax.set_ylabel(ylabel, fontsize=self.config.text.fontsize)
         ax.set_xlabel("Time", fontsize=self.config.text.fontsize)
 
         # Title
         if title is None:
-            title = f"{variable} Time Series"
+            title = f"{var_label} Time Series"
+        else:
+            title = format_plot_title(title)
         ax.set_title(title, fontsize=self.config.text.title_fontsize)
 
         ax.grid(True, alpha=0.3)

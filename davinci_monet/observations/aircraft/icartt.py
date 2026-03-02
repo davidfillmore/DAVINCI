@@ -264,14 +264,18 @@ class ICARTTReader:
                     coord_renames[alias] = "longitude"
                 break
 
-        # For altitude, prefer geometric altitude (meters first, then feet)
-        # Variables in feet will be converted to meters
+        # For altitude, prefer geometric altitude (meters first, then km, feet)
+        # Variables in non-meter units will be converted to meters
         FEET_TO_METERS = 0.3048
+        KM_TO_METERS = 1000.0
         feet_vars = {"Pressure_Altitude_BENNETT", "GPS_Altitude_BENNETT"}
+        km_vars = {"ALTP", "GPS_ALT", "GPS_ALT_MMS", "RadarAlt"}
         alt_aliases = [
             # Altitude in meters (preferred)
             "GPS_Altitude_m_DIGANGI", "Altitude_AGL_m_DIGANGI",
             "GPS_Altitude", "Altitude", "altitude", "ALT", "alt",
+            # Altitude in km (DC3 merge files, etc.)
+            "ALTP", "GPS_ALT", "GPS_ALT_MMS", "RadarAlt",
             # Altitude in feet (will be converted)
             "Pressure_Altitude_BENNETT", "GPS_Altitude_BENNETT",
             # Pressure as last resort (not recommended for plotting)
@@ -282,6 +286,10 @@ class ICARTTReader:
                 # Convert feet to meters if needed
                 if alias in feet_vars:
                     ds[alias] = ds[alias] * FEET_TO_METERS
+                    ds[alias].attrs["units"] = "m"
+                # Convert km to meters if needed
+                elif alias in km_vars:
+                    ds[alias] = ds[alias] * KM_TO_METERS
                     ds[alias].attrs["units"] = "m"
                 ds = ds.set_coords(alias)
                 if alias != "altitude":

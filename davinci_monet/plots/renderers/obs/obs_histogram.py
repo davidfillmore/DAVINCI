@@ -10,9 +10,10 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from davinci_monet.plots.base import format_plot_title, get_variable_label
 from davinci_monet.plots.obs_base import ObsPlotter
 from davinci_monet.plots.registry import register_plotter
-from davinci_monet.plots.style import OBS_COLOR
+from davinci_monet.plots.style import NCAR_PRIMARY
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -83,7 +84,7 @@ class ObsHistogramPlotter(ObsPlotter):
         else:
             fig = ax.get_figure()
 
-        color = color or OBS_COLOR
+        color = color or NCAR_PRIMARY
 
         # Extract finite values
         values = obs_data[variable].values.ravel()
@@ -101,7 +102,7 @@ class ObsHistogramPlotter(ObsPlotter):
 
         # Median line
         median = float(np.median(values))
-        ax.axvline(median, color="#D62839", linestyle="--", linewidth=1.5, label=f"Median: {median:.1f}")
+        ax.axvline(median, color="#D62839", linestyle="--", linewidth=1.5)
 
         # Stats annotation
         if show_stats:
@@ -131,19 +132,19 @@ class ObsHistogramPlotter(ObsPlotter):
             )
 
         # Labels
+        var_label = get_variable_label(obs_data, variable, include_prefix=False)
         units = obs_data[variable].attrs.get("units", "")
-        xlabel = variable
-        if units:
-            xlabel = f"{variable} ({units})"
+        xlabel = f"{var_label} ({units})" if units else var_label
         ax.set_xlabel(xlabel, fontsize=self.config.text.fontsize)
         ax.set_ylabel("Count", fontsize=self.config.text.fontsize)
 
         # Title
         if title is None:
-            title = f"{variable} Distribution"
+            title = f"{var_label} Distribution"
+        else:
+            title = format_plot_title(title)
         ax.set_title(title, fontsize=self.config.text.title_fontsize)
 
-        ax.legend(fontsize=self.config.text.legend)
         ax.grid(True, alpha=0.3, axis="y")
 
         return fig

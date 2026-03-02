@@ -1,4 +1,4 @@
-# DC3 DC-8 observation-only analysis
+# DC3 DC-8 observation-only analysis (Gemini - Mac)
 #
 # Loads DC-8 aircraft merge data (ICARTT) and produces flight track maps,
 # vertical profiles, time series, and histograms for key trace gas species.
@@ -6,74 +6,70 @@
 # No model section -- triggers obs-only pipeline mode.
 #
 # Usage:
-#   python scripts/run_obs_analysis.py dc3-obs-dc8
-#
-# Required env vars:
-#   DC3_DATA     - Root data directory (default: ~/Data/DC3)
-#   DC3_ANALYSIS - Analysis directory (set automatically by run script)
+#   davinci-monet run analyses/dc3/configs/dc3-obs-dc8-gemini.yaml
 
 analysis:
   start_time: "2012-05-18"
   end_time: "2012-06-22"
-  output_dir: ${DC3_ANALYSIS}/output/dc8
-  log_dir: ${DC3_ANALYSIS}/logs
+  output_dir: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/dc3/output/dc8
+  log_dir: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/dc3/logs
   style:
     theme: ncar
 
 obs:
   dc8:
     obs_type: icartt
-    filename: ${DC3_DATA}/aircraft/merge/DC3-MRG10-DC8_MERGE_*_R10.ict
+    filename: /Users/fillmore/Data/DC3/aircraft/merge/DC3-MRG10-DC8_MERGE_*_R10.ict
     variables:
-      NO:  { source_name: NO_ESRL }
-      NO2: { source_name: NO2_TDLIF }
-      O3:  { source_name: O3_ESRL }
-      CO:  { source_name: CO_DACOM }
-      NOy: { source_name: NOy_ESRL }
+      "NO":  { source_name: NO_ESRL }
+      "NO2": { source_name: NO2_TDLIF }
+      "O3":  { source_name: O3_ESRL }
+      "CO":  { source_name: CO_DACOM }
+      "NOy": { source_name: NOy_ESRL }
 
 plots:
   dc8_track_o3:
     type: obs_flight_track
     obs: dc8
-    variable: O3
+    variable: "O3"
     title: "DC-8 Flight Tracks: O3 (ppbv)"
 
   dc8_track_no:
     type: obs_flight_track
     obs: dc8
-    variable: NO
+    variable: "NO"
     title: "DC-8 Flight Tracks: NO (ppbv)"
 
   dc8_profile_o3:
     type: obs_vertical_profile
     obs: dc8
-    variable: O3
+    variable: "O3"
     title: "DC-8 O3 Vertical Profile"
 
   dc8_profile_no:
     type: obs_vertical_profile
     obs: dc8
-    variable: NO
+    variable: "NO"
     mode: binned
     title: "DC-8 NO Vertical Profile (binned)"
 
   dc8_ts_o3:
     type: obs_timeseries
     obs: dc8
-    variable: O3
+    variable: "O3"
     show_altitude: true
     title: "DC-8 O3 Time Series"
 
   dc8_hist_o3:
     type: obs_histogram
     obs: dc8
-    variable: O3
+    variable: "O3"
     title: "DC-8 O3 Distribution"
 
   dc8_hist_co:
     type: obs_histogram
     obs: dc8
-    variable: CO
+    variable: "CO"
     title: "DC-8 CO Distribution"
 
 stats:

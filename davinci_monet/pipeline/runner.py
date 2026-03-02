@@ -1086,14 +1086,16 @@ class ProgressFormatter:
         from rich.live import Live
         from rich.text import Text
 
-        pdf_files = sorted(p for p in plot_paths if p.endswith(".pdf"))
+        preview_files = sorted(
+            p for p in plot_paths if p.endswith(".pdf") or p.endswith(".png")
+        )
 
-        if not pdf_files:
+        if not preview_files:
             return
 
-        n_files = len(pdf_files)
-        self._log(f"Previewing {n_files} PDF plots...")
-        self._print(f"  [dim]Previewing {n_files} PDF plots...[/dim]")
+        n_files = len(preview_files)
+        self._log(f"Previewing {n_files} plots...")
+        self._print(f"  [dim]Previewing {n_files} plots...[/dim]")
 
         # Countdown before slideshow starts
         if self.show_output:
@@ -1105,17 +1107,17 @@ class ProgressFormatter:
                     live.update(text)
                     time.sleep(1.0)
 
-        for i, pdf_path in enumerate(pdf_files):
+        for i, file_path in enumerate(preview_files):
             try:
                 # Strip date and index prefixes from filename for display
                 # Format: {flight_date}_{index}_{plot_name} -> {plot_name}
-                plot_name = Path(pdf_path).stem
+                plot_name = Path(file_path).stem
                 plot_name = re.sub(r"^\d+_\d+_", "", plot_name)
                 self._print(f"  [dim][{i + 1}/{n_files}] {plot_name}[/dim]")
 
-                # Open with Quick Look
+                # Open with Quick Look (handles both PDF and PNG on macOS)
                 ql_proc = subprocess.Popen(
-                    ["qlmanage", "-p", pdf_path],
+                    ["qlmanage", "-p", file_path],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
@@ -1128,7 +1130,7 @@ class ProgressFormatter:
                 ql_proc.wait()
 
             except Exception as e:
-                self._log(f"  Error previewing {pdf_path}: {e}")
+                self._log(f"  Error previewing {file_path}: {e}")
 
     def _preview_pngs(self, plot_paths: list[str], duration: float = 1.0) -> None:
         """Show PNG plots in matplotlib window."""
@@ -1654,10 +1656,14 @@ class PipelineRunner:
             self._cleanup_context_datasets(context)
 
             # Preview generated plots if pipeline succeeded and show_plots is enabled
-            if self._show_plots and result.success and "plotting" in context.results:
-                plotting_result = context.results["plotting"]
-                if plotting_result.data and "plots_generated" in plotting_result.data:
-                    plot_paths = plotting_result.data["plots_generated"]
+            if self._show_plots and result.success:
+                plot_paths: list[str] = []
+                for stage_name in ("plotting", "obs_plotting"):
+                    if stage_name in context.results:
+                        stage_result = context.results[stage_name]
+                        if stage_result.data and "plots_generated" in stage_result.data:
+                            plot_paths.extend(stage_result.data["plots_generated"])
+                if plot_paths:
                     formatter.preview_plots(
                         plot_paths, duration=1.0, preview_format=self._preview_format
                     )

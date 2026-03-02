@@ -1551,16 +1551,28 @@ class ObsPlottingStage(BaseStage):
         return bool(context.observations)
 
     def execute(self, context: PipelineContext) -> StageResult:
-        """Execute observation-only plotting."""
+        """Execute observation-only plotting.
+
+        When datasets contain a ``flight`` coordinate with multiple flights,
+        generates one plot per flight automatically.  The per-flight title
+        appends the flight date to the configured title.
+        """
         import logging
         import time
         from pathlib import Path
 
         import matplotlib.pyplot as plt
+        import numpy as np
 
         from davinci_monet.plots.registry import get_plotter
 
         _logger = logging.getLogger(__name__)
+
+        # Keys to exclude when forwarding plot_spec to plotter kwargs
+        _SCHEMA_KEYS = {
+            "type", "obs", "variable", "fig_kwargs", "default_plot_kwargs",
+            "text_kwargs", "domain_type", "domain_name", "data", "data_proc",
+        }
 
         start = time.time()
         plots_config = context.config.get("plots", {})
@@ -1568,6 +1580,7 @@ class ObsPlottingStage(BaseStage):
         output_dir.mkdir(parents=True, exist_ok=True)
 
         plot_count = 0
+        plots_generated: list[str] = []
         errors: list[str] = []
 
         for plot_name, plot_spec in plots_config.items():
@@ -1589,18 +1602,45 @@ class ObsPlottingStage(BaseStage):
                 errors.append(f"Variable '{variable}' not in '{obs_label}' for plot '{plot_name}'")
                 continue
 
-            try:
-                plotter = get_plotter(plot_type)
-                plot_kwargs = {k: v for k, v in plot_spec.items() if k not in ("type", "obs", "variable")}
-                fig = plotter.plot(ds, variable, **plot_kwargs)
-                out_path = output_dir / f"{plot_name}.png"
-                plotter.save(fig, out_path)
-                plt.close(fig)
-                plot_count += 1
-                _logger.info(f"Saved obs plot: {out_path}")
-            except Exception as e:
-                errors.append(f"Plot '{plot_name}' failed: {e}")
-                _logger.warning(f"Obs plot '{plot_name}' failed: {e}")
+            plotter = get_plotter(plot_type)
+            plot_kwargs = {k: v for k, v in plot_spec.items() if k not in _SCHEMA_KEYS}
+            base_title = plot_kwargs.get("title", f"{variable} {plot_type}")
+
+            # Determine flight subsets
+            has_flights = "flight" in ds.coords
+            if has_flights:
+                flight_ids = sorted(set(np.unique(ds["flight"].values).tolist()))
+            else:
+                flight_ids = [None]
+
+            for fid in flight_ids:
+                if fid is not None:
+                    mask = ds["flight"].values == fid
+                    subset = ds.isel(time=mask)
+                    suffix = f"_{fid}"
+                    flight_kwargs = {**plot_kwargs, "title": f"{base_title} — {fid}"}
+                else:
+                    subset = ds
+                    suffix = ""
+                    flight_kwargs = plot_kwargs
+
+                # Skip flights with no valid data for this variable
+                vals = subset[variable].values
+                if not np.any(np.isfinite(vals)):
+                    continue
+
+                try:
+                    fig = plotter.plot(subset, variable, **flight_kwargs)
+                    out_path = output_dir / f"{plot_name}{suffix}.png"
+                    plotter.save(fig, out_path)
+                    plt.close(fig)
+                    plot_count += 1
+                    plots_generated.append(str(out_path))
+                    _logger.info(f"Saved obs plot: {out_path}")
+                except Exception as e:
+                    label = f"'{plot_name}' (flight {fid})" if fid else f"'{plot_name}'"
+                    errors.append(f"Plot {label} failed: {e}")
+                    _logger.warning(f"Obs plot {label} failed: {e}")
 
         message = f"Generated {plot_count} obs-only plots"
         if errors:
@@ -1608,7 +1648,7 @@ class ObsPlottingStage(BaseStage):
 
         return self._create_result(
             StageStatus.COMPLETED if plot_count > 0 or not plots_config else StageStatus.SKIPPED,
-            data={"plot_count": plot_count, "errors": errors},
+            data={"plot_count": plot_count, "plots_generated": plots_generated, "errors": errors},
             duration=time.time() - start,
         )
 

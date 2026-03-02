@@ -173,6 +173,10 @@ class VariableConfig(FlexibleModel):
         Maximum valid value (values above set to NaN).
     nan_value
         Value to treat as NaN.
+    source_name
+        Original variable name in the data file (e.g., 'NO_ESRL').
+        If set, the source variable is renamed to the config key name
+        before other transforms are applied.
     rename
         Rename variable to this name.
     units
@@ -199,6 +203,7 @@ class VariableConfig(FlexibleModel):
         Whether this variable is needed.
     """
 
+    source_name: str | None = None
     unit_scale: float = 1.0
     unit_scale_method: Literal["*", "+", "-", "/"] = "*"
     obs_min: float | None = None

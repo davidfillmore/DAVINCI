@@ -173,6 +173,11 @@ class ObservationData(DataContainer):
             return
 
         for var_name, config in list(self.variables.items()):
+            # Handle source_name: rename file variable to canonical name first
+            source = config.get("source_name")
+            if source and source in self.data and var_name not in self.data:
+                self.rename_variable(source, var_name)
+
             if var_name not in self.data:
                 continue
 
