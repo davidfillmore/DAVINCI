@@ -64,6 +64,9 @@ from davinci_monet.observations.satellite.generic_l3 import (
 # Sonde observation readers
 from davinci_monet.observations.sonde.ozonesonde import OzonesondeReader, open_ozonesonde
 
+# Lightning observation readers
+from davinci_monet.observations.lightning.lma import LMAReader, open_lma
+
 __all__ = [
     # Base classes
     "ObservationData",
@@ -111,4 +114,7 @@ __all__ = [
     # Sonde readers
     "OzonesondeReader",
     "open_ozonesonde",
+    # Lightning readers
+    "LMAReader",
+    "open_lma",
 ]

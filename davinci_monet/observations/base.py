@@ -157,6 +157,10 @@ class ObservationData(DataContainer):
         if obs_type_lower in ("satellite", "swath", "l2"):
             return DataGeometry.SWATH
 
+        # Lightning mapping array (gridded)
+        if obs_type_lower in ("lma",):
+            return DataGeometry.GRID
+
         # Gridded observations
         if obs_type_lower in ("gridded", "grid", "l3", "reanalysis"):
             return DataGeometry.GRID

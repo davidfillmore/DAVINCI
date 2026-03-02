@@ -315,6 +315,7 @@ ObsType = Literal[
     "sat_grid_clm",  # Satellite gridded column
     "mobile",  # Mobile platforms
     "sonde",  # Vertical soundings
+    "lma",  # Lightning Mapping Array grids
 ]
 
 

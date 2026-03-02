@@ -464,6 +464,12 @@ class LoadObservationsStage(BaseStage):
                                 data = self._load_icartt_files(files)
                                 if debug:
                                     context.log_progress(f"      [TIMING] load_icartt: {_format_duration(time.time() - t0)}")
+                            elif obs_type == "lma":
+                                context.log_progress(f"step: Reading {n_files} LMA files...")
+                                t0 = time.time()
+                                data = self._load_lma_files(files)
+                                if debug:
+                                    context.log_progress(f"      [TIMING] load_lma: {_format_duration(time.time() - t0)}")
                             else:
                                 context.log_progress(f"step: Opening {n_files} files...")
                                 t0 = time.time()
@@ -483,6 +489,8 @@ class LoadObservationsStage(BaseStage):
                         t0 = time.time()
                         if str(file_path).endswith(".ict"):
                             data = self._load_icartt_files([str(file_path)])
+                        elif obs_type == "lma":
+                            data = self._load_lma_files([str(file_path)])
                         elif label == "aeronet" or "aeronet" in str(file_path).lower():
                             # Use AERONET reader for proper dimension handling
                             from davinci_monet.observations.surface.aeronet import AERONETReader
@@ -622,6 +630,24 @@ class LoadObservationsStage(BaseStage):
         from davinci_monet.observations.aircraft.icartt import ICARTTReader
 
         reader = ICARTTReader()
+        return reader.open(files)
+
+    def _load_lma_files(self, files: list[str]) -> "xr.Dataset":
+        """Load LMA NetCDF files using the specialized reader.
+
+        Parameters
+        ----------
+        files
+            List of LMA file paths.
+
+        Returns
+        -------
+        xr.Dataset
+            Combined dataset with standardized coordinates.
+        """
+        from davinci_monet.observations.lightning.lma import LMAReader
+
+        reader = LMAReader()
         return reader.open(files)
 
     def _filter_files_by_date(

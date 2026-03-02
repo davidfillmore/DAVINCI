@@ -1,0 +1,47 @@
+# ASIA-AQ Pandora observation-only analysis (Gemini - Mac)
+#
+# NO2 tropospheric column from Pandora ground-based spectrometers.
+# High-frequency observations resampled to hourly means.
+#
+# No model section -- triggers obs-only pipeline mode.
+#
+# Usage:
+#   davinci-monet run analyses/asia-aq/configs/asia-aq-obs-pandora-gemini.yaml
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-29"
+  output_dir: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/asia-aq/output/obs-only
+  log_dir: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/asia-aq/logs
+  style:
+    theme: ncar
+
+obs:
+  pandora:
+    obs_type: pt_sfc
+    filename: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/asia-aq/data/pandora_no2_column_20240201_20240229.nc
+    resample: "h"              # Average sub-hourly obs to hourly
+    min_obs_count: 3           # Require at least 3 obs per hour
+    track_obs_count: true      # Add obs_count variable for diagnostics
+    variables:
+      no2_trop_column:
+        obs_min: 0
+        obs_max: 5.0e-3
+        units: mol/m2
+        ylabel_plot: "NO$_2$ Column (mol/m2)"
+
+plots:
+  pandora_no2_timeseries:
+    type: obs_timeseries
+    obs: pandora
+    variable: "no2_trop_column"
+    title: "Pandora NO2 Tropospheric Column - ASIA-AQ"
+
+  pandora_no2_histogram:
+    type: obs_histogram
+    obs: pandora
+    variable: "no2_trop_column"
+    title: "Pandora NO2 Column Distribution - ASIA-AQ"
+
+stats:
+  metrics: [N, mean, median, std, min, max, p10, p25, p75, p90]
