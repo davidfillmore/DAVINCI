@@ -106,7 +106,10 @@ class ObsLMADensityPlotter(ObsPlotter):
                 results.append((fig, suffix))
             return results
         else:
-            data_2d = obs_data[variable].sum(dim="time").values
+            summed = obs_data[variable].sum(dim="time")
+            if "latitude" in summed.dims and "longitude" in summed.dims:
+                summed = summed.transpose("latitude", "longitude")
+            data_2d = summed.values
             fig = self._render_map(
                 lat, lon, data_2d,
                 projection=projection,
@@ -135,11 +138,18 @@ class ObsLMADensityPlotter(ObsPlotter):
     def _aggregate_hourly(
         self, ds: xr.Dataset, variable: str,
     ) -> list[tuple[str, np.ndarray]]:
-        """Aggregate data into hourly sums, returning only hours with activity."""
+        """Aggregate data into hourly sums, returning only hours with activity.
+
+        Returns 2D arrays in (latitude, longitude) order for pcolormesh.
+        """
         groups = ds[variable].resample(time="1h").sum()
         results = []
         for t in groups.time.values:
-            data_2d = groups.sel(time=t).values
+            data_slice = groups.sel(time=t)
+            # Ensure (latitude, longitude) ordering for pcolormesh
+            if "latitude" in data_slice.dims and "longitude" in data_slice.dims:
+                data_slice = data_slice.transpose("latitude", "longitude")
+            data_2d = data_slice.values
             if np.nansum(data_2d) > 0:
                 ts = np.datetime_as_string(t, unit="h")
                 hour = int(ts[-2:]) if len(ts) >= 2 else 0
@@ -184,13 +194,17 @@ class ObsLMADensityPlotter(ObsPlotter):
                 cfeature.STATES, edgecolor="gray", linewidth=0.5, zorder=1,
             )
         if "counties" in features:
-            ax.add_feature(
-                cfeature.NaturalEarthFeature(
-                    "cultural", "admin_2_counties_lakes_shp", "10m",
-                    edgecolor="lightgray", facecolor="none", linewidth=0.3,
-                ),
-                zorder=1,
-            )
+            try:
+                ax.add_feature(
+                    cfeature.NaturalEarthFeature(
+                        "cultural", "admin_2_counties_lakes_shp", "10m",
+                        edgecolor="lightgray", facecolor="none", linewidth=0.3,
+                    ),
+                    zorder=1,
+                )
+            except Exception:
+                # 10m county shapefile may not be cached; fall back silently
+                pass
         if "coastlines" in features:
             ax.add_feature(
                 cfeature.COASTLINE, edgecolor="black", linewidth=0.5, zorder=1,
