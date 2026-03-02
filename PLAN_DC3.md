@@ -4,6 +4,34 @@
 
 ---
 
+## Implementation Status
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| **A** | Obs-only pipeline infrastructure | **COMPLETE** |
+| **B1** | LMA Reader (Lightning Mapping Array) | **COMPLETE** |
+| **B2** | ARM Sonde Reader | Deferred — awaiting data from ARM archive |
+| **B3** | DC3 analysis directory + configs + scripts | **COMPLETE** |
+| **C** | ASIA-AQ obs-only configs | **COMPLETE** |
+| **D** | MPAS model reader + model-obs evaluation | Deferred — awaiting model output |
+
+### Completed Commits
+
+- `9d92a06` — feat: add LMA reader and ASIA-AQ obs-only configs
+- `b5663af` — docs: add pre-implementation audit checklist to CLAUDE.md
+- `fef1a1d` — feat: improve obs-only plots and fix DC3 analysis pipeline
+- `c0e2b24` — fix: correct DC3 file patterns and variable names from actual data
+- `75e7a33` — feat: add DC3 analysis directory, configs, download script, and design docs
+- `4172e04` — feat: add 4 obs-only plot renderers
+- `d59b6cf` — feat: add obs-only pipeline stages and auto-detection
+- `1896a02` — feat: add ObsPlotter abstract base class for observation-only plots
+
+### Test Coverage
+
+932 tests passing (including 17 LMA reader tests, 9 obs-pipeline tests, 21 obs-plot tests).
+
+---
+
 ## Overview
 
 Add support for the **DC3** field campaign (May-June 2012) and extend **ASIA-AQ** support in DAVINCI-MONET, starting with **observation-only pipelines**. No model runs are available initially, so the first phases focus on loading, visualizing, and characterizing observations. Model evaluation (MPAS-DAVINCI) is deferred to later phases when model output becomes available.
@@ -78,11 +106,13 @@ DC3 studied the impact of deep midlatitude continental convective clouds on uppe
 
 ---
 
-## Phase A: Obs-Only Pipeline Infrastructure
+## Phase A: Obs-Only Pipeline Infrastructure — COMPLETE
 
 **Goal:** Enable DAVINCI-MONET pipelines to run with observations only — no model data, no pairing, no model-obs statistics. Produces observation-only diagnostics: flight tracks, vertical profiles, time series, distributions.
 
 **Applies to both DC3 and ASIA-AQ.**
+
+**Implemented:** Auto-detection from missing `model` section, 4 obs-only plot types (`obs_flight_track`, `obs_vertical_profile`, `obs_timeseries`, `obs_histogram`), `ObsPlottingStage` with per-flight iteration, `ObsStatisticsStage`, `--show-plots` CLI support, and full test coverage.
 
 ### A1: Obs-Only Pipeline Mode
 
@@ -248,44 +278,38 @@ Extend the statistics stage (or add an `ObsStatisticsStage`) to compute observat
 
 **Goal:** Load DC3 aircraft, LMA, and sonde observations. Create the `analyses/dc3/` directory with obs-only configs and download scripts.
 
-### B1: LMA Observation Reader
+### B1: LMA Observation Reader — COMPLETE
 
-**New files:**
+**Files created:**
 - `davinci_monet/observations/lightning/__init__.py`
 - `davinci_monet/observations/lightning/lma.py`
+- `davinci_monet/tests/test_lma_reader.py` (17 tests)
+- `analyses/dc3/scripts/download_dc3_lma.py`
+- `analyses/dc3/configs/dc3-obs-lma-gemini.yaml`
 
-Lightning Mapping Array data from NCAR EOL:
+**Files modified:**
+- `davinci_monet/observations/base.py` — Added `"lma"` → `DataGeometry.GRID` mapping
+- `davinci_monet/config/schema.py` — Added `"lma"` to `ObsType` literal
+- `davinci_monet/observations/__init__.py` — Registered `LMAReader` and `open_lma`
+- `davinci_monet/pipeline/stages.py` — Added `_load_lma_files()` and LMA detection in `LoadObservationsStage`
 
-- **Format:** NetCDF with flash locations (lat, lon, alt), times, types
-- **Networks:** COLMA (Colorado), NALMA (Alabama), OKLMA (Oklahoma)
-- **Resolution:** Individual flashes (millisecond timestamps)
-- **Coverage:** ~100-350 km detection range per network
+**Implementation:**
+- `LMAReader` registered as `@observation_registry.register("lma")`
+- Reads CF-compliant NetCDF grids with `flash_extent_density`, `source_density`, `flash_init_density`
+- GRID geometry `(time, latitude, longitude)`
+- Auto-detects LMA network (OKLMA/COLMA/NALMA) from filename
+- Standardizes coordinate names (lat→latitude, lon→longitude)
+- Adds time dimension if missing (single-time grids)
+- Download script provides manual ordering instructions for NCAR EOL dataset 353.202
+- Obs-only config targets 29-30 May 2012 Oklahoma supercell benchmark case
 
-#### Tasks
+**Blocker for real-data testing:** OKLMA NetCDF grids must be manually ordered from NCAR EOL (dataset 353.202). Download to `/Users/fillmore/Data/DC3/lightning/oklma/`.
 
-1. **Create `lightning/` observation subpackage**
+### B2: ARM Sonde Reader — DEFERRED (awaiting data)
 
-2. **Implement LMA reader**
-   - Register as `@observation_registry.register('lma')`
-   - Read NCAR EOL NetCDF flash files
-   - Parse flash locations, times, types (IC/CG when available)
-   - Aggregate to flash rates in configurable time bins (default 1 min)
-   - Provide both raw flash data and aggregated rates
+**Blocker:** Needs data download from ARM archive (adc.arm.gov).
 
-3. **Obs-only diagnostics for LMA**
-   - Flash rate time series
-   - Flash location map (scatter on Cartopy)
-   - Flash altitude distribution (histogram)
-   - IC/CG ratio time series (when classification available)
-
-4. **Tests**
-   - Synthetic LMA NetCDF with known flash locations and times
-   - Verify flash rate aggregation
-   - Verify coordinate parsing
-
-### B2: ARM Sonde Reader
-
-**New file:** `davinci_monet/observations/sonde/arm_sonde.py`
+**New file (when ready):** `davinci_monet/observations/sonde/arm_sonde.py`
 
 ARM SGP radiosondes:
 
@@ -294,7 +318,7 @@ ARM SGP radiosondes:
 - **Frequency:** 4/day during DC3 (00, 06, 12, 18 UTC), 238 total
 - **Variables:** Temperature, relative humidity, wind speed/direction, pressure, altitude
 
-#### Tasks
+#### Tasks (when data available)
 
 1. **Implement ARM sonde reader**
    - Register as `@observation_registry.register('arm_sonde')`
@@ -311,42 +335,28 @@ ARM SGP radiosondes:
    - Synthetic ARM-like NetCDF with known profiles
    - Verify profile geometry and coordinate standardization
 
-### B3: DC3 Analysis Directory
+### B3: DC3 Analysis Directory — COMPLETE
 
 ```
 analyses/dc3/
 ├── README.md
 ├── configs/
-│   ├── dc3-obs-gv.yaml              # GV obs-only
-│   ├── dc3-obs-dc8.yaml             # DC-8 obs-only
-│   ├── dc3-obs-falcon.yaml          # Falcon obs-only
-│   ├── dc3-obs-all-aircraft.yaml    # Combined 3-aircraft obs-only
-│   ├── dc3-obs-lma.yaml             # LMA flash data obs-only
-│   └── dc3-obs-sondes.yaml          # ARM SGP sonde obs-only
+│   ├── dc3-obs-dc8-gemini.yaml         # DC-8 obs-only
+│   ├── dc3-obs-gv-gemini.yaml          # GV obs-only
+│   ├── dc3-obs-all-aircraft-gemini.yaml # Combined aircraft obs-only
+│   └── dc3-obs-lma-gemini.yaml         # LMA flash data obs-only
 ├── scripts/
-│   ├── download_dc3_aircraft.py     # Download ICARTT from NASA ASDC
-│   ├── download_dc3_lma.py          # Download LMA from NCAR EOL
-│   ├── download_dc3_sondes.py       # Download ARM SGP sondes
-│   └── run_obs_analysis.py          # Obs-only pipeline execution
-├── data/                             # Downloaded observations
-├── output/                           # Plots and obs statistics
-└── logs/                             # Pipeline logs
+│   ├── download_dc3_aircraft.py         # Download ICARTT from NASA ASDC
+│   ├── download_dc3_lma.py             # Download LMA from NCAR EOL
+│   └── run_obs_analysis.py             # Obs-only pipeline execution
+├── data/                                # Downloaded observations
+├── output/                              # Plots and obs statistics
+└── logs/                                # Pipeline logs
 ```
 
-#### Tasks
-
-1. Create directory structure
-2. Write README.md with campaign overview, setup, usage
-3. Write download scripts (ASDC, EOL, ARM)
-4. Write obs-only YAML configs for each observation source
-5. Write `run_obs_analysis.py` — runs obs-only pipeline, sets env vars, logs
-
-#### Environment Variables
-
-```bash
-DC3_DATA=~/Data/DC3              # Raw observation data downloads
-DC3_ANALYSIS=analyses/dc3        # Analysis directory (auto-set by run script)
-```
+**Still TODO when data available:**
+- `dc3-obs-sondes.yaml` — ARM SGP sonde obs-only (requires B2 ARM sonde reader)
+- `download_dc3_sondes.py` — ARM SGP sonde download script
 
 #### ICARTT Variable Names (DC3-specific)
 
@@ -364,29 +374,23 @@ Configured per-obs in YAML — no code changes needed for variable mapping.
 
 ---
 
-## Phase C: ASIA-AQ Obs-Only Configs
+## Phase C: ASIA-AQ Obs-Only Configs — COMPLETE
 
 **Goal:** Add obs-only pipeline configs for existing ASIA-AQ observations. All readers already exist (AirNow, AERONET, Pandora, DC-8 ICARTT); this phase just creates the YAML configs.
 
-### New Configs in `analyses/asia-aq/configs/`
+### Configs in `analyses/asia-aq/configs/`
 
-| Config | Observations | Diagnostics |
-|--------|-------------|-------------|
-| `asia-aq-obs-airnow.yaml` | AirNow surface (PM2.5, O3, NO2, CO) | Time series, histograms, spatial maps |
-| `asia-aq-obs-aeronet.yaml` | AERONET AOD | Time series, site maps |
-| `asia-aq-obs-pandora.yaml` | Pandora NO2 columns | Site time series, histograms |
-| `asia-aq-obs-dc8.yaml` | DC-8 aircraft (O3, NO2, CO) | Track maps, profiles, flight time series |
-| `asia-aq-obs-all.yaml` | All observations combined | Full obs-only diagnostic suite |
-
-### Tasks
-
-1. Write obs-only YAML configs (no `model` or `pairs` sections)
-2. Write `run_obs_analysis.py` script for ASIA-AQ obs-only mode
-3. Verify existing readers work in obs-only pipeline
+| Config | Observations | Diagnostics | Status |
+|--------|-------------|-------------|--------|
+| `asia-aq-obs-airnow-gemini.yaml` | AirNow surface (PM2.5, O3, NO2, CO) | Time series, histograms | COMPLETE |
+| `asia-aq-obs-aeronet-gemini.yaml` | AERONET AOD (500 nm) | Time series, histogram | COMPLETE |
+| `asia-aq-obs-pandora-gemini.yaml` | Pandora NO2 columns (hourly resample) | Time series, histogram | COMPLETE |
+| `asia-aq-obs-dc8-gemini.yaml` | DC-8 aircraft (O3, NO2, CO) | Track maps, profiles, time series, histograms | COMPLETE |
+| `asia-aq-obs-all.yaml` | All observations combined | Full obs-only diagnostic suite | TODO |
 
 ---
 
-## Phase D: Model Evaluation (Deferred)
+## Phase D: Model Evaluation — DEFERRED (awaiting model output)
 
 **Goal:** When MPAS-DAVINCI model runs become available, add model reader and model-obs evaluation configs.
 
@@ -457,30 +461,26 @@ analyses/asia-aq/configs/
 
 ## Implementation Order
 
-| Step | Phase | Description | Dependencies | New Files |
-|------|-------|-------------|--------------|-----------|
-| 1 | A1 | Obs-only pipeline mode | None | Edit `pipeline/stages.py`, `pipeline/runner.py` |
-| 2 | A2 | Obs track map plot | Step 1 | `plots/renderers/obs_track_map.py` |
-| 3 | A2 | Obs vertical profile plot | Step 1 | `plots/renderers/obs_vertical_profile.py` |
-| 4 | A2 | Obs time series plot | Step 1 | `plots/renderers/obs_timeseries.py` |
-| 5 | A2 | Obs histogram plot | Step 1 | `plots/renderers/obs_histogram.py` |
-| 6 | A3 | Obs-only plotting stage | Steps 2-5 | Edit `pipeline/stages.py` |
-| 7 | A5 | Obs-only statistics | Step 1 | Edit `pipeline/stages.py` or new stage |
-| 8 | A6 | Obs-only pipeline tests | Steps 1-7 | `tests/pipeline/test_obs_only.py` |
-| 9 | B1 | LMA observation reader | None | `observations/lightning/lma.py` |
-| 10 | B1 | LMA reader tests | Step 9 | `tests/observations/test_lma.py` |
-| 11 | B2 | ARM sonde reader | None | `observations/sonde/arm_sonde.py` |
-| 12 | B2 | ARM sonde tests | Step 11 | `tests/observations/test_arm_sonde.py` |
-| 13 | B3 | DC3 analysis directory + configs | Steps 1-7, 9, 11 | `analyses/dc3/` tree |
-| 14 | B3 | DC3 download scripts | Step 13 | `analyses/dc3/scripts/download_*.py` |
-| 15 | C | ASIA-AQ obs-only configs | Steps 1-7 | `analyses/asia-aq/configs/asia-aq-obs-*.yaml` |
-| 16 | D1 | MPAS model reader | None | `models/mpas.py` (deferred) |
-| 17 | D2 | DC3 model-obs configs | Step 16 | `analyses/dc3/configs/dc3-eval-*.yaml` (deferred) |
-| 18 | D3 | ASIA-AQ MPAS configs | Step 16 | `analyses/asia-aq/configs/asia-aq-mpas.yaml` (deferred) |
-
-**Parallelizable:** Steps 2-5 (obs plot types), Steps 9+11 (readers), Step 15 (ASIA-AQ configs).
-
-**Phase A (Steps 1-8)** and **Phase B readers (Steps 9-12)** can proceed in parallel.
+| Step | Phase | Description | Status |
+|------|-------|-------------|--------|
+| 1 | A1 | Obs-only pipeline mode | DONE |
+| 2 | A2 | Obs track map plot | DONE |
+| 3 | A2 | Obs vertical profile plot | DONE |
+| 4 | A2 | Obs time series plot | DONE |
+| 5 | A2 | Obs histogram plot | DONE |
+| 6 | A3 | Obs-only plotting stage | DONE |
+| 7 | A5 | Obs-only statistics | DONE |
+| 8 | A6 | Obs-only pipeline tests | DONE |
+| 9 | B1 | LMA observation reader | DONE |
+| 10 | B1 | LMA reader tests (17 tests) | DONE |
+| 11 | B2 | ARM sonde reader | DEFERRED (no data) |
+| 12 | B2 | ARM sonde tests | DEFERRED (no data) |
+| 13 | B3 | DC3 analysis directory + configs | DONE |
+| 14 | B3 | DC3 download scripts | DONE |
+| 15 | C | ASIA-AQ obs-only configs (4 of 5) | DONE |
+| 16 | D1 | MPAS model reader | DEFERRED (no model output) |
+| 17 | D2 | DC3 model-obs configs | DEFERRED (no model output) |
+| 18 | D3 | ASIA-AQ MPAS configs | DEFERRED (no model output) |
 
 ---
 
