@@ -675,6 +675,28 @@ class TestObsLMADensityPlotter:
         assert "DC8" in labels
         plt.close(fig)
 
+    def test_save_hourly_outputs(self, grid_lma_data_multihour, tmp_path):
+        """Hourly output can be saved as multiple files."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+
+        plotter = ObsLMADensityPlotter()
+        result = plotter.plot(
+            grid_lma_data_multihour, "flash_extent",
+            time_agg="hourly",
+            title="Test",
+        )
+
+        assert isinstance(result, list)
+        saved = []
+        for fig, suffix in result:
+            out_path = tmp_path / f"lma_density{suffix}.png"
+            plotter.save(fig, out_path)
+            assert out_path.exists()
+            saved.append(out_path)
+            plt.close(fig)
+
+        assert len(saved) == 3
+
     def test_flight_track_missing_dataset(self, grid_lma_data):
         """Overlay gracefully skips missing flight track datasets."""
         from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter

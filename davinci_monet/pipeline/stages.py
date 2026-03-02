@@ -1655,14 +1655,33 @@ class ObsPlottingStage(BaseStage):
                 if not np.any(np.isfinite(vals)):
                     continue
 
+                # Provide obs_datasets for renderers needing cross-dataset access
+                if "flight_tracks" in plot_spec:
+                    flight_kwargs["obs_datasets"] = {
+                        label: (od.data if hasattr(od, "data") else od)
+                        for label, od in context.observations.items()
+                    }
+
                 try:
-                    fig = plotter.plot(subset, variable, **flight_kwargs)
-                    out_path = output_dir / f"{plot_name}{suffix}.png"
-                    plotter.save(fig, out_path)
-                    plt.close(fig)
-                    plot_count += 1
-                    plots_generated.append(str(out_path))
-                    _logger.info(f"Saved obs plot: {out_path}")
+                    result = plotter.plot(subset, variable, **flight_kwargs)
+
+                    # Multi-figure support (e.g., hourly LMA density maps)
+                    if isinstance(result, list):
+                        for fig, fig_suffix in result:
+                            out_path = output_dir / f"{plot_name}{suffix}{fig_suffix}.png"
+                            plotter.save(fig, out_path)
+                            plt.close(fig)
+                            plot_count += 1
+                            plots_generated.append(str(out_path))
+                            _logger.info(f"Saved obs plot: {out_path}")
+                    else:
+                        fig = result
+                        out_path = output_dir / f"{plot_name}{suffix}.png"
+                        plotter.save(fig, out_path)
+                        plt.close(fig)
+                        plot_count += 1
+                        plots_generated.append(str(out_path))
+                        _logger.info(f"Saved obs plot: {out_path}")
                 except Exception as e:
                     label = f"'{plot_name}' (flight {fid})" if fid else f"'{plot_name}'"
                     errors.append(f"Plot {label} failed: {e}")
