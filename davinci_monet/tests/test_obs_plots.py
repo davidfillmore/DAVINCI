@@ -611,3 +611,80 @@ class TestObsLMADensityPlotter:
         assert saved_path.exists()
         assert saved_path.stat().st_size > 0
         plt.close(fig)
+
+    def test_hourly_aggregation(self, grid_lma_data_multihour):
+        """Hourly mode returns list of (fig, suffix) tuples."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+
+        plotter = ObsLMADensityPlotter()
+        result = plotter.plot(
+            grid_lma_data_multihour, "flash_extent",
+            time_agg="hourly",
+            title="Test LMA",
+        )
+
+        assert isinstance(result, list)
+        assert len(result) == 3  # 3 hours of data
+        for fig, suffix in result:
+            assert fig is not None
+            assert isinstance(suffix, str)
+            assert ":" not in suffix  # suffix is filename-safe (no colons)
+            plt.close(fig)
+
+    def test_hourly_consistent_colorbar(self, grid_lma_data_multihour):
+        """All hourly maps use the same colorbar range."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+
+        plotter = ObsLMADensityPlotter()
+        result = plotter.plot(
+            grid_lma_data_multihour, "flash_extent",
+            time_agg="hourly",
+        )
+
+        # All pcolormesh artists should share the same clim
+        clims = []
+        for fig, _ in result:
+            for ax in fig.axes:
+                for child in ax.get_children():
+                    if hasattr(child, "get_clim"):
+                        clims.append(child.get_clim())
+                        break
+            plt.close(fig)
+
+        assert len(clims) >= 2
+        for clim in clims[1:]:
+            assert clim == clims[0], "Colorbar ranges should be consistent across hours"
+
+    def test_flight_track_overlay(self, grid_lma_data, track_obs_data):
+        """Density map with flight track overlay renders without error."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+
+        plotter = ObsLMADensityPlotter()
+        fig = plotter.plot(
+            grid_lma_data, "flash_extent",
+            flight_tracks={"dc8": "dc8"},
+            obs_datasets={"dc8": track_obs_data},
+        )
+
+        assert fig is not None
+        # Check legend exists with aircraft label
+        ax = fig.axes[0]
+        legend = ax.get_legend()
+        assert legend is not None
+        labels = [t.get_text() for t in legend.get_texts()]
+        assert "DC8" in labels
+        plt.close(fig)
+
+    def test_flight_track_missing_dataset(self, grid_lma_data):
+        """Overlay gracefully skips missing flight track datasets."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+
+        plotter = ObsLMADensityPlotter()
+        fig = plotter.plot(
+            grid_lma_data, "flash_extent",
+            flight_tracks={"dc8": "dc8"},
+            obs_datasets={},  # empty — no track data
+        )
+
+        assert fig is not None
+        plt.close(fig)
