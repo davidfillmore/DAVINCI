@@ -570,3 +570,44 @@ class TestObsHistogramPlotter:
         from davinci_monet.plots.registry import has_plotter
 
         assert has_plotter("obs_histogram")
+
+
+# =============================================================================
+# Obs LMA Density Plotter Tests
+# =============================================================================
+
+
+class TestObsLMADensityPlotter:
+    """Tests for the ObsLMADensityPlotter (obs_lma_density)."""
+
+    def test_basic_plot(self, grid_lma_data):
+        """Basic LMA density map renders without error."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+
+        plotter = ObsLMADensityPlotter()
+        fig = plotter.plot(grid_lma_data, "flash_extent")
+
+        assert fig is not None
+        assert len(fig.axes) >= 1
+        plt.close(fig)
+
+    def test_registered_in_registry(self):
+        """ObsLMADensityPlotter is registered as 'obs_lma_density'."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter  # noqa: F401
+        from davinci_monet.plots.registry import has_plotter
+
+        assert has_plotter("obs_lma_density")
+
+    def test_save_output(self, grid_lma_data, tmp_path):
+        """LMA density map can be saved to disk."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+
+        plotter = ObsLMADensityPlotter()
+        fig = plotter.plot(grid_lma_data, "flash_extent")
+
+        output_path = tmp_path / "lma_density.png"
+        saved_path = plotter.save(fig, output_path)
+
+        assert saved_path.exists()
+        assert saved_path.stat().st_size > 0
+        plt.close(fig)
