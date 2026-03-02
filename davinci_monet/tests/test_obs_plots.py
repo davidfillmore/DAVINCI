@@ -710,3 +710,24 @@ class TestObsLMADensityPlotter:
 
         assert fig is not None
         plt.close(fig)
+
+    def test_yaml_config_parse(self):
+        """The May 29 YAML config parses without error for LMA density entries."""
+        import yaml
+        from pathlib import Path
+
+        config_path = Path("analyses/dc3/configs/dc3-may29-gemini.yaml")
+        if not config_path.exists():
+            pytest.skip("May 29 config not present")
+
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+
+        plots = config["plots"]
+        assert "lma_density" in plots
+        assert plots["lma_density"]["type"] == "obs_lma_density"
+        assert plots["lma_density"]["time_agg"] == "hourly"
+
+        assert "lma_density_with_tracks" in plots
+        assert "flight_tracks" in plots["lma_density_with_tracks"]
+        assert "dc8" in plots["lma_density_with_tracks"]["flight_tracks"]
