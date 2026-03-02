@@ -79,7 +79,24 @@ else:
 
 ---
 
-## Quick Start
+## Pre-Implementation Audit (REQUIRED)
+
+**Before building any new component**, audit existing code for patterns it must conform to. This has caused repeated rework — new features were built in isolation, ignoring existing conventions, styles, renderers, CLI features, and naming patterns.
+
+**Audit checklist** (search the codebase for each before writing code):
+
+1. **Existing renderers/implementations** — Does a similar component already exist? (e.g., 3D flight track plotter already existed when 2D was introduced; should have extended, not reinvented)
+2. **Style and theming** — Check `plots/style.py` for color conventions, fonts, palettes. New plotters must use the correct colors for their context (see Plot Styling section)
+3. **CLI integration** — Check `cli/app.py` and `pipeline/runner.py` for flags like `--show-plots`. New pipeline stages must work with existing CLI features
+4. **Config naming conventions** — Check `analyses/*/configs/` for naming patterns (e.g., `*-gemini.yaml` for machine-specific configs with absolute paths)
+5. **Pipeline stage contracts** — Check what data keys existing stages return (e.g., `plots_generated`) and ensure new stages follow the same contracts
+6. **Data conventions** — Check observation readers for coordinate aliases, unit conventions, and standardization patterns already in place
+
+**The audit is not optional.** Every missed convention costs a debugging + fix cycle that's slower than reading the code upfront.
+
+---
+
+
 
 ```bash
 # Activate conda environment
@@ -271,9 +288,18 @@ stats:
   metrics: [N, MB, RMSE, R, NMB, NME, IOA]
 ```
 
+### Config Naming Convention
+
+Machine-specific configs use `{campaign}-{variant}-{machine}.yaml` with **full absolute paths** (no env vars). Examples:
+- `asia-aq-dc8-gemini.yaml` — ASIA-AQ DC-8 analysis on Gemini (Mac)
+- `dc3-obs-dc8-gemini.yaml` — DC3 obs-only DC-8 on Gemini
+- `asia-aq-airnow-derecho.yaml` — ASIA-AQ AirNow on Derecho (HPC)
+
+Machine names: `gemini` (local Mac), `derecho` (NCAR HPC)
+
 ### Environment Variable Expansion
 
-YAML config paths support `${VAR}` syntax for environment variables. Set variables before running:
+YAML config paths support `${VAR}` syntax for environment variables, but **machine-specific configs should use absolute paths instead**. Env var configs are for portable/template use only:
 ```bash
 export MY_DATA=~/Data/campaign
 export MY_ANALYSIS=/path/to/analysis
@@ -378,9 +404,10 @@ fig = plot_timeseries(paired_data, "obs_o3", "model_o3")
 ```
 
 **Key colors** (`davinci_monet.plots.style`):
-- `OBS_COLOR`: Gray (#58595B) for observations
-- `MODEL_COLOR`: NCAR Blue (#0A5DDA) for model data
-- `NCAR_PALETTE`: 8-color palette for multiple datasets
+- `NCAR_PRIMARY`: NCAR Blue (#0A5DDA) — brand color, used for **obs-only** plots
+- `OBS_COLOR`: Gray (#58595B) — observations **in model-vs-obs paired** plots (for contrast)
+- `MODEL_COLOR`: NCAR Blue (#0A5DDA) — model data in paired plots
+- `NCAR_PALETTE`: 8-color palette for multiple datasets / per-flight coloring
 
 **Context presets**:
 - `default`: Standard sizes for general use
