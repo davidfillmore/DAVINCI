@@ -101,6 +101,92 @@ def multi_flight_obs_data() -> xr.Dataset:
     return xr.concat(flights, dim="time")
 
 
+@pytest.fixture
+def grid_lma_data() -> xr.Dataset:
+    """Create synthetic LMA gridded flash density dataset (one hour)."""
+    np.random.seed(42)
+    n_times = 12  # 5-min steps in one hour
+    n_lat = 20
+    n_lon = 25
+
+    time = pd.date_range("2012-05-29 22:00", periods=n_times, freq="5min")
+    lats = np.linspace(33.5, 37.0, n_lat)
+    lons = np.linspace(-101.0, -96.0, n_lon)
+
+    # Create a hotspot in the center
+    lat_grid, lon_grid = np.meshgrid(lats, lons, indexing="ij")
+    hotspot = np.exp(
+        -((lat_grid - 35.2) ** 2 + (lon_grid - 98.5) ** 2) / 0.5
+    )
+    # Vary intensity over time (ramp up then down)
+    time_profile = np.sin(np.linspace(0, np.pi, n_times))
+    flash_extent = np.zeros((n_times, n_lat, n_lon))
+    for t in range(n_times):
+        flash_extent[t] = hotspot * time_profile[t] * 10 + np.random.poisson(
+            0.5, (n_lat, n_lon)
+        )
+
+    ds = xr.Dataset(
+        {
+            "flash_extent": (
+                ["time", "latitude", "longitude"],
+                flash_extent,
+                {"units": "flashes/grid cell", "long_name": "Flash Extent Density"},
+            ),
+        },
+        coords={
+            "time": time,
+            "latitude": lats,
+            "longitude": lons,
+        },
+        attrs={"geometry": "grid", "lma_network_id": "oklma"},
+    )
+    return ds
+
+
+@pytest.fixture
+def grid_lma_data_multihour() -> xr.Dataset:
+    """Create synthetic LMA data spanning 3 hours with varying activity."""
+    np.random.seed(42)
+    n_lat = 20
+    n_lon = 25
+
+    lats = np.linspace(33.5, 37.0, n_lat)
+    lons = np.linspace(-101.0, -96.0, n_lon)
+    lat_grid, lon_grid = np.meshgrid(lats, lons, indexing="ij")
+    hotspot = np.exp(
+        -((lat_grid - 35.2) ** 2 + (lon_grid - 98.5) ** 2) / 0.5
+    )
+
+    # 3 hours x 12 steps = 36 time steps
+    time = pd.date_range("2012-05-29 22:00", periods=36, freq="5min")
+    hourly_scale = [5.0, 10.0, 3.0]  # hour 2 is peak
+
+    flash_extent = np.zeros((36, n_lat, n_lon))
+    for t in range(36):
+        hour_idx = t // 12
+        flash_extent[t] = hotspot * hourly_scale[hour_idx] + np.random.poisson(
+            0.5, (n_lat, n_lon)
+        )
+
+    ds = xr.Dataset(
+        {
+            "flash_extent": (
+                ["time", "latitude", "longitude"],
+                flash_extent,
+                {"units": "flashes/grid cell", "long_name": "Flash Extent Density"},
+            ),
+        },
+        coords={
+            "time": time,
+            "latitude": lats,
+            "longitude": lons,
+        },
+        attrs={"geometry": "grid", "lma_network_id": "oklma"},
+    )
+    return ds
+
+
 # =============================================================================
 # ObsPlotter Base Class Tests
 # =============================================================================
