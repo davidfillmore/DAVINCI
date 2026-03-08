@@ -264,6 +264,12 @@ def make_plots(
     ]
     for ax, data, title in aod_panels:
         add_map_features(ax)
+        # Rasterized base layer eliminates white contour-line artifacts in PDFs
+        ax.pcolormesh(
+            lon, lat, data.T, cmap=plt.cm.turbo,
+            vmin=aod_levels[0], vmax=aod_levels[-1],
+            transform=ccrs.PlateCarree(), rasterized=True,
+        )
         cf_aod = ax.contourf(
             lon_mesh, lat_mesh, data.T, aod_levels,
             cmap=plt.cm.turbo, extend="max",
@@ -283,6 +289,11 @@ def make_plots(
     ]
     for ax, data, title in bias_panels:
         add_map_features(ax)
+        ax.pcolormesh(
+            lon, lat, data.T, cmap=plt.cm.RdBu_r,
+            vmin=bias_levels[0], vmax=bias_levels[-1],
+            transform=ccrs.PlateCarree(), rasterized=True,
+        )
         cf_bias = ax.contourf(
             lon_mesh, lat_mesh, data.T, bias_levels,
             cmap=plt.cm.RdBu_r, extend="both",
@@ -301,10 +312,13 @@ def make_plots(
     cb_bias.set_ticks(np.arange(-0.30, 0.35, 0.10))
     cb_bias.ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.2f}"))
 
-    fig.suptitle(f"MODIS vs CAM6 AOD — {date_str}", fontsize=14)
-    out = OUTPUT_DIR / f"modis_cam6_aod_{date_str}.png"
-    fig.savefig(out, dpi=150, bbox_inches="tight")
-    print(f"  Saved: {out}")
+    fig.suptitle(f"MODIS vs CAM6 AOD — {date_str}", fontsize=20)
+    out_png = OUTPUT_DIR / f"modis_cam6_aod_{date_str}.png"
+    out_pdf = OUTPUT_DIR / f"modis_cam6_aod_{date_str}.pdf"
+    fig.savefig(out_png, dpi=300, bbox_inches="tight")
+    fig.savefig(out_pdf, bbox_inches="tight")
+    print(f"  Saved: {out_png}")
+    print(f"  Saved: {out_pdf}")
     plt.close(fig)
 
     # --- Figure C: Pixel count ---
@@ -324,9 +338,12 @@ def make_plots(
     fig.colorbar(im, ax=ax, orientation="horizontal",
                  shrink=0.5, label="Pixel Count", pad=0.05, aspect=40)
     plt.tight_layout()
-    out = OUTPUT_DIR / f"modis_pixel_count_{date_str}.png"
-    fig.savefig(out, dpi=150, bbox_inches="tight")
-    print(f"  Saved: {out}")
+    out_png = OUTPUT_DIR / f"modis_pixel_count_{date_str}.png"
+    out_pdf = OUTPUT_DIR / f"modis_pixel_count_{date_str}.pdf"
+    fig.savefig(out_png, dpi=300, bbox_inches="tight")
+    fig.savefig(out_pdf, bbox_inches="tight")
+    print(f"  Saved: {out_png}")
+    print(f"  Saved: {out_pdf}")
     plt.close(fig)
 
 
