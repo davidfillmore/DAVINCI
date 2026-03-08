@@ -79,6 +79,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         label_sites: list[str] | None = None,
         city_labels: dict[str, tuple[float, float]] | None = None,
         label_fontsize: int | None = None,
+        plot_type: str = "scatter",
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Generate a spatial bias plot.
@@ -184,20 +185,49 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         style = self.config.style
         ms = marker_size if marker_size is not None else style.markersize * 2
 
-        # Scatter plot
-        scatter = ax.scatter(
-            lons_flat,
-            lats_flat,
-            c=bias_values,
-            s=ms**2,
-            cmap=cmap,
-            norm=norm,
-            vmin=vmin if norm is None else None,
-            vmax=vmax if norm is None else None,
-            transform=ccrs.PlateCarree(),
-            edgecolors="none",
-            alpha=style.alpha,
-        )
+        # Choose plot method based on data geometry
+        if plot_type == "pcolormesh" and lats.ndim == 1 and bias.ndim >= 2:
+            # Regular grid with 1D coords — use pcolormesh
+            bias_2d = bias.values
+            scatter = ax.pcolormesh(
+                lons,
+                lats,
+                bias_2d.T if bias_2d.shape[0] == len(lons) else bias_2d,
+                cmap=cmap,
+                norm=norm,
+                vmin=vmin if norm is None else None,
+                vmax=vmax if norm is None else None,
+                transform=ccrs.PlateCarree(),
+                alpha=style.alpha,
+            )
+        elif plot_type == "pcolormesh" and lats.ndim == 2:
+            # Curvilinear grid — use pcolormesh with 2D coords
+            scatter = ax.pcolormesh(
+                lons,
+                lats,
+                bias.values,
+                cmap=cmap,
+                norm=norm,
+                vmin=vmin if norm is None else None,
+                vmax=vmax if norm is None else None,
+                transform=ccrs.PlateCarree(),
+                alpha=style.alpha,
+            )
+        else:
+            # Point data — use scatter
+            scatter = ax.scatter(
+                lons_flat,
+                lats_flat,
+                c=bias_values,
+                s=ms**2,
+                cmap=cmap,
+                norm=norm,
+                vmin=vmin if norm is None else None,
+                vmax=vmax if norm is None else None,
+                transform=ccrs.PlateCarree(),
+                edgecolors="none",
+                alpha=style.alpha,
+            )
 
         # Add colorbar
         units = get_variable_units(paired_data, obs_var)

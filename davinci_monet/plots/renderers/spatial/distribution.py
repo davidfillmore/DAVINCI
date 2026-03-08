@@ -287,11 +287,23 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         lons_flat = lons_flat[mask]
 
         if plot_type == "pcolormesh" and lats.ndim == 2:
-            # Gridded data - use pcolormesh
+            # Curvilinear grid - use pcolormesh with 2D coords
             return ax.pcolormesh(
                 lons,
                 lats,
                 data,
+                cmap=cmap,
+                vmin=vmin,
+                vmax=vmax,
+                transform=ccrs.PlateCarree(),
+                alpha=alpha,
+            )
+        elif plot_type == "pcolormesh" and lats.ndim == 1 and data.ndim >= 2:
+            # Regular grid with 1D coords - pcolormesh handles natively
+            return ax.pcolormesh(
+                lons,
+                lats,
+                data.T if data.shape[0] == len(lons) else data,
                 cmap=cmap,
                 vmin=vmin,
                 vmax=vmax,
