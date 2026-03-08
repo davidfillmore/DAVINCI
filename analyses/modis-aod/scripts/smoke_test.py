@@ -37,7 +37,11 @@ from davinci_monet.plots.style import apply_ncar_style
 # Configuration
 # ---------------------------------------------------------------------------
 
-MODIS_BASE = Path.home() / "Data" / "MODIS" / "Terra" / "C61" / "2019"
+MODIS_BASE = Path.home() / "Data" / "MODIS"
+MODIS_PLATFORMS = [
+    ("Terra", "MOD04_L2"),
+    ("Aqua", "MYD04_L2"),
+]
 CAM6_BASE_FILE = (
     Path.home() / "Data" / "CAM6"
     / "FCnudged_f09.mam.BaseMar27.2019_2021.001_AODVIS.nc"
@@ -65,21 +69,31 @@ DAYS = [
 # ---------------------------------------------------------------------------
 
 def read_modis_granules(day_of_year: int) -> OrderedDict:
-    """Read MODIS L2 granules for a single day via monetio."""
+    """Read MODIS L2 granules for a single day from all platforms (Terra + Aqua)."""
     import monetio.sat._modis_l2_mm as modis_reader
 
-    modis_dir = MODIS_BASE / str(day_of_year)
     variable_dict = {
         MODIS_VAR: {"minimum": 0.0, "maximum": 10.0, "scale": 0.001},
     }
 
-    file_pattern = str(modis_dir / "MOD04_L2.*.hdf")
-    print(f"\nReading MODIS granules from {modis_dir}...")
-    t0 = time.time()
-    granules = modis_reader.read_mfdataset(file_pattern, variable_dict)
-    elapsed = time.time() - t0
-    print(f"  Read {len(granules)} granules in {elapsed:.1f}s")
-    return granules
+    all_granules: OrderedDict = OrderedDict()
+    for platform, prefix in MODIS_PLATFORMS:
+        modis_dir = MODIS_BASE / platform / "C61" / "2019" / str(day_of_year)
+        if not modis_dir.exists():
+            print(f"  {platform}: no data at {modis_dir}, skipping")
+            continue
+        file_pattern = str(modis_dir / f"{prefix}.*.hdf")
+        print(f"  Reading {platform} granules from {modis_dir}...")
+        t0 = time.time()
+        granules = modis_reader.read_mfdataset(file_pattern, variable_dict)
+        elapsed = time.time() - t0
+        print(f"    {len(granules)} granules in {elapsed:.1f}s")
+        # Prefix keys with platform to avoid collisions between Terra/Aqua
+        for key, val in granules.items():
+            all_granules[f"{platform}_{key}"] = val
+
+    print(f"  Total: {len(all_granules)} granules (Terra + Aqua)")
+    return all_granules
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +149,9 @@ def grid_modis_day(
     t0 = time.time()
     n_valid_total = 0
 
-    for i, (datetime_str, granule) in enumerate(granules.items()):
+    for i, (key, granule) in enumerate(granules.items()):
+        # Keys are "Platform_YYYYjjjHHMM" — strip platform prefix
+        datetime_str = key.split("_", 1)[1] if "_" in key else key
         obs_timestamp = pd.to_datetime(datetime_str, format='%Y%j%H%M').timestamp()
 
         aod = granule[MODIS_VAR].values
@@ -208,7 +224,7 @@ def make_plots(
     base_data: np.ndarray,
     newdust_data: np.ndarray,
 ) -> None:
-    """Generate 3 figures for one day."""
+    """Generate 2 figures for one day: 2x3 AOD+bias panel, pixel count."""
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
 
@@ -223,63 +239,70 @@ def make_plots(
         ax.add_feature(cfeature.BORDERS, linewidth=0.3, linestyle=":")
         ax.set_global()
 
-    # --- Figure A: 3-panel AOD comparison ---
-    fig, axes = plt.subplots(
-        1, 3, figsize=(20, 5),
-        subplot_kw={"projection": ccrs.PlateCarree()},
-    )
-
-    vmax = 0.8
-    panels = [
-        (axes[0], obs_d, "MODIS Terra AOD"),
-        (axes[1], base_d, "CAM6 Base AODVIS"),
-        (axes[2], newdust_d, "CAM6 New Dust AODVIS"),
-    ]
-    for ax, data, title in panels:
-        add_map_features(ax)
-        im = ax.pcolormesh(
-            lon, lat, data.T, cmap="viridis",
-            vmin=0, vmax=vmax, transform=ccrs.PlateCarree(),
-        )
-        ax.set_title(title)
-
-    # Horizontal colorbar beneath all panels
-    fig.colorbar(im, ax=axes.tolist(), orientation="horizontal",
-                 shrink=0.5, label="AOD", pad=0.05, aspect=40)
-    fig.suptitle(f"MODIS vs CAM6 AOD — {date_str} (Terra)", fontsize=14)
-    out = OUTPUT_DIR / f"modis_cam6_aod_comparison_{date_str}.png"
-    fig.savefig(out, dpi=150, bbox_inches="tight")
-    print(f"  Saved: {out}")
-    plt.close(fig)
-
-    # --- Figure B: 2-panel bias maps ---
-    fig, (ax1, ax2) = plt.subplots(
-        1, 2, figsize=(14, 5),
-        subplot_kw={"projection": ccrs.PlateCarree()},
-    )
-
+    # --- Figure A: 2x3 AOD + bias panel ---
     from matplotlib.colors import TwoSlopeNorm
 
-    bias_base = base_d - obs_d
-    bias_newdust = newdust_d - obs_d
-    vlim = 0.3
-    norm = TwoSlopeNorm(vmin=-vlim, vcenter=0, vmax=vlim)
+    fig, axes = plt.subplots(
+        2, 3, figsize=(20, 9),
+        subplot_kw={"projection": ccrs.PlateCarree()},
+    )
 
-    for ax, bias, title in [
-        (ax1, bias_base, "Bias (Base − MODIS)"),
-        (ax2, bias_newdust, "Bias (New Dust − MODIS)"),
-    ]:
+    # Top row: AOD via contourf (CERES-SARB pattern: turbo + levels + extend='max')
+    # Non-uniform levels — fine resolution at low end, 0.05 steps above
+    # (matches CERES-SARB _compute_levels convention)
+    aod_levels = np.array([
+        0.00, 0.005, 0.01, 0.02, 0.03, 0.04,
+        0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40,
+        0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80,
+        0.85, 0.90, 0.95, 1.00,
+    ])
+    lon_mesh, lat_mesh = np.meshgrid(lon, lat)
+    aod_panels = [
+        (axes[0, 0], obs_d, "(a) MODIS Terra+Aqua AOD"),
+        (axes[0, 1], base_d, "(b) CAM6 Base AODVIS"),
+        (axes[0, 2], newdust_d, "(c) CAM6 New Dust AODVIS"),
+    ]
+    for ax, data, title in aod_panels:
         add_map_features(ax)
-        im = ax.pcolormesh(
-            lon, lat, bias.T, cmap="RdBu_r",
-            norm=norm, transform=ccrs.PlateCarree(),
+        cf_aod = ax.contourf(
+            lon_mesh, lat_mesh, data.T, aod_levels,
+            cmap=plt.cm.turbo, extend="max",
+            transform=ccrs.PlateCarree(),
         )
         ax.set_title(title)
 
-    fig.colorbar(im, ax=[ax1, ax2], orientation="horizontal",
-                 shrink=0.5, label="AOD Bias", pad=0.05, aspect=40)
-    fig.suptitle(f"AOD Bias (Model − MODIS) — {date_str}", fontsize=14)
-    out = OUTPUT_DIR / f"modis_cam6_aod_bias_{date_str}.png"
+    # Bottom row: bias via contourf
+    bias_base = base_d - obs_d
+    bias_newdust = newdust_d - obs_d
+    bias_model_diff = newdust_d - base_d
+    bias_levels = np.arange(-0.30, 0.35, 0.05)
+    bias_panels = [
+        (axes[1, 0], bias_base, "(d) Base − MODIS"),
+        (axes[1, 1], bias_newdust, "(e) New Dust − MODIS"),
+        (axes[1, 2], bias_model_diff, "(f) New Dust − Base"),
+    ]
+    for ax, data, title in bias_panels:
+        add_map_features(ax)
+        cf_bias = ax.contourf(
+            lon_mesh, lat_mesh, data.T, bias_levels,
+            cmap=plt.cm.RdBu_r, extend="both",
+            transform=ccrs.PlateCarree(),
+        )
+        ax.set_title(title)
+
+    # Colorbars — one per row
+    cb_aod = fig.colorbar(cf_aod, ax=axes[0, :].tolist(), orientation="horizontal",
+                          shrink=0.5, label="AOD", pad=0.05, aspect=40)
+    cb_aod.set_ticks(np.arange(0, 1.05, 0.20))
+    cb_aod.ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.2f}"))
+
+    cb_bias = fig.colorbar(cf_bias, ax=axes[1, :].tolist(), orientation="horizontal",
+                           shrink=0.5, label="AOD Difference", pad=0.05, aspect=40)
+    cb_bias.set_ticks(np.arange(-0.30, 0.35, 0.10))
+    cb_bias.ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.2f}"))
+
+    fig.suptitle(f"MODIS vs CAM6 AOD — {date_str}", fontsize=14)
+    out = OUTPUT_DIR / f"modis_cam6_aod_{date_str}.png"
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"  Saved: {out}")
     plt.close(fig)
@@ -348,4 +371,4 @@ if __name__ == "__main__":
             obs_data, count_data, base_aod, newdust_aod,
         )
 
-    print(f"\nSmoke test complete! {len(DAYS) * 3} figures in {OUTPUT_DIR}")
+    print(f"\nSmoke test complete! {len(DAYS) * 2} figures in {OUTPUT_DIR}")
