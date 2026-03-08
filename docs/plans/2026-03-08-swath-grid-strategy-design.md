@@ -1,7 +1,7 @@
 # Swath Grid Pairing Strategy — Design Document
 
 **Date**: 2026-03-08
-**Status**: Approved for implementation
+**Status**: Smoke test complete — grid_binning.py implemented, multi-day multi-model analysis working
 **Branch**: feature/modis
 
 ## Problem
@@ -10,10 +10,14 @@ The existing `SwathStrategy` does per-pixel xarray `.isel()` calls in a Python f
 
 ## First Use Case: MODIS AOD vs CAM6
 
-- **MODIS L2 AOD**: `~/Data/MODIS/Terra/C61/2019/355/MOD04_L2.*.hdf` (155 granules, HDF4 swath format)
-- **CAM6 AOD**: `~/Data/CAM6/FCnudged_f09.mam.BaseMar27.2019_2021.001_AODVIS.nc`
-  - Uniform rectilinear grid: 192 lat (~0.94°) x 288 lon (1.25°), daily, 2019-01-01 to 2020-07-01
-  - Variable: `AODVIS` (visible AOD)
+- **MODIS L2 AOD**: Terra (MOD04_L2) + Aqua (MYD04_L2), Collection 6.1
+  - `~/Data/MODIS/Terra/C61/2019/{355,356,357}/` (~155 granules/day)
+  - `~/Data/MODIS/Aqua/C61/2019/{355,356,357}/` (~155 granules/day)
+  - Combined: ~310 granules, ~1.1M valid pixels per day
+- **CAM6 Base**: `~/Data/CAM6/FCnudged_f09.mam.BaseMar27.2019_2021.001_AODVIS.nc`
+- **CAM6 New Dust**: `~/Data/CAM6/FCnudged_f09.mam.newdustMar282025.2019_2021.001_AODVIS.nc`
+  - Both: uniform rectilinear grid 192 lat (~0.94°) x 288 lon (1.25°), daily, variable AODVIS
+- **Analysis period**: Dec 21-23, 2019 (Australian bushfire event)
 
 Since CAM6 is on a uniform grid, MODIS pixels can be binned directly onto the model grid — no model regridding needed.
 
@@ -259,9 +263,13 @@ The `obs_count` variable enables downstream QA filtering (e.g., require >= 3 obs
 8. **Full pair() call**: Synthetic swath + synthetic model → paired dataset with correct structure
 9. **Variable naming**: Output uses `obs_` and `model_` prefix convention
 
-### Real Data Smoke Test (manual)
+### Real Data Smoke Test (manual) — COMPLETE
 
-10. **MODIS + CAM6**: Run with actual data, verify reasonable AOD values (0–2 range), check spatial patterns
+10. **MODIS + CAM6**: `analyses/modis-aod/scripts/smoke_test.py`
+    - Terra + Aqua combined, 3 days (Dec 21-23 2019), 2 CAM6 runs (base + new dust)
+    - 2x3 panel figures: top row AOD (MODIS/Base/NewDust), bottom row diffs
+    - contourf with turbo colormap, CERES-SARB non-uniform levels, rasterized base layer for PDFs
+    - Output: PNG (300 DPI) + PDF per day, figure captions and text for paper
 
 ## Dependencies
 
@@ -371,5 +379,20 @@ These are small, backward-compatible changes — existing scatter behavior is pr
 - MELODIES-MONET implementation: `/Users/fillmore/EarthSystem/MELODIES-MONET/melodies_monet/util/grid_util.py`
 - MELODIES-MONET MODIS workflow: `/Users/fillmore/EarthSystem/MELODIES-MONET/examples/process_swath_data/process_modis_l2.py`
 - MELODIES-MONET MODIS config: `/Users/fillmore/EarthSystem/MELODIES-MONET/examples/process_swath_data/control_modis_l2.yaml`
-- CAM6 data: `~/Data/CAM6/FCnudged_f09.mam.BaseMar27.2019_2021.001_AODVIS.nc` (192x288 uniform grid, daily, AODVIS)
-- MODIS data: `~/Data/MODIS/Terra/C61/2019/355/` (155 HDF4 L2 granules)
+- CAM6 base: `~/Data/CAM6/FCnudged_f09.mam.BaseMar27.2019_2021.001_AODVIS.nc`
+- CAM6 new dust: `~/Data/CAM6/FCnudged_f09.mam.newdustMar282025.2019_2021.001_AODVIS.nc`
+- MODIS Terra: `~/Data/MODIS/Terra/C61/2019/{355,356,357}/` (~155 HDF4 L2 granules/day)
+- MODIS Aqua: `~/Data/MODIS/Aqua/C61/2019/{355,356,357}/` (~155 HDF4 L2 granules/day)
+- Smoke test script: `analyses/modis-aod/scripts/smoke_test.py`
+- Smoke test output: `analyses/modis-aod/output/`
+
+## Implementation Progress
+
+| Component | Status |
+|-----------|--------|
+| `pairing/grid_binning.py` — numba binning functions | COMPLETE |
+| `analyses/modis-aod/scripts/smoke_test.py` — multi-day, multi-model analysis | COMPLETE |
+| `pairing/strategies/swath_grid.py` — SwathGridStrategy class | TODO |
+| `config/schema.py` — intermediate_grid config | TODO |
+| `plots/renderers/spatial/` — pcolormesh support for 1D grids | TODO |
+| Unit tests — synthetic data | TODO |
