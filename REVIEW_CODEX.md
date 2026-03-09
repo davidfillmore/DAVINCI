@@ -314,3 +314,90 @@ The most impactful issues are **integration mismatches** between the config sche
 4. **Backlog** (polish): Findings #4, #16, #17
 
 Codex's original review was thorough and well-targeted - all 11 findings verified. The additional findings from the Claude pass primarily surface a second category of risk: silent error swallowing and edge-case data corruption that unit tests don't yet cover.
+
+---
+
+## MODIS Review (2026-03-09)
+
+Reviewer: Codex (GPT-5)
+
+### Scope and Method
+- Reviewed [`PLAN_MODIS.md`](PLAN_MODIS.md) against the committed MODIS-related implementation on branch `feature/modis`.
+- Inspected the current reader, pipeline stages, pairing engine, synthetic tests, and the smoke-test analysis under `analyses/modis-aod/`.
+- Verified the isolated new primitive with `pytest -q davinci_monet/tests/test_swath_grid_strategy.py` (`19 passed`) and the existing MODIS reader tests with `pytest -q davinci_monet/tests/test_observation_readers.py -k MODISL2AODReader` (`3 passed`).
+- Also cross-checked the installed `monetio.sat._modis_l2_mm` API during review because the plan depends on its exact return type.
+
+### Findings (Ordered by Severity)
+
+### M1) Critical: `MODISL2AODReader` does not match the real `monetio` MODIS API
+
+**Status: CONFIRMED**
+
+- Evidence:
+  - The plan correctly documents that `monetio.sat._modis_l2_mm.read_mfdataset()` returns an `OrderedDict` of per-granule datasets: `PLAN_MODIS.md:13-18`.
+  - The working smoke test uses `read_mfdataset(file_pattern, variable_dict)` and iterates `granules.items()`: `analyses/modis-aod/scripts/smoke_test.py:71-95`.
+  - The committed reader treats `read_dataset()` / `read_mfdataset()` as returning a single `xr.Dataset`, and it passes a `variables` sequence instead of the required `variable_dict`: `davinci_monet/observations/satellite/modis_l2_aod.py:67-142`.
+  - I verified during review that the installed `monetio` signatures are `read_dataset(fname, variable_dict)` and `read_mfdataset(fnames, variable_dict)`, with the multi-file path returning an `OrderedDict`.
+- Impact:
+  - The current MODIS reader is not usable for real HDF4 MODIS multi-file ingestion, so it cannot serve as the pipeline entry point described in the plan.
+- Recommendation:
+  - Replace this reader with the planned read-and-bin loader, or at minimum rework it around `variable_dict` plus the per-granule `OrderedDict` contract before any pipeline wiring is attempted.
+
+### M2) High: The standard pipeline still has no MODIS-specific load-and-bin path
+
+**Status: CONFIRMED**
+
+- Evidence:
+  - The plan's central implementation step is to add a `modis_l2` branch in `LoadObservationsStage` that bins granules onto a model grid during load: `PLAN_MODIS.md:61-108`.
+  - The current stage only special-cases ICARTT, LMA, and AERONET; every other observation path goes through generic `xr.open_mfdataset()` / `xr.open_dataset()`: `davinci_monet/pipeline/stages.py:418-510`.
+  - The smoke test still performs the real MODIS read + bin logic manually outside the pipeline: `analyses/modis-aod/scripts/smoke_test.py:71-194`.
+- Impact:
+  - `davinci-monet run` still cannot reproduce the working MODIS smoke test from YAML. The implementation is a reusable primitive plus a standalone script, not full pipeline support.
+- Recommendation:
+  - Add the explicit `modis_l2` observation loader branch first, sourcing grid coordinates from `context.models` as planned, and keep the smoke-test logic as the reference implementation to lift into production code.
+
+### M3) High: `SwathGridStrategy` is implemented but unreachable from the pipeline
+
+**Status: CONFIRMED**
+
+- Evidence:
+  - `SwathGridStrategy` exists and is tested directly, but it advertises the same geometry as the regular swath strategy: `davinci_monet/pairing/strategies/swath_grid.py:30-64`.
+  - `PairingEngine` only registers `SwathStrategy()` for `DataGeometry.SWATH`; it never registers or selects `SwathGridStrategy()`: `davinci_monet/pairing/engine.py:79-95`.
+  - `PairingStage` always instantiates the default engine and calls `engine.pair(...)` with no MODIS-specific override: `davinci_monet/pipeline/stages.py:785-799`, `davinci_monet/pipeline/stages.py:891-916`.
+  - The plan itself identifies this as a required follow-up and proposes a `pairing_strategy` hint / direct strategy dispatch: `PLAN_MODIS.md:152-176`.
+- Impact:
+  - Even if MODIS swaths were loaded successfully, the normal run path would still use nearest-neighbor swath pairing rather than the new swath-to-grid binning algorithm.
+- Recommendation:
+  - Wire an explicit selection path for `SwathGridStrategy` in `PairingStage`, or introduce a distinct geometry/dispatch hint exactly as the plan describes.
+
+### M4) Medium: The proposed MODIS YAML contract is not compatible with the current runtime contract
+
+**Status: CONFIRMED**
+
+- Evidence:
+  - The plan's example config introduces `obs_type: modis_l2`, `platforms`, `grid_source`, `time_resolution`, `save_binned`, `binned_file`, `load_binned`, and a top-level `pairs:` block: `PLAN_MODIS.md:88-150`, `PLAN_MODIS.md:178-258`.
+  - `ObservationConfig` does not define any of those MODIS-specific fields, and the runtime stage only reads `filename`, `obs_type`, `variables`, `resample`, `min_obs_count`, and `track_obs_count`: `davinci_monet/config/schema.py:329-367`, `davinci_monet/pipeline/stages.py:418-423`, `davinci_monet/pipeline/stages.py:544-567`.
+  - Pair discovery currently ignores a top-level `pairs:` section and only reads `model.<label>.mapping`: `davinci_monet/pipeline/stages.py:785-799`.
+  - `ObservationData.geometry_from_obs_type()` also does not recognize `modis_l2`, so `create_observation_data(..., obs_type="modis_l2")` currently defaults the container geometry to `POINT`: `davinci_monet/observations/base.py:128-169`, `davinci_monet/observations/base.py:501-547`.
+- Impact:
+  - Copying the plan's YAML into the repo today would not yield a working MODIS run, even before the reader/pairing issues above.
+- Recommendation:
+  - Finalize the runtime contract first: either adopt the plan's new fields end-to-end, or revise the plan so the example YAML matches what the runner actually consumes.
+
+### M5) Medium: Test coverage is good for the new primitive, but it misses the real MODIS integration path
+
+**Status: CONFIRMED**
+
+- Evidence:
+  - The new swath-grid tests are solid, but they instantiate `SwathGridStrategy` directly with synthetic xarray swaths: `davinci_monet/tests/test_swath_grid_strategy.py:195-345`.
+  - The existing MODIS reader tests only cover name, mapping, and `_standardize_dataset()`; they never exercise `open()`, `monetio`, or `LoadObservationsStage`: `davinci_monet/tests/test_observation_readers.py:511-534`.
+  - There is no committed YAML config under `analyses/modis-aod/configs/`; the analysis directory currently contains the smoke test and generated outputs only.
+- Impact:
+  - The current green test signal does not protect the actual failure modes that matter for end-to-end MODIS support: `monetio` API mismatch, HDF4 loading, stage integration, caching, and pairing dispatch.
+- Recommendation:
+  - Add one pipeline-level integration test that monkeypatches `monetio.sat._modis_l2_mm.read_mfdataset()` to return the same `OrderedDict` shape used by the smoke test, then assert that `LoadObservationsStage` + `PairingStage` produce gridded paired output.
+
+### Current State Summary
+- The repository now has a credible swath-to-grid binning primitive (`grid_binning.py` + `SwathGridStrategy`) and plotting support for gridded spatial output.
+- The working MODIS example is still the standalone smoke test, not the standard YAML-driven pipeline promised by `PLAN_MODIS.md`.
+- The highest-value next step is to implement the loader/dispatch contract, not more smoke-test refinement.

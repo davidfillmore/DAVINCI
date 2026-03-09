@@ -354,6 +354,21 @@ class ObservationConfig(FlexibleModel):
         specified.
     data_proc
         Data processing options.
+    grid_source
+        Model label whose grid is used as the binning target for swath
+        observations (e.g., ``modis_l2``). The model must be loaded
+        before observations.
+    time_resolution
+        Pandas frequency string for temporal binning of swath data
+        (e.g., "1D" for daily). Default "1D".
+    save_binned
+        If True, write the gridded observation product to NetCDF
+        after binning.
+    load_binned
+        If True, load a previously saved gridded product instead of
+        re-reading HDF4 granules and re-binning.
+    binned_file
+        Path for the cached gridded NetCDF file.
     """
 
     filename: str | Path | None = None
@@ -365,6 +380,11 @@ class ObservationConfig(FlexibleModel):
     min_obs_count: int | None = None
     track_obs_count: bool = False
     data_proc: dict[str, Any] = Field(default_factory=dict)
+    grid_source: str | None = None
+    time_resolution: str = "1D"
+    save_binned: bool = False
+    load_binned: bool = False
+    binned_file: str | Path | None = None
 
     @field_validator("filename", mode="before")
     @classmethod
