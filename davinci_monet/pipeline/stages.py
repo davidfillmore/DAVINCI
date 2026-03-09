@@ -1509,7 +1509,7 @@ class PlottingStage(BaseStage):
                                     "site_label_var", "city_labels",
                                     "show_density", "density_cmap", "alpha",
                                     # spatial plotter rendering mode
-                                    "plot_type",
+                                    "plot_type", "cmap",
                                     # track_map_3d options
                                     "show_surface_map", "surface_map_resolution",
                                     "land_color", "ocean_color",

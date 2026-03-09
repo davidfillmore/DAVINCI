@@ -300,8 +300,18 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         import cartopy.crs as ccrs
 
         data_flat = data.flatten()
-        lats_flat = np.broadcast_to(lats, data.shape).flatten() if lats.ndim < data.ndim else lats.flatten()
-        lons_flat = np.broadcast_to(lons, data.shape).flatten() if lons.ndim < data.ndim else lons.flatten()
+        if lats.ndim == 1 and lons.ndim == 1 and data.ndim >= 2:
+            lon_grid, lat_grid = np.meshgrid(lons, lats, indexing="ij")
+            if lon_grid.shape != data.shape:
+                lon_grid, lat_grid = np.meshgrid(lons, lats)
+            lats_flat = lat_grid.flatten()
+            lons_flat = lon_grid.flatten()
+        elif lats.ndim < data.ndim:
+            lats_flat = np.broadcast_to(lats, data.shape).flatten()
+            lons_flat = np.broadcast_to(lons, data.shape).flatten()
+        else:
+            lats_flat = lats.flatten()
+            lons_flat = lons.flatten()
 
         # Remove NaN values
         mask = np.isfinite(data_flat)
