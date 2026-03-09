@@ -129,11 +129,17 @@ class LMAReader:
         variables: Sequence[str] | None,
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Open LMA NetCDF files."""
+        """Open LMA NetCDF files.
+
+        OKLMA grids use non-standard dim names (ntimes, lon, lat) with
+        time/longitude/latitude as plain data variables. Each file is
+        normalized before concatenation.
+        """
         ds_list = []
         for fpath in file_paths:
             try:
                 ds = xr.open_dataset(str(fpath), **kwargs)
+                ds = self._normalize_dims(ds)
                 ds_list.append(ds)
             except Exception as e:
                 warnings.warn(f"Failed to open {fpath}: {e}", UserWarning)
@@ -150,7 +156,39 @@ class LMAReader:
         if variables is not None:
             available = [v for v in variables if v in ds.data_vars]
             if available:
+                # Keep coordinate variables too
                 ds = ds[available]
+
+        return ds
+
+    def _normalize_dims(self, ds: xr.Dataset) -> xr.Dataset:
+        """Normalize OKLMA dimension names and promote coords.
+
+        Raw OKLMA grids have dims (ntimes, lon, lat) with time, longitude,
+        latitude as plain data variables. This method renames dims and
+        promotes the 1-D variables to proper coordinates.
+        """
+        renames: dict[str, str] = {}
+
+        # Rename ntimes → time, lon → longitude, lat → latitude
+        if "ntimes" in ds.dims:
+            renames["ntimes"] = "time"
+        if "lon" in ds.dims and "longitude" not in ds.dims:
+            renames["lon"] = "longitude"
+        if "lat" in ds.dims and "latitude" not in ds.dims:
+            renames["lat"] = "latitude"
+
+        if renames:
+            ds = ds.rename(renames)
+
+        # Promote 1-D data variables to coordinates
+        for coord_name in ("time", "latitude", "longitude"):
+            if coord_name in ds.data_vars and coord_name in ds.dims:
+                ds = ds.set_coords(coord_name)
+
+        # Drop CRS variable if present (not needed for analysis)
+        if "crs" in ds.data_vars:
+            ds = ds.drop_vars("crs")
 
         return ds
 
@@ -167,38 +205,13 @@ class LMAReader:
         ds: xr.Dataset,
         network: str | None = None,
     ) -> xr.Dataset:
-        """Standardize LMA dataset dimensions and coordinates.
+        """Standardize LMA dataset and add metadata.
 
-        Ensures consistent dimension names (time, latitude, longitude)
-        and adds network metadata.
+        Dimension normalization is handled in _normalize_dims() before
+        concatenation. This method handles any remaining cleanup and
+        adds network metadata.
         """
-        dim_renames: dict[str, str] = {}
-        coord_renames: dict[str, str] = {}
-
-        # Standardize latitude dimension/coordinate
-        for alias in ["lat", "LAT", "Latitude", "LATITUDE", "y"]:
-            if alias in ds.dims and "latitude" not in ds.dims:
-                dim_renames[alias] = "latitude"
-                break
-            elif alias in ds.coords and "latitude" not in ds.coords:
-                coord_renames[alias] = "latitude"
-                break
-
-        # Standardize longitude dimension/coordinate
-        for alias in ["lon", "LON", "Longitude", "LONGITUDE", "x"]:
-            if alias in ds.dims and "longitude" not in ds.dims:
-                dim_renames[alias] = "longitude"
-                break
-            elif alias in ds.coords and "longitude" not in ds.coords:
-                coord_renames[alias] = "longitude"
-                break
-
-        if dim_renames:
-            ds = ds.rename(dim_renames)
-        if coord_renames:
-            ds = ds.rename(coord_renames)
-
-        # Ensure time dimension exists
+        # Ensure time dimension exists (safety net for pre-normalized data)
         if "time" not in ds.dims:
             ds = ds.expand_dims("time")
 

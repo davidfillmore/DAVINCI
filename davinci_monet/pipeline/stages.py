@@ -424,7 +424,22 @@ class LoadObservationsStage(BaseStage):
 
                 # Load data from file
                 data = None
-                if filename:
+                sat_type = config.get("sat_type")
+
+                # --- MODIS L2 satellite swath: dedicated loader ---
+                if sat_type == "modis_l2":
+                    data = self._load_modis_l2(label, config, context)
+                    if data is not None:
+                        # After gridding, this is a grid product
+                        obs_type = "sat_grid_clm"
+                        # Variable renaming: the gridded dataset uses the
+                        # source SDS names.  Apply rename from variable config.
+                        for var_name, var_cfg in (normalized_variables or {}).items():
+                            rename_to = var_cfg.get("rename") if isinstance(var_cfg, dict) else None
+                            if rename_to and var_name in data.data_vars:
+                                data = data.rename({var_name: rename_to})
+
+                if data is None and filename:
                     file_path = Path(filename)
                     # Expand user home directory first (before checking absolute)
                     file_path = file_path.expanduser()
@@ -649,6 +664,159 @@ class LoadObservationsStage(BaseStage):
 
         reader = LMAReader()
         return reader.open(files)
+
+    def _load_modis_l2(
+        self,
+        label: str,
+        config: dict[str, Any],
+        context: "PipelineContext",
+    ) -> "xr.Dataset | None":
+        """Load MODIS L2 swath data, bin onto model grid, return gridded dataset.
+
+        Handles binned-file caching: if ``load_binned`` is set and the
+        cached file exists, loads it directly.  Otherwise reads HDF4
+        granules via monetio, bins them, and optionally saves the result.
+
+        Parameters
+        ----------
+        label
+            Observation label (e.g. ``"terra_modis"``).
+        config
+            Observation configuration dict from YAML.
+        context
+            Pipeline context (must have models loaded for grid_source).
+
+        Returns
+        -------
+        xr.Dataset or None
+            Gridded dataset with dims ``(time, lon, lat)``, or None on
+            failure.
+        """
+        import time as time_mod
+        from pathlib import Path
+
+        import numpy as np
+        import xarray as xr
+
+        from davinci_monet.observations.satellite.modis_l2 import (
+            MODISL2Reader,
+            build_modis_variable_dict,
+            subset_modis_l2_files,
+        )
+
+        debug = context.config.get("analysis", {}).get("debug", False)
+
+        # --- Check for cached binned file ---
+        load_binned = config.get("load_binned", False)
+        binned_file = config.get("binned_file")
+        if load_binned and binned_file:
+            binned_path = Path(binned_file).expanduser()
+            if binned_path.exists():
+                context.log_progress(f"step: Loading cached binned data from {binned_path.name}")
+                t0 = time_mod.time()
+                data = xr.open_dataset(str(binned_path))
+                if debug:
+                    context.log_progress(
+                        f"      [TIMING] load_binned: {_format_duration(time_mod.time() - t0)}"
+                    )
+                context.log_progress(
+                    f"done: Loaded cached grid "
+                    f"({data.sizes.get('time', 0)} times, "
+                    f"{data.sizes.get('lon', 0)}x{data.sizes.get('lat', 0)} grid)"
+                )
+                return data
+
+        # --- Get target grid from model ---
+        grid_source = config.get("grid_source")
+        if not grid_source:
+            context.log_progress("done: No grid_source specified, skipping MODIS")
+            return None
+
+        model_obj = context.models.get(grid_source)
+        if model_obj is None:
+            context.log_progress(
+                f"done: grid_source model '{grid_source}' not loaded, skipping"
+            )
+            return None
+
+        model_ds = model_obj.data if hasattr(model_obj, "data") else model_obj
+        # Extract lat/lon from model
+        lat_centers = model_ds["lat"].values.astype(np.float64)
+        lon_centers = model_ds["lon"].values.astype(np.float64)
+
+        # --- Subset files by time ---
+        filename = config.get("filename", "")
+        analysis_config = context.config.get("analysis", {})
+        start_time = str(analysis_config.get("start_time", ""))
+        end_time = str(analysis_config.get("end_time", ""))
+
+        context.log_progress("step: Subsetting MODIS files by time...")
+        t0 = time_mod.time()
+        files = subset_modis_l2_files(str(filename), start_time, end_time)
+        if debug:
+            context.log_progress(
+                f"      [TIMING] subset_files: {_format_duration(time_mod.time() - t0)}"
+            )
+
+        if not files:
+            context.log_progress("done: No MODIS files in analysis window")
+            return None
+
+        context.log_progress(f"step: Found {len(files)} granule files")
+
+        # --- Build variable_dict for monetio ---
+        variables = config.get("variables", {})
+        # Normalize variable configs (may be VariableConfig objects)
+        norm_vars: dict[str, dict[str, Any]] = {}
+        for name, cfg in variables.items():
+            if hasattr(cfg, "model_dump"):
+                norm_vars[name] = cfg.model_dump()
+            elif isinstance(cfg, dict):
+                norm_vars[name] = dict(cfg)
+            else:
+                norm_vars[name] = {}
+        variable_dict = build_modis_variable_dict(norm_vars)
+
+        # --- Read and grid ---
+        time_resolution = config.get("time_resolution", "1D")
+        min_obs_count = config.get("min_obs_count", 1) or 1
+
+        reader = MODISL2Reader()
+        t0 = time_mod.time()
+        data = reader.read_and_grid(
+            files=files,
+            variable_dict=variable_dict,
+            lat_centers=lat_centers,
+            lon_centers=lon_centers,
+            start_time=start_time,
+            end_time=end_time,
+            time_resolution=time_resolution,
+            min_obs_count=min_obs_count,
+            debug=debug,
+            progress_callback=context.log_progress,
+        )
+        if debug:
+            context.log_progress(
+                f"      [TIMING] read_and_grid: {_format_duration(time_mod.time() - t0)}"
+            )
+
+        # Store grid_source in attrs for downstream reference
+        data.attrs["grid_source"] = grid_source
+
+        # --- Save binned cache ---
+        save_binned = config.get("save_binned", False)
+        if save_binned and binned_file:
+            binned_path = Path(binned_file).expanduser()
+            binned_path.parent.mkdir(parents=True, exist_ok=True)
+            context.log_progress(f"step: Saving binned data to {binned_path.name}")
+            t0 = time_mod.time()
+            data.to_netcdf(str(binned_path))
+            if debug:
+                context.log_progress(
+                    f"      [TIMING] save_binned: {_format_duration(time_mod.time() - t0)}"
+                )
+
+        return data
 
     def _filter_files_by_date(
         self,
@@ -1340,6 +1508,8 @@ class PlottingStage(BaseStage):
                                     "resample", "aggregate_dim", "label_sites",
                                     "site_label_var", "city_labels",
                                     "show_density", "density_cmap", "alpha",
+                                    # spatial plotter rendering mode
+                                    "plot_type",
                                     # track_map_3d options
                                     "show_surface_map", "surface_map_resolution",
                                     "land_color", "ocean_color",
@@ -1655,14 +1825,33 @@ class ObsPlottingStage(BaseStage):
                 if not np.any(np.isfinite(vals)):
                     continue
 
+                # Provide obs_datasets for renderers needing cross-dataset access
+                if "flight_tracks" in plot_spec:
+                    flight_kwargs["obs_datasets"] = {
+                        label: (od.data if hasattr(od, "data") else od)
+                        for label, od in context.observations.items()
+                    }
+
                 try:
-                    fig = plotter.plot(subset, variable, **flight_kwargs)
-                    out_path = output_dir / f"{plot_name}{suffix}.png"
-                    plotter.save(fig, out_path)
-                    plt.close(fig)
-                    plot_count += 1
-                    plots_generated.append(str(out_path))
-                    _logger.info(f"Saved obs plot: {out_path}")
+                    result = plotter.plot(subset, variable, **flight_kwargs)
+
+                    # Multi-figure support (e.g., hourly LMA density maps)
+                    if isinstance(result, list):
+                        for fig, fig_suffix in result:
+                            out_path = output_dir / f"{plot_name}{suffix}{fig_suffix}.png"
+                            plotter.save(fig, out_path)
+                            plt.close(fig)
+                            plot_count += 1
+                            plots_generated.append(str(out_path))
+                            _logger.info(f"Saved obs plot: {out_path}")
+                    else:
+                        fig = result
+                        out_path = output_dir / f"{plot_name}{suffix}.png"
+                        plotter.save(fig, out_path)
+                        plt.close(fig)
+                        plot_count += 1
+                        plots_generated.append(str(out_path))
+                        _logger.info(f"Saved obs plot: {out_path}")
                 except Exception as e:
                     label = f"'{plot_name}' (flight {fid})" if fid else f"'{plot_name}'"
                     errors.append(f"Plot {label} failed: {e}")

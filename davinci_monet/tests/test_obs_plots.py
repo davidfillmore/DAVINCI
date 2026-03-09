@@ -101,6 +101,92 @@ def multi_flight_obs_data() -> xr.Dataset:
     return xr.concat(flights, dim="time")
 
 
+@pytest.fixture
+def grid_lma_data() -> xr.Dataset:
+    """Create synthetic LMA gridded flash density dataset (one hour)."""
+    np.random.seed(42)
+    n_times = 12  # 5-min steps in one hour
+    n_lat = 20
+    n_lon = 25
+
+    time = pd.date_range("2012-05-29 22:00", periods=n_times, freq="5min")
+    lats = np.linspace(33.5, 37.0, n_lat)
+    lons = np.linspace(-101.0, -96.0, n_lon)
+
+    # Create a hotspot in the center
+    lat_grid, lon_grid = np.meshgrid(lats, lons, indexing="ij")
+    hotspot = np.exp(
+        -((lat_grid - 35.2) ** 2 + (lon_grid - 98.5) ** 2) / 0.5
+    )
+    # Vary intensity over time (ramp up then down)
+    time_profile = np.sin(np.linspace(0, np.pi, n_times))
+    flash_extent = np.zeros((n_times, n_lat, n_lon))
+    for t in range(n_times):
+        flash_extent[t] = hotspot * time_profile[t] * 10 + np.random.poisson(
+            0.5, (n_lat, n_lon)
+        )
+
+    ds = xr.Dataset(
+        {
+            "flash_extent": (
+                ["time", "latitude", "longitude"],
+                flash_extent,
+                {"units": "flashes/grid cell", "long_name": "Flash Extent Density"},
+            ),
+        },
+        coords={
+            "time": time,
+            "latitude": lats,
+            "longitude": lons,
+        },
+        attrs={"geometry": "grid", "lma_network_id": "oklma"},
+    )
+    return ds
+
+
+@pytest.fixture
+def grid_lma_data_multihour() -> xr.Dataset:
+    """Create synthetic LMA data spanning 3 hours with varying activity."""
+    np.random.seed(42)
+    n_lat = 20
+    n_lon = 25
+
+    lats = np.linspace(33.5, 37.0, n_lat)
+    lons = np.linspace(-101.0, -96.0, n_lon)
+    lat_grid, lon_grid = np.meshgrid(lats, lons, indexing="ij")
+    hotspot = np.exp(
+        -((lat_grid - 35.2) ** 2 + (lon_grid - 98.5) ** 2) / 0.5
+    )
+
+    # 3 hours x 12 steps = 36 time steps
+    time = pd.date_range("2012-05-29 22:00", periods=36, freq="5min")
+    hourly_scale = [5.0, 10.0, 3.0]  # hour 2 is peak
+
+    flash_extent = np.zeros((36, n_lat, n_lon))
+    for t in range(36):
+        hour_idx = t // 12
+        flash_extent[t] = hotspot * hourly_scale[hour_idx] + np.random.poisson(
+            0.5, (n_lat, n_lon)
+        )
+
+    ds = xr.Dataset(
+        {
+            "flash_extent": (
+                ["time", "latitude", "longitude"],
+                flash_extent,
+                {"units": "flashes/grid cell", "long_name": "Flash Extent Density"},
+            ),
+        },
+        coords={
+            "time": time,
+            "latitude": lats,
+            "longitude": lons,
+        },
+        attrs={"geometry": "grid", "lma_network_id": "oklma"},
+    )
+    return ds
+
+
 # =============================================================================
 # ObsPlotter Base Class Tests
 # =============================================================================
@@ -484,3 +570,164 @@ class TestObsHistogramPlotter:
         from davinci_monet.plots.registry import has_plotter
 
         assert has_plotter("obs_histogram")
+
+
+# =============================================================================
+# Obs LMA Density Plotter Tests
+# =============================================================================
+
+
+class TestObsLMADensityPlotter:
+    """Tests for the ObsLMADensityPlotter (obs_lma_density)."""
+
+    def test_basic_plot(self, grid_lma_data):
+        """Basic LMA density map renders without error."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+
+        plotter = ObsLMADensityPlotter()
+        fig = plotter.plot(grid_lma_data, "flash_extent")
+
+        assert fig is not None
+        assert len(fig.axes) >= 1
+        plt.close(fig)
+
+    def test_registered_in_registry(self):
+        """ObsLMADensityPlotter is registered as 'obs_lma_density'."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter  # noqa: F401
+        from davinci_monet.plots.registry import has_plotter
+
+        assert has_plotter("obs_lma_density")
+
+    def test_save_output(self, grid_lma_data, tmp_path):
+        """LMA density map can be saved to disk."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+
+        plotter = ObsLMADensityPlotter()
+        fig = plotter.plot(grid_lma_data, "flash_extent")
+
+        output_path = tmp_path / "lma_density.png"
+        saved_path = plotter.save(fig, output_path)
+
+        assert saved_path.exists()
+        assert saved_path.stat().st_size > 0
+        plt.close(fig)
+
+    def test_hourly_aggregation(self, grid_lma_data_multihour):
+        """Hourly mode returns list of (fig, suffix) tuples."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+
+        plotter = ObsLMADensityPlotter()
+        result = plotter.plot(
+            grid_lma_data_multihour, "flash_extent",
+            time_agg="hourly",
+            title="Test LMA",
+        )
+
+        assert isinstance(result, list)
+        assert len(result) == 3  # 3 hours of data
+        for fig, suffix in result:
+            assert fig is not None
+            assert isinstance(suffix, str)
+            assert ":" not in suffix  # suffix is filename-safe (no colons)
+            plt.close(fig)
+
+    def test_hourly_consistent_colorbar(self, grid_lma_data_multihour):
+        """All hourly maps use the same colorbar range."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+
+        plotter = ObsLMADensityPlotter()
+        result = plotter.plot(
+            grid_lma_data_multihour, "flash_extent",
+            time_agg="hourly",
+        )
+
+        # All pcolormesh artists should share the same clim
+        clims = []
+        for fig, _ in result:
+            for ax in fig.axes:
+                for child in ax.get_children():
+                    if hasattr(child, "get_clim"):
+                        clims.append(child.get_clim())
+                        break
+            plt.close(fig)
+
+        assert len(clims) >= 2
+        for clim in clims[1:]:
+            assert clim == clims[0], "Colorbar ranges should be consistent across hours"
+
+    def test_flight_track_overlay(self, grid_lma_data, track_obs_data):
+        """Density map with flight track overlay renders without error."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+
+        plotter = ObsLMADensityPlotter()
+        fig = plotter.plot(
+            grid_lma_data, "flash_extent",
+            flight_tracks={"dc8": "dc8"},
+            obs_datasets={"dc8": track_obs_data},
+        )
+
+        assert fig is not None
+        # Check legend exists with aircraft label
+        ax = fig.axes[0]
+        legend = ax.get_legend()
+        assert legend is not None
+        labels = [t.get_text() for t in legend.get_texts()]
+        assert "DC8" in labels
+        plt.close(fig)
+
+    def test_save_hourly_outputs(self, grid_lma_data_multihour, tmp_path):
+        """Hourly output can be saved as multiple files."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+
+        plotter = ObsLMADensityPlotter()
+        result = plotter.plot(
+            grid_lma_data_multihour, "flash_extent",
+            time_agg="hourly",
+            title="Test",
+        )
+
+        assert isinstance(result, list)
+        saved = []
+        for fig, suffix in result:
+            out_path = tmp_path / f"lma_density{suffix}.png"
+            plotter.save(fig, out_path)
+            assert out_path.exists()
+            saved.append(out_path)
+            plt.close(fig)
+
+        assert len(saved) == 3
+
+    def test_flight_track_missing_dataset(self, grid_lma_data):
+        """Overlay gracefully skips missing flight track datasets."""
+        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+
+        plotter = ObsLMADensityPlotter()
+        fig = plotter.plot(
+            grid_lma_data, "flash_extent",
+            flight_tracks={"dc8": "dc8"},
+            obs_datasets={},  # empty — no track data
+        )
+
+        assert fig is not None
+        plt.close(fig)
+
+    def test_yaml_config_parse(self):
+        """The May 29 YAML config parses without error for LMA density entries."""
+        import yaml
+        from pathlib import Path
+
+        config_path = Path("analyses/dc3/configs/dc3-may29-gemini.yaml")
+        if not config_path.exists():
+            pytest.skip("May 29 config not present")
+
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+
+        plots = config["plots"]
+        assert "lma_density" in plots
+        assert plots["lma_density"]["type"] == "obs_lma_density"
+        assert plots["lma_density"]["time_agg"] == "hourly"
+
+        assert "lma_density_with_tracks" in plots
+        assert "flight_tracks" in plots["lma_density_with_tracks"]
+        assert "dc8" in plots["lma_density_with_tracks"]["flight_tracks"]
