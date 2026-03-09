@@ -140,13 +140,36 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
             obs_data = obs_data.mean(dim="time")
             model_data = model_data.mean(dim="time")
 
-        # Get coordinates
-        if lat_var in paired_data.coords:
-            lats = paired_data[lat_var].values
-            lons = paired_data[lon_var].values
-        else:
-            lats = paired_data[lat_var].values
-            lons = paired_data[lon_var].values
+        # Get coordinates — resolve common aliases
+        lat_candidates = [lat_var, "lat", "latitude", "LAT", "Latitude"]
+        lon_candidates = [lon_var, "lon", "longitude", "LON", "Longitude"]
+        resolved_lat = next(
+            (c for c in lat_candidates if c in paired_data.coords or c in paired_data),
+            None,
+        )
+        resolved_lon = next(
+            (c for c in lon_candidates if c in paired_data.coords or c in paired_data),
+            None,
+        )
+        if resolved_lat is None or resolved_lon is None:
+            raise ValueError(
+                f"Could not find latitude/longitude coordinates in dataset. "
+                f"Available coords: {list(paired_data.coords)}"
+            )
+        lats = paired_data[resolved_lat].values
+        lons = paired_data[resolved_lon].values
+
+        # Shift 0..360 longitudes to -180..180 for cartopy PlateCarree
+        if lons.ndim == 1 and np.any(lons > 180):
+            lons = np.where(lons > 180, lons - 360, lons)
+            sort_idx = np.argsort(lons)
+            lons = lons[sort_idx]
+            lon_dim = resolved_lon
+            if lon_dim in obs_data.dims:
+                obs_data = obs_data.isel({lon_dim: sort_idx})
+                model_data = model_data.isel({lon_dim: sort_idx})
+        elif lons.ndim > 1 and np.any(lons > 180):
+            lons = np.where(lons > 180, lons - 360, lons)
 
         # Calculate common limits
         if show_var == "both":
@@ -287,11 +310,23 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         lons_flat = lons_flat[mask]
 
         if plot_type == "pcolormesh" and lats.ndim == 2:
-            # Gridded data - use pcolormesh
+            # Curvilinear grid - use pcolormesh with 2D coords
             return ax.pcolormesh(
                 lons,
                 lats,
                 data,
+                cmap=cmap,
+                vmin=vmin,
+                vmax=vmax,
+                transform=ccrs.PlateCarree(),
+                alpha=alpha,
+            )
+        elif plot_type == "pcolormesh" and lats.ndim == 1 and data.ndim >= 2:
+            # Regular grid with 1D coords - pcolormesh handles natively
+            return ax.pcolormesh(
+                lons,
+                lats,
+                data.T if data.shape[0] == len(lons) else data,
                 cmap=cmap,
                 vmin=vmin,
                 vmax=vmax,

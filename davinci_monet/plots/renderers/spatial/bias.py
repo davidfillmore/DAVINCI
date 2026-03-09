@@ -79,6 +79,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         label_sites: list[str] | None = None,
         city_labels: dict[str, tuple[float, float]] | None = None,
         label_fontsize: int | None = None,
+        plot_type: str = "scatter",
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Generate a spatial bias plot.
@@ -136,19 +137,54 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
             bias = bias.mean(dim="time")
             obs_data = obs_data.mean(dim="time")
 
-        # Get coordinates
-        if lat_var in paired_data.coords:
-            lats = paired_data[lat_var].values
-            lons = paired_data[lon_var].values
-        elif lat_var in paired_data:
-            lats = paired_data[lat_var].values
-            lons = paired_data[lon_var].values
-        else:
-            raise ValueError(f"Could not find coordinate {lat_var} in dataset")
+        # Get coordinates — resolve common aliases
+        lat_candidates = [lat_var, "lat", "latitude", "LAT", "Latitude"]
+        lon_candidates = [lon_var, "lon", "longitude", "LON", "Longitude"]
+        resolved_lat = next(
+            (c for c in lat_candidates if c in paired_data.coords or c in paired_data),
+            None,
+        )
+        resolved_lon = next(
+            (c for c in lon_candidates if c in paired_data.coords or c in paired_data),
+            None,
+        )
+        if resolved_lat is None or resolved_lon is None:
+            raise ValueError(
+                f"Could not find latitude/longitude coordinates in dataset. "
+                f"Available coords: {list(paired_data.coords)}"
+            )
+        lats = paired_data[resolved_lat].values
+        lons = paired_data[resolved_lon].values
+
+        # Shift 0..360 longitudes to -180..180 for cartopy PlateCarree
+        if lons.ndim == 1 and np.any(lons > 180):
+            lons = np.where(lons > 180, lons - 360, lons)
+            # Re-sort lon axis so pcolormesh gets monotonic coords
+            sort_idx = np.argsort(lons)
+            lons = lons[sort_idx]
+            # Find lon dimension in bias and reorder data to match
+            lon_dim = resolved_lon
+            if lon_dim in bias.dims:
+                bias = bias.isel({lon_dim: sort_idx})
+                obs_data = obs_data.isel({lon_dim: sort_idx})
+        elif lons.ndim > 1 and np.any(lons > 180):
+            lons = np.where(lons > 180, lons - 360, lons)
 
         bias_values = bias.values.flatten()
-        lats_flat = np.broadcast_to(lats, bias.shape).flatten() if lats.ndim < bias.ndim else lats.flatten()
-        lons_flat = np.broadcast_to(lons, bias.shape).flatten() if lons.ndim < bias.ndim else lons.flatten()
+        if lats.ndim == 1 and lons.ndim == 1 and bias.ndim >= 2:
+            # Regular grid: meshgrid to match bias shape (lon, lat) or (lat, lon)
+            lon_grid, lat_grid = np.meshgrid(lons, lats, indexing="ij")
+            # Match bias shape — if dims are (lon, lat), indexing="ij" is correct
+            if lon_grid.shape != bias.shape:
+                lon_grid, lat_grid = np.meshgrid(lons, lats)
+            lats_flat = lat_grid.flatten()
+            lons_flat = lon_grid.flatten()
+        elif lats.ndim < bias.ndim:
+            lats_flat = np.broadcast_to(lats, bias.shape).flatten()
+            lons_flat = np.broadcast_to(lons, bias.shape).flatten()
+        else:
+            lats_flat = lats.flatten()
+            lons_flat = lons.flatten()
 
         # Remove NaN values
         mask = np.isfinite(bias_values) & np.isfinite(lats_flat) & np.isfinite(lons_flat)
@@ -184,20 +220,49 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         style = self.config.style
         ms = marker_size if marker_size is not None else style.markersize * 2
 
-        # Scatter plot
-        scatter = ax.scatter(
-            lons_flat,
-            lats_flat,
-            c=bias_values,
-            s=ms**2,
-            cmap=cmap,
-            norm=norm,
-            vmin=vmin if norm is None else None,
-            vmax=vmax if norm is None else None,
-            transform=ccrs.PlateCarree(),
-            edgecolors="none",
-            alpha=style.alpha,
-        )
+        # Choose plot method based on data geometry
+        if plot_type == "pcolormesh" and lats.ndim == 1 and bias.ndim >= 2:
+            # Regular grid with 1D coords — use pcolormesh
+            bias_2d = bias.values
+            scatter = ax.pcolormesh(
+                lons,
+                lats,
+                bias_2d.T if bias_2d.shape[0] == len(lons) else bias_2d,
+                cmap=cmap,
+                norm=norm,
+                vmin=vmin if norm is None else None,
+                vmax=vmax if norm is None else None,
+                transform=ccrs.PlateCarree(),
+                alpha=style.alpha,
+            )
+        elif plot_type == "pcolormesh" and lats.ndim == 2:
+            # Curvilinear grid — use pcolormesh with 2D coords
+            scatter = ax.pcolormesh(
+                lons,
+                lats,
+                bias.values,
+                cmap=cmap,
+                norm=norm,
+                vmin=vmin if norm is None else None,
+                vmax=vmax if norm is None else None,
+                transform=ccrs.PlateCarree(),
+                alpha=style.alpha,
+            )
+        else:
+            # Point data — use scatter
+            scatter = ax.scatter(
+                lons_flat,
+                lats_flat,
+                c=bias_values,
+                s=ms**2,
+                cmap=cmap,
+                norm=norm,
+                vmin=vmin if norm is None else None,
+                vmax=vmax if norm is None else None,
+                transform=ccrs.PlateCarree(),
+                edgecolors="none",
+                alpha=style.alpha,
+            )
 
         # Add colorbar
         units = get_variable_units(paired_data, obs_var)
