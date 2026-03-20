@@ -22,13 +22,15 @@ bibliography: paper.bib
 
 DAVINCI-MONET (Data Analysis and Validation Infrastructure for Numerical
 Chemistry Intercomparison -- Model and ObservatioN Evaluation Toolkit) is a
-Python package for evaluating atmospheric chemistry and air quality models
-against observations. It provides a config-driven pipeline that pairs model
-output with surface, aircraft, sonde, satellite, and lightning observations
-using geometry-aware strategies, then computes standard evaluation statistics
-and generates publication-ready plots. DAVINCI-MONET supports both paired
-model-versus-observation workflows and observation-only workflows for field
-campaign characterization, all driven by a single YAML control file.
+Python package for evaluating atmospheric chemistry and air quality model
+output against observations. The package combines validated YAML
+configuration, geometry-aware pairing, evaluation statistics, and plotting in a
+single stage-based workflow built around xarray datasets. DAVINCI-MONET
+supports paired model-versus-observation analyses, observation-only workflows
+for field campaigns, and satellite swath-to-grid evaluation within one software
+stack. It is intended for atmospheric chemistry model developers and analysis
+teams who need reproducible, scriptable evaluation across multiple observation
+types.
 
 # Statement of need
 
@@ -42,117 +44,110 @@ evaluation workflows difficult to reproduce, extend to new observation types,
 or share across research groups.
 
 DAVINCI-MONET addresses this by providing a unified, config-driven evaluation
-runtime where the pairing strategy is selected automatically based on data
-geometry rather than data source. A single YAML control file specifies model
-files, observation files, variable mappings, plot types, and statistical
-metrics. The pipeline validates the configuration, loads data, pairs
-observations with model output, computes statistics, generates plots, and
-writes structured logs -- all from one command:
+runtime in which pairing behavior is selected from dataset geometry rather than
+from observation source alone. A single YAML control file specifies model and
+observation inputs, variable mappings, plot requests, and statistical
+configuration. The runtime validates the configuration, loads data, performs
+pairing, computes statistics, generates plots, and writes structured logs from
+one command:
 
 ```bash
 davinci-monet run config.yaml
 ```
 
-Target users are atmospheric chemistry model developers and analysis teams who
-need reproducible evaluation across multiple observation types and campaigns.
+This design reduces the amount of campaign-specific glue code needed to compare
+one model against many observation classes, or to characterize an observation
+campaign even when no model fields are available. Target users include
+atmospheric chemistry model developers, air quality analysis teams, and field
+campaign scientists who need evaluation workflows that are easier to review,
+share, and rerun.
 
 # State of the field
 
-DAVINCI-MONET is a ground-up refactor of MELODIES-MONET
-[@melodies_monet], an evaluation toolkit developed at NOAA CSL.
-While MELODIES-MONET established the concept of a Python-based model
-evaluation framework backed by monetio and monet, DAVINCI-MONET differs
-in several fundamental ways:
+DAVINCI-MONET builds on ideas explored in MELODIES-MONET, a predecessor
+toolkit developed at NOAA CSL, but it is not a simple rename or thin wrapper.
+The software recasts model evaluation as a typed, stage-based pipeline rather
+than a procedural sequence of reader and pairing calls. It also moves pairing
+logic toward geometry-driven dispatch, adds validated configuration with
+Pydantic schemas, supports observation-only execution when no model is present,
+and includes satellite swath-to-grid binning for Level 2 products. Together,
+these changes make DAVINCI-MONET a distinct software contribution aimed at
+modern, reproducible evaluation workflows.
 
-- **Architecture**: MELODIES-MONET uses a procedural workflow
-  (`.open_models()` then `.open_obs()` then `.pair_data()`).
-  DAVINCI-MONET replaces this with a composable, stage-based pipeline
-  where each stage implements a common `Stage` Protocol and communicates
-  through a shared `PipelineContext`.
-- **Type safety**: DAVINCI-MONET enforces full mypy strict mode across
-  the codebase, validates configuration with Pydantic schemas at parse
-  time, and ships a `py.typed` marker for downstream type checking.
-- **Geometry-driven pairing**: Rather than pairing by data source,
-  DAVINCI-MONET auto-detects observation geometry (point, track,
-  profile, swath, grid) from dataset structure and dispatches to
-  specialized pairing strategies.
-- **Observation-only mode**: When no model section is present in the
-  configuration, the pipeline automatically switches to an
-  observation-only stage sequence with dedicated plot renderers --
-  a capability not available in MELODIES-MONET.
-- **Satellite swath-to-grid binning**: DAVINCI-MONET includes
-  numba-accelerated binning of satellite L2 swath pixels onto regular
-  grids, with configurable grid modes and pixel-count tracking.
-- **Testing**: The package includes over 900 tests with synthetic data
-  fixtures covering all pairing strategies and plot types.
-
-Other tools in the atmospheric evaluation space include the Model
-Evaluation Tools (MET) framework [@met_framework] and the Atmospheric
-Model Evaluation Tool (AMET) [@amet], which focus on meteorological
-and air quality verification respectively. DAVINCI-MONET complements
-these by providing a Python-native, xarray-first workflow that handles
-the full range of observation geometries encountered in atmospheric
-chemistry field campaigns.
+Other tools in the atmospheric evaluation space include the Model Evaluation
+Tools (MET) framework [@met_framework] and the Atmospheric Model Evaluation
+Tool (AMET) [@amet]. Those projects address adjacent verification problems, but
+DAVINCI-MONET emphasizes a Python-native, xarray-first workflow that unifies
+surface, aircraft, profile, swath, and gridded observations within one package.
+Its primary contribution is not a new evaluation metric, but a software design
+that makes heterogeneous atmospheric chemistry evaluation workflows easier to
+configure, extend, and reuse.
 
 # Software design
 
-DAVINCI-MONET is organized into composable modules:
+DAVINCI-MONET is organized around a small number of composable subsystems. The
+configuration layer loads YAML control files, expands environment variables,
+and validates structure before runtime. The pipeline layer executes named
+stages with a shared context, allowing standard paired runs and reduced
+observation-only runs to share the same execution model. The pairing layer uses
+a `PairingEngine` and geometry-specific strategies for point, track, profile,
+swath, and grid data, with an additional swath-to-grid path for satellite Level
+2 products. Statistics and plotting are handled by dedicated modules that can
+operate on paired outputs, while observation-only rendering uses a separate
+plotter interface tailored to single-dataset workflows.
 
-- **Configuration** (`config/`): Pydantic-validated YAML loading with
-  environment variable expansion and a `validate` CLI command for
-  pre-run checking.
-- **Pipeline** (`pipeline/`): Stage-based execution with progress
-  tracking and structured markdown logs. Standard mode runs six stages
-  (load models, load observations, pairing, statistics, plotting, save
-  results); observation-only mode runs a reduced four-stage sequence.
-- **Pairing** (`pairing/`): A `PairingEngine` with five geometry-based
-  strategies (point, track, profile, swath, grid) plus a
-  numba-accelerated swath-to-grid strategy for satellite L2 products.
-- **Statistics** (`stats/`): 27 evaluation metrics including bias, RMSE,
-  correlation, index of agreement, and normalized metrics, with groupby
-  support by time, site, or altitude.
-- **Plotting** (`plots/`): 14 paired plot types and 5 observation-only
-  plot types, registered via a plugin registry. A comprehensive gallery
-  of all supported plot types is available in the repository
-  documentation (`docs/gallery/`).
-- **Observations** (`observations/`): Readers for surface networks
-  (AirNow, AQS, AERONET, OpenAQ, Pandora), aircraft (ICARTT), sonde,
-  satellite L2 (TROPOMI, TEMPO, MODIS), satellite L3 (MOPITT, OMPS,
-  GOES), and lightning (LMA).
-- **Models** (`models/`): Readers for CMAQ, WRF-Chem, UFS, CESM
-  (finite volume and spectral element), and generic NetCDF.
-
-Performance optimizations include time filtering at observation load
-(reducing load time by three orders of magnitude for multi-month files),
-configurable Dask concurrency for pairing, and numba JIT-compiled grid
-binning for satellite data.
+Reader coverage includes surface networks such as AirNow, AQS, AERONET,
+OpenAQ, and Pandora; aircraft data through ICARTT; ozonesondes; satellite
+Level 2 and Level 3 products; and lightning observations from LMA networks.
+Model readers support CMAQ, WRF-Chem, UFS, CESM, and generic NetCDF inputs.
+The package also includes performance-oriented features such as observation
+time filtering during load, configurable Dask concurrency during pairing, and
+numba-accelerated grid binning for satellite workflows. These implementation
+choices are intended to make large evaluation runs more practical without
+changing the user-facing configuration model.
 
 # Research impact
 
 DAVINCI-MONET has been applied to three distinct evaluation workflows
-that demonstrate its breadth:
+that demonstrate the breadth of the software:
 
 - **ASIA-AQ**: Multi-observation paired evaluation of CESM/CAM-chem
   against four observation networks (AirNow surface, AERONET AOD,
   Pandora NO$_2$ columns, DC-8 aircraft) over East and Southeast Asia.
 - **DC3**: Observation-only characterization of the Deep Convective
   Clouds and Chemistry field campaign, including DC-8 and GV aircraft
-  trace gas profiles and Oklahoma Lightning Mapping Array flash density.
+  trace gas profiles and Oklahoma Lightning Mapping Array flash density
+  [@barth_dc3].
 - **MODIS AOD**: Satellite swath-to-grid evaluation of Terra and Aqua
   MODIS L2 aerosol optical depth against two CAM6 model variants during
   the December 2019 Australian bushfire event.
 
-Each workflow is fully reproducible from checked-in YAML configurations
-and download scripts in the repository's `analyses/` directory. Example
-outputs from all three workflows are shown in the repository's plot
-gallery (`docs/gallery/`).
+These workflows are represented in the repository by checked-in configurations,
+analysis scripts, and example outputs. They are included here as evidence that
+the same package can support distinct workflow classes rather than as new
+scientific results produced for this paper. Some workflows depend on external
+datasets, preprocessing steps, or credentials for data access, so DAVINCI-MONET
+does not claim that every analysis is push-button reproducible in a fresh
+environment. Instead, the repository makes the configuration, acquisition
+paths, and workflow structure explicit, which is the level of transparency most
+useful for software review and reuse.
 
 # AI usage disclosure
 
-Claude (Anthropic) and Codex (OpenAI) were used as coding assistants
-throughout DAVINCI-MONET development, including implementation,
-test writing, documentation, and paper planning. All AI-generated
-code was reviewed, tested, and integrated by the authors.
+Generative AI tools were used during both DAVINCI-MONET software development
+and manuscript preparation. Interactive sessions with Anthropic Claude and
+OpenAI Codex-family agents were used during software architecture discussion,
+implementation, refactoring, test scaffolding, and documentation revision.
+These sessions often included cross-model review, where output proposed by one
+system was critiqued, revised, or stress-tested with assistance from another
+before human acceptance.
+
+The same tools were also used during paper planning, editorial revision, and
+early manuscript drafting. Human authors made the primary architectural,
+scientific, and design decisions; reviewed and edited the generated code and
+text; inspected or ran the relevant tests and outputs; and take full
+responsibility for the accuracy, originality, licensing compliance, and final
+content of both the software and the paper.
 
 # Acknowledgements
 
