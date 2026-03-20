@@ -112,7 +112,9 @@ DAVINCI-MONET is organized into composable modules:
   correlation, index of agreement, and normalized metrics, with groupby
   support by time, site, or altitude.
 - **Plotting** (`plots/`): 14 paired plot types and 5 observation-only
-  plot types, registered via a plugin registry.
+  plot types, registered via a plugin registry. A comprehensive gallery
+  of all supported plot types is available in the repository
+  documentation (`docs/gallery/`).
 - **Observations** (`observations/`): Readers for surface networks
   (AirNow, AQS, AERONET, OpenAQ, Pandora), aircraft (ICARTT), sonde,
   satellite L2 (TROPOMI, TEMPO, MODIS), satellite L3 (MOPITT, OMPS,
@@ -141,7 +143,9 @@ that demonstrate its breadth:
   the December 2019 Australian bushfire event.
 
 Each workflow is fully reproducible from checked-in YAML configurations
-and download scripts in the repository's `analyses/` directory.
+and download scripts in the repository's `analyses/` directory. Example
+outputs from all three workflows are shown in the repository's plot
+gallery (`docs/gallery/`).
 
 # AI usage disclosure
 
