@@ -45,10 +45,10 @@ def integration_domain() -> Domain:
 
 @pytest.fixture
 def integration_time() -> TimeConfig:
-    """Short time period for integration testing."""
+    """48-hour period for integration testing (covers diurnal cycle)."""
     return TimeConfig(
         start="2024-01-15 00:00",
-        end="2024-01-15 12:00",
+        end="2024-01-17 00:00",
         freq="1h",
     )
 
@@ -63,16 +63,41 @@ def synthetic_data(
 
     Returns paths to (model_file, obs_file).
     """
+    from davinci_monet.tests.synthetic.models import create_model_dataset
+    from davinci_monet.tests.synthetic.observations import create_point_observations
+
+    # Build model with a latitude gradient (20 ppb south→north)
+    model_ds = create_model_dataset(
+        variables=["O3"],
+        domain=integration_domain,
+        time_config=integration_time,
+        seed=42,
+    )
+    lat_vals = model_ds.lat.values
+    lat_norm = (lat_vals - lat_vals.min()) / (lat_vals.max() - lat_vals.min())
+    model_ds["O3"] = model_ds["O3"] + 20.0 * lat_norm[:, np.newaxis]
+
+    # Sample obs from this model (so obs inherit the spatial gradient)
     scenario = PerfectMatchScenario(
         variables=["O3"],
         domain=integration_domain,
         time_config=integration_time,
         geometry=DataGeometry.POINT,
         n_obs=10,
-        noise_level=0.01,
+        noise_level=0.0,
         seed=42,
     )
-    model_ds, obs_ds = scenario.generate()
+    # Override: use our gradient-enhanced model for sampling
+    obs_ds = scenario._generate_point_obs(model_ds)
+
+    # Now add model bias: +5 ppb global, east-west gradient (0-6 ppb),
+    # and per-gridcell noise (±3 ppb) — obs stay clean
+    rng = np.random.default_rng(42)
+    lon_vals = model_ds.lon.values
+    lon_norm = (lon_vals - lon_vals.min()) / (lon_vals.max() - lon_vals.min())
+    lon_gradient = 6.0 * lon_norm[np.newaxis, :]
+    noise = rng.normal(0, 3.0, size=model_ds["O3"].shape)
+    model_ds["O3"] = model_ds["O3"] + 5.0 + lon_gradient + noise
 
     # Write model to NetCDF
     model_path = tmp_path / "model.nc"
@@ -98,7 +123,7 @@ def pipeline_config(
     return {
         "analysis": {
             "start_time": "2024-01-15 00:00",
-            "end_time": "2024-01-15 12:00",
+            "end_time": "2024-01-17 00:00",
             "output_dir": str(output_dir),
             "log_dir": str(log_dir),
             "debug": False,
@@ -116,6 +141,10 @@ def pipeline_config(
                 "variables": {
                     "O3": {
                         "units": "ppb",
+                        "ylabel_plot": "O$_3$ (ppb)",
+                        "vmin_plot": 30,
+                        "vmax_plot": 70,
+                        "vdiff_plot": 10,
                     },
                 },
             },
@@ -144,21 +173,51 @@ def pipeline_config(
             },
         },
         "plots": {
+            # --- Statistical plots ---
             "scatter_o3": {
                 "type": "scatter",
                 "pairs": ["synthetic_surface"],
-                "title": "O3: Synthetic Model vs Observations",
+                "title": "O3: Model vs Observations",
             },
+            "taylor_o3": {
+                "type": "taylor",
+                "pairs": ["synthetic_surface"],
+                "title": "O3 Taylor Diagram",
+            },
+            "boxplot_o3": {
+                "type": "boxplot",
+                "pairs": ["synthetic_surface"],
+                "title": "O3 Box Plot",
+            },
+            # --- Temporal plots ---
             "timeseries_o3": {
                 "type": "timeseries",
                 "pairs": ["synthetic_surface"],
                 "title": "O3 Time Series",
                 "aggregate_dim": "site",
             },
+            "diurnal_o3": {
+                "type": "diurnal",
+                "pairs": ["synthetic_surface"],
+                "title": "O3 Diurnal Cycle",
+            },
+            # --- Spatial plots ---
             "spatial_bias_o3": {
                 "type": "spatial_bias",
                 "pairs": ["synthetic_surface"],
                 "title": "O3 Spatial Bias",
+            },
+            "spatial_dist_o3": {
+                "type": "spatial_distribution",
+                "pairs": ["synthetic_surface"],
+                "title": "O3 Observed Distribution",
+                "show_var": "obs",
+            },
+            # --- Specialized plots ---
+            "scorecard_o3": {
+                "type": "scorecard",
+                "pairs": ["synthetic_surface"],
+                "title": "O3 Scorecard",
             },
         },
         "stats": {
@@ -170,6 +229,9 @@ def pipeline_config(
 # =============================================================================
 # Integration Test
 # =============================================================================
+
+
+EXPECTED_PLOT_COUNT = 8
 
 
 class TestPipelineIntegration:
@@ -209,10 +271,10 @@ class TestPipelineIntegration:
         assert len(rows) > 0, "Statistics CSV is empty"
 
         # --- Verify plots ---
-        png_files = list(output_dir.rglob("*.png"))
-        assert len(png_files) >= 3, (
-            f"Expected at least 3 PNG plots, got {len(png_files)}: "
-            f"{[f.name for f in png_files]}"
+        png_files = sorted(output_dir.rglob("*.png"))
+        assert len(png_files) >= EXPECTED_PLOT_COUNT, (
+            f"Expected at least {EXPECTED_PLOT_COUNT} PNG plots, "
+            f"got {len(png_files)}: {[f.name for f in png_files]}"
         )
 
         # Each plot should be a real image (>1KB)
