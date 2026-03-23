@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "davinci-monet"
-version = "0.1.0"
+version = "1.0.0"
 description = "Data Analysis and Validation Infrastructure for Chemistry - A modern refactor of MELODIES-MONET"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -20,7 +20,7 @@ keywords = [
     "meteorology"
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",

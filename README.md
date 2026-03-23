@@ -11,7 +11,7 @@ A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air 
 - **27 Statistical Metrics** - Bias, error, correlation, and agreement metrics with groupby support
 - **Multiple Plot Types** - Time series, scatter, Taylor diagrams, spatial maps, 3D track, curtain, and more
 - **Type-Safe Configuration** - Pydantic-validated YAML configs with backward compatibility
-- **Full Test Coverage** - 960+ tests with synthetic data generation
+- **Full Test Coverage** - 1000+ tests with synthetic data generation
 
 ### Supported Observations
 
@@ -173,7 +173,7 @@ Obs Files ────► Obs Reader ───► xr.Dataset ──┘         �
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.11+
 - Core: xarray, numpy, pandas, matplotlib, cartopy
 - I/O: netCDF4, monet, monetio
 - Config: pydantic, pyyaml

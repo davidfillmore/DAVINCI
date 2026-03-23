@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "DAVINCI: Data Analysis and Validation Infrastructure for Chemistry"
+version: 1.0.0
+date-released: 2026-03-23
+url: "https://github.com/NCAR/DAVINCI"
+repository-code: "https://github.com/NCAR/DAVINCI"
+license: Apache-2.0
+authors:
+  - family-names: Fillmore
+    given-names: David
+    orcid: "https://orcid.org/0000-0001-7726-4352"
+    affiliation: "National Center for Atmospheric Research, Boulder, CO, USA"
+keywords:
+  - atmospheric chemistry
+  - model evaluation
+  - air quality
+  - satellite remote sensing
+  - Python
+  - xarray
