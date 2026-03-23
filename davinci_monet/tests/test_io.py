@@ -66,7 +66,7 @@ def sample_dataframe() -> pd.DataFrame:
     np.random.seed(42)
     return pd.DataFrame(
         {
-            "time": pd.date_range("2020-01-01", periods=n_rows, freq="H"),
+            "time": pd.date_range("2020-01-01", periods=n_rows, freq="h"),
             "value": np.random.randn(n_rows),
             "category": np.random.choice(["A", "B", "C"], n_rows),
         }

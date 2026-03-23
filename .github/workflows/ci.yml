@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          environment-file: environment.yml
+          activate-environment: davinci-monet
+          miniforge-version: latest
+          use-mamba: true
+          channels: conda-forge,defaults
+          channel-priority: strict
+
+      - name: Run tests
+        env:
+          CI_ARTIFACTS_DIR: ${{ github.workspace }}/ci-artifacts
+        run: |
+          mkdir -p "$CI_ARTIFACTS_DIR"
+          pytest davinci_monet/tests/ \
+            -v --tb=short \
+            --junitxml=test-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results.xml
+
+      - name: Upload CI artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-artifacts
+          path: ci-artifacts/
+          if-no-files-found: ignore
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install linters
+        run: pip install black==24.3.0 isort==5.13.2
+
+      - name: Check formatting
+        run: |
+          black --check davinci_monet
+          isort --check davinci_monet
+
+  typecheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install mypy
+        run: pip install mypy types-PyYAML types-tqdm
+
+      - name: Run mypy
+        run: mypy davinci_monet --ignore-missing-imports
