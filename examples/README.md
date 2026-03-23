@@ -1,6 +1,6 @@
-# DAVINCI-MONET Plot Examples
+# DAVINCI Plot Examples
 
-This directory contains examples demonstrating all 15 plot types available in DAVINCI-MONET, using synthetic data and the `davinci_monet.plots` module.
+This directory contains examples demonstrating all 15 plot types available in DAVINCI, using synthetic data and the `davinci_monet.plots` module.
 
 ## Quick Start
 
@@ -93,7 +93,7 @@ fig = plotter.plot(my_paired_data, "obs_pm25", "model_pm25")
 
 ## Requirements
 
-DAVINCI-MONET must be installed:
+DAVINCI must be installed:
 
 ```bash
 conda activate davinci-monet

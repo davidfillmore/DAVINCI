@@ -1,4 +1,4 @@
-"""Observation-only histogram renderer for DAVINCI-MONET.
+"""Observation-only histogram renderer for DAVINCI.
 
 Renders a distribution histogram of observed values with optional
 statistics annotation box showing N, Mean, Median, Std, P10, P90.

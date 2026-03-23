@@ -129,6 +129,7 @@ class GenericReader:
                     ds = xr.open_mfdataset(
                         [str(f) for f in file_list],
                         combine=combine,
+                        data_vars="all",
                         parallel=True,
                         **kwargs,
                     )

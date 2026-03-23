@@ -1,4 +1,4 @@
-"""Plotting module for DAVINCI-MONET.
+"""Plotting module for DAVINCI.
 
 This module provides a comprehensive plotting system for model-observation
 comparison, including time series, spatial maps, Taylor diagrams, and more.

@@ -1,4 +1,4 @@
-"""Statistics module for DAVINCI-MONET.
+"""Statistics module for DAVINCI.
 
 This module provides comprehensive statistical analysis capabilities
 for evaluating model performance against observations.

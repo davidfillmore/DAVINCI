@@ -1,4 +1,4 @@
-"""Spatial overlay plot renderer for DAVINCI-MONET.
+"""Spatial overlay plot renderer for DAVINCI.
 
 This module provides overlay plotting functionality for
 displaying model contours with observation point overlays.

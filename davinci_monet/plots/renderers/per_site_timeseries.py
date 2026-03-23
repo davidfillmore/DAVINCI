@@ -1,4 +1,4 @@
-"""Per-site time series plot renderer for DAVINCI-MONET.
+"""Per-site time series plot renderer for DAVINCI.
 
 This module provides individual time series plots for each monitoring site,
 saved as separate files. Designed for AirNow, AERONET, and Pandora surface/column

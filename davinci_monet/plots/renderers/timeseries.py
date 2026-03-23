@@ -1,4 +1,4 @@
-"""Time series plot renderer for DAVINCI-MONET.
+"""Time series plot renderer for DAVINCI.
 
 This module provides time series plotting functionality for comparing
 model output with observations over time.

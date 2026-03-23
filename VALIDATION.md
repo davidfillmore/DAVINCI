@@ -1,6 +1,6 @@
-# DAVINCI-MONET Validation Plan
+# DAVINCI Validation Plan
 
-This document tracks the human validation of DAVINCI-MONET using real observational datasets. Model data is internal to our institutions; observational data sources are documented below.
+This document tracks the human validation of DAVINCI using real observational datasets. Model data is internal to our institutions; observational data sources are documented below.
 
 ## Observation Validation Status
 
@@ -229,7 +229,7 @@ This document tracks the human validation of DAVINCI-MONET using real observatio
    - Note any access requirements (accounts, API keys)
 
 2. **Reader Testing**
-   - Load data using DAVINCI-MONET reader
+   - Load data using DAVINCI reader
    - Verify coordinates (lat, lon, time)
    - Check variable names and units
    - Validate against source metadata

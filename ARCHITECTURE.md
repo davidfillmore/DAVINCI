@@ -1,10 +1,10 @@
-# DAVINCI-MONET Architecture
+# DAVINCI Architecture
 
-This document describes the internal architecture of DAVINCI-MONET, focusing on the pipeline execution system and the unified pairing engine.
+This document describes the internal architecture of DAVINCI, focusing on the pipeline execution system and the unified pairing engine.
 
 ## System Overview
 
-DAVINCI-MONET is a modular toolkit for evaluating atmospheric chemistry models against observations. The architecture follows these design principles:
+DAVINCI is a modular toolkit for evaluating atmospheric chemistry models against observations. The architecture follows these design principles:
 
 - **Plugin-based extensibility** via Protocol interfaces and registries
 - **Geometry-aware pairing** using strategy pattern for different observation types
@@ -16,7 +16,7 @@ DAVINCI-MONET is a modular toolkit for evaluating atmospheric chemistry models a
 *All data flows through the system as **xarray Datasets**. xarray extends NumPy arrays with labeled dimensions and coordinates, making it natural to work with geospatial data that has time, latitude, longitude, and vertical dimensions. Operations like slicing by time range, interpolating to new coordinates, and aligning datasets with different grids become simple one-liners. xarray also supports lazy evaluation via Dask, enabling processing of datasets larger than memory.*
 
 ```
-                           DAVINCI-MONET System
+                           DAVINCI System
 
     CLI ──────▶ Config ──────▶ Pipeline ──────▶ Output
    (Typer)      (YAML)          Runner        (Plots,
@@ -63,7 +63,7 @@ Responsibilities:
   - Generate Markdown execution logs with timing tables
 
 Progress Display:
-  - Animated "DAVINCI-MONET" text with left-to-right color sweep
+  - Animated "DAVINCI" text with left-to-right color sweep
   - Elapsed time counter during stage execution
   - Nested progress: stage › substep › item
   - Summary of loaded models/obs/pairs after each stage
@@ -173,7 +173,7 @@ The pairing engine is the core component that matches model output with observat
 
 ### Design Philosophy
 
-Traditional approaches pair data based on **data source** (e.g., different code for AirNow vs AERONET). DAVINCI-MONET instead pairs based on **data geometry**:
+Traditional approaches pair data based on **data source** (e.g., different code for AirNow vs AERONET). DAVINCI instead pairs based on **data geometry**:
 
 - The same `PointStrategy` handles both AirNow (surface) and AERONET (surface)
 - The same `TrackStrategy` handles any aircraft data (DC-8, G-III, etc.)

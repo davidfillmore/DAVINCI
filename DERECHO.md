@@ -1,6 +1,6 @@
 # Derecho Environment Notes
 
-Notes for running DAVINCI-MONET on NCAR's Derecho HPC system.
+Notes for running DAVINCI on NCAR's Derecho HPC system.
 
 ## System Info
 

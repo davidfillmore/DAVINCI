@@ -1,4 +1,4 @@
-"""Vertical profile renderer for DAVINCI-MONET.
+"""Vertical profile renderer for DAVINCI.
 
 Renders altitude vs. concentration plots in scatter or binned mode.
 Binned mode computes altitude-bin means with standard deviation envelopes.

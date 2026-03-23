@@ -1,4 +1,4 @@
-"""Spatial bias plot renderer for DAVINCI-MONET.
+"""Spatial bias plot renderer for DAVINCI.
 
 This module provides spatial bias plotting functionality for
 visualizing the difference between model and observation values

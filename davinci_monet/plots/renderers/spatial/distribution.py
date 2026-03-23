@@ -1,4 +1,4 @@
-"""Spatial distribution plot renderer for DAVINCI-MONET.
+"""Spatial distribution plot renderer for DAVINCI.
 
 This module provides spatial distribution plotting functionality for
 displaying observation or model values on a map without comparison.

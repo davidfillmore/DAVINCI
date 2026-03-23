@@ -1,4 +1,4 @@
-"""Observation-only time series renderer for DAVINCI-MONET.
+"""Observation-only time series renderer for DAVINCI.
 
 Renders variable vs. time for raw observation data. Supports per-flight
 coloring and optional altitude overlay on a secondary y-axis.

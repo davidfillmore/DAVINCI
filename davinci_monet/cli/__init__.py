@@ -1,4 +1,4 @@
-"""Command-line interface for DAVINCI-MONET.
+"""Command-line interface for DAVINCI.
 
 This module provides the CLI using Typer for running analyses,
 downloading data, and validating configurations.

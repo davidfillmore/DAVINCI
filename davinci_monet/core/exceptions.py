@@ -1,4 +1,4 @@
-"""Custom exception hierarchy for DAVINCI-MONET.
+"""Custom exception hierarchy for DAVINCI.
 
 This module defines a structured exception hierarchy for consistent error
 handling throughout the package. All exceptions inherit from DavinciMonetError.
@@ -34,9 +34,9 @@ from typing import Any
 
 
 class DavinciMonetError(Exception):
-    """Base exception for all DAVINCI-MONET errors.
+    """Base exception for all DAVINCI errors.
 
-    All custom exceptions in DAVINCI-MONET inherit from this class,
+    All custom exceptions in DAVINCI inherit from this class,
     allowing users to catch all package-specific errors with a single
     except clause.
 

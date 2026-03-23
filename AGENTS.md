@@ -1,4 +1,4 @@
-# AGENTS.md - DAVINCI-MONET
+# AGENTS.md - DAVINCI
 
 Rules and conventions for all AI agents working in this repository.
 

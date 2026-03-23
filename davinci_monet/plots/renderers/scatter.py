@@ -1,4 +1,4 @@
-"""Scatter plot renderer for DAVINCI-MONET.
+"""Scatter plot renderer for DAVINCI.
 
 This module provides scatter plot functionality for comparing
 model output with observations, including density coloring and

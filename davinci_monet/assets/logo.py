@@ -39,12 +39,10 @@ def get_colored_logo() -> Text:
     wave2_r = "(  ((( "
     wave3_r = "( (((  "
 
-    # Acronym expansions (DAVINCI split across two lines)
-    davinci_1 = "Data Analysis and Validation Infrastructure"
-    davinci_2 = "for Numerical Chemistry Intercomparison"
-    monet = "Model and ObservatioN Evaluation Toolkit"
+    # Acronym expansion
+    davinci = "Data Analysis and Validation Infrastructure for Chemistry"
 
-    # Line 1 - NSF NCAR + DAVINCI (part 1)
+    # Line 1 - NSF NCAR + DAVINCI
     orange(wave1_l)
     text.append("    ")
     blue("N S F")
@@ -53,27 +51,23 @@ def get_colored_logo() -> Text:
     text.append("    ")
     orange(wave1_r)
     text.append("  ")
-    blue(davinci_1)
+    blue(davinci)
     text.append("\n")
 
-    # Line 2 - divider + DAVINCI (part 2, "for" aligned under "Analysis")
+    # Line 2 - divider
     orange(wave2_l)
     text.append("  ")
     dim("------------------")
     text.append("  ")
     orange(wave2_r)
-    text.append("       ")
-    blue(davinci_2)
     text.append("\n")
 
-    # Line 3 - UCAR + MONET
+    # Line 3 - UCAR
     orange(wave3_l)
     text.append("       ")
     aqua("U C A R")
     text.append("        ")
     orange(wave3_r)
-    text.append("  ")
-    aqua(monet)
     text.append("\n")
 
     return text

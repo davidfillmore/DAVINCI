@@ -1,4 +1,4 @@
-"""Plot styling configuration for DAVINCI-MONET.
+"""Plot styling configuration for DAVINCI.
 
 This module provides a standardized styling system based on the official
 NSF NCAR brand guidelines. It includes:

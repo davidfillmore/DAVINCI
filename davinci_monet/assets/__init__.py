@@ -1,4 +1,4 @@
-"""Assets module for DAVINCI-MONET.
+"""Assets module for DAVINCI.
 
 Contains logos, banners, and other visual assets.
 """

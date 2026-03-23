@@ -1,6 +1,6 @@
-# DAVINCI-MONET Analyses
+# DAVINCI Analyses
 
-Real-data model evaluation analyses using DAVINCI-MONET.
+Real-data model evaluation analyses using DAVINCI.
 
 ## Directory Structure
 

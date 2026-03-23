@@ -6,7 +6,7 @@
 
 ## Problem
 
-The existing `SwathStrategy` does per-pixel xarray `.isel()` calls in a Python for loop — infeasible for MODIS-scale data (100M+ pixels/day). MELODIES-MONET solved this with a numba-accelerated histogram binning approach (`grid_util.update_data_grid`) that bins swath pixels onto a uniform grid in compiled code. We need to port this approach into DAVINCI-MONET as a new pairing strategy.
+The existing `SwathStrategy` does per-pixel xarray `.isel()` calls in a Python for loop — infeasible for MODIS-scale data (100M+ pixels/day). MELODIES-MONET solved this with a numba-accelerated histogram binning approach (`grid_util.update_data_grid`) that bins swath pixels onto a uniform grid in compiled code. We need to port this approach into DAVINCI as a new pairing strategy.
 
 ## First Use Case: MODIS AOD vs CAM6
 
@@ -182,8 +182,8 @@ pairs:
 analysis:
   start_time: "2019-12-21"
   end_time: "2019-12-22"
-  output_dir: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/modis/output
-  log_dir: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/modis/logs
+  output_dir: /Users/fillmore/EarthSystem/DAVINCI/analyses/modis/output
+  log_dir: /Users/fillmore/EarthSystem/DAVINCI/analyses/modis/logs
   style:
     theme: ncar
 

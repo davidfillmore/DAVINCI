@@ -1,4 +1,4 @@
-"""Plugin registry system for DAVINCI-MONET components.
+"""Plugin registry system for DAVINCI components.
 
 This module provides a generic, type-safe registry for pluggable components.
 Components are registered via decorators and can be looked up by name.

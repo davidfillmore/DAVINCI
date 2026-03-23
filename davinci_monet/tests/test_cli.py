@@ -52,7 +52,7 @@ class TestCLIApp:
         result = runner.invoke(app, ["--help"])
 
         assert result.exit_code == 0
-        assert "DAVINCI-MONET" in result.stdout or "davinci-monet" in result.stdout
+        assert "DAVINCI" in result.stdout or "davinci-monet" in result.stdout
 
 
 # =============================================================================
@@ -182,7 +182,7 @@ obs:
         result = runner.invoke(app, ["run", str(sample_config)])
 
         # Should show header and start processing
-        assert "DAVINCI-MONET" in result.stdout or result.exit_code != 0
+        assert "DAVINCI" in result.stdout or result.exit_code != 0
 
 
 # =============================================================================

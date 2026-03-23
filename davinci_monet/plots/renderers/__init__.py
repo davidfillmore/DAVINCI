@@ -1,4 +1,4 @@
-"""Plot renderers for DAVINCI-MONET.
+"""Plot renderers for DAVINCI.
 
 This subpackage provides individual plot type implementations:
 

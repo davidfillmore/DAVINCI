@@ -1,4 +1,4 @@
-"""Spatial plotting renderers for DAVINCI-MONET.
+"""Spatial plotting renderers for DAVINCI.
 
 This subpackage provides map-based visualization:
 - SpatialBiasPlotter: Model-observation bias on maps

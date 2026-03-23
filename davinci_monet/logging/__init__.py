@@ -1,4 +1,4 @@
-"""Structured logging for DAVINCI-MONET.
+"""Structured logging for DAVINCI.
 
 This module provides a consistent logging interface for the package,
 replacing print() statements with proper structured logging.

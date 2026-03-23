@@ -1,4 +1,4 @@
-"""Type aliases for DAVINCI-MONET.
+"""Type aliases for DAVINCI.
 
 This module provides commonly used type aliases to improve code readability
 and maintainability. These aliases are used throughout the codebase for

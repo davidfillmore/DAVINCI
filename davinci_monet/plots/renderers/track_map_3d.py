@@ -1,4 +1,4 @@
-"""3D track map renderer for DAVINCI-MONET.
+"""3D track map renderer for DAVINCI.
 
 This module provides 3D visualization of aircraft flight tracks,
 showing longitude, latitude, and altitude with color-coded values.

@@ -1,4 +1,4 @@
-"""Main CLI application for DAVINCI-MONET.
+"""Main CLI application for DAVINCI.
 
 This module provides the command-line interface using Typer.
 """
@@ -14,7 +14,7 @@ try:
     import typer
 except ImportError as e:
     print(
-        "The DAVINCI-MONET CLI requires the module 'typer'. "
+        "The DAVINCI CLI requires the module 'typer'. "
         "You can install it with `conda install -c conda-forge typer` or "
         "`pip install typer`. "
         f"The error message was: {e}"
@@ -162,7 +162,7 @@ def _get_system_info() -> str:
 
 
 def display_error(title: str, message: str, config_path: str | None = None) -> None:
-    """Display a styled error message with the DAVINCI-MONET branding.
+    """Display a styled error message with the DAVINCI branding.
 
     Shows the logo, a styled panel (matching pipeline header style), and
     the error message in red. Used for early errors (YAML parsing, validation)
@@ -194,7 +194,7 @@ def display_error(title: str, message: str, config_path: str | None = None) -> N
 
     # Panel content - same style as pipeline header (no error type in panel)
     content = Text()
-    content.append("DAVINCI-MONET", style=f"bold {NCAR_AQUA}")
+    content.append("DAVINCI", style=f"bold {NCAR_AQUA}")
     content.append("  ")
     content.append(datetime.now().strftime("%a %b %-d, %Y %H:%M"), style="dim")
     content.append("  ")
@@ -286,7 +286,7 @@ def _version_callback(value: bool) -> None:
 # Create the main application
 app = typer.Typer(
     name="davinci-monet",
-    help="DAVINCI-MONET: Model and Observation Evaluation Toolkit",
+    help="DAVINCI: Data Analysis and Validation Infrastructure for Chemistry",
     add_completion=False,
 )
 
@@ -302,7 +302,7 @@ def main(
         is_eager=True,
     ),
 ) -> None:
-    """DAVINCI-MONET: Model and Observation Evaluation Toolkit.
+    """DAVINCI: Data Analysis and Validation Infrastructure for Chemistry.
 
     A modern tool for evaluating atmospheric chemistry and air quality
     models against observations.
@@ -348,7 +348,7 @@ def run(
         help="Format for plot preview: 'pdf' (opens in system viewer) or 'png' (matplotlib window).",
     ),
 ) -> None:
-    """Run DAVINCI-MONET analysis as described in the control file."""
+    """Run DAVINCI analysis as described in the control file."""
     from davinci_monet.cli.commands.run import run_analysis
 
     global DEBUG
@@ -375,7 +375,7 @@ def validate(
         help="Print the parsed configuration.",
     ),
 ) -> None:
-    """Validate a DAVINCI-MONET configuration file."""
+    """Validate a DAVINCI configuration file."""
     from davinci_monet.cli.commands.validate import validate_config_command
 
     validate_config_command(control, strict=strict, show_config=show_config)

@@ -1,4 +1,4 @@
-"""Taylor diagram plot renderer for DAVINCI-MONET.
+"""Taylor diagram plot renderer for DAVINCI.
 
 This module provides Taylor diagram plotting functionality for
 visualizing model-observation statistical relationships.

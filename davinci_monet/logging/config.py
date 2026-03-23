@@ -1,4 +1,4 @@
-"""Logging configuration for DAVINCI-MONET.
+"""Logging configuration for DAVINCI.
 
 This module provides structured logging configuration to replace
 print() statements throughout the package. It supports:
@@ -24,7 +24,7 @@ LOGGER_PREFIX = "davinci_monet"
 
 
 class LogLevel(Enum):
-    """Logging levels supported by DAVINCI-MONET."""
+    """Logging levels supported by DAVINCI."""
 
     DEBUG = logging.DEBUG
     INFO = logging.INFO
@@ -144,7 +144,7 @@ def get_logger(name: str | None = None) -> logging.Logger:
     """Get a logger for the given module name.
 
     The logger name is prefixed with the package name to ensure
-    all DAVINCI-MONET loggers are grouped together.
+    all DAVINCI loggers are grouped together.
 
     Parameters
     ----------
@@ -175,7 +175,7 @@ def get_logger(name: str | None = None) -> logging.Logger:
 
 
 def set_log_level(level: str | LogLevel | int) -> None:
-    """Set the log level for all DAVINCI-MONET loggers.
+    """Set the log level for all DAVINCI loggers.
 
     Parameters
     ----------
@@ -207,7 +207,7 @@ def configure_logging(
     use_structured: bool = True,
     propagate: bool = False,
 ) -> logging.Logger:
-    """Configure logging for DAVINCI-MONET.
+    """Configure logging for DAVINCI.
 
     This function sets up logging handlers for console and optionally
     file output. It should be called once at application startup.

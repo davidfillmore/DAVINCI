@@ -5,7 +5,7 @@
 
 ## Current Stack
 
-DAVINCI-MONET currently uses:
+DAVINCI currently uses:
 - **Matplotlib** - Core plotting
 - **Cartopy** - Map projections and geospatial
 - **Seaborn** - Statistical plot styling
@@ -59,7 +59,7 @@ DAVINCI-MONET currently uses:
 
 ## Recommended Approach
 
-A **hybrid approach** for DAVINCI-MONET:
+A **hybrid approach** for DAVINCI:
 
 1. **Keep Matplotlib/Cartopy** for publication-quality static plots (spatial bias, maps)
 2. **Add hvPlot** for exploratory/interactive analysis

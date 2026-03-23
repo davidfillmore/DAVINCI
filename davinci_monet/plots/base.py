@@ -1,4 +1,4 @@
-"""Base plotter classes and common utilities for DAVINCI-MONET.
+"""Base plotter classes and common utilities for DAVINCI.
 
 This module provides:
 - PlotConfig: Pydantic model for plot configuration

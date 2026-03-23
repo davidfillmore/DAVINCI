@@ -1,4 +1,4 @@
-"""Box plot renderer for DAVINCI-MONET.
+"""Box plot renderer for DAVINCI.
 
 This module provides box plot functionality for comparing
 model and observation distributions.

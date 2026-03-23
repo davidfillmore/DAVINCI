@@ -6,7 +6,7 @@
 
 **Architecture:** Parallel `ObsPlotter` base class alongside existing `BasePlotter`, with 4 new renderers in `plots/renderers/obs/`. New `ObsPlottingStage` and `ObsStatisticsStage` in the pipeline. Auto-detection of obs-only mode when config has no `model` section. DC3 aircraft merge files downloaded via `earthaccess` and read by the existing `ICARTTReader`.
 
-**Tech Stack:** matplotlib, cartopy, xarray, numpy, earthaccess (NASA data download), existing DAVINCI-MONET infrastructure
+**Tech Stack:** matplotlib, cartopy, xarray, numpy, earthaccess (NASA data download), existing DAVINCI infrastructure
 
 ---
 

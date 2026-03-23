@@ -1,5 +1,5 @@
 ---
-title: 'DAVINCI-MONET: A Type-Safe, Geometry-Aware Toolkit for Atmospheric Chemistry Model Evaluation'
+title: 'DAVINCI: A Type-Safe, Geometry-Aware Toolkit for Atmospheric Chemistry Model Evaluation'
 tags:
   - Python
   - atmospheric chemistry
@@ -20,12 +20,11 @@ bibliography: paper.bib
 
 # Summary
 
-DAVINCI-MONET (Data Analysis and Validation Infrastructure for Numerical
-Chemistry Intercomparison -- Model and ObservatioN Evaluation Toolkit) is a
+DAVINCI (Data Analysis and Validation Infrastructure for Chemistry) is a
 Python package for evaluating atmospheric chemistry and air quality model
 output against observations. The package combines validated YAML
 configuration, geometry-aware pairing, evaluation statistics, and plotting in a
-single stage-based workflow built around xarray datasets. DAVINCI-MONET
+single stage-based workflow built around xarray datasets. DAVINCI
 supports paired model-versus-observation analyses, observation-only workflows
 for field campaigns, and satellite swath-to-grid evaluation within one software
 stack. It is intended for atmospheric chemistry model developers and analysis
@@ -43,7 +42,7 @@ ad hoc for each campaign or satellite product. This fragmentation makes
 evaluation workflows difficult to reproduce, extend to new observation types,
 or share across research groups.
 
-DAVINCI-MONET addresses this by providing a unified, config-driven evaluation
+DAVINCI addresses this by providing a unified, config-driven evaluation
 runtime in which pairing behavior is selected from dataset geometry rather than
 from observation source alone. A single YAML control file specifies model and
 observation inputs, variable mappings, plot requests, and statistical
@@ -64,20 +63,20 @@ share, and rerun.
 
 # State of the field
 
-DAVINCI-MONET builds on ideas explored in MELODIES-MONET, a predecessor
+DAVINCI builds on ideas explored in MELODIES-MONET, a predecessor
 toolkit developed at NOAA CSL, but it is not a simple rename or thin wrapper.
 The software recasts model evaluation as a typed, stage-based pipeline rather
 than a procedural sequence of reader and pairing calls. It also moves pairing
 logic toward geometry-driven dispatch, adds validated configuration with
 Pydantic schemas, supports observation-only execution when no model is present,
 and includes satellite swath-to-grid binning for Level 2 products. Together,
-these changes make DAVINCI-MONET a distinct software contribution aimed at
+these changes make DAVINCI a distinct software contribution aimed at
 modern, reproducible evaluation workflows.
 
 Other tools in the atmospheric evaluation space include the Model Evaluation
 Tools (MET) framework [@met_framework] and the Atmospheric Model Evaluation
 Tool (AMET) [@amet]. Those projects address adjacent verification problems, but
-DAVINCI-MONET emphasizes a Python-native, xarray-first workflow that unifies
+DAVINCI emphasizes a Python-native, xarray-first workflow that unifies
 surface, aircraft, profile, swath, and gridded observations within one package.
 Its primary contribution is not a new evaluation metric, but a software design
 that makes heterogeneous atmospheric chemistry evaluation workflows easier to
@@ -85,7 +84,7 @@ configure, extend, and reuse.
 
 # Software design
 
-DAVINCI-MONET is organized around a small number of composable subsystems. The
+DAVINCI is organized around a small number of composable subsystems. The
 configuration layer loads YAML control files, expands environment variables,
 and validates structure before runtime. The pipeline layer executes named
 stages with a shared context, allowing standard paired runs and reduced
@@ -108,7 +107,7 @@ changing the user-facing configuration model.
 
 # Research impact
 
-DAVINCI-MONET has been applied to three distinct evaluation workflows
+DAVINCI has been applied to three distinct evaluation workflows
 that demonstrate the breadth of the software:
 
 - **ASIA-AQ**: Multi-observation paired evaluation of CESM/CAM-chem
@@ -126,7 +125,7 @@ These workflows are represented in the repository by checked-in configurations,
 analysis scripts, and example outputs. They are included here as evidence that
 the same package can support distinct workflow classes rather than as new
 scientific results produced for this paper. Some workflows depend on external
-datasets, preprocessing steps, or credentials for data access, so DAVINCI-MONET
+datasets, preprocessing steps, or credentials for data access, so DAVINCI
 does not claim that every analysis is push-button reproducible in a fresh
 environment. Instead, the repository makes the configuration, acquisition
 paths, and workflow structure explicit, which is the level of transparency most
@@ -134,7 +133,7 @@ useful for software review and reuse.
 
 # AI usage disclosure
 
-Generative AI tools were used during both DAVINCI-MONET software development
+Generative AI tools were used during both DAVINCI software development
 and manuscript preparation. Interactive sessions with Anthropic Claude and
 OpenAI Codex-family agents were used during software architecture discussion,
 implementation, refactoring, test scaffolding, and documentation revision.
@@ -155,7 +154,7 @@ This work was supported by the National Center for Atmospheric Research,
 which is a major facility sponsored by the National Science Foundation
 under Cooperative Agreement No. 1852977.
 
-DAVINCI-MONET builds on the foundation established by MELODIES-MONET
+DAVINCI builds on the foundation established by MELODIES-MONET
 and the monetio and monet packages developed at NOAA CSL.
 
 # References

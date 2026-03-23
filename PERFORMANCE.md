@@ -1,4 +1,4 @@
-# Performance Analysis: DAVINCI-MONET Pipeline
+# Performance Analysis: DAVINCI Pipeline
 
 This document captures performance insights discovered during development, particularly around Dask lazy loading and pairing bottlenecks.
 

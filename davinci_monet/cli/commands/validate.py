@@ -1,4 +1,4 @@
-"""Validate command for DAVINCI-MONET CLI.
+"""Validate command for DAVINCI CLI.
 
 This module implements the configuration validation command.
 """
@@ -22,7 +22,7 @@ from davinci_monet.core.exceptions import ConfigurationError
 def validate_config_command(
     control_path: str, strict: bool = False, show_config: bool = False
 ) -> None:
-    """Validate a DAVINCI-MONET configuration file.
+    """Validate a DAVINCI configuration file.
 
     Parameters
     ----------

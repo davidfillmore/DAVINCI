@@ -1,6 +1,6 @@
 """Core module containing protocols, registry, and base classes.
 
-This module provides the foundational components for DAVINCI-MONET:
+This module provides the foundational components for DAVINCI:
 - Protocol definitions for all pluggable components
 - Plugin registry system
 - Base data container classes

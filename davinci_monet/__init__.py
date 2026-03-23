@@ -1,7 +1,7 @@
-"""DAVINCI-MONET: Model and Observation Evaluation Toolkit.
+"""DAVINCI: Data Analysis and Validation Infrastructure for Chemistry.
 
-A modern, type-safe refactor of MELODIES-MONET for evaluating atmospheric
-chemistry and air quality models against observations.
+A modern, type-safe toolkit for evaluating atmospheric chemistry and
+air quality models against observations.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """Pytest fixtures using synthetic data generators.
 
-This module provides reusable fixtures for testing DAVINCI-MONET components.
+This module provides reusable fixtures for testing DAVINCI components.
 All fixtures use synthetic data to avoid external dependencies.
 """
 

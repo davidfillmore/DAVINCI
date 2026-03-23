@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build an `obs_lma_density` plot renderer that produces hourly cartopy maps of LMA flash extent density, with optional flight track overlays, integrated into the DAVINCI-MONET pipeline.
+**Goal:** Build an `obs_lma_density` plot renderer that produces hourly cartopy maps of LMA flash extent density, with optional flight track overlays, integrated into the DAVINCI pipeline.
 
 **Architecture:** New obs renderer inheriting from `ObsPlotter`, using cartopy directly for map rendering. The renderer aggregates 5-minute LMA grid data into hourly totals and produces one PNG per active hour. A small extension to `ObsPlottingStage` enables multi-figure output from a single plotter call.
 
@@ -767,7 +767,7 @@ test: add integration test for May 29 LMA config validation
 **Step 1: Run the pipeline on May 29 config**
 
 ```bash
-cd /Users/fillmore/EarthSystem/DAVINCI-MONET
+cd /Users/fillmore/EarthSystem/DAVINCI
 conda activate davinci-monet
 davinci-monet run analyses/dc3/configs/dc3-may29-gemini.yaml
 ```

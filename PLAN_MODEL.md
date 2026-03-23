@@ -7,7 +7,7 @@ Owner: TBD
 Build a statistical representation of atmospheric constituents over ASIA-AQ (O3, NOx, CO, aerosol) and refine prior distributions using observations. The output should provide posterior mean fields **and** uncertainty (variance/credible intervals) in space and time.
 
 ## Summary Recommendation
-Start with **campaign-mean vertical profiles** per species computed from all flights, then adjust those profiles to match column and/or surface observations. Use **optimal interpolation** between surface sites to create a simple horizontal dependence. Then **enforce photochemical consistency** using a simple box-model chemistry mechanism with a photolysis rate model. Use the existing DAVINCI-MONET pairing/geometry tools as the observation operator. Begin with **independent species** and add cross-species coupling later once the pipeline is stable.
+Start with **campaign-mean vertical profiles** per species computed from all flights, then adjust those profiles to match column and/or surface observations. Use **optimal interpolation** between surface sites to create a simple horizontal dependence. Then **enforce photochemical consistency** using a simple box-model chemistry mechanism with a photolysis rate model. Use the existing DAVINCI pairing/geometry tools as the observation operator. Begin with **independent species** and add cross-species coupling later once the pipeline is stable.
 
 ## Scope and Outputs
 - **Spatial domain**: ASIA-AQ region on a fixed grid (match model grid initially).
@@ -21,7 +21,7 @@ Start with **campaign-mean vertical profiles** per species computed from all fli
   - Diagnostics by observation type and platform.
 
 ## Data Inputs (Initial)
-Use existing DAVINCI-MONET ingestion and pairing:
+Use existing DAVINCI ingestion and pairing:
 - **Prior profiles**: campaign-mean vertical profiles per species derived from aircraft data.
   - **Fallback**: AFGL standard profiles if aircraft coverage is sparse or missing for a species.
   - **Manual provision**: AFGL tables will be fetched manually and stored as CSVs in `data/afgl/`.
@@ -81,7 +81,7 @@ References (for selection):
 - Phase 1: independent species (separate profiles and OI fields).
 - Phase 2: optional cross-species coupling (shared spatial covariance or ratio constraints).
 
-## System Design (Integration with DAVINCI-MONET)
+## System Design (Integration with DAVINCI)
 - **Data pipeline**:
   - Use `load_observations` and pairing geometry to map the latent grid to obs locations.
   - Optionally use `load_models` only for grid metadata (no model priors required).

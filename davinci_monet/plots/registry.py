@@ -1,4 +1,4 @@
-"""Plot registry and factory functions for DAVINCI-MONET.
+"""Plot registry and factory functions for DAVINCI.
 
 This module provides the plotting registry and convenience functions
 for creating plotters by name.

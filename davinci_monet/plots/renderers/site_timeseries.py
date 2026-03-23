@@ -1,4 +1,4 @@
-"""Site-by-site time series plot renderer for DAVINCI-MONET.
+"""Site-by-site time series plot renderer for DAVINCI.
 
 This module provides multi-panel time series plots showing model vs observations
 at individual monitoring sites. Useful for point observations (surface stations,

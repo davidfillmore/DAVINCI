@@ -1,4 +1,4 @@
-"""Curtain plot renderer for DAVINCI-MONET.
+"""Curtain plot renderer for DAVINCI.
 
 This module provides curtain plot functionality for visualizing
 vertical cross-sections of aircraft or model data along a trajectory.

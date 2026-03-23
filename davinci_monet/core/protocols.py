@@ -1,4 +1,4 @@
-"""Protocol definitions for DAVINCI-MONET components.
+"""Protocol definitions for DAVINCI components.
 
 This module defines the interfaces (Protocols) that all pluggable components
 must implement. Using Protocols enables static type checking while maintaining

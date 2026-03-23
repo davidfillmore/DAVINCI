@@ -1,4 +1,4 @@
-"""Data download commands for DAVINCI-MONET CLI.
+"""Data download commands for DAVINCI CLI.
 
 This module implements commands for downloading observation data
 from various sources (AERONET, AirNow, AQS, OpenAQ, etc.).
@@ -211,7 +211,7 @@ def get_aeronet(
         False, "--debug", help="Print full tracebacks on error."
     ),
 ) -> None:
-    """Download AERONET data and reformat for DAVINCI-MONET usage."""
+    """Download AERONET data and reformat for DAVINCI usage."""
     import davinci_monet.cli.app as app_module
 
     app_module.DEBUG = debug
@@ -287,7 +287,7 @@ def get_airnow(
         False, "--debug", help="Print full tracebacks on error."
     ),
 ) -> None:
-    """Download AirNow data and reformat for DAVINCI-MONET usage."""
+    """Download AirNow data and reformat for DAVINCI usage."""
     import warnings
 
     import davinci_monet.cli.app as app_module
@@ -378,7 +378,7 @@ def get_aqs(
         False, "--debug", help="Print full tracebacks on error."
     ),
 ) -> None:
-    """Download EPA AQS data and reformat for DAVINCI-MONET usage.
+    """Download EPA AQS data and reformat for DAVINCI usage.
 
     These are archived data from https://aqs.epa.gov/aqsweb/airdata/download_files.html
     Recent-past data may not be available from this source.
@@ -484,7 +484,7 @@ def get_openaq(
         False, "--debug", help="Print full tracebacks on error."
     ),
 ) -> None:
-    """Download hourly OpenAQ data and reformat for DAVINCI-MONET usage."""
+    """Download hourly OpenAQ data and reformat for DAVINCI usage."""
     import davinci_monet.cli.app as app_module
 
     app_module.DEBUG = debug

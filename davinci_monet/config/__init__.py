@@ -1,4 +1,4 @@
-"""Configuration module for DAVINCI-MONET.
+"""Configuration module for DAVINCI.
 
 This module provides Pydantic-based configuration validation,
 YAML parsing, and migration utilities for MELODIES-MONET configs.

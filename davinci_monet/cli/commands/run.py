@@ -1,4 +1,4 @@
-"""Run command for DAVINCI-MONET CLI.
+"""Run command for DAVINCI CLI.
 
 This module implements the main analysis execution command.
 """
@@ -25,7 +25,7 @@ def run_analysis(
     show_plots: bool = False,
     preview_format: str = "pdf",
 ) -> None:
-    """Execute DAVINCI-MONET analysis from a control file.
+    """Execute DAVINCI analysis from a control file.
 
     Parameters
     ----------

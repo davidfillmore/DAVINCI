@@ -1,4 +1,4 @@
-"""Base data classes for DAVINCI-MONET.
+"""Base data classes for DAVINCI.
 
 This module provides the core data container classes that wrap xarray Datasets
 with metadata and common operations.

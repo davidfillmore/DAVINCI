@@ -1,4 +1,4 @@
-"""Scorecard plot renderer for DAVINCI-MONET.
+"""Scorecard plot renderer for DAVINCI.
 
 This module provides scorecard/heatmap plotting functionality for
 displaying statistics across multiple variables, sites, or models.

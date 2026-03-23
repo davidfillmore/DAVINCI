@@ -1,4 +1,4 @@
-"""Flight-by-flight time series plot renderer for DAVINCI-MONET.
+"""Flight-by-flight time series plot renderer for DAVINCI.
 
 This module provides multi-panel time series plots showing model vs observations
 for individual aircraft flights. Designed for track observations where each

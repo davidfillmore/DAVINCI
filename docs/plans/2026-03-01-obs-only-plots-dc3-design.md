@@ -6,7 +6,7 @@
 
 ## Context
 
-DAVINCI-MONET's plotting system is entirely paired-data-centric — all 14 plot types require both `obs_var` and `model_var`. This blocks observation-first workflows like DC3, where we want to visualize aircraft data before model runs are available.
+DAVINCI's plotting system is entirely paired-data-centric — all 14 plot types require both `obs_var` and `model_var`. This blocks observation-first workflows like DC3, where we want to visualize aircraft data before model runs are available.
 
 This design adds obs-only plotting infrastructure and integrates DC3 field campaign aircraft data.
 

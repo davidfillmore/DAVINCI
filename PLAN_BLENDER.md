@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add OBJ/MTL file export to DAVINCI-MONET for rendering flight tracks and model fields in Blender or other 3D software.
+Add OBJ/MTL file export to DAVINCI for rendering flight tracks and model fields in Blender or other 3D software.
 
 **Exports:**
 - Flight tracks as 3D tubes colored by variable (O3, bias, etc.)

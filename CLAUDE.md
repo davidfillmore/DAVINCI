@@ -1,6 +1,6 @@
-# DAVINCI-MONET
+# DAVINCI
 
-**Data Analysis and Validation Infrastructure for Numerical Chemistry Intercomparison - Model and ObservatioN Evaluation Toolkit**
+**Data Analysis and Validation Infrastructure for Chemistry**
 
 A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air quality models against observations, based on MELODIES-MONET.
 
@@ -214,7 +214,7 @@ See `PLAN.md` for detailed implementation plan.
 
 ## Running Analyses
 
-**ALL analysis scripts MUST use DAVINCI-MONET pipelines.** Do not write custom pairing/plotting scripts.
+**ALL analysis scripts MUST use DAVINCI pipelines.** Do not write custom pairing/plotting scripts.
 
 ### Pipeline Stages
 

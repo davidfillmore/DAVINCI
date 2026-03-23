@@ -1,4 +1,4 @@
-"""Diurnal cycle plot renderer for DAVINCI-MONET.
+"""Diurnal cycle plot renderer for DAVINCI.
 
 This module provides diurnal cycle plotting functionality for comparing
 model output with observations across the daily cycle.
