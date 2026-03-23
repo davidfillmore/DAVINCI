@@ -45,6 +45,7 @@ Specific actionable items
 - **Reference file paths and line numbers** — so the next model can verify without searching
 - **Check for handoff files at session start** — look for `REVIEW_*.md` or `HANDOFF_*.md` in repo root
 - **Git diff supplements the handoff** — the file gives intent, `git diff` gives the changes
+- **Do NOT track handoff files in git** — these are ephemeral working artifacts, not permanent records. Delete them once the handoff is complete.
 
 ---
 

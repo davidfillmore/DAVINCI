@@ -213,6 +213,10 @@ SESSION_CONTEXT.md
 # Example output (generated files)
 examples/output/
 
+# Cross-model handoff files (ephemeral, not tracked)
+REVIEW_*.md
+HANDOFF_*.md
+
 # Analysis output (pipeline-generated files)
 analyses/*/output/
 analyses/*/logs/

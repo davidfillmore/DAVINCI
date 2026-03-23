@@ -27,6 +27,8 @@ When writing handoff files, use `REVIEW_<MODEL>.md` or `HANDOFF_<TOPIC>.md` with
 - **Open Questions / Concerns** — What the next model should investigate
 - **Suggested Next Steps** — Specific actionable items
 
+Do NOT track handoff files in git — they are ephemeral working artifacts. Delete once the handoff is complete.
+
 ## Planning and Implementation
 
 - **Stop after planning**: After a planning session, always stop and wait for user conversation before proceeding to implementation
