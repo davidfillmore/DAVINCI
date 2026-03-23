@@ -62,8 +62,8 @@ docs = [
 davinci-monet = "davinci_monet.cli.app:app"
 
 [project.urls]
-Homepage = "https://github.com/your-org/davinci-monet"
-Documentation = "https://davinci-monet.readthedocs.io"
+Homepage = "https://github.com/NCAR/DAVINCI"
+Documentation = "https://github.com/NCAR/DAVINCI/wiki"
 
 [tool.setuptools.packages.find]
 where = ["."]
