@@ -403,20 +403,24 @@ class TestSwathGridPipeline:
         )
         time_cfg = TimeConfig(start="2019-12-21", end="2019-12-22", freq="1D")
 
-        model_ds = create_model_dataset(
-            variables=["AOD"], domain=domain, time_config=time_cfg, seed=77,
-        )
-        # Scale to AOD range (0-2) and add a hotspot in the NW quadrant
-        model_ds["AOD"] = np.abs(model_ds["AOD"]) * 0.02
-        lat_vals = model_ds.lat.values
-        lon_vals = model_ds.lon.values
-        lat_idx = np.argmin(np.abs(lat_vals - (-25.0)))
-        lon_idx = np.argmin(np.abs(lon_vals - 120.0))
-        # Gaussian hotspot (bushfire plume)
-        for i, la in enumerate(lat_vals):
-            for j, lo in enumerate(lon_vals):
+        # Build model AOD field directly: low background + Gaussian hotspot
+        # Model overestimates the plume but underestimates background → spatial bias pattern
+        lat_centers = np.linspace(domain.lat_min, domain.lat_max, domain.n_lat)
+        lon_centers = np.linspace(domain.lon_min, domain.lon_max, domain.n_lon)
+        time_vals = np.array(["2019-12-21"], dtype="datetime64[ns]")
+
+        aod_field = np.full((1, domain.n_lat, domain.n_lon), 0.08)  # low background
+        for i, la in enumerate(lat_centers):
+            for j, lo in enumerate(lon_centers):
                 dist = np.sqrt((la - (-25.0))**2 + (lo - 120.0)**2)
-                model_ds["AOD"].values[:, i, j] += 1.5 * np.exp(-dist**2 / 200)
+                aod_field[0, i, j] += 2.0 * np.exp(-dist**2 / 150)  # stronger, tighter plume
+        aod_field += rng.normal(0, 0.03, aod_field.shape)
+        aod_field = np.clip(aod_field, 0, 5)
+
+        model_ds = xr.Dataset(
+            {"AOD": (["time", "lat", "lon"], aod_field)},
+            coords={"time": time_vals, "lat": lat_centers, "lon": lon_centers},
+        )
 
         model_path = tmp_path / "model_aod.nc"
         model_ds.to_netcdf(model_path)
