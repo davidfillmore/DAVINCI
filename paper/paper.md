@@ -16,31 +16,33 @@ affiliations:
     index: 1
 date: 19 March 2026
 bibliography: paper.bib
+nocite: '@fillmore_davinci'
 ---
 
 # Summary
 
 DAVINCI (Data Analysis and Validation Infrastructure for Chemistry) is a
 Python package for evaluating atmospheric chemistry and air quality model
-output against observations. The package combines validated YAML
-configuration, geometry-aware pairing, evaluation statistics, and plotting in a
-single stage-based workflow built around xarray datasets. DAVINCI
-supports paired model-versus-observation analyses, observation-only workflows
-for field campaigns, and satellite swath-to-grid evaluation within one software
-stack. It is intended for atmospheric chemistry model developers and analysis
-teams who need reproducible, scriptable evaluation across multiple observation
-types.
+output against observations. It combines validated YAML configuration,
+geometry-aware pairing, evaluation statistics, and plotting in a stage-based
+workflow built around xarray datasets. DAVINCI supports paired
+model-observation analyses, observation-only field-campaign workflows, and
+satellite swath-to-grid evaluation within one software stack. It is intended
+for atmospheric chemistry model developers and analysis teams who need
+reproducible, scriptable evaluation across multiple observation types,
+including repeatable batch workflows.
 
 # Statement of need
 
 Atmospheric chemistry model evaluation requires pairing model output with
 observations that span fundamentally different data geometries: fixed surface
 stations (points), aircraft flight tracks, vertical profiles, satellite swaths,
-and gridded products. Existing evaluation workflows are often fragmented across
-observation type, with geometry-specific pairing code duplicated or handled
-ad hoc for each campaign or satellite product. This fragmentation makes
-evaluation workflows difficult to reproduce, extend to new observation types,
-or share across research groups.
+and gridded products. Existing evaluation workflows are often fragmented by
+observation type, with geometry-specific pairing code duplicated or handled ad
+hoc for each field campaign or satellite product. This fragmentation makes
+evaluation workflows difficult to reproduce, extend to new observation types, or
+share across research groups, especially for campaign-scale or repeated batch
+analyses.
 
 DAVINCI addresses this by providing a unified, config-driven evaluation
 runtime in which pairing behavior is selected from dataset geometry rather than
@@ -56,56 +58,60 @@ davinci-monet run config.yaml
 
 This design reduces the amount of campaign-specific glue code needed to compare
 one model against many observation classes, or to characterize an observation
-campaign even when no model fields are available. Target users include
+campaign even when model fields are not yet available. Target users include
 atmospheric chemistry model developers, air quality analysis teams, and field
 campaign scientists who need evaluation workflows that are easier to review,
-share, and rerun.
+rerun, and scale from exploratory use to routine production analyses.
 
 # State of the field
 
 DAVINCI builds on ideas explored in MELODIES-MONET
 [@baker_melodies_monet], a predecessor toolkit developed at NOAA CSL.
-MELODIES-MONET organizes evaluation around a single driver class that mixes
-data loading, pairing, and analysis in one procedural sequence, with pairing
-logic tied to specific observation readers. This design makes it difficult to
-add new observation types without modifying core pairing code, to validate
-configuration before runtime, or to run observation-only workflows when no
-model output is available. DAVINCI addresses these limitations through a new
-architecture rather than incremental extension: a stage-based pipeline with
+In MELODIES-MONET, evaluation is organized around a single driver class that
+mixes data loading, pairing, and analysis in one procedural sequence, with
+pairing logic tied to specific observation readers. That design makes it
+difficult to add new observation types without modifying core pairing code, to
+validate configuration before runtime, or to run observation-only workflows
+when model output is unavailable. DAVINCI addresses these limitations through a
+new architecture rather than incremental extension: a stage-based pipeline with
 geometry-driven pairing dispatch, validated configuration via Pydantic schemas,
 and first-class support for observation-only execution and satellite
 swath-to-grid binning.
 
 DAVINCI continues to use the monet and monetio libraries [@baker_monet] for
-low-level data I/O — reading model output formats and fetching observation
-network data — but replaces the evaluation layer above them. Its primary
-contribution is not a new evaluation metric or a new I/O library, but a
-software design that makes heterogeneous atmospheric chemistry evaluation
+low-level data I/O, including model-format readers and observation-network
+retrieval, but replaces the evaluation layer above them. Its primary
+contribution is not a new evaluation metric or a new I/O library. Instead, it
+is a software design that makes heterogeneous atmospheric chemistry evaluation
 workflows easier to configure, extend, and reuse.
+More broadly, DAVINCI complements domain libraries such as MetPy [@metpy],
+which provide meteorological analysis and visualization capabilities but not a
+unified atmospheric chemistry evaluation runtime.
 
 # Software design
 
 DAVINCI is organized around a small number of composable subsystems. The
 configuration layer loads YAML control files, expands environment variables,
 and validates structure before runtime. The pipeline layer executes named
-stages with a shared context, allowing standard paired runs and reduced
-observation-only runs to share the same execution model. The pairing layer uses
-a `PairingEngine` and geometry-specific strategies for point, track, profile,
-swath, and grid data, with an additional swath-to-grid path for satellite Level
-2 products. Statistics and plotting are handled by dedicated modules that can
-operate on paired outputs, while observation-only rendering uses a separate
-plotter interface tailored to single-dataset workflows.
+stages with a shared context, allowing paired and observation-only runs to
+share the same execution model. The pairing layer uses a `PairingEngine` and
+geometry-specific strategies for point, track, profile, swath, and grid data,
+including a swath-to-grid workflow for satellite Level 2 products. Statistics
+and plotting operate on paired outputs, while observation-only rendering uses a
+separate plotter interface for single-dataset workflows.
 
 These design choices reflect lessons from the predecessor codebase. The
-xarray-only data model eliminates repeated conversions between pandas
-DataFrames and xarray Datasets that complicated MELODIES-MONET's pairing
-logic. Geometry-driven dispatch means adding a new observation type requires
-only a new reader, not changes to the pairing engine. The stage-based pipeline
-makes execution order explicit and testable, and the validated configuration
-layer catches errors at load time rather than deep inside a processing run.
-The observation-only execution path arose from a practical need: field campaign
-teams often want to characterize their own data before any model output is
-available.
+xarray-only data model avoids repeated conversions between pandas DataFrames and
+xarray Datasets that complicated MELODIES-MONET's pairing logic.
+Geometry-driven dispatch means that adding a new observation type usually
+requires only a new reader, not changes to the pairing engine. The stage-based
+pipeline makes execution order explicit and testable, while validated
+configuration catches errors at load time rather than deep inside a processing
+run. The observation-only execution path addresses a practical field-campaign
+need: teams often want to characterize their own data before model output is
+available. Together, these choices are intended to make larger and more
+repeatable evaluation workflows practical without changing the user-facing
+configuration model.
 
 Reader coverage includes surface networks such as AirNow, AQS, AERONET,
 OpenAQ, and Pandora; aircraft data through ICARTT; ozonesondes; satellite
@@ -117,8 +123,8 @@ numba-accelerated grid binning for satellite workflows.
 
 # Research impact
 
-DAVINCI has been applied to three distinct evaluation workflows
-that demonstrate the breadth of the software:
+DAVINCI has been applied in three distinct evaluation workflows that
+illustrate the breadth of the software:
 
 - **ASIA-AQ**: Multi-observation paired evaluation of CESM/CAM-chem
   against four observation networks (AirNow surface, AERONET AOD,
@@ -133,14 +139,15 @@ that demonstrate the breadth of the software:
 
 These workflows are represented in the repository by checked-in
 configurations, analysis scripts, and a curated gallery of representative
-outputs (`paper/gallery/`). They are included as evidence that the same
-package can support distinct workflow classes rather than as new scientific
-results produced for this paper. Some workflows depend on external datasets
-or credentials for data access, so DAVINCI does not claim that every
-analysis is push-button reproducible in a fresh environment. The repository
-makes the configuration, acquisition paths, and workflow structure explicit,
-and the test suite (960+ tests using synthetic data) verifies pipeline
-correctness independent of external data.
+outputs under `paper/gallery/`. They are included as evidence that the same
+package can support distinct workflow classes, not as new scientific results
+for this paper. Some workflows depend on external datasets or credentials, so
+DAVINCI does not claim that every analysis is push-button reproducible in a
+fresh environment. Instead, the repository makes the configuration,
+acquisition paths, and workflow structure explicit, and the test suite
+(960+ synthetic-data tests) verifies pipeline correctness independent of
+external data. The same structure also supports repeated campaign-scale runs
+through a consistent command-line and configuration interface.
 
 # AI usage disclosure
 
@@ -154,10 +161,11 @@ before human acceptance.
 
 The same tools were also used during paper planning, editorial revision, and
 early manuscript drafting. Human authors made the primary architectural,
-scientific, and design decisions; reviewed and edited the generated code and
-text; inspected or ran the relevant tests and outputs; and take full
-responsibility for the accuracy, originality, licensing compliance, and final
-content of both the software and the paper.
+scientific, and design decisions; reviewed and edited generated code and
+manuscript text; and inspected or ran the relevant tests and reviewed the
+resulting outputs. They take full responsibility for the accuracy,
+originality, licensing compliance, and final content of both the software and
+the paper.
 
 # Acknowledgements
 

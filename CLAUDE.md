@@ -144,16 +144,8 @@ conda activate davinci-monet
 
 ## Related Repositories
 
-**MELODIES-MONET location**: `/Users/fillmore/EarthSystem/MELODIES-MONET`
-
-**Wiki repository**: `/Users/fillmore/EarthSystem/DAVINCI-MONET.wiki`
-
-Key files to reference:
-- `melodies_monet/driver.py` - Main logic (3,116 lines) - decompose this
-- `melodies_monet/_cli.py` - CLI implementation (1,524 lines)
-- `melodies_monet/plots/` - Plotting modules
-- `melodies_monet/stats/` - Statistics modules
-- `examples/yaml/` - 31 example YAML configs for backward compat testing
+- **MELODIES-MONET**: https://github.com/NOAA-CSL/MELODIES-MONET — predecessor toolkit
+- **Wiki**: https://github.com/NCAR/DAVINCI/wiki
 
 ## Project Goals
 
@@ -274,12 +266,12 @@ stats:
 
 ### Config Naming Convention
 
-Machine-specific configs use `{campaign}-{variant}-{machine}.yaml` with **full absolute paths** (no env vars). Examples:
-- `asia-aq-dc8-gemini.yaml` — ASIA-AQ DC-8 analysis on Gemini (Mac)
-- `dc3-obs-dc8-gemini.yaml` — DC3 obs-only DC-8 on Gemini
-- `asia-aq-airnow-derecho.yaml` — ASIA-AQ AirNow on Derecho (HPC)
+Tracked configs use `{campaign}-{variant}.example.yaml` with environment variables for portability. Examples:
+- `asia-aq-airnow.example.yaml` — ASIA-AQ AirNow surface evaluation
+- `dc3-obs-dc8.example.yaml` — DC3 obs-only DC-8 analysis
+- `modis-aod-cam6.example.yaml` — MODIS AOD vs CAM6
 
-Machine names: `gemini` (local Mac), `derecho` (NCAR HPC)
+Machine-specific configs (`*-gemini.yaml`, `*-derecho.yaml`) are gitignored — keep them local, don't commit.
 
 ### Environment Variable Expansion
 
@@ -335,28 +327,22 @@ Reference implementation in `analyses/asia-aq/`:
 ```
 analyses/asia-aq/
 ├── configs/
-│   └── asia-aq.yaml                # Pipeline configuration
+│   └── asia-aq-airnow.example.yaml # Portable template config
 ├── scripts/
 │   ├── download_airnow.py          # Data download
 │   └── run_evaluation.py           # Pipeline execution
-├── data/                           # Observation data
-├── output/                         # Plots and statistics
-├── logs/                           # Pipeline logs
-└── misc/                           # Exploratory scripts (not part of workflow)
+├── data/                           # Observation data (gitignored)
+├── output/                         # Plots and statistics (gitignored)
+└── logs/                           # Pipeline logs (gitignored)
 ```
-
-**Environment variables**:
-- `ASIA_AQ_DATA`: Model/observation data root (default: `~/Data/ASIA-AQ`)
-- `ASIA_AQ_ANALYSIS`: Analysis directory (set automatically by `run_evaluation.py`)
 
 **Run the analysis**:
 ```bash
 cd analyses/asia-aq
 export ASIA_AQ_DATA=~/Data/ASIA-AQ
-python scripts/run_evaluation.py
+export ASIA_AQ_ANALYSIS=$(pwd)
+davinci-monet run configs/asia-aq-airnow.example.yaml
 ```
-
-Pipeline displays progress with tqdm and logs to `logs/pipeline_YYYYMMDD_HHMMSS.log`.
 
 ## Plot Styling (NCAR Branding)
 

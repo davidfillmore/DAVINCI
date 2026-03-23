@@ -1,14 +1,25 @@
-# MODIS AOD vs CAM6 (Base + New Dust) — Australian Bushfire Event
-# Dec 21-23, 2019 — Gemini (Mac)
+# MODIS AOD vs CAM6 — Australian Bushfire Event
+# Dec 21-23, 2019
 #
-# Terra and Aqua MODIS L2 processed separately, binned onto CAM6 grid.
-# Separate obs labels follow MELODIES-MONET convention.
+# Terra and Aqua MODIS L2 AOD binned onto the CAM6 grid, compared against
+# two CAM6 model variants (base and new dust emissions).
+#
+# Required environment variables:
+#   MODIS_DATA     — Root directory containing MODIS L2 HDF files
+#   CAM6_DATA      — Root directory containing CAM6 NetCDF files
+#   MODIS_ANALYSIS — Analysis directory (parent of output/, logs/, data/)
+#
+# Usage:
+#   export MODIS_DATA=~/Data/MODIS
+#   export CAM6_DATA=~/Data/CAM6
+#   export MODIS_ANALYSIS=$(pwd)
+#   davinci-monet run analyses/modis-aod/configs/modis-aod-cam6.example.yaml
 
 analysis:
   start_time: "2019-12-21"
   end_time: "2019-12-24"
-  output_dir: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/modis-aod/output
-  log_dir: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/modis-aod/logs
+  output_dir: ${MODIS_ANALYSIS}/output
+  log_dir: ${MODIS_ANALYSIS}/logs
   debug: false
   style:
     theme: ncar
@@ -17,7 +28,7 @@ analysis:
 model:
   cam6_base:
     mod_type: generic
-    files: /Users/fillmore/Data/CAM6/FCnudged_f09.mam.BaseMar27.2019_2021.001_AODVIS.nc
+    files: ${CAM6_DATA}/FCnudged_f09.mam.BaseMar27.2019_2021.001_AODVIS.nc
     variables:
       AODVIS:
         unit_scale: 1.0
@@ -34,7 +45,7 @@ model:
 
   cam6_newdust:
     mod_type: generic
-    files: /Users/fillmore/Data/CAM6/FCnudged_f09.mam.newdustMar282025.2019_2021.001_AODVIS.nc
+    files: ${CAM6_DATA}/FCnudged_f09.mam.newdustMar282025.2019_2021.001_AODVIS.nc
     variables:
       AODVIS:
         unit_scale: 1.0
@@ -53,12 +64,12 @@ obs:
   terra_modis:
     obs_type: sat_swath_clm
     sat_type: modis_l2
-    filename: /Users/fillmore/Data/MODIS/Terra/C61/2019/*/MOD04_L2.*.hdf
+    filename: ${MODIS_DATA}/Terra/C61/2019/*/MOD04_L2.*.hdf
     grid_source: cam6_base
     time_resolution: "1D"
     load_binned: true
     save_binned: true
-    binned_file: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/modis-aod/data/terra_modis_binned.nc
+    binned_file: ${MODIS_ANALYSIS}/data/terra_modis_binned.nc
     variables:
       AOD_550_Dark_Target_Deep_Blue_Combined:
         source_name: AOD_550_Dark_Target_Deep_Blue_Combined
@@ -70,12 +81,12 @@ obs:
   aqua_modis:
     obs_type: sat_swath_clm
     sat_type: modis_l2
-    filename: /Users/fillmore/Data/MODIS/Aqua/C61/2019/*/MYD04_L2.*.hdf
+    filename: ${MODIS_DATA}/Aqua/C61/2019/*/MYD04_L2.*.hdf
     grid_source: cam6_base
     time_resolution: "1D"
     load_binned: true
     save_binned: true
-    binned_file: /Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/modis-aod/data/aqua_modis_binned.nc
+    binned_file: ${MODIS_ANALYSIS}/data/aqua_modis_binned.nc
     variables:
       AOD_550_Dark_Target_Deep_Blue_Combined:
         source_name: AOD_550_Dark_Target_Deep_Blue_Combined
@@ -114,17 +125,10 @@ pairs:
       obs_var: AOD_550
 
 plots:
-  # --- Scatter plots (model vs obs) ---
   aod_scatter_base_terra:
     type: scatter
     pairs: [base_terra]
     title: "AOD Scatter — CAM6 Base vs MODIS Terra"
-    show_density: true
-
-  aod_scatter_base_aqua:
-    type: scatter
-    pairs: [base_aqua]
-    title: "AOD Scatter — CAM6 Base vs MODIS Aqua"
     show_density: true
 
   aod_scatter_newdust_terra:
@@ -133,13 +137,6 @@ plots:
     title: "AOD Scatter — CAM6 New Dust vs MODIS Terra"
     show_density: true
 
-  aod_scatter_newdust_aqua:
-    type: scatter
-    pairs: [newdust_aqua]
-    title: "AOD Scatter — CAM6 New Dust vs MODIS Aqua"
-    show_density: true
-
-  # --- Spatial AOD maps (obs + model, turbo colormap 0–1) ---
   aod_obs_terra:
     type: spatial_distribution
     pairs: [base_terra]
@@ -148,69 +145,16 @@ plots:
     plot_type: pcolormesh
     cmap: turbo
 
-  aod_obs_aqua:
-    type: spatial_distribution
-    pairs: [base_aqua]
-    title: "MODIS Aqua AOD (550 nm)"
-    show_var: obs
-    plot_type: pcolormesh
-    cmap: turbo
-
-  aod_model_base_terra:
-    type: spatial_distribution
-    pairs: [base_terra]
-    title: "CAM6 Base AODVIS"
-    show_var: model
-    plot_type: pcolormesh
-    cmap: turbo
-
-  aod_model_base_aqua:
-    type: spatial_distribution
-    pairs: [base_aqua]
-    title: "CAM6 Base AODVIS"
-    show_var: model
-    plot_type: pcolormesh
-    cmap: turbo
-
-  aod_model_newdust_terra:
-    type: spatial_distribution
-    pairs: [newdust_terra]
-    title: "CAM6 New Dust AODVIS"
-    show_var: model
-    plot_type: pcolormesh
-    cmap: turbo
-
-  aod_model_newdust_aqua:
-    type: spatial_distribution
-    pairs: [newdust_aqua]
-    title: "CAM6 New Dust AODVIS"
-    show_var: model
-    plot_type: pcolormesh
-    cmap: turbo
-
-  # --- Spatial bias maps (pcolormesh for gridded data) ---
   aod_bias_base_terra:
     type: spatial_bias
     pairs: [base_terra]
     title: "AOD Bias — CAM6 Base − MODIS Terra"
     plot_type: pcolormesh
 
-  aod_bias_base_aqua:
-    type: spatial_bias
-    pairs: [base_aqua]
-    title: "AOD Bias — CAM6 Base − MODIS Aqua"
-    plot_type: pcolormesh
-
   aod_bias_newdust_terra:
     type: spatial_bias
     pairs: [newdust_terra]
     title: "AOD Bias — CAM6 New Dust − MODIS Terra"
-    plot_type: pcolormesh
-
-  aod_bias_newdust_aqua:
-    type: spatial_bias
-    pairs: [newdust_aqua]
-    title: "AOD Bias — CAM6 New Dust − MODIS Aqua"
     plot_type: pcolormesh
 
 stats:

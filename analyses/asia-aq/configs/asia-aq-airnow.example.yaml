@@ -1,17 +1,22 @@
-# ASIA-AQ CESM/CAM-chem Evaluation - AirNow Only
-# Surface PM2.5 and O3 from US Embassy/Consulate monitors
+# ASIA-AQ CESM/CAM-chem Evaluation — AirNow Surface
 #
-# Model: CESM/CAM-chem (f.e3b06m.FCnudged.t6s.01x01.01)
-# Period: February 1-29, 2024 (leap year)
-# Domain: 0-45°N, 90-140°E
+# Paired evaluation of surface PM2.5, O3, NO2, CO from AirNow monitors
+# against CESM/CAM-chem output over East and Southeast Asia.
 #
-# Fast run: single obs dataset avoids repeated Dask model loading
+# Required environment variables:
+#   ASIA_AQ_DATA     — Root directory containing CAM model files
+#   ASIA_AQ_ANALYSIS — Analysis directory (parent of output/ and logs/)
+#
+# Usage:
+#   export ASIA_AQ_DATA=~/Data/ASIA-AQ
+#   export ASIA_AQ_ANALYSIS=$(pwd)
+#   davinci-monet run analyses/asia-aq/configs/asia-aq-airnow.example.yaml
 
 analysis:
   start_time: "2024-02-01"
   end_time: "2024-02-29"
-  output_dir: /glade/work/fillmore/DAVINCI-MONET/analyses/asia-aq/output
-  log_dir: /glade/work/fillmore/DAVINCI-MONET/analyses/asia-aq/logs
+  output_dir: ${ASIA_AQ_ANALYSIS}/output
+  log_dir: ${ASIA_AQ_ANALYSIS}/logs
   debug: false
   style:
     theme: ncar
@@ -24,21 +29,19 @@ analysis:
     Shanghai: [31.2, 121.5]
     Manila: [14.6, 121.0]
     Bangkok: [13.75, 100.5]
-    Hanoi: [21.0, 105.85]
-    Singapore: [1.35, 103.8]
-    Kuala Lumpur: [3.15, 101.7]
-    Hong Kong: [22.3, 114.2]
 
 model:
   cesm_asiaq:
     mod_type: generic
-    files: /glade/derecho/scratch/fillmore/ASIA-AQ/model/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc
+    files: ${ASIA_AQ_DATA}/CAM/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc
     radius_of_influence: 15000
 
     mapping:
       airnow:
         pm25: PM25
         ozone: O3
+        no2: NO2
+        co: CO
 
     variables:
       O3:
@@ -48,10 +51,24 @@ model:
         vmin_plot: 0
         vmax_plot: 100
         vdiff_plot: 30
+      NO2:
+        unit_scale: 1.0e9
+        units: ppb
+        ylabel_plot: "NO$_2$ (ppb)"
+        vmin_plot: 0
+        vmax_plot: 50
+        vdiff_plot: 20
+      CO:
+        unit_scale: 1.0e9
+        units: ppb
+        ylabel_plot: "CO (ppb)"
+        vmin_plot: 0
+        vmax_plot: 1000
+        vdiff_plot: 200
       PM25:
         unit_scale: 1.2e9
-        units: μg/m³
-        ylabel_plot: "PM$_{2.5}$ (μg/m³)"
+        units: ug/m3
+        ylabel_plot: "PM$_{2.5}$ (ug/m3)"
         vmin_plot: 0
         vmax_plot: 150
         vdiff_plot: 50
@@ -59,18 +76,25 @@ model:
 obs:
   airnow:
     obs_type: pt_sfc
-    filename: /glade/derecho/scratch/fillmore/ASIA-AQ/obs/airnow_asiaq_2024-02-01_2024-02-29.nc
+    filename: ${ASIA_AQ_ANALYSIS}/data/airnow_asiaq_2024-02-01_2024-02-29.nc
     variables:
       pm25:
         obs_min: 0
         obs_max: 500
-        units: μg/m³
-        ylabel_plot: "PM$_{2.5}$ (μg/m³)"
+        units: ug/m3
       ozone:
         obs_min: 0
         obs_max: 200
         units: ppb
-        ylabel_plot: "O$_3$ (ppb)"
+      no2:
+        obs_min: 0
+        obs_max: 100
+        units: ppb
+      co:
+        unit_scale: 1000
+        obs_min: 0
+        obs_max: 5000
+        units: ppb
 
 pairs:
   cesm_airnow_pm25:
@@ -87,6 +111,20 @@ pairs:
       model_var: O3
       obs_var: ozone
 
+  cesm_airnow_no2:
+    model: cesm_asiaq
+    obs: airnow
+    variable:
+      model_var: NO2
+      obs_var: no2
+
+  cesm_airnow_co:
+    model: cesm_asiaq
+    obs: airnow
+    variable:
+      model_var: CO
+      obs_var: co
+
 plots:
   airnow_pm25_scatter:
     type: scatter
@@ -96,7 +134,7 @@ plots:
   airnow_pm25_timeseries:
     type: timeseries
     pairs: [cesm_airnow_pm25]
-    title: "PM2.5 Time Series - ASIA-AQ (Mean ± Std)"
+    title: "PM2.5 Time Series"
     show_uncertainty: true
     aggregate_dim: site
 
@@ -113,9 +151,14 @@ plots:
   airnow_o3_timeseries:
     type: timeseries
     pairs: [cesm_airnow_o3]
-    title: "O3 Time Series - ASIA-AQ (Mean ± Std)"
+    title: "O3 Time Series"
     show_uncertainty: true
     aggregate_dim: site
+
+  airnow_o3_spatial_bias:
+    type: spatial_bias
+    pairs: [cesm_airnow_o3]
+    title: "O3 Spatial Bias"
 
 stats:
   output_table: true

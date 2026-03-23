@@ -217,6 +217,10 @@ examples/output/
 REVIEW_*.md
 HANDOFF_*.md
 
+# Machine-specific configs (use *.example.yaml templates instead)
+analyses/*/configs/*-gemini.yaml
+analyses/*/configs/*-derecho.yaml
+
 # Analysis output (pipeline-generated files)
 analyses/*/output/
 analyses/*/logs/
