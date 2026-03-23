@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Data Analysis and Validation Infrastructure for Chemistry - A modern refactor of MELODIES-MONET"
 readme = "README.md"
 license = {text = "Apache-2.0"}
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     {name = "DAVINCI Developers"}
 ]
@@ -25,7 +25,6 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
     "Typing :: Typed",
@@ -113,6 +112,15 @@ testpaths = ["davinci_monet/tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+filterwarnings = [
+    "error::UserWarning",
+    "ignore::DeprecationWarning:matplotlib.*",
+    "ignore::DeprecationWarning:pyparsing.*",
+    "ignore:numpy.ndarray size changed:RuntimeWarning",
+    "ignore:Polyfit may be poorly conditioned:numpy.RankWarning",
+    "ignore::RuntimeWarning:numpy.lib.*",
+    "ignore:The return type of `Dataset.dims`:FutureWarning",
+]
 
 [tool.coverage.run]
 source = ["davinci_monet"]

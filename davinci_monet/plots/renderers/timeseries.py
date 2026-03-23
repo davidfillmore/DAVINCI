@@ -127,9 +127,9 @@ class TimeSeriesPlotter(BasePlotter):
         if aggregate_dim is not None and aggregate_dim in obs_data.dims:
             obs_data = obs_data.mean(dim=aggregate_dim)
             model_data = model_data.mean(dim=aggregate_dim)
-        elif len(obs_data.dims) > 1:
+        elif len(obs_data.sizes) > 1:
             # If multiple dimensions and no aggregate specified, average over all except time
-            other_dims = [d for d in obs_data.dims if d != time_dim]
+            other_dims = [d for d in obs_data.sizes if d != time_dim]
             if other_dims:
                 obs_data = obs_data.mean(dim=other_dims)
                 model_data = model_data.mean(dim=other_dims)

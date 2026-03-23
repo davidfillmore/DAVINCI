@@ -471,7 +471,7 @@ class ObservationData(DataContainer):
             return 0
         for dim in ["site", "x", "station"]:
             if dim in self.data.dims:
-                return int(self.data.dims[dim])
+                return int(self.data.sizes[dim])
         return 0
 
     @property
@@ -479,7 +479,7 @@ class ObservationData(DataContainer):
         """Number of time steps."""
         if self.data is None or "time" not in self.data.dims:
             return 0
-        return int(self.data.dims["time"])
+        return int(self.data.sizes["time"])
 
     def to_point_dataframe(self) -> Any:
         """Convert point observations to DataFrame with site info.
