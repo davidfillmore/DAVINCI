@@ -32,7 +32,10 @@ jobs:
           mkdir -p "$CI_ARTIFACTS_DIR"
           pytest davinci_monet/tests/ \
             -v --tb=short \
-            --junitxml=test-results.xml
+            --junitxml=test-results.xml \
+            --cov=davinci_monet \
+            --cov-report=term-missing \
+            --cov-fail-under=67
 
       - name: Upload test results
         if: always()
