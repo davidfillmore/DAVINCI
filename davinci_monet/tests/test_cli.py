@@ -181,8 +181,8 @@ obs:
         # This will fail when trying to open model files, but should parse config
         result = runner.invoke(app, ["run", str(sample_config)])
 
-        # Should show header and start processing
-        assert "DAVINCI" in result.stdout or result.exit_code != 0
+        # Config parses but pipeline fails on missing data files
+        assert result.exit_code != 0
 
 
 # =============================================================================
@@ -269,7 +269,8 @@ model:
 
         # With flexible mode (default), should pass
         result = runner.invoke(app, ["validate", str(config_file)])
-        # May or may not pass depending on implementation
+        assert result.exit_code == 0
+        assert "Validation passed" in result.stdout
 
     @pytest.fixture
     def invalid_config(self, tmp_path: Path) -> Path:
@@ -289,7 +290,7 @@ analysis:
         runner = CliRunner()
         result = runner.invoke(app, ["validate", str(invalid_config)])
 
-        assert result.exit_code != 0 or "Validation failed" in result.stdout
+        assert result.exit_code != 0
 
 
 # =============================================================================
@@ -545,7 +546,7 @@ stats:
         result = runner.invoke(app, ["validate", str(complete_config)])
 
         # Should pass validation
-        assert "Validation passed" in result.stdout or result.exit_code == 0
+        assert "Validation passed" in result.stdout
 
     def test_cli_multiple_commands(self) -> None:
         """Test that multiple commands are available."""
