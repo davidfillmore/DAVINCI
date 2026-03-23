@@ -652,7 +652,11 @@ class LoadObservationsStage(BaseStage):
                 ds = obs_data.data
                 n_vars = len(ds.data_vars) if ds is not None else 0
                 # Get record count (sites, points, or time steps)
-                n_records = (ds.sizes.get("site") or ds.sizes.get("x") or ds.sizes.get("time") or 0) if ds is not None else 0
+                n_records = (
+                    (ds.sizes.get("site") or ds.sizes.get("x") or ds.sizes.get("time") or 0)
+                    if ds is not None
+                    else 0
+                )
                 context.log_progress(f"done: {n_vars} vars, {_format_size(n_records)} records")
 
             except Exception as e:

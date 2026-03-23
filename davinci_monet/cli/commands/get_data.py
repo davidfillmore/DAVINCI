@@ -300,7 +300,9 @@ def get_airnow(
             )
 
     with timer("Forming xarray Dataset"):
-        from davinci_monet.observations.surface.airnow import _dataframe_to_xarray  # type: ignore[attr-defined]
+        from davinci_monet.observations.surface.airnow import (  # type: ignore[attr-defined]
+            _dataframe_to_xarray,
+        )
 
         ds = _dataframe_to_xarray(df, daily=daily)
 
@@ -390,7 +392,9 @@ def get_aqs(
             )
 
     with timer("Forming xarray Dataset"):
-        from davinci_monet.observations.surface.aqs import _dataframe_to_xarray  # type: ignore[attr-defined]
+        from davinci_monet.observations.surface.aqs import (  # type: ignore[attr-defined]
+            _dataframe_to_xarray,
+        )
 
         ds = _dataframe_to_xarray(df, daily=daily)
 
@@ -502,7 +506,9 @@ def get_openaq(
             df = df.drop_duplicates(["time", "siteid"])
 
     with timer("Forming xarray Dataset"):
-        from davinci_monet.observations.surface.openaq import _dataframe_to_xarray  # type: ignore[attr-defined]
+        from davinci_monet.observations.surface.openaq import (  # type: ignore[attr-defined]
+            _dataframe_to_xarray,
+        )
 
         ds = _dataframe_to_xarray(df)
 
