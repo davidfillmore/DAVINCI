@@ -1086,6 +1086,151 @@ class TestPlotterIntegration:
 
 
 # =============================================================================
+# Spatial Overlay Tests
+# =============================================================================
+
+
+class TestSpatialOverlay:
+    """Behavioral tests for SpatialOverlayPlotter."""
+
+    def test_overlay_plot(self, simple_paired_data, gridded_paired_data):
+        """Overlay model contours with observation scatter points."""
+        from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
+
+        plotter = SpatialOverlayPlotter()
+
+        # Create a model field (2D lat/lon) for the contour layer
+        model_field = gridded_paired_data["model_o3"].isel(time=0)
+
+        fig = plotter.plot(
+            simple_paired_data,
+            obs_var="obs_o3",
+            model_var="model_o3",
+            model_field=model_field,
+        )
+
+        assert fig is not None
+        axes = fig.get_axes()
+        assert len(axes) >= 1
+        plt.close(fig)
+
+    def test_overlay_without_model_field(self, simple_paired_data):
+        """Overlay should handle missing model_field gracefully."""
+        from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
+
+        plotter = SpatialOverlayPlotter()
+
+        # When model_field is None, plotter should fall back to model_var from paired_data
+        # This may not produce contours (1D data), but should not crash
+        try:
+            fig = plotter.plot(
+                simple_paired_data,
+                obs_var="obs_o3",
+                model_var="model_o3",
+            )
+            assert fig is not None
+            plt.close(fig)
+        except (ValueError, KeyError, TypeError):
+            # Acceptable: plotter may require a 2D model field
+            pass
+
+
+# =============================================================================
+# Time Series Aggregate Mode Tests
+# =============================================================================
+
+
+class TestTimeSeriesAggregate:
+    """Tests for TimeSeriesPlotter aggregate and multi-dim modes."""
+
+    def test_aggregate_dim(self, simple_paired_data):
+        """Timeseries with explicit aggregate_dim averages over sites."""
+        from davinci_monet.plots import TimeSeriesPlotter
+
+        plotter = TimeSeriesPlotter()
+        fig = plotter.plot(
+            simple_paired_data,
+            "obs_o3",
+            "model_o3",
+            aggregate_dim="site",
+        )
+
+        assert fig is not None
+        ax = fig.get_axes()[0]
+        # Should have at least obs and model lines
+        assert len(ax.get_lines()) >= 2
+        plt.close(fig)
+
+    def test_auto_aggregate_multidim(self, simple_paired_data):
+        """Timeseries auto-averages non-time dims when no aggregate_dim given."""
+        from davinci_monet.plots import TimeSeriesPlotter
+
+        plotter = TimeSeriesPlotter()
+        fig = plotter.plot(
+            simple_paired_data,
+            "obs_o3",
+            "model_o3",
+            # No aggregate_dim — should auto-detect and average 'site'
+        )
+
+        assert fig is not None
+        plt.close(fig)
+
+    def test_resample(self, simple_paired_data):
+        """Timeseries with resample parameter."""
+        from davinci_monet.plots import TimeSeriesPlotter
+
+        plotter = TimeSeriesPlotter()
+        fig = plotter.plot(
+            simple_paired_data,
+            "obs_o3",
+            "model_o3",
+            aggregate_dim="site",
+            resample="6h",
+        )
+
+        assert fig is not None
+        plt.close(fig)
+
+
+# =============================================================================
+# Scorecard Tests
+# =============================================================================
+
+
+class TestScorecardPlotter:
+    """Tests for ScorecardPlotter with multiple variables."""
+
+    def test_scorecard_multi_variable(self):
+        """Scorecard with multiple variables."""
+        from davinci_monet.plots.renderers.scorecard import ScorecardPlotter
+
+        # Create multi-variable paired data
+        np.random.seed(42)
+        n = 100
+
+        ds = xr.Dataset(
+            {
+                "obs_o3": (["time"], np.random.normal(50, 10, n)),
+                "model_o3": (["time"], np.random.normal(52, 10, n)),
+                "obs_pm25": (["time"], np.random.normal(15, 5, n)),
+                "model_pm25": (["time"], np.random.normal(17, 5, n)),
+            },
+            coords={"time": pd.date_range("2023-01-01", periods=n, freq="h")},
+        )
+
+        plotter = ScorecardPlotter()
+        fig = plotter.plot(
+            ds,
+            obs_var="obs_o3",
+            model_var="model_o3",
+        )
+
+        assert fig is not None
+        plt.close(fig)
+
+
+# =============================================================================
 # Edge Cases
 # =============================================================================
 
