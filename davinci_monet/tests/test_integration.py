@@ -1,7 +1,9 @@
-"""End-to-end integration test for DAVINCI pipeline.
+"""Pipeline integration tests for DAVINCI.
 
-All tests run through PipelineRunner.run_from_config() — the same path
-a user takes with ``davinci-monet run config.yaml``. Synthetic data is
+All tests run through PipelineRunner.run_from_config() with a Python
+config dict. This exercises the pipeline core (loading, pairing,
+statistics, plotting, saving) but not the CLI or YAML parsing path.
+For CLI end-to-end tests, see test_cli_e2e.py. Synthetic data is
 written to NetCDF, a config dict is constructed, and the pipeline handles
 loading, pairing (or obs-only detection), statistics, plotting, and saving.
 
