@@ -334,7 +334,7 @@ class LoadModelsStage(BaseStage):
                         )
 
                     for var_name, var_config in model_data.variables.items():
-                        if var_name in model_data.data.data_vars:
+                        if model_data.data is not None and var_name in model_data.data.data_vars:
                             units = (
                                 var_config.get("units") if isinstance(var_config, dict) else None
                             )
@@ -353,8 +353,8 @@ class LoadModelsStage(BaseStage):
 
                 # Summary message
                 ds = model_data.data
-                n_vars = len(ds.data_vars)
-                n_times = ds.sizes.get("time", 0)
+                n_vars = len(ds.data_vars) if ds is not None else 0
+                n_times = ds.sizes.get("time", 0) if ds is not None else 0
                 context.log_progress(f"done: {n_vars} vars, {n_times} times")
 
             except Exception as e:
@@ -631,7 +631,7 @@ class LoadObservationsStage(BaseStage):
                         )
 
                     for var_name, var_config in obs_data.variables.items():
-                        if var_name in obs_data.data.data_vars:
+                        if obs_data.data is not None and var_name in obs_data.data.data_vars:
                             units = (
                                 var_config.get("units") if isinstance(var_config, dict) else None
                             )
@@ -650,9 +650,9 @@ class LoadObservationsStage(BaseStage):
 
                 # Summary message
                 ds = obs_data.data
-                n_vars = len(ds.data_vars)
+                n_vars = len(ds.data_vars) if ds is not None else 0
                 # Get record count (sites, points, or time steps)
-                n_records = ds.sizes.get("site") or ds.sizes.get("x") or ds.sizes.get("time") or 0
+                n_records = (ds.sizes.get("site") or ds.sizes.get("x") or ds.sizes.get("time") or 0) if ds is not None else 0
                 context.log_progress(f"done: {n_vars} vars, {_format_size(n_records)} records")
 
             except Exception as e:
@@ -1348,10 +1348,10 @@ class StatisticsStage(BaseStage):
         calculator = StatisticsCalculator(calc_config)
 
         # Find model and obs variable pairs (prefix format: model_*, obs_*)
-        model_vars = [v for v in paired_data.data_vars if v.startswith("model_")]
+        model_vars = [v for v in paired_data.data_vars if str(v).startswith("model_")]
 
         for model_var in model_vars:
-            base_name = model_var.replace("model_", "", 1)
+            base_name = str(model_var).replace("model_", "", 1)
             obs_var = f"obs_{base_name}"
 
             if obs_var not in paired_data:
@@ -1360,7 +1360,7 @@ class StatisticsStage(BaseStage):
             df = calculator.compute(
                 paired_data,
                 obs_var=obs_var,
-                model_var=model_var,
+                model_var=str(model_var),
                 metrics=list(metrics) if metrics else None,
             )
 
@@ -1413,14 +1413,14 @@ class StatisticsStage(BaseStage):
         flights = np.unique(paired_data["flight"].values)
         flight_stats: list[dict[str, Any]] = []
 
-        model_vars = [v for v in paired_data.data_vars if v.startswith("model_")]
+        model_vars = [v for v in paired_data.data_vars if str(v).startswith("model_")]
 
         for flight in flights:
             mask = paired_data["flight"].values == flight
             flight_data = paired_data.isel(time=mask)
 
             for model_var in model_vars:
-                base_name = model_var.replace("model_", "", 1)
+                base_name = str(model_var).replace("model_", "", 1)
                 obs_var = f"obs_{base_name}"
                 if obs_var not in flight_data:
                     continue
@@ -1547,7 +1547,7 @@ class PlottingStage(BaseStage):
                     vdiff = var_config.get("vdiff_plot")
 
                     # Build plotter config
-                    plotter_config = {"title": title}
+                    plotter_config: dict[str, Any] = {"title": title}
                     if plot_type == "spatial_bias":
                         plotter_config["vmin"] = -vdiff if vdiff else None
                         plotter_config["vmax"] = vdiff if vdiff else None

@@ -117,7 +117,7 @@ class ScatterPlotter(BasePlotter):
         if ax is None:
             fig, ax = self.create_figure()
         else:
-            fig = ax.get_figure()
+            fig = ax.get_figure()  # type: ignore[assignment]
 
         # Get data and flatten
         obs_values = paired_data[obs_var].values.flatten()

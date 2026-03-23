@@ -54,9 +54,9 @@ def _copy_artifacts(output_dir: Path, log_dir: Path, prefix: str = "") -> None:
 
 def _assert_pipeline_success(result: object) -> None:
     """Assert pipeline succeeded with useful error message."""
-    assert result.success, (
+    assert result.success, (  # type: ignore[attr-defined]
         f"Pipeline failed. Failed stages: "
-        f"{[s.stage_name + ': ' + str(s.error) for s in result.failed_stages]}"
+        f"{[s.stage_name + ': ' + str(s.error) for s in result.failed_stages]}"  # type: ignore[attr-defined]
     )
 
 

@@ -129,7 +129,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
                 fig, ax = self.create_map_figure()
                 ax_obs = ax_model = ax
         else:
-            fig = ax.get_figure()
+            fig = ax.get_figure()  # type: ignore[assignment]
             ax_obs = ax_model = ax
 
         # Get data
@@ -206,10 +206,10 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         # Plot observation
         if show_var in ("obs", "both"):
             target_ax = ax_obs if show_var == "both" else ax
-            self.add_map_features(target_ax)
+            self.add_map_features(target_ax)  # type: ignore[arg-type]
 
             mappable = self._plot_data(
-                target_ax,
+                target_ax,  # type: ignore[arg-type]
                 obs_data.values,
                 lats,
                 lons,
@@ -222,16 +222,16 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
             )
 
             if show_var == "both":
-                self.add_colorbar(fig, mappable, target_ax, label=cbar_label)
-                target_ax.set_title("Observations", fontsize=self.config.text.title_fontsize)
+                self.add_colorbar(fig, mappable, target_ax, label=cbar_label)  # type: ignore[arg-type]
+                target_ax.set_title("Observations", fontsize=self.config.text.title_fontsize)  # type: ignore[union-attr]
 
         # Plot model
         if show_var in ("model", "both"):
             target_ax = ax_model if show_var == "both" else ax
-            self.add_map_features(target_ax)
+            self.add_map_features(target_ax)  # type: ignore[arg-type]
 
             mappable = self._plot_data(
-                target_ax,
+                target_ax,  # type: ignore[arg-type]
                 model_data.values,
                 lats,
                 lons,
@@ -244,19 +244,19 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
             )
 
             if show_var == "both":
-                self.add_colorbar(fig, mappable, target_ax, label=cbar_label)
-                target_ax.set_title("Model", fontsize=self.config.text.title_fontsize)
+                self.add_colorbar(fig, mappable, target_ax, label=cbar_label)  # type: ignore[arg-type]
+                target_ax.set_title("Model", fontsize=self.config.text.title_fontsize)  # type: ignore[union-attr]
 
         # Add colorbar and title for single panel
         if show_var != "both":
-            self.add_colorbar(fig, mappable, ax, label=cbar_label)
+            self.add_colorbar(fig, mappable, ax, label=cbar_label)  # type: ignore[arg-type]
             if self.config.title:
                 title = self.config.title
             else:
                 # Use base variable name without prefix for cleaner title
                 base_label = get_variable_label(paired_data, obs_var, include_prefix=False)
                 title = f"{base_label} ({'Observations' if show_var == 'obs' else 'Model'})"
-            ax.set_title(format_plot_title(title), fontsize=self.config.text.title_fontsize)
+            ax.set_title(format_plot_title(title), fontsize=self.config.text.title_fontsize)  # type: ignore[union-attr]
 
         plt.tight_layout()
         return fig

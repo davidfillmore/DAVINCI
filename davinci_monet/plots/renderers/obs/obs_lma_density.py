@@ -27,7 +27,7 @@ class ObsLMADensityPlotter(ObsPlotter):
     name: str = "obs_lma_density"
     default_figsize: tuple[float, float] = (10, 8)
 
-    def plot(
+    def plot(  # type: ignore[override]
         self,
         obs_data: xr.Dataset,
         variable: str,
@@ -189,15 +189,15 @@ class ObsLMADensityPlotter(ObsPlotter):
         ax = fig.add_subplot(1, 1, 1, projection=projection)
 
         pad = 0.3
-        ax.set_extent(
+        ax.set_extent(  # type: ignore[attr-defined]
             [lon.min() - pad, lon.max() + pad, lat.min() - pad, lat.max() + pad],
             crs=ccrs.PlateCarree(),
         )
 
-        ax.add_feature(cfeature.LAND, facecolor="#F0F0F0", zorder=0)
-        ax.add_feature(cfeature.OCEAN, facecolor="white", zorder=0)
+        ax.add_feature(cfeature.LAND, facecolor="#F0F0F0", zorder=0)  # type: ignore[attr-defined]
+        ax.add_feature(cfeature.OCEAN, facecolor="white", zorder=0)  # type: ignore[attr-defined]
         if "states" in features:
-            ax.add_feature(
+            ax.add_feature(  # type: ignore[attr-defined]
                 cfeature.STATES,
                 edgecolor="gray",
                 linewidth=0.5,
@@ -205,7 +205,7 @@ class ObsLMADensityPlotter(ObsPlotter):
             )
         if "counties" in features:
             try:
-                ax.add_feature(
+                ax.add_feature(  # type: ignore[attr-defined]
                     cfeature.NaturalEarthFeature(
                         "cultural",
                         "admin_2_counties_lakes_shp",
@@ -220,7 +220,7 @@ class ObsLMADensityPlotter(ObsPlotter):
                 # 10m county shapefile may not be cached; fall back silently
                 pass
         if "coastlines" in features:
-            ax.add_feature(
+            ax.add_feature(  # type: ignore[attr-defined]
                 cfeature.COASTLINE,
                 edgecolor="black",
                 linewidth=0.5,
@@ -242,7 +242,7 @@ class ObsLMADensityPlotter(ObsPlotter):
         if flight_tracks:
             self._overlay_tracks(ax, flight_tracks, hour_label, **kwargs)
 
-        gl = ax.gridlines(draw_labels=True, linewidth=0.3, color="gray", alpha=0.5)
+        gl = ax.gridlines(draw_labels=True, linewidth=0.3, color="gray", alpha=0.5)  # type: ignore[attr-defined]
         gl.top_labels = False
         gl.right_labels = False
 

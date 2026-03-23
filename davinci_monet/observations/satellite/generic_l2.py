@@ -163,7 +163,7 @@ class GenericL2Reader:
             if dim in ds.dims:
                 return dim
         # Default to first dimension
-        return list(ds.dims.keys())[0] if ds.dims else "time"
+        return list(ds.dims.keys())[0] if ds.dims else "time"  # type: ignore[return-value]
 
     def _apply_dim_mapping(self, ds: xr.Dataset, dim_mapping: Mapping[str, str]) -> xr.Dataset:
         """Apply dimension name mapping."""

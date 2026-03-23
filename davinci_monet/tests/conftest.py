@@ -299,7 +299,7 @@ def rng(random_seed: int) -> np.random.Generator:
 )
 def geometry_type(request: pytest.FixtureRequest) -> DataGeometry:
     """Parametrized fixture for all geometry types."""
-    return request.param  # type: ignore[no-any-return]
+    return request.param
 
 
 @pytest.fixture

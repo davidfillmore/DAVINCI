@@ -214,7 +214,7 @@ class SwathGridStrategy(BasePairingStrategy):
             model_data_vars = list(model_proc.data_vars)
             if len(model_data_vars) == 0:
                 raise PairingError("No data variables in model dataset")
-            model_var = model_data_vars[0]
+            model_var = str(model_data_vars[0])
 
         model_on_grid = self._align_model_to_grid(
             model_proc,
@@ -370,10 +370,10 @@ class SwathGridStrategy(BasePairingStrategy):
             lat_dim = model_lat.dims[0]
             lon_dim = model_lon.dims[0]
             # Transpose to (time, lon, lat) to match our output convention
-            dim_order = []
+            dim_order: list[str] = []
             if "time" in var_data.dims:
                 dim_order.append("time")
-            dim_order.extend([lon_dim, lat_dim])
+            dim_order.extend([str(lon_dim), str(lat_dim)])
             var_data = var_data.transpose(*dim_order)
             # Rename dims to match paired output
             rename_map = {}

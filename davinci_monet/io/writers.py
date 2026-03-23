@@ -72,7 +72,7 @@ def write_dataset(
                     encoding[var].setdefault("complevel", 4)
                 kwargs["encoding"] = encoding
 
-            ds.to_netcdf(str(path), engine=engine, **kwargs)
+            ds.to_netcdf(str(path), engine=engine, **kwargs)  # type: ignore[call-overload]
     except Exception as e:
         raise DataFormatError(f"Failed to write {path}: {e}") from e
 

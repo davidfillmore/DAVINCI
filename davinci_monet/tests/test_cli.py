@@ -90,14 +90,14 @@ class TestTimer:
         # Access the module using sys.modules to avoid import shadowing
         cli_module = sys.modules["davinci_monet.cli.app"]
         original_debug = cli_module.DEBUG
-        cli_module.DEBUG = False
+        cli_module.DEBUG = False  # type: ignore[attr-defined]
 
         try:
             with pytest.raises(Exit):
                 with timer("Failing operation"):
                     raise ValueError("Test error")
         finally:
-            cli_module.DEBUG = original_debug
+            cli_module.DEBUG = original_debug  # type: ignore[attr-defined]
 
     def test_timer_failure_with_debug(self) -> None:
         """Test timer with failed operation (debug mode)."""
@@ -106,14 +106,14 @@ class TestTimer:
         # Access the module using sys.modules to avoid import shadowing
         cli_module = sys.modules["davinci_monet.cli.app"]
         original_debug = cli_module.DEBUG
-        cli_module.DEBUG = True
+        cli_module.DEBUG = True  # type: ignore[attr-defined]
 
         try:
             with pytest.raises(ValueError, match="Test error"):
                 with timer("Failing operation"):
                     raise ValueError("Test error")
         finally:
-            cli_module.DEBUG = original_debug
+            cli_module.DEBUG = original_debug  # type: ignore[attr-defined]
 
 
 # =============================================================================

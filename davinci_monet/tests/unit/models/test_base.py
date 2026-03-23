@@ -82,13 +82,13 @@ class TestModelData:
     def test_obs_mapping(self) -> None:
         """Test observation mapping."""
         mapping = {"airnow": {"O3": "OZONE", "PM25": "PM2.5"}}
-        model = ModelData(obs_mapping=mapping)
+        model = ModelData(obs_mapping=mapping)  # type: ignore[arg-type]
         assert model.obs_mapping["airnow"]["O3"] == "OZONE"
 
     def test_get_mapping_for_obs(self) -> None:
         """Test getting mapping for specific observation."""
         mapping = {"airnow": {"O3": "OZONE"}, "aeronet": {"AOD": "AOD550"}}
-        model = ModelData(obs_mapping=mapping)
+        model = ModelData(obs_mapping=mapping)  # type: ignore[arg-type]
         airnow_mapping = model.get_mapping_for_obs("airnow")
         assert airnow_mapping["O3"] == "OZONE"
 
@@ -99,7 +99,7 @@ class TestModelData:
     def test_get_variable_list_for_obs(self) -> None:
         """Test getting variable list for observation."""
         mapping = {"airnow": {"O3": "OZONE", "PM25": "PM2.5"}}
-        model = ModelData(obs_mapping=mapping)
+        model = ModelData(obs_mapping=mapping)  # type: ignore[arg-type]
         vars_list = model.get_variable_list_for_obs("airnow")
         assert "OZONE" in vars_list
         assert "PM2.5" in vars_list
@@ -304,7 +304,7 @@ class TestCreateModelData:
         mapping = {"airnow": {"O3": "OZONE"}}
         model = create_model_data(
             label="test",
-            mapping=mapping,
+            mapping=mapping,  # type: ignore[arg-type]
         )
         assert model.obs_mapping["airnow"]["O3"] == "OZONE"
 
@@ -400,7 +400,7 @@ class TestModelDataHorizontalRegridding:
         """Test horizontal regridding."""
         target_lats = np.linspace(35, 45, 10)
         target_lons = np.linspace(-90, -80, 15)
-        regridded = model_with_grid.regrid_horizontal(target_lats, target_lons, method="nearest")
+        regridded = model_with_grid.regrid_horizontal(target_lats, target_lons, method="nearest")  # type: ignore[arg-type]
         assert regridded.data is not None
         assert len(regridded.data["lat"]) == 10
         assert len(regridded.data["lon"]) == 15

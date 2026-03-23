@@ -680,7 +680,7 @@ class TestPipelineRunner:
         result = runner.run()
 
         assert result.success is False
-        assert "Unexpected error" in result.stage_results[0].error
+        assert "Unexpected error" in (result.stage_results[0].error or "")
 
 
 # =============================================================================

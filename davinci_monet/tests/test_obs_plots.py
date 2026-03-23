@@ -193,7 +193,7 @@ class TestObsPlotterBase:
         from davinci_monet.plots.obs_base import ObsPlotter
 
         with pytest.raises(TypeError):
-            ObsPlotter()
+            ObsPlotter()  # type: ignore[abstract]
 
     def test_subclass_must_implement_plot(self):
         """Subclass without plot() raises TypeError on instantiation."""
@@ -203,7 +203,7 @@ class TestObsPlotterBase:
             name = "incomplete"
 
         with pytest.raises(TypeError):
-            IncompleteObsPlotter()
+            IncompleteObsPlotter()  # type: ignore[abstract]
 
     def test_subclass_with_plot_works(self, track_obs_data):
         """Concrete subclass with plot() can be instantiated and used."""
@@ -589,8 +589,8 @@ class TestObsLMADensityPlotter:
         fig = plotter.plot(grid_lma_data, "flash_extent")
 
         assert fig is not None
-        assert len(fig.axes) >= 1
-        plt.close(fig)
+        assert len(fig.axes) >= 1  # type: ignore[union-attr]
+        plt.close(fig)  # type: ignore[arg-type]
 
     def test_registered_in_registry(self):
         """ObsLMADensityPlotter is registered as 'obs_lma_density'."""
@@ -609,11 +609,11 @@ class TestObsLMADensityPlotter:
         fig = plotter.plot(grid_lma_data, "flash_extent")
 
         output_path = tmp_path / "lma_density.png"
-        saved_path = plotter.save(fig, output_path)
+        saved_path = plotter.save(fig, output_path)  # type: ignore[arg-type]
 
         assert saved_path.exists()
         assert saved_path.stat().st_size > 0
-        plt.close(fig)
+        plt.close(fig)  # type: ignore[arg-type]
 
     def test_hourly_aggregation(self, grid_lma_data_multihour):
         """Hourly mode returns list of (fig, suffix) tuples."""
@@ -648,7 +648,7 @@ class TestObsLMADensityPlotter:
 
         # All pcolormesh artists should share the same clim
         clims = []
-        for fig, _ in result:
+        for fig, _ in result:  # type: ignore[union-attr]
             for ax in fig.axes:
                 for child in ax.get_children():
                     if hasattr(child, "get_clim"):
@@ -674,12 +674,12 @@ class TestObsLMADensityPlotter:
 
         assert fig is not None
         # Check legend exists with aircraft label
-        ax = fig.axes[0]
+        ax = fig.axes[0]  # type: ignore[union-attr]
         legend = ax.get_legend()
         assert legend is not None
         labels = [t.get_text() for t in legend.get_texts()]
         assert "DC8" in labels
-        plt.close(fig)
+        plt.close(fig)  # type: ignore[arg-type]
 
     def test_save_hourly_outputs(self, grid_lma_data_multihour, tmp_path):
         """Hourly output can be saved as multiple files."""
@@ -717,7 +717,7 @@ class TestObsLMADensityPlotter:
         )
 
         assert fig is not None
-        plt.close(fig)
+        plt.close(fig)  # type: ignore[arg-type]
 
     def test_yaml_config_parse(self):
         """The May 29 YAML config parses without error for LMA density entries."""

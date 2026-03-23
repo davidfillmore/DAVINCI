@@ -86,7 +86,7 @@ class ObsTimeSeriesPlotter(ObsPlotter):
         if ax is None:
             fig, ax = self.create_figure()
         else:
-            fig = ax.get_figure()
+            fig = ax.get_figure()  # type: ignore[assignment]
 
         color = color or NCAR_PRIMARY
         time_values = pd.to_datetime(obs_data["time"].values)
@@ -138,7 +138,7 @@ class ObsTimeSeriesPlotter(ObsPlotter):
         if show_altitude and alt_coord in obs_data.coords:
             ax2 = ax.twinx()
             alt_values = obs_data[alt_coord].values
-            ax2.plot(
+            ax2.plot(  # type: ignore[attr-defined]
                 time_values,
                 alt_values,
                 color="#AAAAAA",

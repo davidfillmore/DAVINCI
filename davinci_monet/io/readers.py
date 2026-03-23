@@ -129,7 +129,7 @@ def read_mfdataset(
         ds: xr.Dataset = xr.open_mfdataset(
             file_list,
             engine=engine,
-            combine=combine,
+            combine=combine,  # type: ignore[arg-type]
             parallel=True,
             **kwargs,
         )
@@ -348,7 +348,7 @@ def read_saved_analysis(
             format = "pickle"
 
     if format == "pickle":
-        return read_pickle(path)
+        return read_pickle(path)  # type: ignore[return-value]
     elif format == "netcdf":
         ds = read_dataset(path)
         return {"data": ds}

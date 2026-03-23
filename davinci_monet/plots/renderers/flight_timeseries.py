@@ -297,7 +297,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 valid_alt = ~np.isnan(alt_vals)
 
                 ax2 = ax.twinx()
-                ax2.plot(
+                ax2.plot(  # type: ignore[union-attr]
                     times[valid_alt],
                     alt_vals[valid_alt],
                     color=ALTITUDE_COLOR,

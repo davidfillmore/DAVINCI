@@ -507,7 +507,7 @@ class ProgressFormatter:
         if self.show_output:
             self.console.print(*args, **kwargs)
 
-    def _create_pulsing_davinci(self) -> "Text":
+    def _create_pulsing_davinci(self) -> "Text":  # type: ignore[name-defined]
         """Create 'DAVINCI' text with left-to-right brightening effect."""
         from rich.text import Text
 
@@ -538,7 +538,7 @@ class ProgressFormatter:
 
         return result
 
-    def _create_stage_display(self) -> "Text":
+    def _create_stage_display(self) -> "Text":  # type: ignore[name-defined]
         """Create the animated stage display with pulsing text and timer."""
         from rich.text import Text
 
@@ -1174,7 +1174,7 @@ class ProgressFormatter:
         # Set up matplotlib for non-blocking display
         plt.ion()
         fig, ax = plt.subplots(figsize=(12, 8))
-        fig.canvas.manager.set_window_title("DAVINCI Plot Preview")
+        fig.canvas.manager.set_window_title("DAVINCI Plot Preview")  # type: ignore[union-attr]
 
         for i, png_path in enumerate(png_files):
             try:
@@ -1322,9 +1322,9 @@ class PipelineRunner:
             Position to insert at. If None, appends to end.
         """
         if position is None:
-            self._stages.append(stage)
+            self._stages.append(stage)  # type: ignore[arg-type]
         else:
-            self._stages.insert(position, stage)
+            self._stages.insert(position, stage)  # type: ignore[arg-type]
 
     def remove_stage(self, stage_name: str) -> bool:
         """Remove a stage by name.

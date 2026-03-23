@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Any, TextIO
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from davinci_monet.config.schema import MonetConfig
 from davinci_monet.core.exceptions import ConfigurationError

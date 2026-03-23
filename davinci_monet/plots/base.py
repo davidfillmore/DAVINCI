@@ -388,20 +388,20 @@ class BasePlotter(ABC):
 
         if xlabel or self.config.xlabel:
             ax.set_xlabel(
-                xlabel or self.config.xlabel,
+                xlabel or self.config.xlabel,  # type: ignore[arg-type]
                 fontsize=cfg.fontsize,
                 fontweight=cfg.fontweight,
             )
 
         if ylabel or self.config.ylabel:
             ax.set_ylabel(
-                ylabel or self.config.ylabel,
+                ylabel or self.config.ylabel,  # type: ignore[arg-type]
                 fontsize=cfg.fontsize,
                 fontweight=cfg.fontweight,
             )
 
         if title or self.config.title:
-            formatted_title = format_plot_title(title or self.config.title)
+            formatted_title = format_plot_title(title or self.config.title)  # type: ignore[arg-type]
             ax.set_title(
                 formatted_title,
                 fontsize=cfg.title_fontsize,

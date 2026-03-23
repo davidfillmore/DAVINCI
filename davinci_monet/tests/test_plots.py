@@ -409,7 +409,7 @@ class TestDiurnalPlotter:
                 simple_paired_data,
                 "obs_o3",
                 "model_o3",
-                show_spread=spread,
+                show_spread=spread,  # type: ignore[arg-type]
             )
             assert fig is not None
             plt.close(fig)
@@ -847,7 +847,7 @@ class TestCurtainPlotter:
                 "obs_o3",
                 "model_o3",
                 alt_var="altitude",
-                show_var=show_var,
+                show_var=show_var,  # type: ignore[arg-type]
             )
             assert fig is not None
             plt.close(fig)
@@ -882,7 +882,7 @@ class TestTrackMap3DPlotter:
                 "obs_o3",
                 "model_o3",
                 alt_var="altitude",
-                show_var=show_var,
+                show_var=show_var,  # type: ignore[arg-type]
             )
             assert fig is not None
             plt.close(fig)
@@ -1214,7 +1214,7 @@ class TestTimeSeriesAggregate:
 # =============================================================================
 
 
-class TestScorecardPlotter:
+class TestScorecardPlotterMultiVariable:
     """Tests for ScorecardPlotter with multiple variables."""
 
     def test_scorecard_multi_variable(self):

@@ -118,7 +118,7 @@ class TaylorPlotter(BasePlotter):
         if ax is None:
             fig, ax = self._create_taylor_axes(obs_std_norm, normalize)
         else:
-            fig = ax.get_figure()
+            fig = ax.get_figure()  # type: ignore[assignment]
 
         # Get style
         style = self.config.style
@@ -179,8 +179,8 @@ class TaylorPlotter(BasePlotter):
 
         # Create polar axes for first quadrant only
         ax = fig.add_subplot(111, projection="polar")
-        ax.set_thetamin(0)
-        ax.set_thetamax(90)
+        ax.set_thetamin(0)  # type: ignore[attr-defined]
+        ax.set_thetamax(90)  # type: ignore[attr-defined]
 
         # Set radial limits
         max_std = ref_std * 1.5
@@ -188,7 +188,7 @@ class TaylorPlotter(BasePlotter):
 
         # Correlation labels on angular axis
         correlation_ticks = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 1.0]
-        ax.set_thetagrids(
+        ax.set_thetagrids(  # type: ignore[attr-defined]
             np.arccos(correlation_ticks) * 180 / np.pi,
             labels=[f"{c:.2g}" for c in correlation_ticks],
         )
@@ -309,7 +309,7 @@ class TaylorPlotter(BasePlotter):
         fig, ax = self._create_taylor_axes(ref_std, normalize)
 
         # Default color cycle
-        default_colors = plt.cm.tab10.colors
+        default_colors = plt.cm.tab10.colors  # type: ignore[attr-defined]
 
         # Plot each model
         for i, (name, data) in enumerate(paired_datasets.items()):

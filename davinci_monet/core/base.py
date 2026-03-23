@@ -134,7 +134,7 @@ class DataContainer(ABC):
         """List of available data variables."""
         if self.data is None:
             return []
-        return list(self.data.data_vars)
+        return list(self.data.data_vars)  # type: ignore[arg-type]
 
     @property
     def time_range(self) -> TimeRange | None:

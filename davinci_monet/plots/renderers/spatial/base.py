@@ -169,13 +169,13 @@ class BaseSpatialPlotter(BasePlotter):
 
         # Add land/ocean colors
         if cfg.land_color:
-            ax.add_feature(
+            ax.add_feature(  # type: ignore[attr-defined]
                 cfeature.LAND.with_scale(cfg.resolution),
                 facecolor=cfg.land_color,
                 zorder=0,
             )
         if cfg.ocean_color:
-            ax.add_feature(
+            ax.add_feature(  # type: ignore[attr-defined]
                 cfeature.OCEAN.with_scale(cfg.resolution),
                 facecolor=cfg.ocean_color,
                 zorder=0,
@@ -183,18 +183,18 @@ class BaseSpatialPlotter(BasePlotter):
 
         # Add boundaries
         if cfg.show_coastlines:
-            ax.add_feature(
+            ax.add_feature(  # type: ignore[attr-defined]
                 cfeature.COASTLINE.with_scale(cfg.resolution),
                 linewidth=0.5,
             )
         if cfg.show_countries:
-            ax.add_feature(
+            ax.add_feature(  # type: ignore[attr-defined]
                 cfeature.BORDERS.with_scale(cfg.resolution),
                 linewidth=0.5,
                 linestyle=":",
             )
         if cfg.show_states:
-            ax.add_feature(
+            ax.add_feature(  # type: ignore[attr-defined]
                 cfeature.STATES.with_scale(cfg.resolution),
                 linewidth=0.3,
                 linestyle=":",
@@ -202,7 +202,7 @@ class BaseSpatialPlotter(BasePlotter):
 
         # Add gridlines
         if cfg.show_gridlines:
-            gl = ax.gridlines(
+            gl = ax.gridlines(  # type: ignore[attr-defined]
                 draw_labels=True,
                 linewidth=0.5,
                 alpha=0.5,
@@ -213,7 +213,7 @@ class BaseSpatialPlotter(BasePlotter):
 
         # Set extent if specified
         if cfg.extent:
-            ax.set_extent(cfg.extent)
+            ax.set_extent(cfg.extent)  # type: ignore[attr-defined]
 
     def add_colorbar(
         self,

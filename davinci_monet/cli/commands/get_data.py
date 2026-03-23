@@ -7,7 +7,7 @@ from various sources (AERONET, AirNow, AQS, OpenAQ, etc.).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import typer
 
@@ -123,7 +123,7 @@ def _write_error_log(error: Exception, context: str, log_dir: Path | None = None
         return None
 
 
-def _write_dataset_safe(ds, output_path: Path, compress: bool = False) -> bool:
+def _write_dataset_safe(ds: Any, output_path: Path, compress: bool = False) -> bool:
     """Write dataset to NetCDF with error handling.
 
     Parameters
@@ -300,7 +300,7 @@ def get_airnow(
             )
 
     with timer("Forming xarray Dataset"):
-        from davinci_monet.observations.surface.airnow import _dataframe_to_xarray
+        from davinci_monet.observations.surface.airnow import _dataframe_to_xarray  # type: ignore[attr-defined]
 
         ds = _dataframe_to_xarray(df, daily=daily)
 
@@ -390,7 +390,7 @@ def get_aqs(
             )
 
     with timer("Forming xarray Dataset"):
-        from davinci_monet.observations.surface.aqs import _dataframe_to_xarray
+        from davinci_monet.observations.surface.aqs import _dataframe_to_xarray  # type: ignore[attr-defined]
 
         ds = _dataframe_to_xarray(df, daily=daily)
 
@@ -470,7 +470,7 @@ def get_openaq(
         raise typer.Exit(2)
 
     if not country:
-        country = None
+        country = None  # type: ignore[assignment]
 
     with timer("Fetching OpenAQ data with monetio"):
         import monetio as mio
@@ -502,7 +502,7 @@ def get_openaq(
             df = df.drop_duplicates(["time", "siteid"])
 
     with timer("Forming xarray Dataset"):
-        from davinci_monet.observations.surface.openaq import _dataframe_to_xarray
+        from davinci_monet.observations.surface.openaq import _dataframe_to_xarray  # type: ignore[attr-defined]
 
         ds = _dataframe_to_xarray(df)
 

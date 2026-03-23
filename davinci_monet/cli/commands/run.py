@@ -54,7 +54,7 @@ def run_analysis(
 
     try:
         result = pipeline_run(
-            str(p), show_progress=True, show_plots=show_plots, preview_format=preview_format
+            str(p), show_progress=True, show_plots=show_plots, preview_format=preview_format  # type: ignore[arg-type]
         )
     except ConfigurationError as e:
         # Styled display for configuration/YAML errors (before pipeline starts)

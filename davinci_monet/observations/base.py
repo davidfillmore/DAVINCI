@@ -217,7 +217,7 @@ class ObservationData(DataContainer):
             return
 
         if variables is None:
-            variables = list(self.data.data_vars)
+            variables = list(self.data.data_vars)  # type: ignore[arg-type]
 
         # Create mask for valid data
         import numpy as np

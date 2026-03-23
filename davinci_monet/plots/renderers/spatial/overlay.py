@@ -130,7 +130,7 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         if ax is None:
             fig, ax = self.create_map_figure()
         else:
-            fig = ax.get_figure()
+            fig = ax.get_figure()  # type: ignore[assignment]
 
         # Add map features
         self.add_map_features(ax)

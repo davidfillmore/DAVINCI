@@ -346,8 +346,8 @@ class TestSwathGridStrategy:
         )
         # Check naming convention: obs_ and model_ prefixes
         var_names = list(paired.data_vars)
-        assert any(v.startswith("obs_") for v in var_names)
-        assert any(v.startswith("model_") for v in var_names)
+        assert any(str(v).startswith("obs_") for v in var_names)
+        assert any(str(v).startswith("model_") for v in var_names)
 
     def test_aod_values_reasonable(self):
         """Binned values should be within input range."""

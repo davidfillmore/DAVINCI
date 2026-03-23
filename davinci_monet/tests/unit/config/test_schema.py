@@ -66,15 +66,15 @@ class TestAnalysisConfig:
         """Test style config parsed from dict."""
         config = AnalysisConfig(style={"theme": "ncar", "context": "presentation"})
         assert config.style is not None
-        assert config.style.theme == "ncar"
-        assert config.style.context == "presentation"
+        assert config.style.theme == "ncar"  # type: ignore[union-attr]
+        assert config.style.context == "presentation"  # type: ignore[union-attr]
 
     def test_style_config_object(self) -> None:
         """Test style config as PlotStyleConfig object."""
         style = PlotStyleConfig(theme="ncar", context="publication")
         config = AnalysisConfig(style=style)
-        assert config.style.theme == "ncar"
-        assert config.style.context == "publication"
+        assert config.style.theme == "ncar"  # type: ignore[union-attr]
+        assert config.style.context == "publication"  # type: ignore[union-attr]
 
 
 class TestPlotStyleConfig:

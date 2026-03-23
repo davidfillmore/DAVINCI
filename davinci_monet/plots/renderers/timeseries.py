@@ -110,7 +110,7 @@ class TimeSeriesPlotter(BasePlotter):
         if ax is None:
             fig, ax = self.create_figure()
         else:
-            fig = ax.get_figure()
+            fig = ax.get_figure()  # type: ignore[assignment]
 
         # Get data arrays
         obs_data = paired_data[obs_var]
@@ -297,12 +297,12 @@ class TimeSeriesPlotter(BasePlotter):
         if site_label_var in paired_data.coords:
             site_labels = paired_data[site_label_var].values
         else:
-            site_labels = [f"Site {i}" for i in range(paired_data.sizes[site_dim])]
+            site_labels = [f"Site {i}" for i in range(paired_data.sizes[site_dim])]  # type: ignore[assignment]
 
         n_sites = paired_data.sizes[site_dim]
 
         # Use a colormap for different sites
-        colors = cm.tab20(np.linspace(0, 1, min(n_sites, 20)))
+        colors = cm.tab20(np.linspace(0, 1, min(n_sites, 20)))  # type: ignore[attr-defined]
 
         # Plot each site
         for i in range(n_sites):

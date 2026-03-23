@@ -82,7 +82,7 @@ class ObsHistogramPlotter(ObsPlotter):
         if ax is None:
             fig, ax = self.create_figure()
         else:
-            fig = ax.get_figure()
+            fig = ax.get_figure()  # type: ignore[assignment]
 
         color = color or NCAR_PRIMARY
 

@@ -122,7 +122,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         if ax is None:
             fig, ax = self.create_map_figure()
         else:
-            fig = ax.get_figure()
+            fig = ax.get_figure()  # type: ignore[assignment]
 
         # Add map features
         self.add_map_features(ax)
@@ -257,7 +257,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
             )
         else:
             # Point data — use scatter
-            scatter = ax.scatter(
+            scatter = ax.scatter(  # type: ignore[assignment]
                 lons_flat,
                 lats_flat,
                 c=bias_values,
@@ -278,7 +278,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
 
         # Use config site_label size if not specified
         if label_fontsize is None:
-            label_fontsize = self.config.text.site_label
+            label_fontsize = self.config.text.site_label  # type: ignore[assignment]
 
         # Add site labels if requested
         if show_site_labels and site_label_var in paired_data.coords:

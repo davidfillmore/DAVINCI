@@ -164,7 +164,7 @@ class ScorecardPlotter(BasePlotter):
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 5), dpi=self.config.figure.dpi)
         else:
-            fig = ax.get_figure()
+            fig = ax.get_figure()  # type: ignore[assignment]
 
         # Convert to numpy for plotting
         data = stats_df.values.astype(float)
@@ -176,8 +176,8 @@ class ScorecardPlotter(BasePlotter):
         if len(data_finite) == 0:
             vmin_calc, vmax_calc = 0, 1
         else:
-            vmin_calc = np.nanmin(data_finite) if vmin is None else vmin
-            vmax_calc = np.nanmax(data_finite) if vmax is None else vmax
+            vmin_calc = np.nanmin(data_finite) if vmin is None else vmin  # type: ignore[assignment]
+            vmax_calc = np.nanmax(data_finite) if vmax is None else vmax  # type: ignore[assignment]
 
         # Create heatmap
         im = ax.imshow(
@@ -261,7 +261,7 @@ class ScorecardPlotter(BasePlotter):
             for i in range(data.shape[0]):
                 row = data[i, :]
                 if np.any(np.isfinite(row)):
-                    best_j = np.nanargmax(row)
+                    best_j = int(np.nanargmax(row))
                     rect = Rectangle(
                         (best_j - 0.5, i - 0.5),
                         1,
@@ -276,7 +276,7 @@ class ScorecardPlotter(BasePlotter):
             for j in range(data.shape[1]):
                 col = data[:, j]
                 if np.any(np.isfinite(col)):
-                    best_i = np.nanargmax(col)
+                    best_i = int(np.nanargmax(col))
                     rect = Rectangle(
                         (j - 0.5, best_i - 0.5),
                         1,

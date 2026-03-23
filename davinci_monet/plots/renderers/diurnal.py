@@ -103,7 +103,7 @@ class DiurnalPlotter(BasePlotter):
         if ax is None:
             fig, ax = self.create_figure()
         else:
-            fig = ax.get_figure()
+            fig = ax.get_figure()  # type: ignore[assignment]
 
         # Get data
         obs_data = paired_data[obs_var]

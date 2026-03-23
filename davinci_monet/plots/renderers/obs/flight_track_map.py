@@ -200,7 +200,7 @@ class FlightTrackMapPlotter(ObsPlotter):
         cmap = cmap or get_sequential_cmap()
 
         # Plot 3D scatter
-        scatter = ax3d.scatter(
+        scatter = ax3d.scatter(  # type: ignore[misc]
             lons,
             lats,
             alts,
@@ -215,7 +215,7 @@ class FlightTrackMapPlotter(ObsPlotter):
 
         # Add 2D projection on bottom plane
         if show_projection:
-            ax3d.scatter(
+            ax3d.scatter(  # type: ignore[misc]
                 lons,
                 lats,
                 np.zeros_like(alts),
@@ -259,7 +259,7 @@ class FlightTrackMapPlotter(ObsPlotter):
                 lat_grid = np.linspace(lat_max, lat_min, img_h)
                 X, Y = np.meshgrid(lon_grid, lat_grid)
                 Z = np.zeros_like(X)
-                ax3d.plot_surface(
+                ax3d.plot_surface(  # type: ignore[attr-defined]
                     X,
                     Y,
                     Z,
@@ -304,7 +304,7 @@ class FlightTrackMapPlotter(ObsPlotter):
         ax3d.set_ylim(lat_min, lat_max)
 
         # Set view angle
-        ax3d.view_init(elev=elev, azim=azim)
+        ax3d.view_init(elev=elev, azim=azim)  # type: ignore[attr-defined]
 
         # Limit tick count to prevent overlap, then format labels
         ax3d.xaxis.set_major_locator(plt.MaxNLocator(nbins=5))
@@ -315,7 +315,7 @@ class FlightTrackMapPlotter(ObsPlotter):
         # Axis labels
         ax3d.set_xlabel("Longitude (\u00b0E)", fontsize=text_cfg.fontsize, labelpad=8)
         ax3d.set_ylabel("Latitude (\u00b0N)", fontsize=text_cfg.fontsize, labelpad=8)
-        ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize, labelpad=8)
+        ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize, labelpad=8)  # type: ignore[attr-defined]
         ax3d.tick_params(axis="both", labelsize=text_cfg.tick_fontsize)
 
         # Colorbar
@@ -334,5 +334,5 @@ class FlightTrackMapPlotter(ObsPlotter):
             title = format_plot_title(title)
         fig.suptitle(title, fontsize=text_cfg.title_fontsize, y=0.85)
 
-        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.tight_layout(rect=(0, 0, 1, 0.95))
         return fig

@@ -134,7 +134,7 @@ class TestDataContainer:
     def test_subset_time(self, sample_dataset: xr.Dataset) -> None:
         """Test subsetting by time."""
         container = ConcreteContainer(data=sample_dataset, label="test")
-        subset = container.subset_time(start=2, end=5)
+        subset = container.subset_time(start=2, end=5)  # type: ignore[arg-type]
         assert subset.data is not None
         assert len(subset.data["time"]) == 4
 
@@ -314,7 +314,7 @@ class TestPairedData:
             obs_label="airnow",
             geometry=DataGeometry.POINT,
         )
-        subset = paired.subset_time(start=2, end=5)
+        subset = paired.subset_time(start=2, end=5)  # type: ignore[arg-type]
         assert len(subset.data["time"]) == 4
 
 

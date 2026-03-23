@@ -179,7 +179,7 @@ class TestObservationDataProcessing:
 
     def test_filter_by_time(self, obs_with_data: ObservationData) -> None:
         """Test filtering by time range."""
-        obs_with_data.filter_by_time(start=5, end=15)
+        obs_with_data.filter_by_time(start=5, end=15)  # type: ignore[arg-type]
         assert len(obs_with_data.data["time"]) == 11  # type: ignore
 
     def test_filter_by_bbox(self, obs_with_data: ObservationData) -> None:

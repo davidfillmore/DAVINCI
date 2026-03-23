@@ -269,7 +269,7 @@ def _render_surface_map(
     fig_size = resolution / fig_dpi
     fig = plt.figure(figsize=(fig_size, fig_size), dpi=fig_dpi)
     ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-    ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
+    ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())  # type: ignore[attr-defined]
 
     # Remove margins
     ax.set_frame_on(False)
@@ -287,9 +287,9 @@ def _render_surface_map(
         "physical", "coastline", "50m", facecolor="none", edgecolor=coastline_color
     )
 
-    ax.add_feature(ocean)
-    ax.add_feature(land)
-    ax.add_feature(coastline, linewidth=coastline_linewidth)
+    ax.add_feature(ocean)  # type: ignore[attr-defined]
+    ax.add_feature(land)  # type: ignore[attr-defined]
+    ax.add_feature(coastline, linewidth=coastline_linewidth)  # type: ignore[attr-defined]
 
     if show_borders:
         borders = cfeature.NaturalEarthFeature(
@@ -299,7 +299,7 @@ def _render_surface_map(
             facecolor="none",
             edgecolor=border_color,
         )
-        ax.add_feature(borders, linewidth=border_linewidth)
+        ax.add_feature(borders, linewidth=border_linewidth)  # type: ignore[attr-defined]
 
     ax.set_xticks([])
     ax.set_yticks([])
@@ -537,7 +537,7 @@ class TrackMap3DPlotter(BasePlotter):
             vmax = self.config.vmax if self.config.vmax is not None else np.nanmax(values)
 
         # Plot 3D scatter
-        scatter = ax3d.scatter(
+        scatter = ax3d.scatter(  # type: ignore[misc]
             lons,
             lats,
             alts,
@@ -552,7 +552,7 @@ class TrackMap3DPlotter(BasePlotter):
 
         # Add 2D projection on bottom plane
         if show_projection:
-            ax3d.scatter(
+            ax3d.scatter(  # type: ignore[misc]
                 lons,
                 lats,
                 np.zeros_like(alts),
@@ -601,7 +601,7 @@ class TrackMap3DPlotter(BasePlotter):
                 Z = np.zeros_like(X)
 
                 # Plot textured surface
-                ax3d.plot_surface(
+                ax3d.plot_surface(  # type: ignore[attr-defined]
                     X,
                     Y,
                     Z,
@@ -649,7 +649,7 @@ class TrackMap3DPlotter(BasePlotter):
                 # Only plot if within bounds
                 if lon_min <= city_lon <= lon_max and lat_min <= city_lat <= lat_max:
                     # Plot marker
-                    ax3d.scatter(
+                    ax3d.scatter(  # type: ignore[misc]
                         [city_lon],
                         [city_lat],
                         [0],
@@ -663,8 +663,8 @@ class TrackMap3DPlotter(BasePlotter):
                     ax3d.text(
                         city_lon,
                         city_lat,
-                        0,
-                        f"  {city_name}",
+                        0,  # type: ignore[arg-type]
+                        f"  {city_name}",  # type: ignore[arg-type]
                         fontsize=city_font_size,
                         color="black",
                         ha="left",
@@ -677,7 +677,7 @@ class TrackMap3DPlotter(BasePlotter):
         ax3d.set_ylim(lat_min, lat_max)
 
         # Set view angle
-        ax3d.view_init(elev=elev, azim=azim)
+        ax3d.view_init(elev=elev, azim=azim)  # type: ignore[attr-defined]
 
         # Format lat/lon tick labels with 1 decimal place
         ax3d.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.1f}"))
@@ -686,7 +686,7 @@ class TrackMap3DPlotter(BasePlotter):
         # Labels
         ax3d.set_xlabel("Longitude (°E)", fontsize=text_cfg.fontsize, labelpad=8)
         ax3d.set_ylabel("Latitude (°N)", fontsize=text_cfg.fontsize, labelpad=8)
-        ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize, labelpad=8)
+        ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize, labelpad=8)  # type: ignore[attr-defined]
 
         # Tick label size
         ax3d.tick_params(axis="both", labelsize=text_cfg.tick_fontsize)
@@ -705,7 +705,7 @@ class TrackMap3DPlotter(BasePlotter):
                 format_plot_title(self.config.title), fontsize=text_cfg.title_fontsize, y=0.85
             )
 
-        plt.tight_layout(rect=[0, 0, 1, 0.95])  # Leave room at top for title
+        plt.tight_layout(rect=(0, 0, 1, 0.95))  # Leave room at top for title
         return fig
 
     def plot_per_flight(

@@ -518,7 +518,7 @@ class TestWritePairedData:
         }
 
         output_dir = temp_dir / "paired"
-        written_files = write_paired_data(datasets, output_dir)
+        written_files = write_paired_data(datasets, output_dir)  # type: ignore[arg-type]
 
         assert len(written_files) == 1
 
