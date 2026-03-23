@@ -1,13 +1,13 @@
 # AGENTS.md - DAVINCI
 
-Rules and conventions for all AI agents working in this repository.
+Rules for all AI agents working in this repository. **Read `CLAUDE.md` for full project context** — architecture, conventions, gotchas, config patterns, and styling.
 
 ## General Rules
 
+- **Read before editing**: Always read a file before modifying it
+- **Preserve existing patterns**: Match the style and conventions of surrounding code
 - **Non-destructive edits**: Do not remove user data or code unless explicitly requested
 - **Keep the tree lean**: No archived binaries, scratch files, or generated artifacts checked in
-- **Preserve existing patterns**: Match the style and conventions of surrounding code
-- **Read before editing**: Always read a file before modifying it
 
 ## Git Workflow
 
@@ -17,60 +17,25 @@ Rules and conventions for all AI agents working in this repository.
 
 ## Cross-Model Handoff Convention
 
-This repo uses cross-model code reviews and hand-offs (e.g., Claude Opus implements, Codex reviews, then back). Follow these conventions so any model can pick up context cleanly.
+This repo uses cross-model code reviews and hand-offs. Check for `REVIEW_*.md` or `HANDOFF_*.md` in the repo root at session start.
 
-### At Session Start
+When writing handoff files, use `REVIEW_<MODEL>.md` or `HANDOFF_<TOPIC>.md` with these sections:
 
-- Check for `REVIEW_*.md` or `HANDOFF_*.md` files in the repo root
-- Read any that exist — they contain context from a previous model's work
-- Read `git diff` and recent `git log` for additional context
-
-### Writing Handoff Files
-
-Use `REVIEW_<MODEL>.md` or `HANDOFF_<TOPIC>.md` in the repo root. Always include these sections:
-
-```
-## Context
-Branch, task description, which files are involved
-
-## Changes Made
-What was done, with file paths and line references
-
-## Decisions & Rationale
-Why choices were made — this prevents the next model from undoing work without understanding why
-
-## Open Questions / Concerns
-Things the next model should investigate or address
-
-## Suggested Next Steps
-Specific actionable items
-```
-
-### Rules
-
-- **One file per task/feature** — scoped context, not a running log
-- **Always include Decisions & Rationale** — highest-value section; without it the next model may redo or reverse work
-- **Reference file paths and line numbers** — so the next model can verify without searching
-- **Git diff supplements the handoff** — the file gives intent, the diff gives the changes
-- **Don't delete handoff files** — the user decides when they're no longer needed
+- **Context** — Branch, task, files involved
+- **Changes Made** — What was done, with file paths and line references
+- **Decisions & Rationale** — Why choices were made (highest-value section)
+- **Open Questions / Concerns** — What the next model should investigate
+- **Suggested Next Steps** — Specific actionable items
 
 ## Planning and Implementation
 
 - **Stop after planning**: After a planning session, always stop and wait for user conversation before proceeding to implementation
-- **Follow CLAUDE.md**: All project-specific conventions in CLAUDE.md apply
 
 ## Quick Validation
 
 ```bash
-# Activate environment
 conda activate davinci-monet
-
-# Run tests
 pytest
-
-# Type checking
 mypy davinci_monet
-
-# Format check
 black --check davinci_monet && isort --check davinci_monet
 ```
