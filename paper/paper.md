@@ -9,7 +9,7 @@ tags:
   - satellite remote sensing
 authors:
   - name: David Fillmore
-    orcid: 0000-0000-0000-0000
+    orcid: 0000-0001-7726-4352
     affiliation: 1
 affiliations:
   - name: National Center for Atmospheric Research, Boulder, CO, USA
