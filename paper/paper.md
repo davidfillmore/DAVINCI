@@ -63,24 +63,25 @@ share, and rerun.
 
 # State of the field
 
-DAVINCI builds on ideas explored in MELODIES-MONET, a predecessor
-toolkit developed at NOAA CSL, but it is not a simple rename or thin wrapper.
-The software recasts model evaluation as a typed, stage-based pipeline rather
-than a procedural sequence of reader and pairing calls. It also moves pairing
-logic toward geometry-driven dispatch, adds validated configuration with
-Pydantic schemas, supports observation-only execution when no model is present,
-and includes satellite swath-to-grid binning for Level 2 products. Together,
-these changes make DAVINCI a distinct software contribution aimed at
-modern, reproducible evaluation workflows.
+DAVINCI builds on ideas explored in MELODIES-MONET
+[@baker_melodies_monet], a predecessor toolkit developed at NOAA CSL.
+MELODIES-MONET organizes evaluation around a single driver class that mixes
+data loading, pairing, and analysis in one procedural sequence, with pairing
+logic tied to specific observation readers. This design makes it difficult to
+add new observation types without modifying core pairing code, to validate
+configuration before runtime, or to run observation-only workflows when no
+model output is available. DAVINCI addresses these limitations through a new
+architecture rather than incremental extension: a stage-based pipeline with
+geometry-driven pairing dispatch, validated configuration via Pydantic schemas,
+and first-class support for observation-only execution and satellite
+swath-to-grid binning.
 
-Other tools in the atmospheric evaluation space include the Model Evaluation
-Tools (MET) framework [@met_framework] and the Atmospheric Model Evaluation
-Tool (AMET) [@amet]. Those projects address adjacent verification problems, but
-DAVINCI emphasizes a Python-native, xarray-first workflow that unifies
-surface, aircraft, profile, swath, and gridded observations within one package.
-Its primary contribution is not a new evaluation metric, but a software design
-that makes heterogeneous atmospheric chemistry evaluation workflows easier to
-configure, extend, and reuse.
+DAVINCI continues to use the monet and monetio libraries [@baker_monet] for
+low-level data I/O — reading model output formats and fetching observation
+network data — but replaces the evaluation layer above them. Its primary
+contribution is not a new evaluation metric or a new I/O library, but a
+software design that makes heterogeneous atmospheric chemistry evaluation
+workflows easier to configure, extend, and reuse.
 
 # Software design
 
@@ -95,15 +96,24 @@ swath, and grid data, with an additional swath-to-grid path for satellite Level
 operate on paired outputs, while observation-only rendering uses a separate
 plotter interface tailored to single-dataset workflows.
 
+These design choices reflect lessons from the predecessor codebase. The
+xarray-only data model eliminates repeated conversions between pandas
+DataFrames and xarray Datasets that complicated MELODIES-MONET's pairing
+logic. Geometry-driven dispatch means adding a new observation type requires
+only a new reader, not changes to the pairing engine. The stage-based pipeline
+makes execution order explicit and testable, and the validated configuration
+layer catches errors at load time rather than deep inside a processing run.
+The observation-only execution path arose from a practical need: field campaign
+teams often want to characterize their own data before any model output is
+available.
+
 Reader coverage includes surface networks such as AirNow, AQS, AERONET,
 OpenAQ, and Pandora; aircraft data through ICARTT; ozonesondes; satellite
 Level 2 and Level 3 products; and lightning observations from LMA networks.
 Model readers support CMAQ, WRF-Chem, UFS, CESM, and generic NetCDF inputs.
 The package also includes performance-oriented features such as observation
 time filtering during load, configurable Dask concurrency during pairing, and
-numba-accelerated grid binning for satellite workflows. These implementation
-choices are intended to make large evaluation runs more practical without
-changing the user-facing configuration model.
+numba-accelerated grid binning for satellite workflows.
 
 # Research impact
 
@@ -121,15 +131,16 @@ that demonstrate the breadth of the software:
   MODIS L2 aerosol optical depth against two CAM6 model variants during
   the December 2019 Australian bushfire event.
 
-These workflows are represented in the repository by checked-in configurations,
-analysis scripts, and example outputs. They are included here as evidence that
-the same package can support distinct workflow classes rather than as new
-scientific results produced for this paper. Some workflows depend on external
-datasets, preprocessing steps, or credentials for data access, so DAVINCI
-does not claim that every analysis is push-button reproducible in a fresh
-environment. Instead, the repository makes the configuration, acquisition
-paths, and workflow structure explicit, which is the level of transparency most
-useful for software review and reuse.
+These workflows are represented in the repository by checked-in
+configurations, analysis scripts, and a curated gallery of representative
+outputs (`paper/gallery/`). They are included as evidence that the same
+package can support distinct workflow classes rather than as new scientific
+results produced for this paper. Some workflows depend on external datasets
+or credentials for data access, so DAVINCI does not claim that every
+analysis is push-button reproducible in a fresh environment. The repository
+makes the configuration, acquisition paths, and workflow structure explicit,
+and the test suite (960+ tests using synthetic data) verifies pipeline
+correctness independent of external data.
 
 # AI usage disclosure
 
