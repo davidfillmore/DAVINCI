@@ -310,9 +310,9 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
                 # Multi-panel font sizes (smaller for dense panels)
                 ax.text(
-                    0.97, 0.97, stats_text,
+                    0.97, 0.03, stats_text,
                     transform=ax.transAxes, fontsize=self.config.text.annotation_small,
-                    verticalalignment="top", horizontalalignment="right",
+                    verticalalignment="bottom", horizontalalignment="right",
                     bbox=dict(boxstyle="round", facecolor="white", alpha=0.8)
                 )
 
@@ -324,7 +324,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Legend on first panel only
             if idx == 0:
-                ax.legend(loc="upper left", fontsize=self.config.text.legend_small)
+                ax.legend(loc="lower left", fontsize=self.config.text.legend_small)
 
             # Y-axis label on left column
             if idx % ncols == 0:
