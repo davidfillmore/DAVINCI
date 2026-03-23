@@ -11,7 +11,7 @@ A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air 
 - **27 Statistical Metrics** - Bias, error, correlation, and agreement metrics with groupby support
 - **Multiple Plot Types** - Time series, scatter, Taylor diagrams, spatial maps, 3D track, curtain, and more
 - **Type-Safe Configuration** - Pydantic-validated YAML configs with backward compatibility
-- **Full Test Coverage** - 792+ tests with synthetic data generation
+- **Full Test Coverage** - 960+ tests with synthetic data generation
 
 ### Supported Observations
 
@@ -27,6 +27,7 @@ A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air 
 | **Satellite L2** | TROPOMI | Polar; Sentinel-5P | NO2, O3, CO, HCHO, SO2 |
 | | MODIS | Polar; Terra/Aqua | AOD |
 | | TEMPO | Geo; hourly N. America | NO2, O3, HCHO |
+| **Lightning** | LMA | Lightning Mapping Array | Flash density, source density |
 | **Satellite L3** | MOPITT | Polar; Terra | CO |
 | | OMPS | Polar; Suomi-NPP | Total O3 |
 | | GOES | Geo; GOES-R/S | AOD |
@@ -48,6 +49,7 @@ A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air 
 | MOPITT | Measurements of Pollution in the Troposphere (Terra) |
 | OMPS | Ozone Mapping and Profiler Suite (Suomi-NPP) |
 | GOES | Geostationary Operational Environmental Satellite |
+| LMA | Lightning Mapping Array |
 
 </details>
 
@@ -68,8 +70,8 @@ A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air 
 
 ```bash
 # Install from environment file
-git clone https://github.com/NCAR/DAVINCI-MONET.git
-cd DAVINCI-MONET
+git clone https://github.com/NCAR/DAVINCI.git
+cd DAVINCI
 conda env create -f environment.yml
 conda activate davinci-monet
 
@@ -113,6 +115,8 @@ The `examples/` directory contains individual plot type examples using `davinci_
 | Site Time Series | `plot_11_site_timeseries.py` | Point |
 | Flight Time Series | `plot_12_flight_timeseries.py` | Track |
 | 3D Track Map | `plot_13_track_map_3d.py` | Track |
+| Satellite Swath | `plot_14_satellite_swath.py` | Swath |
+| Satellite Gridded | `plot_15_satellite_gridded.py` | Grid |
 
 Run all examples:
 ```bash

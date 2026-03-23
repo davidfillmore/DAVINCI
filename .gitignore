@@ -212,3 +212,8 @@ SESSION_CONTEXT.md
 
 # Example output (generated files)
 examples/output/
+
+# Analysis output (pipeline-generated files)
+analyses/*/output/
+analyses/*/logs/
+analyses/*/data/
