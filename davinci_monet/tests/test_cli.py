@@ -10,7 +10,6 @@ import pytest
 
 from davinci_monet.cli.app import app, cli, timer
 
-
 # =============================================================================
 # Test CLI Application Setup
 # =============================================================================
@@ -72,9 +71,7 @@ class TestTimer:
         assert "Test operation" in captured.out
         assert "succeeded" in captured.out
 
-    def test_timer_shows_elapsed_time(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_timer_shows_elapsed_time(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test timer shows elapsed time."""
         import time
 
@@ -87,6 +84,7 @@ class TestTimer:
     def test_timer_failure_without_debug(self) -> None:
         """Test timer with failed operation (no debug)."""
         import sys
+
         from typer import Exit
 
         # Access the module using sys.modules to avoid import shadowing

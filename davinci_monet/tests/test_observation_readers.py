@@ -11,23 +11,22 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
-
-# Import readers to ensure they are registered
-import davinci_monet.observations.surface.aqs  # noqa: F401
-import davinci_monet.observations.surface.airnow  # noqa: F401
-import davinci_monet.observations.surface.aeronet  # noqa: F401
-import davinci_monet.observations.surface.openaq  # noqa: F401
 import davinci_monet.observations.aircraft.icartt  # noqa: F401
-import davinci_monet.observations.satellite.tropomi  # noqa: F401
 import davinci_monet.observations.satellite.goes_l3_aod  # noqa: F401
-import davinci_monet.observations.satellite.tempo_l2_no2  # noqa: F401
 import davinci_monet.observations.satellite.modis_l2_aod  # noqa: F401
 import davinci_monet.observations.satellite.mopitt_l3_co  # noqa: F401
 import davinci_monet.observations.satellite.omps_l3_o3  # noqa: F401
+import davinci_monet.observations.satellite.tempo_l2_no2  # noqa: F401
+import davinci_monet.observations.satellite.tropomi  # noqa: F401
 import davinci_monet.observations.sonde.ozonesonde  # noqa: F401
+import davinci_monet.observations.surface.aeronet  # noqa: F401
+import davinci_monet.observations.surface.airnow  # noqa: F401
 
+# Import readers to ensure they are registered
+import davinci_monet.observations.surface.aqs  # noqa: F401
+import davinci_monet.observations.surface.openaq  # noqa: F401
+from davinci_monet.core.protocols import DataGeometry
+from davinci_monet.core.registry import observation_registry
 
 # =============================================================================
 # Helper functions for creating synthetic observation data
@@ -242,12 +241,14 @@ class TestAQSReader:
     def test_reader_name(self):
         """Test reader name."""
         from davinci_monet.observations.surface.aqs import AQSReader
+
         reader = AQSReader()
         assert reader.name == "aqs"
 
     def test_variable_mapping(self):
         """Test variable mapping."""
         from davinci_monet.observations.surface.aqs import AQSReader
+
         reader = AQSReader()
         mapping = reader.get_variable_mapping()
         assert "ozone" in mapping
@@ -290,6 +291,7 @@ class TestAirNowReader:
     def test_reader_name(self):
         """Test reader name."""
         from davinci_monet.observations.surface.airnow import AirNowReader
+
         reader = AirNowReader()
         assert reader.name == "airnow"
 
@@ -313,12 +315,14 @@ class TestAERONETReader:
     def test_reader_name(self):
         """Test reader name."""
         from davinci_monet.observations.surface.aeronet import AERONETReader
+
         reader = AERONETReader()
         assert reader.name == "aeronet"
 
     def test_variable_mapping(self):
         """Test variable mapping."""
         from davinci_monet.observations.surface.aeronet import AERONETReader
+
         reader = AERONETReader()
         mapping = reader.get_variable_mapping()
         assert "aod_500" in mapping
@@ -331,6 +335,7 @@ class TestOpenAQReader:
     def test_reader_name(self):
         """Test reader name."""
         from davinci_monet.observations.surface.openaq import OpenAQReader
+
         reader = OpenAQReader()
         assert reader.name == "openaq"
 
@@ -346,12 +351,14 @@ class TestICARTTReader:
     def test_reader_name(self):
         """Test reader name."""
         from davinci_monet.observations.aircraft.icartt import ICARTTReader
+
         reader = ICARTTReader()
         assert reader.name == "icartt"
 
     def test_variable_mapping(self):
         """Test variable mapping."""
         from davinci_monet.observations.aircraft.icartt import ICARTTReader
+
         reader = ICARTTReader()
         mapping = reader.get_variable_mapping()
         assert "ozone" in mapping
@@ -362,13 +369,15 @@ class TestICARTTReader:
         from davinci_monet.observations.aircraft.icartt import ICARTTReader
 
         # Create sample DataFrame like ICARTT output
-        df = pd.DataFrame({
-            "time": pd.date_range("2024-01-01 10:00", periods=100, freq="s"),
-            "O3": np.random.rand(100) * 100,
-            "CO": np.random.rand(100) * 200,
-            "Latitude": np.linspace(35, 40, 100),
-            "Longitude": np.linspace(-100, -95, 100),
-        })
+        df = pd.DataFrame(
+            {
+                "time": pd.date_range("2024-01-01 10:00", periods=100, freq="s"),
+                "O3": np.random.rand(100) * 100,
+                "CO": np.random.rand(100) * 200,
+                "Latitude": np.linspace(35, 40, 100),
+                "Longitude": np.linspace(-100, -95, 100),
+            }
+        )
 
         reader = ICARTTReader()
         ds = reader._dataframe_to_dataset(df)
@@ -387,12 +396,14 @@ class TestTROPOMIReader:
     def test_reader_name(self):
         """Test reader name."""
         from davinci_monet.observations.satellite.tropomi import TROPOMIReader
+
         reader = TROPOMIReader()
         assert reader.name == "tropomi"
 
     def test_variable_mapping(self):
         """Test variable mapping."""
         from davinci_monet.observations.satellite.tropomi import TROPOMIReader
+
         reader = TROPOMIReader()
         mapping = reader.get_variable_mapping()
         assert "no2" in mapping
@@ -441,12 +452,14 @@ class TestGOESL3AODReader:
     def test_reader_name(self):
         """Test reader name."""
         from davinci_monet.observations.satellite.goes_l3_aod import GOESL3AODReader
+
         reader = GOESL3AODReader()
         assert reader.name == "goes_l3_aod"
 
     def test_variable_mapping(self):
         """Test variable mapping."""
         from davinci_monet.observations.satellite.goes_l3_aod import GOESL3AODReader
+
         reader = GOESL3AODReader()
         mapping = reader.get_variable_mapping()
         assert "aod" in mapping
@@ -478,6 +491,7 @@ class TestGOESL3AODReader:
     def test_backward_compatibility_alias(self):
         """Test GOESReader alias still works."""
         from davinci_monet.observations.satellite.goes_l3_aod import GOESReader
+
         reader = GOESReader()
         assert reader.name == "goes_l3_aod"
 
@@ -488,12 +502,14 @@ class TestTEMPOL2NO2Reader:
     def test_reader_name(self):
         """Test reader name."""
         from davinci_monet.observations.satellite.tempo_l2_no2 import TEMPOL2NO2Reader
+
         reader = TEMPOL2NO2Reader()
         assert reader.name == "tempo_l2_no2"
 
     def test_variable_mapping(self):
         """Test variable mapping."""
         from davinci_monet.observations.satellite.tempo_l2_no2 import TEMPOL2NO2Reader
+
         reader = TEMPOL2NO2Reader()
         mapping = reader.get_variable_mapping()
         assert "no2" in mapping
@@ -514,12 +530,14 @@ class TestMODISL2AODReader:
     def test_reader_name(self):
         """Test reader name."""
         from davinci_monet.observations.satellite.modis_l2_aod import MODISL2AODReader
+
         reader = MODISL2AODReader()
         assert reader.name == "modis_l2_aod"
 
     def test_variable_mapping(self):
         """Test variable mapping."""
         from davinci_monet.observations.satellite.modis_l2_aod import MODISL2AODReader
+
         reader = MODISL2AODReader()
         mapping = reader.get_variable_mapping()
         assert "aod" in mapping
@@ -540,12 +558,14 @@ class TestMOPITTL3COReader:
     def test_reader_name(self):
         """Test reader name."""
         from davinci_monet.observations.satellite.mopitt_l3_co import MOPITTL3COReader
+
         reader = MOPITTL3COReader()
         assert reader.name == "mopitt_l3_co"
 
     def test_variable_mapping(self):
         """Test variable mapping."""
         from davinci_monet.observations.satellite.mopitt_l3_co import MOPITTL3COReader
+
         reader = MOPITTL3COReader()
         mapping = reader.get_variable_mapping()
         assert "co" in mapping
@@ -566,12 +586,14 @@ class TestOMPSL3O3Reader:
     def test_reader_name(self):
         """Test reader name."""
         from davinci_monet.observations.satellite.omps_l3_o3 import OMPSL3O3Reader
+
         reader = OMPSL3O3Reader()
         assert reader.name == "omps_l3_o3"
 
     def test_variable_mapping(self):
         """Test variable mapping."""
         from davinci_monet.observations.satellite.omps_l3_o3 import OMPSL3O3Reader
+
         reader = OMPSL3O3Reader()
         mapping = reader.get_variable_mapping()
         assert "o3" in mapping
@@ -597,12 +619,14 @@ class TestOzonesondeReader:
     def test_reader_name(self):
         """Test reader name."""
         from davinci_monet.observations.sonde.ozonesonde import OzonesondeReader
+
         reader = OzonesondeReader()
         assert reader.name == "ozonesonde"
 
     def test_variable_mapping(self):
         """Test variable mapping."""
         from davinci_monet.observations.sonde.ozonesonde import OzonesondeReader
+
         reader = OzonesondeReader()
         mapping = reader.get_variable_mapping()
         assert "ozone" in mapping

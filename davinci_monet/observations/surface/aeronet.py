@@ -20,7 +20,6 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import observation_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
-
 # Standard variable name mappings for AERONET
 AERONET_VARIABLE_MAPPING: dict[str, str] = {
     "aod_500": "AOD_500nm",
@@ -145,8 +144,7 @@ class AERONETReader:
             import monetio.obs.aeronet as aeronet_mod
         except ImportError as e:
             raise ImportError(
-                "monetio is required for AERONET API queries. "
-                "Install with: pip install monetio"
+                "monetio is required for AERONET API queries. " "Install with: pip install monetio"
             ) from e
 
         # Parse dates
@@ -172,9 +170,7 @@ class AERONETReader:
             raise DataFormatError(f"Failed to query AERONET data: {e}") from e
 
         if df.empty:
-            raise DataNotFoundError(
-                f"No AERONET data found for {start_date} to {end_date}"
-            )
+            raise DataNotFoundError(f"No AERONET data found for {start_date} to {end_date}")
 
         ds: xr.Dataset = self._dataframe_to_dataset(df)
 
@@ -263,8 +259,15 @@ def _dataframe_to_xarray(df: pd.DataFrame) -> xr.Dataset:
     site_ids = sites_df["siteid"].tolist()
 
     # Identify data columns (exclude metadata columns)
-    meta_cols = ["siteid", "time", "latitude", "longitude", "elevation",
-                 "day_of_year", "day_of_year(fraction)"]
+    meta_cols = [
+        "siteid",
+        "time",
+        "latitude",
+        "longitude",
+        "elevation",
+        "day_of_year",
+        "day_of_year(fraction)",
+    ]
     data_cols = [c for c in df.columns if c not in meta_cols]
 
     # Get common time index first
@@ -277,9 +280,7 @@ def _dataframe_to_xarray(df: pd.DataFrame) -> xr.Dataset:
             continue
         # Pivot: rows=time, columns=siteid, values=col
         try:
-            pivoted = df.pivot_table(
-                index="time", columns="siteid", values=col, aggfunc="first"
-            )
+            pivoted = df.pivot_table(index="time", columns="siteid", values=col, aggfunc="first")
             # Reindex to ensure consistent time and site ordering
             pivoted = pivoted.reindex(index=times, columns=site_ids)
             # Only include if there's actual data

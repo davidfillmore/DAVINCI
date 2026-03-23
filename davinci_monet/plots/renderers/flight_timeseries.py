@@ -37,14 +37,14 @@ if TYPE_CHECKING:
 # Note: DC-8 ICARTT files use Pressure_Altitude_BENNETT (in feet)
 ALTITUDE_VAR_NAMES = (
     "Pressure_Altitude_BENNETT",  # DC-8 ASIA-AQ (feet)
-    "GPS_Altitude_BENNETT",       # DC-8 GPS altitude (feet)
-    "GPS_Altitude",               # Generic GPS altitude
-    "Altitude",                   # Generic
-    "altitude",                   # Standard name
-    "alt",                        # Short form
-    "z",                          # Vertical coordinate
-    "ALT",                        # Uppercase
-    "ALTITUDE",                   # Uppercase
+    "GPS_Altitude_BENNETT",  # DC-8 GPS altitude (feet)
+    "GPS_Altitude",  # Generic GPS altitude
+    "Altitude",  # Generic
+    "altitude",  # Standard name
+    "alt",  # Short form
+    "z",  # Vertical coordinate
+    "ALT",  # Uppercase
+    "ALTITUDE",  # Uppercase
 )
 
 # Variables that are in feet (not meters) - need conversion
@@ -216,7 +216,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
         # Create figure with standard size
         fig, axes = plt.subplots(
-            nrows, ncols,
+            nrows,
+            ncols,
             figsize=(8, 5),
             squeeze=False,
         )
@@ -246,28 +247,47 @@ class FlightTimeSeriesPlotter(BasePlotter):
             # Plot observations
             if obs_style == "scatter":
                 ax.scatter(
-                    times[valid_obs], obs_vals[valid_obs],
-                    s=12, alpha=0.7, color="black", label="Obs", zorder=3
+                    times[valid_obs],
+                    obs_vals[valid_obs],
+                    s=12,
+                    alpha=0.7,
+                    color="black",
+                    label="Obs",
+                    zorder=3,
                 )
             else:
                 ax.plot(
-                    times[valid_obs], obs_vals[valid_obs],
-                    "o-", color="black", markersize=3, linewidth=0.5,
-                    alpha=0.7, label="Obs", zorder=3
+                    times[valid_obs],
+                    obs_vals[valid_obs],
+                    "o-",
+                    color="black",
+                    markersize=3,
+                    linewidth=0.5,
+                    alpha=0.7,
+                    label="Obs",
+                    zorder=3,
                 )
 
             # Plot model
             if model_style == "line":
                 ax.plot(
-                    times, mod_vals,
-                    color=style.model_color, linewidth=1.5, alpha=0.8,
-                    label="Model", zorder=2
+                    times,
+                    mod_vals,
+                    color=style.model_color,
+                    linewidth=1.5,
+                    alpha=0.8,
+                    label="Model",
+                    zorder=2,
                 )
             else:
                 ax.scatter(
-                    times[valid_both], mod_vals[valid_both],
-                    s=12, alpha=0.7, color=style.model_color,
-                    label="Model", zorder=2
+                    times[valid_both],
+                    mod_vals[valid_both],
+                    s=12,
+                    alpha=0.7,
+                    color=style.model_color,
+                    label="Model",
+                    zorder=2,
                 )
 
             # Plot altitude on right y-axis
@@ -278,18 +298,25 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
                 ax2 = ax.twinx()
                 ax2.plot(
-                    times[valid_alt], alt_vals[valid_alt],
-                    color=ALTITUDE_COLOR, linewidth=1.0, alpha=0.6,
-                    label="Altitude", zorder=1
+                    times[valid_alt],
+                    alt_vals[valid_alt],
+                    color=ALTITUDE_COLOR,
+                    linewidth=1.0,
+                    alpha=0.6,
+                    label="Altitude",
+                    zorder=1,
                 )
                 ax2.set_ylim(bottom=0)
-                ax2.tick_params(axis="y", labelcolor=ALTITUDE_COLOR,
-                               labelsize=self.config.text.annotation_small)
+                ax2.tick_params(
+                    axis="y", labelcolor=ALTITUDE_COLOR, labelsize=self.config.text.annotation_small
+                )
                 # Only label right axis on rightmost column
                 if (idx + 1) % ncols == 0 or idx == n_flights - 1:
-                    ax2.set_ylabel(f"Altitude ({altitude_units})",
-                                  fontsize=self.config.text.annotation_small,
-                                  color=ALTITUDE_COLOR)
+                    ax2.set_ylabel(
+                        f"Altitude ({altitude_units})",
+                        fontsize=self.config.text.annotation_small,
+                        color=ALTITUDE_COLOR,
+                    )
                 else:
                     ax2.set_ylabel("")
 
@@ -310,10 +337,14 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
                 # Multi-panel font sizes (smaller for dense panels)
                 ax.text(
-                    0.97, 0.03, stats_text,
-                    transform=ax.transAxes, fontsize=self.config.text.annotation_small,
-                    verticalalignment="bottom", horizontalalignment="right",
-                    bbox=dict(boxstyle="round", facecolor="white", alpha=0.8)
+                    0.97,
+                    0.03,
+                    stats_text,
+                    transform=ax.transAxes,
+                    fontsize=self.config.text.annotation_small,
+                    verticalalignment="bottom",
+                    horizontalalignment="right",
+                    bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
                 )
 
             # Title with flight date
@@ -345,7 +376,9 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
         # Main title
         if self.config.title:
-            fig.suptitle(format_plot_title(self.config.title), fontsize=self.config.text.fontsize, y=1.02)
+            fig.suptitle(
+                format_plot_title(self.config.title), fontsize=self.config.text.fontsize, y=1.02
+            )
 
         plt.tight_layout()
         return fig
@@ -462,28 +495,47 @@ class FlightTimeSeriesPlotter(BasePlotter):
             # Plot observations
             if obs_style == "scatter":
                 ax.scatter(
-                    times[valid_obs], obs_vals[valid_obs],
-                    s=20, alpha=0.7, color="black", label="Obs", zorder=3
+                    times[valid_obs],
+                    obs_vals[valid_obs],
+                    s=20,
+                    alpha=0.7,
+                    color="black",
+                    label="Obs",
+                    zorder=3,
                 )
             else:
                 ax.plot(
-                    times[valid_obs], obs_vals[valid_obs],
-                    "o-", color="black", markersize=4, linewidth=0.8,
-                    alpha=0.7, label="Obs", zorder=3
+                    times[valid_obs],
+                    obs_vals[valid_obs],
+                    "o-",
+                    color="black",
+                    markersize=4,
+                    linewidth=0.8,
+                    alpha=0.7,
+                    label="Obs",
+                    zorder=3,
                 )
 
             # Plot model
             if model_style == "line":
                 ax.plot(
-                    times, mod_vals,
-                    color=style.model_color, linewidth=2, alpha=0.8,
-                    label="Model", zorder=2
+                    times,
+                    mod_vals,
+                    color=style.model_color,
+                    linewidth=2,
+                    alpha=0.8,
+                    label="Model",
+                    zorder=2,
                 )
             else:
                 ax.scatter(
-                    times[valid_both], mod_vals[valid_both],
-                    s=20, alpha=0.7, color=style.model_color,
-                    label="Model", zorder=2
+                    times[valid_both],
+                    mod_vals[valid_both],
+                    s=20,
+                    alpha=0.7,
+                    color=style.model_color,
+                    label="Model",
+                    zorder=2,
                 )
 
             # Plot altitude on right y-axis
@@ -495,16 +547,21 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
                 ax2 = ax.twinx()
                 ax2.plot(
-                    times[valid_alt], alt_vals[valid_alt],
-                    color=ALTITUDE_COLOR, linewidth=1.2, alpha=0.6,
-                    label="Altitude", zorder=1
+                    times[valid_alt],
+                    alt_vals[valid_alt],
+                    color=ALTITUDE_COLOR,
+                    linewidth=1.2,
+                    alpha=0.6,
+                    label="Altitude",
+                    zorder=1,
                 )
                 ax2.set_ylim(bottom=0)
-                ax2.tick_params(axis="y", labelcolor=ALTITUDE_COLOR,
-                               labelsize=text_cfg.tick_fontsize)
-                ax2.set_ylabel(f"Altitude ({altitude_units})",
-                              fontsize=text_cfg.fontsize,
-                              color=ALTITUDE_COLOR)
+                ax2.tick_params(
+                    axis="y", labelcolor=ALTITUDE_COLOR, labelsize=text_cfg.tick_fontsize
+                )
+                ax2.set_ylabel(
+                    f"Altitude ({altitude_units})", fontsize=text_cfg.fontsize, color=ALTITUDE_COLOR
+                )
 
             # Compute and display stats
             if show_stats and valid_both.sum() > 0:
@@ -522,17 +579,21 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     stats_text += f"\nR={r:.2f}"
 
                 ax.text(
-                    0.97, 0.97, stats_text,
-                    transform=ax.transAxes, fontsize=text_cfg.annotation,
-                    verticalalignment="top", horizontalalignment="right",
-                    bbox=dict(boxstyle="round", facecolor="white", alpha=0.8)
+                    0.97,
+                    0.97,
+                    stats_text,
+                    transform=ax.transAxes,
+                    fontsize=text_cfg.annotation,
+                    verticalalignment="top",
+                    horizontalalignment="right",
+                    bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
                 )
 
             # Title
             if self.config.title:
                 ax.set_title(
                     format_plot_title(f"{self.config.title} - Flight {flight_str}"),
-                    fontsize=text_cfg.title_fontsize
+                    fontsize=text_cfg.title_fontsize,
                 )
             else:
                 ax.set_title(f"Flight {flight_str}", fontsize=text_cfg.title_fontsize)

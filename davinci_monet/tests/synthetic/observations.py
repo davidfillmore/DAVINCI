@@ -104,7 +104,11 @@ def create_point_observations(
         spec = get_variable_spec(var_name)
         var_seed = int(rng.integers(0, 2**31)) if seed is not None else None
         data = generate_random_field(shape, spec, seed=var_seed, add_spatial_correlation=False)
-        data_vars[var_name] = (["time", "site"], data, {"units": spec.units, "long_name": spec.long_name})
+        data_vars[var_name] = (
+            ["time", "site"],
+            data,
+            {"units": spec.units, "long_name": spec.long_name},
+        )
 
     ds = xr.Dataset(data_vars, coords=coords)
 
@@ -204,7 +208,11 @@ def create_track_observations(
         "time": (["time"], time_vals),
         "latitude": (["time"], lats, {"units": "degrees_north"}),
         "longitude": (["time"], lons, {"units": "degrees_east"}),
-        "altitude": (["time"], alt_profile, {"units": "m", "long_name": "Altitude above sea level"}),
+        "altitude": (
+            ["time"],
+            alt_profile,
+            {"units": "m", "long_name": "Altitude above sea level"},
+        ),
     }
 
     # Generate data variables
@@ -213,7 +221,9 @@ def create_track_observations(
     for var_name in variables:
         spec = get_variable_spec(var_name)
         var_seed = int(rng.integers(0, 2**31)) if seed is not None else None
-        data = generate_random_field((n_points,), spec, seed=var_seed, add_spatial_correlation=False)
+        data = generate_random_field(
+            (n_points,), spec, seed=var_seed, add_spatial_correlation=False
+        )
         data_vars[var_name] = (["time"], data, {"units": spec.units, "long_name": spec.long_name})
 
     ds = xr.Dataset(data_vars, coords=coords)
@@ -307,7 +317,11 @@ def create_profile_observations(
             vertical_factor = np.linspace(1.0, 0.75, n_levels)
             data = data * vertical_factor
 
-        data_vars[var_name] = (["time", "level"], data, {"units": spec.units, "long_name": spec.long_name})
+        data_vars[var_name] = (
+            ["time", "level"],
+            data,
+            {"units": spec.units, "long_name": spec.long_name},
+        )
 
     ds = xr.Dataset(data_vars, coords=coords)
 
@@ -371,8 +385,9 @@ def create_swath_observations(
     # Generate 2D lat/lon arrays for swath
     # Satellite track goes roughly south to north
     track_lats = np.linspace(domain.lat_min, domain.lat_max, n_scans)
-    track_lons = np.linspace(domain.lon_min + domain.lon_range * 0.3,
-                             domain.lon_min + domain.lon_range * 0.7, n_scans)
+    track_lons = np.linspace(
+        domain.lon_min + domain.lon_range * 0.3, domain.lon_min + domain.lon_range * 0.7, n_scans
+    )
 
     # Cross-track pixels
     swath_width = 15.0  # degrees
@@ -402,12 +417,19 @@ def create_swath_observations(
         spec = get_variable_spec(var_name)
         var_seed = int(rng.integers(0, 2**31)) if seed is not None else None
         data = generate_random_field(shape, spec, seed=var_seed, add_spatial_correlation=True)
-        data_vars[var_name] = (["scanline", "pixel"], data, {"units": spec.units, "long_name": spec.long_name})
+        data_vars[var_name] = (
+            ["scanline", "pixel"],
+            data,
+            {"units": spec.units, "long_name": spec.long_name},
+        )
 
     # Add quality flag
     qa_flag = rng.choice([0, 1, 2], size=shape, p=[0.8, 0.15, 0.05])
-    data_vars["qa_flag"] = (["scanline", "pixel"], qa_flag.astype(np.int8),
-                            {"long_name": "Quality Flag", "flag_values": "0=good, 1=suspect, 2=bad"})
+    data_vars["qa_flag"] = (
+        ["scanline", "pixel"],
+        qa_flag.astype(np.int8),
+        {"long_name": "Quality Flag", "flag_values": "0=good, 1=suspect, 2=bad"},
+    )
 
     ds = xr.Dataset(data_vars, coords=coords)
 

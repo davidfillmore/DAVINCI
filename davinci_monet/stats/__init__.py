@@ -32,29 +32,6 @@ Ratio:
     RM, RMdn
 """
 
-# Metrics
-from davinci_monet.stats.metrics import (
-    # Base classes
-    BaseMetric,
-    MetricResult,
-    # Metric functions
-    get_metric,
-    list_metrics,
-    compute_metric,
-    # Metric sets
-    STANDARD_METRICS,
-    ALL_METRICS,
-    PERCENTAGE_METRICS,
-    # Individual metrics (commonly used)
-    MeanBiasMetric,
-    RMSEMetric,
-    CorrelationMetric,
-    R2Metric,
-    NormalizedMeanBiasMetric,
-    NormalizedMeanErrorMetric,
-    IndexOfAgreementMetric,
-)
-
 # Calculator
 from davinci_monet.stats.calculator import (
     StatisticsCalculator,
@@ -63,16 +40,35 @@ from davinci_monet.stats.calculator import (
     quick_stats,
 )
 
+# Metrics
+from davinci_monet.stats.metrics import (  # Base classes; Metric functions; Metric sets; Individual metrics (commonly used)
+    ALL_METRICS,
+    PERCENTAGE_METRICS,
+    STANDARD_METRICS,
+    BaseMetric,
+    CorrelationMetric,
+    IndexOfAgreementMetric,
+    MeanBiasMetric,
+    MetricResult,
+    NormalizedMeanBiasMetric,
+    NormalizedMeanErrorMetric,
+    R2Metric,
+    RMSEMetric,
+    compute_metric,
+    get_metric,
+    list_metrics,
+)
+
 # Output
 from davinci_monet.stats.output import (
-    StatisticsFormatter,
+    METRIC_FULL_NAMES,
     OutputConfig,
+    StatisticsFormatter,
+    create_comparison_table,
+    format_stats_summary,
+    get_metric_fullname,
     write_statistics_csv,
     write_statistics_table,
-    format_stats_summary,
-    create_comparison_table,
-    get_metric_fullname,
-    METRIC_FULL_NAMES,
 )
 
 __all__ = [

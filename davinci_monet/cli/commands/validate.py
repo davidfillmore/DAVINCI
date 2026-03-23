@@ -35,9 +35,7 @@ def validate_config_command(
     """
     p = Path(control_path)
     if not p.is_file():
-        typer.secho(
-            f"Error: control file {control_path!r} does not exist", fg=ERROR_COLOR
-        )
+        typer.secho(f"Error: control file {control_path!r} does not exist", fg=ERROR_COLOR)
         raise typer.Exit(2)
 
     typer.secho(f"Validating: {control_path!r}", fg=INFO_COLOR)

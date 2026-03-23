@@ -394,6 +394,7 @@ class MismatchScenario(Scenario):
 
         if self.mismatch_type in ["temporal", "both"]:
             import pandas as pd
+
             original_range = self.time_config.time_range
             offset = pd.Timedelta(hours=int(len(original_range) * (1 - self.overlap_fraction)))
             obs_time_config = TimeConfig(

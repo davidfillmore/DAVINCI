@@ -1,7 +1,7 @@
 """Tests for davinci_monet.plots.style module."""
 
-import pytest
 import matplotlib
+import pytest
 
 matplotlib.use("Agg")  # Use non-interactive backend for testing
 import matplotlib.pyplot as plt
@@ -23,9 +23,9 @@ class TestNCARColors:
     def test_ncar_primary_colors_exist(self):
         """Primary color aliases should exist."""
         from davinci_monet.plots.style import (
+            NCAR_ACCENT,
             NCAR_PRIMARY,
             NCAR_SECONDARY,
-            NCAR_ACCENT,
         )
 
         assert NCAR_PRIMARY.startswith("#")
@@ -34,7 +34,7 @@ class TestNCARColors:
 
     def test_obs_model_colors_exist(self):
         """Observation and model colors should be defined."""
-        from davinci_monet.plots.style import OBS_COLOR, MODEL_COLOR
+        from davinci_monet.plots.style import MODEL_COLOR, OBS_COLOR
 
         assert OBS_COLOR.startswith("#")
         assert MODEL_COLOR.startswith("#")
@@ -106,7 +106,7 @@ class TestApplyNCARStyle:
 
     def test_apply_ncar_style_sets_sizes(self):
         """apply_ncar_style should set font sizes."""
-        from davinci_monet.plots.style import apply_ncar_style, FONT_SIZES_DEFAULT
+        from davinci_monet.plots.style import FONT_SIZES_DEFAULT, apply_ncar_style
 
         apply_ncar_style(use_seaborn=False)
 
@@ -116,8 +116,8 @@ class TestApplyNCARStyle:
     def test_apply_ncar_style_presentation_context(self):
         """apply_ncar_style with presentation context should use larger sizes."""
         from davinci_monet.plots.style import (
-            apply_ncar_style,
             FONT_SIZES_PRESENTATION,
+            apply_ncar_style,
         )
 
         apply_ncar_style(context="presentation", use_seaborn=False)
@@ -127,8 +127,8 @@ class TestApplyNCARStyle:
     def test_apply_ncar_style_publication_context(self):
         """apply_ncar_style with publication context should use smaller sizes."""
         from davinci_monet.plots.style import (
-            apply_ncar_style,
             FONT_SIZES_PUBLICATION,
+            apply_ncar_style,
         )
 
         apply_ncar_style(context="publication", use_seaborn=False)
@@ -137,7 +137,7 @@ class TestApplyNCARStyle:
 
     def test_apply_ncar_style_sets_color_cycle(self):
         """apply_ncar_style should set color cycle to NCAR palette."""
-        from davinci_monet.plots.style import apply_ncar_style, NCAR_PALETTE
+        from davinci_monet.plots.style import NCAR_PALETTE, apply_ncar_style
 
         apply_ncar_style(use_seaborn=False)
 
@@ -171,33 +171,33 @@ class TestColorUtilities:
 
     def test_get_color_for_variable_obs(self):
         """get_color_for_variable should return obs color for obs_ prefix."""
-        from davinci_monet.plots.style import get_color_for_variable, OBS_COLOR
+        from davinci_monet.plots.style import OBS_COLOR, get_color_for_variable
 
         assert get_color_for_variable("obs_pm25") == OBS_COLOR
         assert get_color_for_variable("OBS_O3") == OBS_COLOR
 
     def test_get_color_for_variable_model(self):
         """get_color_for_variable should return model color for model_ prefix."""
-        from davinci_monet.plots.style import get_color_for_variable, MODEL_COLOR
+        from davinci_monet.plots.style import MODEL_COLOR, get_color_for_variable
 
         assert get_color_for_variable("model_pm25") == MODEL_COLOR
         assert get_color_for_variable("MODEL_O3") == MODEL_COLOR
 
     def test_get_color_for_variable_bias(self):
         """get_color_for_variable should return red for bias_ prefix."""
-        from davinci_monet.plots.style import get_color_for_variable, NCAR_COLORS
+        from davinci_monet.plots.style import NCAR_COLORS, get_color_for_variable
 
         assert get_color_for_variable("bias_pm25") == NCAR_COLORS["red"]
 
     def test_get_color_for_variable_default(self):
         """get_color_for_variable should return blue for unknown prefix."""
-        from davinci_monet.plots.style import get_color_for_variable, NCAR_COLORS
+        from davinci_monet.plots.style import NCAR_COLORS, get_color_for_variable
 
         assert get_color_for_variable("temperature") == NCAR_COLORS["ncar_blue"]
 
     def test_get_palette_default(self):
         """get_palette without n_colors should return full palette."""
-        from davinci_monet.plots.style import get_palette, NCAR_PALETTE
+        from davinci_monet.plots.style import NCAR_PALETTE, get_palette
 
         palette = get_palette()
         assert palette == list(NCAR_PALETTE)
@@ -211,7 +211,7 @@ class TestColorUtilities:
 
     def test_get_palette_cycles(self):
         """get_palette should cycle when n_colors > palette length."""
-        from davinci_monet.plots.style import get_palette, NCAR_PALETTE
+        from davinci_monet.plots.style import NCAR_PALETTE, get_palette
 
         n_colors = len(NCAR_PALETTE) + 2
         palette = get_palette(n_colors)
@@ -261,7 +261,7 @@ class TestStyleIntegration:
 
     def test_style_applied_to_plot(self):
         """Applied style should affect new plots."""
-        from davinci_monet.plots.style import apply_ncar_style, NCAR_PALETTE
+        from davinci_monet.plots.style import NCAR_PALETTE, apply_ncar_style
 
         apply_ncar_style(use_seaborn=False)
 
@@ -279,7 +279,7 @@ class TestStyleIntegration:
 
     def test_style_affects_text_sizes(self):
         """Applied style should affect text sizes."""
-        from davinci_monet.plots.style import apply_ncar_style, FONT_SIZES_DEFAULT
+        from davinci_monet.plots.style import FONT_SIZES_DEFAULT, apply_ncar_style
 
         apply_ncar_style(use_seaborn=False)
 

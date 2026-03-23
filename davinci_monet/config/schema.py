@@ -18,7 +18,6 @@ from pydantic import (
     model_validator,
 )
 
-
 # =============================================================================
 # Base Configuration
 # =============================================================================
@@ -589,14 +588,10 @@ class StatsConfig(FlexibleModel):
         Data processing configuration.
     """
 
-    stat_list: list[str] = Field(
-        default_factory=lambda: ["MB", "NMB", "R2", "RMSE"]
-    )
+    stat_list: list[str] = Field(default_factory=lambda: ["MB", "NMB", "R2", "RMSE"])
     round_output: int = 3
     output_table: bool = False
-    output_table_kwargs: OutputTableKwargs | dict[str, Any] = Field(
-        default_factory=dict
-    )
+    output_table_kwargs: OutputTableKwargs | dict[str, Any] = Field(default_factory=dict)
     domain_type: list[str] = Field(default_factory=lambda: ["all"])
     domain_name: list[str] = Field(default_factory=lambda: ["CONUS"])
     data: list[str] = Field(default_factory=list)

@@ -26,7 +26,6 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import observation_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
-
 # Standard variable name mappings for LMA data
 LMA_VARIABLE_MAPPING: dict[str, str] = {
     "flash_density": "flash_extent_density",

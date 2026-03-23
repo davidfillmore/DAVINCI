@@ -128,7 +128,9 @@ class ObsHistogramPlotter(ObsPlotter):
                 fontsize=self.config.text.annotation,
                 verticalalignment="top",
                 horizontalalignment="right",
-                bbox=dict(boxstyle="round,pad=0.4", facecolor="white", alpha=0.8, edgecolor="#CCCCCC"),
+                bbox=dict(
+                    boxstyle="round,pad=0.4", facecolor="white", alpha=0.8, edgecolor="#CCCCCC"
+                ),
             )
 
         # Labels

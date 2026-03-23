@@ -109,8 +109,10 @@ class PointStrategy(BasePairingStrategy):
 
         # Find nearest model grid indices for each site
         lat_idx, lon_idx = self._find_nearest_indices(
-            model_lat, model_lon,
-            xr.DataArray(site_lats), xr.DataArray(site_lons),
+            model_lat,
+            model_lon,
+            xr.DataArray(site_lats),
+            xr.DataArray(site_lons),
             radius_of_influence=radius_of_influence,
         )
 
@@ -128,9 +130,7 @@ class PointStrategy(BasePairingStrategy):
         # Interpolate model to observation times
         if "time" in model_at_sites.dims and "time" in obs.dims:
             obs_times = obs["time"]
-            model_at_sites = self._interpolate_time(
-                model_at_sites, obs_times, method="nearest"
-            )
+            model_at_sites = self._interpolate_time(model_at_sites, obs_times, method="nearest")
 
         # Combine into paired dataset
         paired = self._create_paired_output(obs, model_at_sites, site_dim)
@@ -155,8 +155,7 @@ class PointStrategy(BasePairingStrategy):
                 return dim
 
         raise PairingError(
-            f"Cannot find site dimension in observations. "
-            f"Available dims: {list(obs.dims)}"
+            f"Cannot find site dimension in observations. " f"Available dims: {list(obs.dims)}"
         )
 
     def _extract_at_sites(
@@ -206,13 +205,9 @@ class PointStrategy(BasePairingStrategy):
 
         # Create DataArray indexers for vectorized extraction
         lat_indexer = xr.DataArray(
-            np.where(valid_mask, lat_idx, 0),  # Use 0 for invalid, mask later
-            dims=[site_dim]
+            np.where(valid_mask, lat_idx, 0), dims=[site_dim]  # Use 0 for invalid, mask later
         )
-        lon_indexer = xr.DataArray(
-            np.where(valid_mask, lon_idx, 0),
-            dims=[site_dim]
-        )
+        lon_indexer = xr.DataArray(np.where(valid_mask, lon_idx, 0), dims=[site_dim])
 
         # Extract all sites at once using advanced indexing
         extracted = model.isel({lat_dim: lat_indexer, lon_dim: lon_indexer})
@@ -223,25 +218,20 @@ class PointStrategy(BasePairingStrategy):
             n_workers = max(1, int(dask_num_workers))
         else:
             n_workers = min(32, os.cpu_count() or 4)
-        with dask.config.set(scheduler='threads', num_workers=n_workers):
+        with dask.config.set(scheduler="threads", num_workers=n_workers):
             extracted = extracted.compute()
 
         # Mask invalid sites with NaN
         if not valid_mask.all():
             for var in extracted.data_vars:
-                extracted[var] = extracted[var].where(
-                    xr.DataArray(valid_mask, dims=[site_dim])
-                )
+                extracted[var] = extracted[var].where(xr.DataArray(valid_mask, dims=[site_dim]))
 
         # Build output dataset with proper coordinates
         coords = {site_dim: site_coord}
         if "time" in model.coords:
             coords["time"] = model.coords["time"].values
 
-        return xr.Dataset(
-            {str(var): extracted[var] for var in extracted.data_vars},
-            coords=coords
-        )
+        return xr.Dataset({str(var): extracted[var] for var in extracted.data_vars}, coords=coords)
 
     def _create_paired_output(
         self,

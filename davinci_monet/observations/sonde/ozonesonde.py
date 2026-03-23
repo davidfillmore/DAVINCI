@@ -20,7 +20,6 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import observation_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
-
 # Standard variable name mappings for ozonesondes
 OZONESONDE_VARIABLE_MAPPING: dict[str, str] = {
     "ozone": "O3",
@@ -231,7 +230,7 @@ class OzonesondeReader:
         if not data_rows:
             raise DataFormatError(f"No profile data found in {file_path}")
 
-        df = pd.DataFrame(data_rows, columns=headers[:len(data_rows[0])])
+        df = pd.DataFrame(data_rows, columns=headers[: len(data_rows[0])])
 
         # Add level coordinate
         df["level"] = range(len(df))
@@ -315,7 +314,7 @@ class OzonesondeReader:
         if not data_rows:
             raise DataFormatError(f"No profile data found in {file_path}")
 
-        df = pd.DataFrame(data_rows, columns=headers[:len(data_rows[0])])
+        df = pd.DataFrame(data_rows, columns=headers[: len(data_rows[0])])
         df["level"] = range(len(df))
         df = df.set_index("level")
 

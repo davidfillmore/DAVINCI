@@ -39,18 +39,29 @@ class TestTemporalAveraging:
     def high_freq_obs_with_gaps(self) -> xr.Dataset:
         """Create sub-hourly data with some gaps (varying obs per hour)."""
         # Hour 0: 6 obs, Hour 1: 2 obs, Hour 2: 1 obs, Hour 3: 6 obs
-        times = pd.to_datetime([
-            # Hour 0: full coverage (6 obs)
-            "2024-01-01 00:00", "2024-01-01 00:10", "2024-01-01 00:20",
-            "2024-01-01 00:30", "2024-01-01 00:40", "2024-01-01 00:50",
-            # Hour 1: sparse (2 obs)
-            "2024-01-01 01:15", "2024-01-01 01:45",
-            # Hour 2: very sparse (1 obs)
-            "2024-01-01 02:30",
-            # Hour 3: full coverage (6 obs)
-            "2024-01-01 03:00", "2024-01-01 03:10", "2024-01-01 03:20",
-            "2024-01-01 03:30", "2024-01-01 03:40", "2024-01-01 03:50",
-        ])
+        times = pd.to_datetime(
+            [
+                # Hour 0: full coverage (6 obs)
+                "2024-01-01 00:00",
+                "2024-01-01 00:10",
+                "2024-01-01 00:20",
+                "2024-01-01 00:30",
+                "2024-01-01 00:40",
+                "2024-01-01 00:50",
+                # Hour 1: sparse (2 obs)
+                "2024-01-01 01:15",
+                "2024-01-01 01:45",
+                # Hour 2: very sparse (1 obs)
+                "2024-01-01 02:30",
+                # Hour 3: full coverage (6 obs)
+                "2024-01-01 03:00",
+                "2024-01-01 03:10",
+                "2024-01-01 03:20",
+                "2024-01-01 03:30",
+                "2024-01-01 03:40",
+                "2024-01-01 03:50",
+            ]
+        )
         n_points = len(times)
         return xr.Dataset(
             {
@@ -85,9 +96,7 @@ class TestTemporalAveraging:
         assert obs.data is not None
         assert len(obs.data["time"]) == 8
 
-    def test_min_obs_count_filtering(
-        self, high_freq_obs_with_gaps: xr.Dataset
-    ) -> None:
+    def test_min_obs_count_filtering(self, high_freq_obs_with_gaps: xr.Dataset) -> None:
         """Test that averages with insufficient obs are set to NaN."""
         obs = ObservationData(data=high_freq_obs_with_gaps, label="pandora")
         obs.resample_data(freq="h", min_count=3)
@@ -118,9 +127,7 @@ class TestTemporalAveraging:
         assert counts[2] == 1  # Hour 2
         assert counts[3] == 6  # Hour 3
 
-    def test_obs_count_with_min_count(
-        self, high_freq_obs_with_gaps: xr.Dataset
-    ) -> None:
+    def test_obs_count_with_min_count(self, high_freq_obs_with_gaps: xr.Dataset) -> None:
         """Test obs_count is added when using min_count, even if track_count=False."""
         obs = ObservationData(data=high_freq_obs_with_gaps, label="pandora")
         obs.resample_data(freq="h", min_count=3, track_count=True)
@@ -134,9 +141,7 @@ class TestTemporalAveraging:
         assert np.isnan(no2[1])  # 2 obs < 3
         assert np.isnan(no2[2])  # 1 obs < 3
 
-    def test_resample_preserves_scalar_coords(
-        self, high_freq_obs: xr.Dataset
-    ) -> None:
+    def test_resample_preserves_scalar_coords(self, high_freq_obs: xr.Dataset) -> None:
         """Test that scalar lat/lon coordinates are preserved."""
         obs = ObservationData(data=high_freq_obs, label="pandora")
         obs.resample_data(freq="h")

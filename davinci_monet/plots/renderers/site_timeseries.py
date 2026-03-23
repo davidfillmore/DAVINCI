@@ -133,7 +133,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
 
         # Create figure with standard size
         fig, axes = plt.subplots(
-            nrows, ncols,
+            nrows,
+            ncols,
             figsize=(8, 5),
             sharex=True,
             squeeze=False,
@@ -162,28 +163,47 @@ class SiteTimeSeriesPlotter(BasePlotter):
             # Plot observations
             if obs_style == "scatter":
                 ax.scatter(
-                    times[valid_obs], obs_vals[valid_obs],
-                    s=8, alpha=0.6, color="black", label="Obs", zorder=3
+                    times[valid_obs],
+                    obs_vals[valid_obs],
+                    s=8,
+                    alpha=0.6,
+                    color="black",
+                    label="Obs",
+                    zorder=3,
                 )
             else:
                 ax.plot(
-                    times[valid_obs], obs_vals[valid_obs],
-                    "o-", color="black", markersize=3, linewidth=0.5,
-                    alpha=0.7, label="Obs", zorder=3
+                    times[valid_obs],
+                    obs_vals[valid_obs],
+                    "o-",
+                    color="black",
+                    markersize=3,
+                    linewidth=0.5,
+                    alpha=0.7,
+                    label="Obs",
+                    zorder=3,
                 )
 
             # Plot model
             if model_style == "line":
                 ax.plot(
-                    times, mod_vals,
-                    color=style.model_color, linewidth=1.5, alpha=0.8,
-                    label="Model", zorder=2
+                    times,
+                    mod_vals,
+                    color=style.model_color,
+                    linewidth=1.5,
+                    alpha=0.8,
+                    label="Model",
+                    zorder=2,
                 )
             else:
                 ax.scatter(
-                    times[valid_both], mod_vals[valid_both],
-                    s=8, alpha=0.6, color=style.model_color,
-                    label="Model", zorder=2
+                    times[valid_both],
+                    mod_vals[valid_both],
+                    s=8,
+                    alpha=0.6,
+                    color=style.model_color,
+                    label="Model",
+                    zorder=2,
                 )
 
             # Compute and display stats
@@ -203,17 +223,23 @@ class SiteTimeSeriesPlotter(BasePlotter):
 
                 # Multi-panel font sizes (smaller for dense panels)
                 ax.text(
-                    0.97, 0.97, stats_text,
-                    transform=ax.transAxes, fontsize=self.config.text.annotation_small,
-                    verticalalignment="top", horizontalalignment="right",
-                    bbox=dict(boxstyle="round", facecolor="white", alpha=0.8)
+                    0.97,
+                    0.97,
+                    stats_text,
+                    transform=ax.transAxes,
+                    fontsize=self.config.text.annotation_small,
+                    verticalalignment="top",
+                    horizontalalignment="right",
+                    bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
                 )
 
             # Title with site name and coordinates
             if has_coords:
                 lat = float(paired_data["latitude"].sel({site_dim: site}).values)
                 lon = float(paired_data["longitude"].sel({site_dim: site}).values)
-                ax.set_title(f"{site} ({lat:.1f}°N, {lon:.1f}°E)", fontsize=self.config.text.annotation_small)
+                ax.set_title(
+                    f"{site} ({lat:.1f}°N, {lon:.1f}°E)", fontsize=self.config.text.annotation_small
+                )
             else:
                 ax.set_title(str(site), fontsize=self.config.text.annotation_small)
 
@@ -230,7 +256,11 @@ class SiteTimeSeriesPlotter(BasePlotter):
                 ylabel = get_variable_label(paired_data, obs_var, include_prefix=False)
                 if scale_factor != 1.0:
                     exp = int(np.log10(1 / scale_factor))
-                    ylabel = f"{ylabel}\n(×10{_superscript(exp)} {units})" if units and units != "1" else f"{ylabel}\n(×10{_superscript(exp)})"
+                    ylabel = (
+                        f"{ylabel}\n(×10{_superscript(exp)} {units})"
+                        if units and units != "1"
+                        else f"{ylabel}\n(×10{_superscript(exp)})"
+                    )
                 else:
                     ylabel = format_label_with_units(ylabel, units)
                 ax.set_ylabel(ylabel, fontsize=self.config.text.legend_small)
@@ -253,7 +283,9 @@ class SiteTimeSeriesPlotter(BasePlotter):
 
         # Main title
         if self.config.title:
-            fig.suptitle(format_plot_title(self.config.title), fontsize=self.config.text.fontsize, y=1.02)
+            fig.suptitle(
+                format_plot_title(self.config.title), fontsize=self.config.text.fontsize, y=1.02
+            )
 
         plt.tight_layout()
         return fig
@@ -262,8 +294,17 @@ class SiteTimeSeriesPlotter(BasePlotter):
 def _superscript(n: int) -> str:
     """Convert integer to superscript string."""
     superscripts = {
-        "-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³",
-        "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹"
+        "-": "⁻",
+        "0": "⁰",
+        "1": "¹",
+        "2": "²",
+        "3": "³",
+        "4": "⁴",
+        "5": "⁵",
+        "6": "⁶",
+        "7": "⁷",
+        "8": "⁸",
+        "9": "⁹",
     }
     return "".join(superscripts.get(c, c) for c in str(n))
 

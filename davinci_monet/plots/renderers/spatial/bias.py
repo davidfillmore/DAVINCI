@@ -193,8 +193,15 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         lons_flat = lons_flat[mask]
 
         if len(bias_values) == 0:
-            ax.text(0.5, 0.5, "No valid data", ha="center", va="center",
-                    transform=ax.transAxes, fontsize=self.config.text.fontsize)
+            ax.text(
+                0.5,
+                0.5,
+                "No valid data",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+                fontsize=self.config.text.fontsize,
+            )
             return fig
 
         # Calculate color limits
@@ -310,7 +317,8 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
                 )
                 # Add a small marker for the city location
                 ax.plot(
-                    lon, lat,
+                    lon,
+                    lat,
                     marker="*",
                     markersize=6,
                     color="black",
@@ -321,9 +329,13 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         # Title
         var_label = get_variable_label(paired_data, obs_var)
         if self.config.title:
-            ax.set_title(format_plot_title(self.config.title), fontsize=self.config.text.title_fontsize)
+            ax.set_title(
+                format_plot_title(self.config.title), fontsize=self.config.text.title_fontsize
+            )
         else:
-            ax.set_title(format_plot_title(f"{var_label} Bias"), fontsize=self.config.text.title_fontsize)
+            ax.set_title(
+                format_plot_title(f"{var_label} Bias"), fontsize=self.config.text.title_fontsize
+            )
 
         return fig
 

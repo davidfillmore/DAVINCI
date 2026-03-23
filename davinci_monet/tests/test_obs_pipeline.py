@@ -15,7 +15,6 @@ from davinci_monet.pipeline.stages import (
     StageStatus,
 )
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -120,9 +119,7 @@ class TestObsPlottingStage:
         ctx = PipelineContext(config={})
         assert stage.validate(ctx) is False
 
-    def test_execute_creates_plots(
-        self, obs_context: PipelineContext, tmp_path: Any
-    ) -> None:
+    def test_execute_creates_plots(self, obs_context: PipelineContext, tmp_path: Any) -> None:
         """execute() creates plot files in output dir."""
         from davinci_monet.pipeline.stages import ObsPlottingStage
 

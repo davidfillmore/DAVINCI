@@ -20,7 +20,6 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import observation_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
-
 # Standard variable name mappings for AQS
 AQS_VARIABLE_MAPPING: dict[str, str] = {
     "ozone": "OZONE",
@@ -144,8 +143,7 @@ class AQSReader:
             import monetio.obs.aqs as aqs_mod
         except ImportError as e:
             raise ImportError(
-                "monetio is required for AQS API queries. "
-                "Install with: pip install monetio"
+                "monetio is required for AQS API queries. " "Install with: pip install monetio"
             ) from e
 
         # Parse dates
@@ -158,9 +156,7 @@ class AQSReader:
         for date in date_range:
             try:
                 if daily:
-                    df: pd.DataFrame = aqs_mod.add_data(
-                        date, daily=True, **kwargs
-                    )
+                    df: pd.DataFrame = aqs_mod.add_data(date, daily=True, **kwargs)
                 else:
                     df = aqs_mod.add_data(date, daily=False, **kwargs)
                 if not df.empty:

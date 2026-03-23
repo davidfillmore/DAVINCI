@@ -19,7 +19,9 @@ from davinci_monet.core.types import TimeDelta
 from davinci_monet.pairing.strategies.base import BasePairingStrategy
 
 
-def altitude_to_pressure(altitude_m: np.ndarray[Any, np.dtype[Any]]) -> np.ndarray[Any, np.dtype[Any]]:
+def altitude_to_pressure(
+    altitude_m: np.ndarray[Any, np.dtype[Any]],
+) -> np.ndarray[Any, np.dtype[Any]]:
     """Convert altitude (meters) to pressure (hPa) using standard atmosphere.
 
     Uses the barometric formula for the troposphere (valid up to ~11 km):
@@ -37,11 +39,11 @@ def altitude_to_pressure(altitude_m: np.ndarray[Any, np.dtype[Any]]) -> np.ndarr
     """
     # Standard atmosphere constants
     P0 = 1013.25  # Sea level pressure (hPa)
-    L = 0.0065    # Temperature lapse rate (K/m)
-    T0 = 288.15   # Sea level temperature (K)
-    g = 9.80665   # Gravitational acceleration (m/s²)
-    M = 0.0289644 # Molar mass of air (kg/mol)
-    R = 8.31447   # Gas constant (J/(mol·K))
+    L = 0.0065  # Temperature lapse rate (K/m)
+    T0 = 288.15  # Sea level temperature (K)
+    g = 9.80665  # Gravitational acceleration (m/s²)
+    M = 0.0289644  # Molar mass of air (kg/mol)
+    R = 8.31447  # Gas constant (J/(mol·K))
 
     exponent = g * M / (R * L)  # ≈ 5.2559
 
@@ -126,19 +128,28 @@ class TrackStrategy(BasePairingStrategy):
 
         # Find nearest model grid cell for each track point
         lat_idx, lon_idx = self._find_nearest_indices(
-            model_lat, model_lon, obs_lat, obs_lon,
+            model_lat,
+            model_lon,
+            obs_lat,
+            obs_lon,
             radius_of_influence=radius_of_influence,
         )
 
         # Determine vertical coordinate
         obs_altitude = self._get_altitude(obs, altitude_var)
-        model_has_vertical = any(dim in model.dims for dim in ["z", "lev", "level", "altitude", "height"])
+        model_has_vertical = any(
+            dim in model.dims for dim in ["z", "lev", "level", "altitude", "height"]
+        )
 
         # Extract and interpolate model values along track
         model_along_track = self._extract_along_track(
-            model, model_lat, model_lon,
-            lat_idx.values, lon_idx.values,
-            obs_times, obs_altitude,
+            model,
+            model_lat,
+            model_lon,
+            lat_idx.values,
+            lon_idx.values,
+            obs_times,
+            obs_altitude,
             vertical_method=vertical_method,
             model_has_vertical=model_has_vertical,
         )
@@ -148,9 +159,7 @@ class TrackStrategy(BasePairingStrategy):
 
         return paired
 
-    def _get_altitude(
-        self, obs: xr.Dataset, altitude_var: str
-    ) -> xr.DataArray | None:
+    def _get_altitude(self, obs: xr.Dataset, altitude_var: str) -> xr.DataArray | None:
         """Get altitude/pressure coordinate from observations.
 
         Parameters
@@ -226,12 +235,8 @@ class TrackStrategy(BasePairingStrategy):
         valid_mask = (lat_idx >= 0) & (lon_idx >= 0)
 
         # Create DataArray indexers for vectorized spatial extraction
-        lat_indexer = xr.DataArray(
-            np.where(valid_mask, lat_idx, 0), dims=["track_point"]
-        )
-        lon_indexer = xr.DataArray(
-            np.where(valid_mask, lon_idx, 0), dims=["track_point"]
-        )
+        lat_indexer = xr.DataArray(np.where(valid_mask, lat_idx, 0), dims=["track_point"])
+        lon_indexer = xr.DataArray(np.where(valid_mask, lon_idx, 0), dims=["track_point"])
 
         # Detect vertical dimension
         level_dim = None
@@ -244,9 +249,16 @@ class TrackStrategy(BasePairingStrategy):
         # Otherwise fall back to surface extraction
         if level_dim and model_has_vertical and obs_altitude is not None:
             extracted = self._extract_with_vertical_interp(
-                model, lat_dim, lon_dim, level_dim,
-                lat_indexer, lon_indexer, obs_altitude,
-                vertical_method, valid_mask, n_points,
+                model,
+                lat_dim,
+                lon_dim,
+                level_dim,
+                lat_indexer,
+                lon_indexer,
+                obs_altitude,
+                vertical_method,
+                valid_mask,
+                n_points,
             )
         else:
             # Fall back to surface extraction
@@ -255,7 +267,7 @@ class TrackStrategy(BasePairingStrategy):
 
         # Load data with optimized parallel scheduler for file I/O
         n_workers = min(32, os.cpu_count() or 4)
-        with dask.config.set(scheduler='threads', num_workers=n_workers):
+        with dask.config.set(scheduler="threads", num_workers=n_workers):
             extracted = extracted.compute()
 
         # Interpolate in time: for each track point, find nearest model time
@@ -342,7 +354,7 @@ class TrackStrategy(BasePairingStrategy):
 
         # Convert aircraft altitude (meters) to pressure (hPa)
         altitude_values = obs_altitude.values
-        if hasattr(altitude_values, 'compute'):
+        if hasattr(altitude_values, "compute"):
             altitude_values = altitude_values.compute()
         altitude_values = np.asarray(altitude_values, dtype=np.float64)
 
@@ -379,14 +391,24 @@ class TrackStrategy(BasePairingStrategy):
             if vertical_method == "nearest":
                 # Nearest neighbor interpolation
                 out_data = self._interp_nearest_vertical(
-                    var_data.values, model_levels, aircraft_pressure,
-                    level_axis, n_points, valid_mask, surface_idx
+                    var_data.values,
+                    model_levels,
+                    aircraft_pressure,
+                    level_axis,
+                    n_points,
+                    valid_mask,
+                    surface_idx,
                 )
             else:
                 # Linear interpolation (in log-pressure space)
                 out_data = self._interp_linear_vertical(
-                    var_data.values, model_levels, aircraft_pressure,
-                    level_axis, n_points, valid_mask, surface_idx
+                    var_data.values,
+                    model_levels,
+                    aircraft_pressure,
+                    level_axis,
+                    n_points,
+                    valid_mask,
+                    surface_idx,
                 )
 
             # Remove level dimension from dims
@@ -472,7 +494,7 @@ class TrackStrategy(BasePairingStrategy):
             result = np.take_along_axis(
                 data_moved,
                 level_indices.reshape((1,) * (len(original_shape) - 1) + (n_track, 1)),
-                axis=-1
+                axis=-1,
             ).squeeze(axis=-1)
 
         return result
@@ -582,9 +604,13 @@ class TrackStrategy(BasePairingStrategy):
                 weight = np.clip(weight, 0.0, 1.0)
 
                 if len(original_shape) == 1:
-                    result[i] = (1 - weight) * data_moved[i, idx_lo] + weight * data_moved[i, idx_hi]
+                    result[i] = (1 - weight) * data_moved[i, idx_lo] + weight * data_moved[
+                        i, idx_hi
+                    ]
                 elif len(original_shape) == 2:
-                    result[:, i] = (1 - weight) * data_moved[:, i, idx_lo] + weight * data_moved[:, i, idx_hi]
+                    result[:, i] = (1 - weight) * data_moved[:, i, idx_lo] + weight * data_moved[
+                        :, i, idx_hi
+                    ]
 
         return result
 

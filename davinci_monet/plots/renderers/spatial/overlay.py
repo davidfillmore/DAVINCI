@@ -140,9 +140,7 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
             if model_var in paired_data:
                 model_field = paired_data[model_var]
             else:
-                raise ValueError(
-                    f"No model field provided and {model_var} not in paired_data"
-                )
+                raise ValueError(f"No model field provided and {model_var} not in paired_data")
 
         # Select time/level slice if needed
         if "time" in model_field.dims and model_field.dims.index("time") >= 0:
@@ -174,10 +172,12 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
                     break
 
         # Get value limits
-        all_values = np.concatenate([
-            model_field.values.flatten(),
-            paired_data[obs_var].values.flatten(),
-        ])
+        all_values = np.concatenate(
+            [
+                model_field.values.flatten(),
+                paired_data[obs_var].values.flatten(),
+            ]
+        )
         all_values = all_values[np.isfinite(all_values)]
 
         vmin = self.config.vmin if self.config.vmin is not None else np.nanmin(all_values)
@@ -218,8 +218,16 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
             obs_lons = paired_data[lon_var].values
 
         obs_values = obs_data.values.flatten()
-        obs_lats_flat = np.broadcast_to(obs_lats, obs_data.shape).flatten() if obs_lats.ndim < obs_data.ndim else obs_lats.flatten()
-        obs_lons_flat = np.broadcast_to(obs_lons, obs_data.shape).flatten() if obs_lons.ndim < obs_data.ndim else obs_lons.flatten()
+        obs_lats_flat = (
+            np.broadcast_to(obs_lats, obs_data.shape).flatten()
+            if obs_lats.ndim < obs_data.ndim
+            else obs_lats.flatten()
+        )
+        obs_lons_flat = (
+            np.broadcast_to(obs_lons, obs_data.shape).flatten()
+            if obs_lons.ndim < obs_data.ndim
+            else obs_lons.flatten()
+        )
 
         # Remove NaN values
         mask = np.isfinite(obs_values)
@@ -256,7 +264,9 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
 
         # Title
         if self.config.title:
-            ax.set_title(format_plot_title(self.config.title), fontsize=self.config.text.title_fontsize)
+            ax.set_title(
+                format_plot_title(self.config.title), fontsize=self.config.text.title_fontsize
+            )
         else:
             var_label = get_variable_label(paired_data, obs_var)
             ax.set_title(

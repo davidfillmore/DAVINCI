@@ -131,9 +131,7 @@ class StatisticsCalculator:
         model_data = paired_data[model_var]
 
         if groupby is not None:
-            return self._compute_grouped(
-                obs_data, model_data, metrics, groupby, **kwargs
-            )
+            return self._compute_grouped(obs_data, model_data, metrics, groupby, **kwargs)
         else:
             return self._compute_overall(obs_data, model_data, metrics, **kwargs)
 
@@ -231,9 +229,7 @@ class StatisticsCalculator:
             )
 
         # Multi-dimensional groupby
-        return self._compute_multi_groupby(
-            obs_data, model_data, metrics, parsed_groupby, **kwargs
-        )
+        return self._compute_multi_groupby(obs_data, model_data, metrics, parsed_groupby, **kwargs)
 
     def _compute_single_groupby(
         self,
@@ -343,10 +339,20 @@ class StatisticsCalculator:
                         df[name] = df["time"].dt.dayofweek
                     elif accessor == "season":
                         df[name] = df["time"].dt.month.map(
-                            {12: "DJF", 1: "DJF", 2: "DJF",
-                             3: "MAM", 4: "MAM", 5: "MAM",
-                             6: "JJA", 7: "JJA", 8: "JJA",
-                             9: "SON", 10: "SON", 11: "SON"}
+                            {
+                                12: "DJF",
+                                1: "DJF",
+                                2: "DJF",
+                                3: "MAM",
+                                4: "MAM",
+                                5: "MAM",
+                                6: "JJA",
+                                7: "JJA",
+                                8: "JJA",
+                                9: "SON",
+                                10: "SON",
+                                11: "SON",
+                            }
                         )
             group_cols.append(name)
 
@@ -366,9 +372,7 @@ class StatisticsCalculator:
         result_df = pd.DataFrame(results)
         if self.config.round_precision is not None:
             numeric_cols = result_df.select_dtypes(include=[np.number]).columns
-            result_df[numeric_cols] = result_df[numeric_cols].round(
-                self.config.round_precision
-            )
+            result_df[numeric_cols] = result_df[numeric_cols].round(self.config.round_precision)
 
         return result_df
 

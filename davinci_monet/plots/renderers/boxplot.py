@@ -111,12 +111,14 @@ class BoxPlotter(BasePlotter):
         style = self.config.style
 
         # Get labels
-        obs_label = obs_label or get_variable_label(
-            paired_data, obs_var, self.config.obs_label
-        ) or "Obs"
-        model_label = model_label or get_variable_label(
-            paired_data, model_var, self.config.model_label
-        ) or "Model"
+        obs_label = (
+            obs_label or get_variable_label(paired_data, obs_var, self.config.obs_label) or "Obs"
+        )
+        model_label = (
+            model_label
+            or get_variable_label(paired_data, model_var, self.config.model_label)
+            or "Model"
+        )
 
         vert = orientation == "vertical"
 

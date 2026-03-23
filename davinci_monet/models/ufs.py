@@ -22,7 +22,6 @@ from davinci_monet.core.exceptions import (
 from davinci_monet.core.registry import model_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
-
 # Standard variable name mappings for UFS-AQM
 UFS_VARIABLE_MAPPING: dict[str, str] = {
     "ozone": "o3",
@@ -163,8 +162,7 @@ class UFSReader:
             ds = mio.models.ufs.open_mfdataset(files, **mio_kwargs)
         else:
             warnings.warn(
-                "Using deprecated _rrfs_cmaq_mm reader. "
-                "Update monetio for better UFS support.",
+                "Using deprecated _rrfs_cmaq_mm reader. " "Update monetio for better UFS support.",
                 DeprecationWarning,
             )
             ds = mio.models._rrfs_cmaq_mm.open_mfdataset(files, **mio_kwargs)
@@ -194,10 +192,7 @@ class UFSReader:
             Raw UFS dataset.
         """
         # Filter out custom kwargs
-        xr_kwargs = {
-            k: v for k, v in kwargs.items()
-            if k not in ("fname_pm25", "surf_only")
-        }
+        xr_kwargs = {k: v for k, v in kwargs.items() if k not in ("fname_pm25", "surf_only")}
 
         # Check if files are grib2
         is_grib = any(str(f).endswith((".grib2", ".grb2", ".grib")) for f in file_paths)
@@ -243,7 +238,9 @@ class UFSReader:
                     msg += f" (details: {error_file})"
                 raise DataFormatError(msg) from e
 
-        raise DataFormatError(f"Failed to open UFS files after {max_retries} attempts") from last_error
+        raise DataFormatError(
+            f"Failed to open UFS files after {max_retries} attempts"
+        ) from last_error
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize UFS dataset dimensions and coordinates.
@@ -345,6 +342,7 @@ def open_ufs(
         file_str = str(files)
         if "*" in file_str or "?" in file_str:
             from glob import glob
+
             file_list = sorted(glob(file_str))
             if not file_list:
                 raise DataNotFoundError(f"No files match pattern: {files}")

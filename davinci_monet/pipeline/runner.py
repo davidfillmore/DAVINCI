@@ -98,13 +98,15 @@ class LogCollector:
         traceback_str
             Optional formatted traceback string.
         """
-        self.errors.append({
-            "stage": stage_name,
-            "error_type": error_type,
-            "error_message": error_message,
-            "traceback": traceback_str,
-            "timestamp": datetime.now().isoformat(),
-        })
+        self.errors.append(
+            {
+                "stage": stage_name,
+                "error_type": error_type,
+                "error_message": error_message,
+                "traceback": traceback_str,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
     def start_stage(self, name: str) -> None:
         """Record stage start."""
@@ -213,9 +215,7 @@ class LogCollector:
                 if "time" in ds.sizes:
                     details["time_steps"] = ds.sizes["time"]
                 # Calculate approximate size
-                total_size = sum(
-                    ds[v].size for v in ds.data_vars
-                )
+                total_size = sum(ds[v].size for v in ds.data_vars)
                 details["data_points"] = total_size
             self.model_details[label] = details
 
@@ -382,6 +382,7 @@ class LogCollector:
                 for var_name, stats in pair_stats.items():
                     if not isinstance(stats, dict):
                         continue
+
                     def _get_metric(*keys: str, default: Any = None) -> Any:
                         for key in keys:
                             if key in stats and stats[key] is not None:
@@ -399,7 +400,11 @@ class LogCollector:
                     model_str = f"{model_mean:.2f}" if model_mean is not None else "-"
                     mb_str = f"{mb:+.2f}" if mb is not None else "-"
                     rmse_str = f"{rmse:.2f}" if rmse is not None else "-"
-                    r_str = f"{r:.2f}" if r is not None and not (isinstance(r, float) and r != r) else "-"
+                    r_str = (
+                        f"{r:.2f}"
+                        if r is not None and not (isinstance(r, float) and r != r)
+                        else "-"
+                    )
                     lines.append(
                         f"| {var_name} | {n} | {obs_str} | {model_str} | {mb_str} | {rmse_str} | {r_str} |"
                     )
@@ -468,10 +473,10 @@ class ProgressFormatter:
     ]
 
     # NCAR accent colors for status
-    NCAR_AQUA = "#00A2B4"      # UCAR Aqua - for accents
-    NCAR_ORANGE = "#FF8C00"    # For warnings/stage names
-    NCAR_GREEN = "#2E8B57"     # For success
-    NCAR_RED = "#D62839"       # For errors
+    NCAR_AQUA = "#00A2B4"  # UCAR Aqua - for accents
+    NCAR_ORANGE = "#FF8C00"  # For warnings/stage names
+    NCAR_GREEN = "#2E8B57"  # For success
+    NCAR_RED = "#D62839"  # For errors
 
     def __init__(self, show_output: bool = True) -> None:
         from rich.console import Console
@@ -558,7 +563,7 @@ class ProgressFormatter:
             result.append(" › ", style="dim")
             result.append(
                 f"[{self._parallel_completed}/{self._parallel_total}] ",
-                style=f"dim {self.NCAR_AQUA}" if self._parallel_completed > 0 else "dim"
+                style=f"dim {self.NCAR_AQUA}" if self._parallel_completed > 0 else "dim",
             )
             if self._current_item:
                 # After completions start, show the completed item name
@@ -649,7 +654,7 @@ class ProgressFormatter:
             max_path_len = 70
             display_path = config_path
             if len(config_path) > max_path_len:
-                display_path = "..." + config_path[-(max_path_len - 3):]
+                display_path = "..." + config_path[-(max_path_len - 3) :]
             self._print(f"  [dim]Config:[/dim] {display_path}")
 
         # Display analysis info
@@ -754,6 +759,7 @@ class ProgressFormatter:
                 )
                 if result.returncode == 0:
                     import json
+
                     data = json.loads(result.stdout)
                     displays = data.get("SPDisplaysDataType", [])
                     for display in displays:
@@ -943,7 +949,9 @@ class ProgressFormatter:
             self._live.update(self._create_stage_display())
             time.sleep(1.0)  # Pause so each completion is clearly visible
 
-    def item_start(self, category: str, name: str, index: int, total: int, track: bool = True) -> None:
+    def item_start(
+        self, category: str, name: str, index: int, total: int, track: bool = True
+    ) -> None:
         """Print item start (model, observation, pair).
 
         Parameters
@@ -974,7 +982,9 @@ class ProgressFormatter:
         self._log(f"      ✓ {summary}")
         # Completion is logged but animation continues
 
-    def item_complete(self, category: str, name: str, index: int, total: int, details: str = "") -> None:
+    def item_complete(
+        self, category: str, name: str, index: int, total: int, details: str = ""
+    ) -> None:
         """Print item completion with visible output (not just animation update)."""
         detail_str = f" - {details}" if details else ""
         self._log(f"  ✓ {name} ({index}/{total}){detail_str}")
@@ -993,7 +1003,7 @@ class ProgressFormatter:
         # Truncate error if too long
         max_len = 60
         if len(error) > max_len:
-            error = error[:max_len - 3] + "..."
+            error = error[: max_len - 3] + "..."
         self._log(f"      ✗ {error}")
 
         # Stop animation and show failure immediately
@@ -1086,9 +1096,7 @@ class ProgressFormatter:
         from rich.live import Live
         from rich.text import Text
 
-        preview_files = sorted(
-            p for p in plot_paths if p.endswith(".pdf") or p.endswith(".png")
-        )
+        preview_files = sorted(p for p in plot_paths if p.endswith(".pdf") or p.endswith(".png"))
 
         if not preview_files:
             return
@@ -1231,11 +1239,7 @@ class PipelineResult:
     @property
     def completed_stages(self) -> list[str]:
         """Get names of completed stages."""
-        return [
-            r.stage_name
-            for r in self.stage_results
-            if r.status == StageStatus.COMPLETED
-        ]
+        return [r.stage_name for r in self.stage_results if r.status == StageStatus.COMPLETED]
 
     def get_stage_result(self, stage_name: str) -> StageResult | None:
         """Get result for a specific stage."""
@@ -1369,6 +1373,7 @@ class PipelineRunner:
 
         if theme == "ncar":
             from davinci_monet.plots.style import apply_ncar_style
+
             apply_ncar_style(
                 context=style_context,
                 use_seaborn=use_seaborn,
@@ -1377,6 +1382,7 @@ class PipelineRunner:
             logger.info(f"Applied NCAR plot style (context={style_context})")
         elif theme == "default":
             from davinci_monet.plots.style import reset_style
+
             reset_style()
             logger.info("Reset to default matplotlib style")
 
@@ -1394,6 +1400,7 @@ class PipelineRunner:
         # Clear xarray's file manager cache if available
         try:
             from xarray.backends.file_manager import FILE_CACHE
+
             FILE_CACHE.clear()
         except (ImportError, AttributeError):
             pass
@@ -1401,6 +1408,7 @@ class PipelineRunner:
         # Clear netCDF4's file cache if available
         try:
             import netCDF4
+
             # netCDF4 doesn't have a public cache clear, but gc.collect handles it
         except ImportError:
             pass
@@ -1443,6 +1451,7 @@ class PipelineRunner:
 
         try:
             from xarray.backends.file_manager import FILE_CACHE
+
             FILE_CACHE.clear()
         except (ImportError, AttributeError):
             pass
@@ -1501,6 +1510,7 @@ class PipelineRunner:
             collector: LogCollector | None,
         ) -> Callable[[str], None]:
             """Create progress callback for formatted output and log collection."""
+
             def callback(msg: str) -> None:
                 # Collect structured data for Markdown log
                 if collector:
@@ -1571,6 +1581,7 @@ class PipelineRunner:
                     # Completion messages from stages
                     done_msg = msg.strip()[5:].strip()
                     fmt.item_done(done_msg)
+
             return callback
 
         context.progress_callback = _make_progress_callback(formatter, log_collector)
@@ -1619,11 +1630,15 @@ class PipelineRunner:
                 elif stage_result.status == StageStatus.SKIPPED:
                     formatter.stage_end(stage.name, True, stage_result.duration_seconds)
                     if log_collector:
-                        log_collector.end_stage(stage.name, "skipped", stage_result.duration_seconds)
+                        log_collector.end_stage(
+                            stage.name, "skipped", stage_result.duration_seconds
+                        )
                 elif stage_result.status == StageStatus.COMPLETED:
                     formatter.stage_end(stage.name, True, stage_result.duration_seconds)
                     if log_collector:
-                        log_collector.end_stage(stage.name, "completed", stage_result.duration_seconds)
+                        log_collector.end_stage(
+                            stage.name, "completed", stage_result.duration_seconds
+                        )
 
         finally:
             # Print footer
@@ -1675,9 +1690,7 @@ class PipelineRunner:
 
         return result
 
-    def run_from_config(
-        self, config: dict[str, Any] | str
-    ) -> PipelineResult:
+    def run_from_config(self, config: dict[str, Any] | str) -> PipelineResult:
         """Execute pipeline from configuration.
 
         Parameters
@@ -1701,6 +1714,7 @@ class PipelineRunner:
         if isinstance(config, str):
             config_path = config
             from davinci_monet.config import load_config
+
             config = load_config(config).model_dump()
 
         # Validate that config has something to process
@@ -1716,6 +1730,7 @@ class PipelineRunner:
         # Auto-detect obs-only mode
         if not model_config and obs_config:
             from davinci_monet.pipeline.stages import create_obs_pipeline
+
             self._stages = create_obs_pipeline()
 
         context = PipelineContext(config=config)
@@ -1723,9 +1738,7 @@ class PipelineRunner:
             context.metadata["config_path"] = config_path
         return self.run(context)
 
-    def _execute_stage(
-        self, stage: Stage, context: PipelineContext
-    ) -> StageResult:
+    def _execute_stage(self, stage: Stage, context: PipelineContext) -> StageResult:
         """Execute a single stage.
 
         Parameters
@@ -1759,10 +1772,7 @@ class PipelineRunner:
                 logger.info(f"Executing stage: {stage.name}")
                 result = stage.execute(context)
                 result.duration_seconds = time.time() - start_time
-                logger.info(
-                    f"Stage '{stage.name}' completed in "
-                    f"{result.duration_seconds:.2f}s"
-                )
+                logger.info(f"Stage '{stage.name}' completed in " f"{result.duration_seconds:.2f}s")
 
         except Exception as e:
             # Don't use logger.exception() - it prints traceback to console
@@ -1822,36 +1832,42 @@ class PipelineBuilder:
     def add_models(self) -> PipelineBuilder:
         """Add model loading stage."""
         from davinci_monet.pipeline.stages import LoadModelsStage
+
         self._stages.append(LoadModelsStage())
         return self
 
     def add_observations(self) -> PipelineBuilder:
         """Add observation loading stage."""
         from davinci_monet.pipeline.stages import LoadObservationsStage
+
         self._stages.append(LoadObservationsStage())
         return self
 
     def add_pairing(self) -> PipelineBuilder:
         """Add pairing stage."""
         from davinci_monet.pipeline.stages import PairingStage
+
         self._stages.append(PairingStage())
         return self
 
     def add_statistics(self) -> PipelineBuilder:
         """Add statistics stage."""
         from davinci_monet.pipeline.stages import StatisticsStage
+
         self._stages.append(StatisticsStage())
         return self
 
     def add_plotting(self) -> PipelineBuilder:
         """Add plotting stage."""
         from davinci_monet.pipeline.stages import PlottingStage
+
         self._stages.append(PlottingStage())
         return self
 
     def add_save(self) -> PipelineBuilder:
         """Add save results stage."""
         from davinci_monet.pipeline.stages import SaveResultsStage
+
         self._stages.append(SaveResultsStage())
         return self
 
@@ -1860,9 +1876,7 @@ class PipelineBuilder:
         self._fail_fast = enabled
         return self
 
-    def with_hook(
-        self, event: str, callback: Callable[..., None]
-    ) -> PipelineBuilder:
+    def with_hook(self, event: str, callback: Callable[..., None]) -> PipelineBuilder:
         """Add an event hook."""
         self._hooks[event] = callback
         return self

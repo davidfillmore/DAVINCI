@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import matplotlib
+
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
@@ -10,12 +11,12 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from davinci_monet.plots.base import PlotConfig
 from davinci_monet.plots.renderers.per_site_timeseries import (
     PerSiteTimeSeriesPlotter,
     plot_per_site_timeseries,
     sanitize_site_id,
 )
-from davinci_monet.plots.base import PlotConfig
 
 
 @pytest.fixture
@@ -23,9 +24,7 @@ def synthetic_paired_data() -> xr.Dataset:
     """Create synthetic paired data with 3 sites and a time dimension."""
     n_times = 48
     sites = ["Bangkok", "Seoul", "Tokyo"]
-    times = np.array(
-        [np.datetime64("2024-02-01") + np.timedelta64(i, "h") for i in range(n_times)]
-    )
+    times = np.array([np.datetime64("2024-02-01") + np.timedelta64(i, "h") for i in range(n_times)])
 
     rng = np.random.default_rng(42)
 
@@ -60,9 +59,7 @@ def sparse_paired_data() -> xr.Dataset:
     """Create synthetic data where one site has too few valid points."""
     n_times = 48
     sites = ["Site_A", "Site_B", "Site_C"]
-    times = np.array(
-        [np.datetime64("2024-02-01") + np.timedelta64(i, "h") for i in range(n_times)]
-    )
+    times = np.array([np.datetime64("2024-02-01") + np.timedelta64(i, "h") for i in range(n_times)])
 
     rng = np.random.default_rng(99)
 
@@ -101,26 +98,32 @@ class TestPerSiteTimeSeriesPlotter:
 
     def test_plot_returns_figure(self, synthetic_paired_data: xr.Dataset) -> None:
         plotter = PerSiteTimeSeriesPlotter()
-        fig = plotter.plot(
-            synthetic_paired_data, "obs_o3", "model_o3", min_points=5
-        )
+        fig = plotter.plot(synthetic_paired_data, "obs_o3", "model_o3", min_points=5)
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
 
     def test_plot_specific_site(self, synthetic_paired_data: xr.Dataset) -> None:
         plotter = PerSiteTimeSeriesPlotter()
         fig = plotter.plot(
-            synthetic_paired_data, "obs_o3", "model_o3",
-            site="Seoul", min_points=5,
+            synthetic_paired_data,
+            "obs_o3",
+            "model_o3",
+            site="Seoul",
+            min_points=5,
         )
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
 
     def test_plot_per_site_yields_all_sites(self, synthetic_paired_data: xr.Dataset) -> None:
         plotter = PerSiteTimeSeriesPlotter()
-        results = list(plotter.plot_per_site(
-            synthetic_paired_data, "obs_o3", "model_o3", min_points=5,
-        ))
+        results = list(
+            plotter.plot_per_site(
+                synthetic_paired_data,
+                "obs_o3",
+                "model_o3",
+                min_points=5,
+            )
+        )
         assert len(results) == 3
         for site_id, fig in results:
             assert isinstance(site_id, str)
@@ -129,9 +132,14 @@ class TestPerSiteTimeSeriesPlotter:
 
     def test_plot_per_site_yields_correct_ids(self, synthetic_paired_data: xr.Dataset) -> None:
         plotter = PerSiteTimeSeriesPlotter()
-        results = list(plotter.plot_per_site(
-            synthetic_paired_data, "obs_o3", "model_o3", min_points=5,
-        ))
+        results = list(
+            plotter.plot_per_site(
+                synthetic_paired_data,
+                "obs_o3",
+                "model_o3",
+                min_points=5,
+            )
+        )
         site_ids = [sid for sid, _ in results]
         assert site_ids == ["Bangkok", "Seoul", "Tokyo"]
         for _, fig in results:
@@ -139,9 +147,14 @@ class TestPerSiteTimeSeriesPlotter:
 
     def test_min_points_filtering(self, sparse_paired_data: xr.Dataset) -> None:
         plotter = PerSiteTimeSeriesPlotter()
-        results = list(plotter.plot_per_site(
-            sparse_paired_data, "obs_pm25", "model_pm25", min_points=20,
-        ))
+        results = list(
+            plotter.plot_per_site(
+                sparse_paired_data,
+                "obs_pm25",
+                "model_pm25",
+                min_points=20,
+            )
+        )
         # Site_C has only 3 valid points, should be skipped
         assert len(results) == 2
         site_ids = [sid for sid, _ in results]
@@ -153,8 +166,12 @@ class TestPerSiteTimeSeriesPlotter:
         plotter = PerSiteTimeSeriesPlotter()
         # With scale_factor=2, y-values should be doubled
         fig = plotter.plot(
-            synthetic_paired_data, "obs_o3", "model_o3",
-            site="Bangkok", min_points=5, scale_factor=2.0,
+            synthetic_paired_data,
+            "obs_o3",
+            "model_o3",
+            site="Bangkok",
+            min_points=5,
+            scale_factor=2.0,
         )
         assert isinstance(fig, plt.Figure)
         ax = fig.axes[0]
@@ -165,8 +182,12 @@ class TestPerSiteTimeSeriesPlotter:
     def test_show_stats_false(self, synthetic_paired_data: xr.Dataset) -> None:
         plotter = PerSiteTimeSeriesPlotter()
         fig = plotter.plot(
-            synthetic_paired_data, "obs_o3", "model_o3",
-            site="Bangkok", min_points=5, show_stats=False,
+            synthetic_paired_data,
+            "obs_o3",
+            "model_o3",
+            site="Bangkok",
+            min_points=5,
+            show_stats=False,
         )
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
@@ -175,7 +196,9 @@ class TestPerSiteTimeSeriesPlotter:
         plotter = PerSiteTimeSeriesPlotter()
         with pytest.raises(ValueError, match="Site dimension"):
             plotter.plot(
-                synthetic_paired_data, "obs_o3", "model_o3",
+                synthetic_paired_data,
+                "obs_o3",
+                "model_o3",
                 site_dim="nonexistent",
             )
 
@@ -183,24 +206,33 @@ class TestPerSiteTimeSeriesPlotter:
         plotter = PerSiteTimeSeriesPlotter()
         with pytest.raises(ValueError, match="No sites"):
             plotter.plot(
-                sparse_paired_data, "obs_pm25", "model_pm25",
+                sparse_paired_data,
+                "obs_pm25",
+                "model_pm25",
                 min_points=1000,
             )
 
     def test_plot_per_site_missing_dim_raises(self, synthetic_paired_data: xr.Dataset) -> None:
         plotter = PerSiteTimeSeriesPlotter()
         with pytest.raises(ValueError, match="Site dimension"):
-            list(plotter.plot_per_site(
-                synthetic_paired_data, "obs_o3", "model_o3",
-                site_dim="nonexistent",
-            ))
+            list(
+                plotter.plot_per_site(
+                    synthetic_paired_data,
+                    "obs_o3",
+                    "model_o3",
+                    site_dim="nonexistent",
+                )
+            )
 
     def test_with_title(self, synthetic_paired_data: xr.Dataset) -> None:
         config = PlotConfig(title="O3: Model vs AirNow")
         plotter = PerSiteTimeSeriesPlotter(config=config)
         fig = plotter.plot(
-            synthetic_paired_data, "obs_o3", "model_o3",
-            site="Bangkok", min_points=5,
+            synthetic_paired_data,
+            "obs_o3",
+            "model_o3",
+            site="Bangkok",
+            min_points=5,
         )
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
@@ -208,8 +240,12 @@ class TestPerSiteTimeSeriesPlotter:
     def test_line_obs_style(self, synthetic_paired_data: xr.Dataset) -> None:
         plotter = PerSiteTimeSeriesPlotter()
         fig = plotter.plot(
-            synthetic_paired_data, "obs_o3", "model_o3",
-            site="Bangkok", min_points=5, obs_style="line",
+            synthetic_paired_data,
+            "obs_o3",
+            "model_o3",
+            site="Bangkok",
+            min_points=5,
+            obs_style="line",
         )
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
@@ -217,8 +253,12 @@ class TestPerSiteTimeSeriesPlotter:
     def test_scatter_model_style(self, synthetic_paired_data: xr.Dataset) -> None:
         plotter = PerSiteTimeSeriesPlotter()
         fig = plotter.plot(
-            synthetic_paired_data, "obs_o3", "model_o3",
-            site="Bangkok", min_points=5, model_style="scatter",
+            synthetic_paired_data,
+            "obs_o3",
+            "model_o3",
+            site="Bangkok",
+            min_points=5,
+            model_style="scatter",
         )
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
@@ -251,7 +291,9 @@ class TestConvenienceFunction:
 
     def test_returns_figure(self, synthetic_paired_data: xr.Dataset) -> None:
         fig = plot_per_site_timeseries(
-            synthetic_paired_data, "obs_o3", "model_o3",
+            synthetic_paired_data,
+            "obs_o3",
+            "model_o3",
             min_points=5,
         )
         assert isinstance(fig, plt.Figure)
@@ -259,8 +301,11 @@ class TestConvenienceFunction:
 
     def test_with_title(self, synthetic_paired_data: xr.Dataset) -> None:
         fig = plot_per_site_timeseries(
-            synthetic_paired_data, "obs_o3", "model_o3",
-            title="O3 Comparison", min_points=5,
+            synthetic_paired_data,
+            "obs_o3",
+            "model_o3",
+            title="O3 Comparison",
+            min_points=5,
         )
         assert isinstance(fig, plt.Figure)
         plt.close(fig)

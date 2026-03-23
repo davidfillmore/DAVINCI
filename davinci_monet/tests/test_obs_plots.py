@@ -6,15 +6,14 @@ plot renderers (flight track map, vertical profile, time series, histogram).
 
 from __future__ import annotations
 
+import matplotlib
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
-import matplotlib
 
 matplotlib.use("Agg")  # Use non-interactive backend for testing
 import matplotlib.pyplot as plt
-
 
 # =============================================================================
 # Fixtures
@@ -34,7 +33,9 @@ def track_obs_data() -> xr.Dataset:
     time = pd.date_range("2012-05-18 14:00", periods=n_times, freq="1min")
 
     # Simulate aircraft track with ascent/descent profile
-    altitude = 1000 + 5000 * np.sin(np.linspace(0, 2 * np.pi, n_times)) + np.random.normal(0, 100, n_times)
+    altitude = (
+        1000 + 5000 * np.sin(np.linspace(0, 2 * np.pi, n_times)) + np.random.normal(0, 100, n_times)
+    )
     lats = np.linspace(35, 40, n_times)
     lons = np.linspace(-102, -96, n_times)
 
@@ -115,16 +116,12 @@ def grid_lma_data() -> xr.Dataset:
 
     # Create a hotspot in the center
     lat_grid, lon_grid = np.meshgrid(lats, lons, indexing="ij")
-    hotspot = np.exp(
-        -((lat_grid - 35.2) ** 2 + (lon_grid - 98.5) ** 2) / 0.5
-    )
+    hotspot = np.exp(-((lat_grid - 35.2) ** 2 + (lon_grid - 98.5) ** 2) / 0.5)
     # Vary intensity over time (ramp up then down)
     time_profile = np.sin(np.linspace(0, np.pi, n_times))
     flash_extent = np.zeros((n_times, n_lat, n_lon))
     for t in range(n_times):
-        flash_extent[t] = hotspot * time_profile[t] * 10 + np.random.poisson(
-            0.5, (n_lat, n_lon)
-        )
+        flash_extent[t] = hotspot * time_profile[t] * 10 + np.random.poisson(0.5, (n_lat, n_lon))
 
     ds = xr.Dataset(
         {
@@ -154,9 +151,7 @@ def grid_lma_data_multihour() -> xr.Dataset:
     lats = np.linspace(33.5, 37.0, n_lat)
     lons = np.linspace(-101.0, -96.0, n_lon)
     lat_grid, lon_grid = np.meshgrid(lats, lons, indexing="ij")
-    hotspot = np.exp(
-        -((lat_grid - 35.2) ** 2 + (lon_grid - 98.5) ** 2) / 0.5
-    )
+    hotspot = np.exp(-((lat_grid - 35.2) ** 2 + (lon_grid - 98.5) ** 2) / 0.5)
 
     # 3 hours x 12 steps = 36 time steps
     time = pd.date_range("2012-05-29 22:00", periods=36, freq="5min")
@@ -165,9 +160,7 @@ def grid_lma_data_multihour() -> xr.Dataset:
     flash_extent = np.zeros((36, n_lat, n_lon))
     for t in range(36):
         hour_idx = t // 12
-        flash_extent[t] = hotspot * hourly_scale[hour_idx] + np.random.poisson(
-            0.5, (n_lat, n_lon)
-        )
+        flash_extent[t] = hotspot * hourly_scale[hour_idx] + np.random.poisson(0.5, (n_lat, n_lon))
 
     ds = xr.Dataset(
         {
@@ -293,8 +286,8 @@ class TestObsPlotterBase:
 
     def test_default_config(self):
         """Default config uses PlotConfig defaults."""
-        from davinci_monet.plots.obs_base import ObsPlotter
         from davinci_monet.plots.base import PlotConfig
+        from davinci_monet.plots.obs_base import ObsPlotter
 
         class MinimalPlotter(ObsPlotter):
             name = "minimal"
@@ -310,8 +303,8 @@ class TestObsPlotterBase:
 
     def test_custom_config(self):
         """Custom PlotConfig is used when provided."""
+        from davinci_monet.plots.base import FigureConfig, PlotConfig
         from davinci_monet.plots.obs_base import ObsPlotter
-        from davinci_monet.plots.base import PlotConfig, FigureConfig
 
         class MinimalPlotter(ObsPlotter):
             name = "minimal"
@@ -420,8 +413,10 @@ class TestFlightTrackMapPlotter:
 
     def test_registered_in_registry(self):
         """FlightTrackMapPlotter is registered as 'obs_flight_track'."""
-        from davinci_monet.plots.renderers.obs.flight_track_map import FlightTrackMapPlotter  # noqa: F401
         from davinci_monet.plots.registry import has_plotter
+        from davinci_monet.plots.renderers.obs.flight_track_map import (  # noqa: F401
+            FlightTrackMapPlotter,
+        )
 
         assert has_plotter("obs_flight_track")
 
@@ -468,8 +463,10 @@ class TestVerticalProfilePlotter:
 
     def test_registered(self):
         """VerticalProfilePlotter is registered as 'obs_vertical_profile'."""
-        from davinci_monet.plots.renderers.obs.vertical_profile import VerticalProfilePlotter  # noqa: F401
         from davinci_monet.plots.registry import has_plotter
+        from davinci_monet.plots.renderers.obs.vertical_profile import (  # noqa: F401
+            VerticalProfilePlotter,
+        )
 
         assert has_plotter("obs_vertical_profile")
 
@@ -516,8 +513,10 @@ class TestObsTimeSeriesPlotter:
 
     def test_registered(self):
         """ObsTimeSeriesPlotter is registered as 'obs_timeseries'."""
-        from davinci_monet.plots.renderers.obs.obs_timeseries import ObsTimeSeriesPlotter  # noqa: F401
         from davinci_monet.plots.registry import has_plotter
+        from davinci_monet.plots.renderers.obs.obs_timeseries import (  # noqa: F401
+            ObsTimeSeriesPlotter,
+        )
 
         assert has_plotter("obs_timeseries")
 
@@ -566,8 +565,10 @@ class TestObsHistogramPlotter:
 
     def test_registered(self):
         """ObsHistogramPlotter is registered as 'obs_histogram'."""
-        from davinci_monet.plots.renderers.obs.obs_histogram import ObsHistogramPlotter  # noqa: F401
         from davinci_monet.plots.registry import has_plotter
+        from davinci_monet.plots.renderers.obs.obs_histogram import (  # noqa: F401
+            ObsHistogramPlotter,
+        )
 
         assert has_plotter("obs_histogram")
 
@@ -593,8 +594,10 @@ class TestObsLMADensityPlotter:
 
     def test_registered_in_registry(self):
         """ObsLMADensityPlotter is registered as 'obs_lma_density'."""
-        from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter  # noqa: F401
         from davinci_monet.plots.registry import has_plotter
+        from davinci_monet.plots.renderers.obs.obs_lma_density import (  # noqa: F401
+            ObsLMADensityPlotter,
+        )
 
         assert has_plotter("obs_lma_density")
 
@@ -618,7 +621,8 @@ class TestObsLMADensityPlotter:
 
         plotter = ObsLMADensityPlotter()
         result = plotter.plot(
-            grid_lma_data_multihour, "flash_extent",
+            grid_lma_data_multihour,
+            "flash_extent",
             time_agg="hourly",
             title="Test LMA",
         )
@@ -637,7 +641,8 @@ class TestObsLMADensityPlotter:
 
         plotter = ObsLMADensityPlotter()
         result = plotter.plot(
-            grid_lma_data_multihour, "flash_extent",
+            grid_lma_data_multihour,
+            "flash_extent",
             time_agg="hourly",
         )
 
@@ -661,7 +666,8 @@ class TestObsLMADensityPlotter:
 
         plotter = ObsLMADensityPlotter()
         fig = plotter.plot(
-            grid_lma_data, "flash_extent",
+            grid_lma_data,
+            "flash_extent",
             flight_tracks={"dc8": "dc8"},
             obs_datasets={"dc8": track_obs_data},
         )
@@ -681,7 +687,8 @@ class TestObsLMADensityPlotter:
 
         plotter = ObsLMADensityPlotter()
         result = plotter.plot(
-            grid_lma_data_multihour, "flash_extent",
+            grid_lma_data_multihour,
+            "flash_extent",
             time_agg="hourly",
             title="Test",
         )
@@ -703,7 +710,8 @@ class TestObsLMADensityPlotter:
 
         plotter = ObsLMADensityPlotter()
         fig = plotter.plot(
-            grid_lma_data, "flash_extent",
+            grid_lma_data,
+            "flash_extent",
             flight_tracks={"dc8": "dc8"},
             obs_datasets={},  # empty — no track data
         )
@@ -713,8 +721,9 @@ class TestObsLMADensityPlotter:
 
     def test_yaml_config_parse(self):
         """The May 29 YAML config parses without error for LMA density entries."""
-        import yaml
         from pathlib import Path
+
+        import yaml
 
         config_path = Path("analyses/dc3/configs/dc3-may29-gemini.yaml")
         if not config_path.exists():

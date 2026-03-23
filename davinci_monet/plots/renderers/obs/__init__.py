@@ -12,10 +12,10 @@ Available renderers:
 """
 
 from davinci_monet.plots.renderers.obs.flight_track_map import FlightTrackMapPlotter
-from davinci_monet.plots.renderers.obs.vertical_profile import VerticalProfilePlotter
-from davinci_monet.plots.renderers.obs.obs_timeseries import ObsTimeSeriesPlotter
 from davinci_monet.plots.renderers.obs.obs_histogram import ObsHistogramPlotter
 from davinci_monet.plots.renderers.obs.obs_lma_density import ObsLMADensityPlotter
+from davinci_monet.plots.renderers.obs.obs_timeseries import ObsTimeSeriesPlotter
+from davinci_monet.plots.renderers.obs.vertical_profile import VerticalProfilePlotter
 
 __all__ = [
     "FlightTrackMapPlotter",

@@ -256,6 +256,7 @@ def read_icartt(path: str | Path, **kwargs: Any) -> pd.DataFrame:
     try:
         # Try monetio first
         import monetio.profile.icartt as icartt_mod
+
         df: pd.DataFrame = icartt_mod.add_data(str(path), **kwargs)
         return df
     except ImportError:

@@ -256,7 +256,12 @@ class DataContainer(ABC):
         lon_coord = self.data[lon_name]
 
         # Apply selection
-        if lat_name in self.data.dims and lon_name in self.data.dims and lat_coord.ndim == 1 and lon_coord.ndim == 1:
+        if (
+            lat_name in self.data.dims
+            and lon_name in self.data.dims
+            and lat_coord.ndim == 1
+            and lon_coord.ndim == 1
+        ):
             lat_slice = slice(lat_min, lat_max)
             lon_slice = slice(lon_min, lon_max)
 
@@ -444,8 +449,7 @@ class PairedData:
             variable = f"obs_{variable}"
         if variable not in self.data:
             raise VariableNotFoundError(
-                f"Observation variable '{variable}' not found. "
-                f"Available: {self.obs_variables}"
+                f"Observation variable '{variable}' not found. " f"Available: {self.obs_variables}"
             )
         result: xr.DataArray = self.data[variable]
         return result
@@ -467,8 +471,7 @@ class PairedData:
             variable = f"model_{variable}"
         if variable not in self.data:
             raise VariableNotFoundError(
-                f"Model variable '{variable}' not found. "
-                f"Available: {self.model_variables}"
+                f"Model variable '{variable}' not found. " f"Available: {self.model_variables}"
             )
         result: xr.DataArray = self.data[variable]
         return result
@@ -509,7 +512,7 @@ class PairedData:
         obs_var, model_var = self.paired_variable_names[0]
         obs_data = self.data[obs_var]
         model_data = self.data[model_var]
-        valid = (~obs_data.isnull() & ~model_data.isnull())
+        valid = ~obs_data.isnull() & ~model_data.isnull()
         return int(valid.sum().values)
 
     def to_dataframe(self) -> Any:
@@ -606,41 +609,30 @@ def validate_dataset_geometry(
     if expected_geometry == DataGeometry.POINT:
         # Point: (time, site) or (time, x)
         if not (("time" in dims and ("site" in dims or "x" in dims)) or "time" in dims):
-            raise DataValidationError(
-                f"POINT geometry expects dims (time, site), got {dims}"
-            )
+            raise DataValidationError(f"POINT geometry expects dims (time, site), got {dims}")
 
     elif expected_geometry == DataGeometry.TRACK:
         # Track: (time,) with lat/lon/alt coords
         if "time" not in dims:
-            raise DataValidationError(
-                f"TRACK geometry expects 'time' dimension, got {dims}"
-            )
+            raise DataValidationError(f"TRACK geometry expects 'time' dimension, got {dims}")
 
     elif expected_geometry == DataGeometry.PROFILE:
         # Profile: (time, level) with lat/lon coords
         if not ("time" in dims and ("level" in dims or "z" in dims)):
-            raise DataValidationError(
-                f"PROFILE geometry expects dims (time, level), got {dims}"
-            )
+            raise DataValidationError(f"PROFILE geometry expects dims (time, level), got {dims}")
 
     elif expected_geometry == DataGeometry.SWATH:
         # Swath: (time, scanline, pixel) or similar
         if "time" not in dims:
-            raise DataValidationError(
-                f"SWATH geometry expects 'time' dimension, got {dims}"
-            )
+            raise DataValidationError(f"SWATH geometry expects 'time' dimension, got {dims}")
 
     elif expected_geometry == DataGeometry.GRID:
         # Grid: (time, lat, lon) or (time, y, x)
-        has_spatial = (
-            ("lat" in dims or "latitude" in dims or "y" in dims)
-            and ("lon" in dims or "longitude" in dims or "x" in dims)
+        has_spatial = ("lat" in dims or "latitude" in dims or "y" in dims) and (
+            "lon" in dims or "longitude" in dims or "x" in dims
         )
         if not has_spatial:
-            raise DataValidationError(
-                f"GRID geometry expects spatial dims (lat, lon), got {dims}"
-            )
+            raise DataValidationError(f"GRID geometry expects spatial dims (lat, lon), got {dims}")
 
 
 def create_paired_dataset(

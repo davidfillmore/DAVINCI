@@ -61,6 +61,7 @@ class TestModelReaderProtocol:
 
     def test_protocol_is_runtime_checkable(self) -> None:
         """Verify ModelReader is runtime_checkable."""
+
         # Create a mock implementation
         class MockModelReader:
             @property
@@ -333,9 +334,7 @@ class TestPipelineProtocol:
             def add_stage(self, stage: PipelineStage) -> None:
                 pass
 
-            def run(
-                self, initial_context: Mapping[str, Any] | None = None
-            ) -> Mapping[str, Any]:
+            def run(self, initial_context: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
                 return {}
 
         pipeline = MockPipeline()

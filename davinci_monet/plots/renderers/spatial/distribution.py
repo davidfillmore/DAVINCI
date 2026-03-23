@@ -118,7 +118,8 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
             if show_var == "both":
                 # Create side-by-side subplots with standard size
                 fig, axes = plt.subplots(
-                    1, 2,
+                    1,
+                    2,
                     figsize=(8, 5),
                     dpi=self.config.figure.dpi,
                     subplot_kw={"projection": ccrs.PlateCarree()},
@@ -173,10 +174,12 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
 
         # Calculate common limits
         if show_var == "both":
-            all_values = np.concatenate([
-                obs_data.values.flatten(),
-                model_data.values.flatten(),
-            ])
+            all_values = np.concatenate(
+                [
+                    obs_data.values.flatten(),
+                    model_data.values.flatten(),
+                ]
+            )
         elif show_var == "obs":
             all_values = obs_data.values.flatten()
         else:

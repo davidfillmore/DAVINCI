@@ -119,8 +119,16 @@ class TimeSeriesPlotter(BasePlotter):
         # Plot individual sites if requested
         if show_individual_sites and site_dim in obs_data.dims:
             return self._plot_individual_sites(
-                fig, ax, paired_data, obs_var, model_var,
-                time_dim, site_dim, site_label_var, resample, **kwargs
+                fig,
+                ax,
+                paired_data,
+                obs_var,
+                model_var,
+                time_dim,
+                site_dim,
+                site_label_var,
+                resample,
+                **kwargs,
             )
 
         # Aggregate over non-time dimensions if specified
@@ -152,12 +160,16 @@ class TimeSeriesPlotter(BasePlotter):
         style = self.config.style
 
         # Get labels
-        obs_label = obs_label or get_variable_label(
-            paired_data, obs_var, self.config.obs_label
-        ) or "Observations"
-        model_label = model_label or get_variable_label(
-            paired_data, model_var, self.config.model_label
-        ) or "Model"
+        obs_label = (
+            obs_label
+            or get_variable_label(paired_data, obs_var, self.config.obs_label)
+            or "Observations"
+        )
+        model_label = (
+            model_label
+            or get_variable_label(paired_data, model_var, self.config.model_label)
+            or "Model"
+        )
 
         # Plot observations
         ax.plot(
@@ -214,8 +226,15 @@ class TimeSeriesPlotter(BasePlotter):
 
         # Smart auto-scaling for y-axis
         self._set_smart_ylim(
-            ax, paired_data, obs_var, model_var, aggregate_dim,
-            time_dim, resample, show_uncertainty, uncertainty_type
+            ax,
+            paired_data,
+            obs_var,
+            model_var,
+            aggregate_dim,
+            time_dim,
+            resample,
+            show_uncertainty,
+            uncertainty_type,
         )
 
         # Add legend
@@ -336,7 +355,9 @@ class TimeSeriesPlotter(BasePlotter):
 
         # Legend - put outside plot if many sites
         if n_sites > 5:
-            ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=self.config.text.legend_small)
+            ax.legend(
+                bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=self.config.text.legend_small
+            )
             fig.tight_layout()
         else:
             ax.legend(fontsize=self.config.text.legend)
@@ -495,32 +516,44 @@ class TimeSeriesPlotter(BasePlotter):
                     obs_std = obs_data.std(dim=aggregate_dim)
                     model_std = model_data.std(dim=aggregate_dim)
 
-                data_min = float(min(
-                    np.nanmin(obs_mean.values - obs_std.values),
-                    np.nanmin(model_mean.values - model_std.values)
-                ))
-                data_max = float(max(
-                    np.nanmax(obs_mean.values + obs_std.values),
-                    np.nanmax(model_mean.values + model_std.values)
-                ))
+                data_min = float(
+                    min(
+                        np.nanmin(obs_mean.values - obs_std.values),
+                        np.nanmin(model_mean.values - model_std.values),
+                    )
+                )
+                data_max = float(
+                    max(
+                        np.nanmax(obs_mean.values + obs_std.values),
+                        np.nanmax(model_mean.values + model_std.values),
+                    )
+                )
             elif uncertainty_type == "iqr":
-                data_min = float(min(
-                    np.nanmin(obs_data.quantile(0.25, dim=aggregate_dim).values),
-                    np.nanmin(model_data.quantile(0.25, dim=aggregate_dim).values)
-                ))
-                data_max = float(max(
-                    np.nanmax(obs_data.quantile(0.75, dim=aggregate_dim).values),
-                    np.nanmax(model_data.quantile(0.75, dim=aggregate_dim).values)
-                ))
+                data_min = float(
+                    min(
+                        np.nanmin(obs_data.quantile(0.25, dim=aggregate_dim).values),
+                        np.nanmin(model_data.quantile(0.25, dim=aggregate_dim).values),
+                    )
+                )
+                data_max = float(
+                    max(
+                        np.nanmax(obs_data.quantile(0.75, dim=aggregate_dim).values),
+                        np.nanmax(model_data.quantile(0.75, dim=aggregate_dim).values),
+                    )
+                )
             else:  # range
-                data_min = float(min(
-                    np.nanmin(obs_data.min(dim=aggregate_dim).values),
-                    np.nanmin(model_data.min(dim=aggregate_dim).values)
-                ))
-                data_max = float(max(
-                    np.nanmax(obs_data.max(dim=aggregate_dim).values),
-                    np.nanmax(model_data.max(dim=aggregate_dim).values)
-                ))
+                data_min = float(
+                    min(
+                        np.nanmin(obs_data.min(dim=aggregate_dim).values),
+                        np.nanmin(model_data.min(dim=aggregate_dim).values),
+                    )
+                )
+                data_max = float(
+                    max(
+                        np.nanmax(obs_data.max(dim=aggregate_dim).values),
+                        np.nanmax(model_data.max(dim=aggregate_dim).values),
+                    )
+                )
         else:
             # Just use mean values
             if aggregate_dim is not None and aggregate_dim in obs_data.dims:

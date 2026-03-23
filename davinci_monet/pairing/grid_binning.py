@@ -121,8 +121,7 @@ def edges_from_centers(centers: np.ndarray) -> np.ndarray:
         # Single center — use a default half-day spacing for time,
         # or 1.0 for spatial coords
         half_spacing = max(abs(centers[0]) * 0.01, 0.5)
-        return np.array([centers[0] - half_spacing, centers[0] + half_spacing],
-                        dtype=np.float64)
+        return np.array([centers[0] - half_spacing, centers[0] + half_spacing], dtype=np.float64)
 
     half_spacing = (centers[1] - centers[0]) / 2.0
     edges = np.empty(len(centers) + 1, dtype=np.float64)

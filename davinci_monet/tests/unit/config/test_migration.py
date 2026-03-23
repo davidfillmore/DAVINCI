@@ -166,17 +166,13 @@ class TestObsTypeMigration:
 
     def test_surface_to_pt_sfc(self) -> None:
         """Test 'surface' is normalized to 'pt_sfc'."""
-        config: dict[str, Any] = {
-            "obs": {"test": {"obs_type": "surface"}}
-        }
+        config: dict[str, Any] = {"obs": {"test": {"obs_type": "surface"}}}
         result = migrate_config(config, from_version="0.0.0", to_version="1.0.0")
         assert result["obs"]["test"]["obs_type"] == "pt_sfc"
 
     def test_aircraft_preserved(self) -> None:
         """Test 'aircraft' type is preserved."""
-        config: dict[str, Any] = {
-            "obs": {"flight": {"obs_type": "aircraft"}}
-        }
+        config: dict[str, Any] = {"obs": {"flight": {"obs_type": "aircraft"}}}
         result = migrate_config(config, from_version="0.0.0", to_version="1.0.0")
         assert result["obs"]["flight"]["obs_type"] == "aircraft"
 

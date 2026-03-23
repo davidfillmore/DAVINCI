@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 
 from davinci_monet.core.registry import statistic_registry
 
-
 # =============================================================================
 # Base Classes
 # =============================================================================
@@ -548,7 +547,7 @@ class R2Metric(BaseMetric):
         if np.std(obs) == 0 or np.std(mod) == 0:
             return np.nan
         r = np.corrcoef(obs, mod)[0, 1]
-        return float(r ** 2)
+        return float(r**2)
 
 
 @statistic_registry.register("IOA")
@@ -655,7 +654,7 @@ class AnomalyCorrelationMetric(BaseMetric):
         mod_anom = mod - np.mean(mod)
 
         numerator = np.sum(obs_anom * mod_anom)
-        denominator = np.sqrt(np.sum(obs_anom ** 2) * np.sum(mod_anom ** 2))
+        denominator = np.sqrt(np.sum(obs_anom**2) * np.sum(mod_anom**2))
 
         if denominator == 0:
             return np.nan
@@ -710,22 +709,42 @@ class MedianRatioMetric(BaseMetric):
 # =============================================================================
 
 #: Standard set of metrics for general evaluation
-STANDARD_METRICS = [
-    "N", "MO", "MP", "MB", "RMSE", "R", "R2", "NMB", "NME", "IOA"
-]
+STANDARD_METRICS = ["N", "MO", "MP", "MB", "RMSE", "R", "R2", "NMB", "NME", "IOA"]
 
 #: Full set of all implemented metrics
 ALL_METRICS = [
     # Basic
-    "N", "MO", "MP", "STDO", "STDP", "MdnO", "MdnP",
+    "N",
+    "MO",
+    "MP",
+    "STDO",
+    "STDP",
+    "MdnO",
+    "MdnP",
     # Bias
-    "MB", "MdnB", "NMB", "NMdnB", "FB", "MNB",
+    "MB",
+    "MdnB",
+    "NMB",
+    "NMdnB",
+    "FB",
+    "MNB",
     # Error
-    "ME", "MdnE", "RMSE", "NME", "FE", "MNE",
+    "ME",
+    "MdnE",
+    "RMSE",
+    "NME",
+    "FE",
+    "MNE",
     # Correlation/Agreement
-    "R", "R2", "IOA", "d1", "E1", "AC",
+    "R",
+    "R2",
+    "IOA",
+    "d1",
+    "E1",
+    "AC",
     # Ratio
-    "RM", "RMdn",
+    "RM",
+    "RMdn",
 ]
 
 #: Metrics that are expressed as percentages

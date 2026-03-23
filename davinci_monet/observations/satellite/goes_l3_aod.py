@@ -23,7 +23,6 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import observation_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
-
 # Standard variable name mappings for GOES AOD
 GOES_AOD_VARIABLE_MAPPING: dict[str, str] = {
     "aod": "AOD",
@@ -185,9 +184,7 @@ class GOESL3AODReader:
 
         return ds
 
-    def _apply_dqf_filter(
-        self, ds: xr.Dataset, dqf_filter: Sequence[int]
-    ) -> xr.Dataset:
+    def _apply_dqf_filter(self, ds: xr.Dataset, dqf_filter: Sequence[int]) -> xr.Dataset:
         """Apply Data Quality Flag filtering to dataset."""
         dqf_var = None
         for name in ["DQF", "dqf", "data_quality_flag"]:
@@ -282,9 +279,7 @@ def open_goes_l3_aod(
     else:
         file_paths = list(files)
 
-    ds = reader.open(
-        file_paths, variables, product=product, dqf_filter=dqf_filter, **kwargs
-    )
+    ds = reader.open(file_paths, variables, product=product, dqf_filter=dqf_filter, **kwargs)
 
     obs = create_observation_data(
         label=label,

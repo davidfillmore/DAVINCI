@@ -201,7 +201,9 @@ class FlightTrackMapPlotter(ObsPlotter):
 
         # Plot 3D scatter
         scatter = ax3d.scatter(
-            lons, lats, alts,
+            lons,
+            lats,
+            alts,
             c=values,
             cmap=cmap,
             s=marker_size,
@@ -214,7 +216,9 @@ class FlightTrackMapPlotter(ObsPlotter):
         # Add 2D projection on bottom plane
         if show_projection:
             ax3d.scatter(
-                lons, lats, np.zeros_like(alts),
+                lons,
+                lats,
+                np.zeros_like(alts),
                 c=values,
                 cmap=cmap,
                 s=marker_size * 0.3,
@@ -236,7 +240,10 @@ class FlightTrackMapPlotter(ObsPlotter):
         # Draw surface map or coastlines
         if show_surface_map:
             map_img = _render_surface_map(
-                lon_min, lon_max, lat_min, lat_max,
+                lon_min,
+                lon_max,
+                lat_min,
+                lat_max,
                 resolution=surface_map_resolution,
                 land_color=land_color,
                 ocean_color=ocean_color,
@@ -253,9 +260,12 @@ class FlightTrackMapPlotter(ObsPlotter):
                 X, Y = np.meshgrid(lon_grid, lat_grid)
                 Z = np.zeros_like(X)
                 ax3d.plot_surface(
-                    X, Y, Z,
+                    X,
+                    Y,
+                    Z,
                     facecolors=map_img,
-                    rstride=1, cstride=1,
+                    rstride=1,
+                    cstride=1,
                     shade=False,
                     zorder=1,
                 )
@@ -306,7 +316,7 @@ class FlightTrackMapPlotter(ObsPlotter):
         ax3d.set_xlabel("Longitude (\u00b0E)", fontsize=text_cfg.fontsize, labelpad=8)
         ax3d.set_ylabel("Latitude (\u00b0N)", fontsize=text_cfg.fontsize, labelpad=8)
         ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize, labelpad=8)
-        ax3d.tick_params(axis='both', labelsize=text_cfg.tick_fontsize)
+        ax3d.tick_params(axis="both", labelsize=text_cfg.tick_fontsize)
 
         # Colorbar
         var_label = get_variable_label(obs_data, variable, include_prefix=False)

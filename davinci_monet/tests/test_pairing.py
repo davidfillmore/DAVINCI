@@ -21,7 +21,6 @@ from davinci_monet.pairing import (
     TrackStrategy,
 )
 
-
 # =============================================================================
 # Fixtures for synthetic test data
 # =============================================================================
@@ -109,11 +108,13 @@ def track_obs() -> xr.Dataset:
     # Create a flight path
     lats = 35 + np.linspace(0, 10, 100)
     lons = -110 + np.linspace(0, 20, 100)
-    alts = np.concatenate([
-        np.linspace(0, 5000, 30),
-        np.ones(40) * 5000,
-        np.linspace(5000, 0, 30),
-    ])
+    alts = np.concatenate(
+        [
+            np.linspace(0, 5000, 30),
+            np.ones(40) * 5000,
+            np.linspace(5000, 0, 30),
+        ]
+    )
 
     return xr.Dataset(
         {
@@ -137,8 +138,14 @@ def profile_obs() -> xr.Dataset:
 
     return xr.Dataset(
         {
-            "temperature": (["time", "level"], (290 - 0.05 * (1000 - levels) + np.random.randn(8)).reshape(1, -1)),
-            "humidity": (["time", "level"], (80 - 0.1 * (1000 - levels) + 5 * np.random.randn(8)).reshape(1, -1)),
+            "temperature": (
+                ["time", "level"],
+                (290 - 0.05 * (1000 - levels) + np.random.randn(8)).reshape(1, -1),
+            ),
+            "humidity": (
+                ["time", "level"],
+                (80 - 0.1 * (1000 - levels) + 5 * np.random.randn(8)).reshape(1, -1),
+            ),
         },
         coords={
             "level": levels,
@@ -160,7 +167,10 @@ def swath_obs() -> xr.Dataset:
 
     return xr.Dataset(
         {
-            "column_ozone": (["scanline", "pixel"], 300 + 50 * np.random.randn(n_scanlines, n_pixels)),
+            "column_ozone": (
+                ["scanline", "pixel"],
+                300 + 50 * np.random.randn(n_scanlines, n_pixels),
+            ),
         },
         coords={
             "scanline": np.arange(n_scanlines),
@@ -301,9 +311,7 @@ class TestBasePairingStrategy:
         obs_lat = xr.DataArray([40.0])
         obs_lon = xr.DataArray([-100.0])
 
-        lat_idx, lon_idx = strategy._find_nearest_indices(
-            model_lat, model_lon, obs_lat, obs_lon
-        )
+        lat_idx, lon_idx = strategy._find_nearest_indices(model_lat, model_lon, obs_lat, obs_lon)
 
         # Check that indices are valid
         assert 0 <= lat_idx.values[0] < len(model_lat)
@@ -320,7 +328,10 @@ class TestBasePairingStrategy:
         obs_lon = xr.DataArray([0.0])  # Very far east
 
         lat_idx, lon_idx = strategy._find_nearest_indices(
-            model_lat, model_lon, obs_lat, obs_lon,
+            model_lat,
+            model_lon,
+            obs_lat,
+            obs_lon,
             radius_of_influence=100000.0,  # 100 km - too small
         )
 
@@ -484,7 +495,8 @@ class TestProfileStrategy:
         model_with_pressure = model_3d.assign_coords(z=model_3d["z"])
 
         paired = strategy.pair(
-            model_with_pressure, profile_obs,
+            model_with_pressure,
+            profile_obs,
             radius_of_influence=200000.0,
         )
 
@@ -527,13 +539,12 @@ class TestGridStrategy:
         strategy = GridStrategy()
         assert strategy.geometry == DataGeometry.GRID
 
-    def test_pair_regrid_to_obs(
-        self, model_2d: xr.Dataset, gridded_obs: xr.Dataset
-    ) -> None:
+    def test_pair_regrid_to_obs(self, model_2d: xr.Dataset, gridded_obs: xr.Dataset) -> None:
         """Test regridding model to observation grid."""
         strategy = GridStrategy()
         paired = strategy.pair(
-            model_2d, gridded_obs,
+            model_2d,
+            gridded_obs,
             regrid_to="obs",
         )
 
@@ -545,13 +556,12 @@ class TestGridStrategy:
         assert len(paired["lat"]) == len(gridded_obs["lat"])
         assert len(paired["lon"]) == len(gridded_obs["lon"])
 
-    def test_pair_regrid_to_model(
-        self, model_2d: xr.Dataset, gridded_obs: xr.Dataset
-    ) -> None:
+    def test_pair_regrid_to_model(self, model_2d: xr.Dataset, gridded_obs: xr.Dataset) -> None:
         """Test regridding observations to model grid."""
         strategy = GridStrategy()
         paired = strategy.pair(
-            model_2d, gridded_obs,
+            model_2d,
+            gridded_obs,
             regrid_to="model",
         )
 
@@ -572,9 +582,7 @@ class TestGridStrategy:
 class TestPairingIntegration:
     """Integration tests for full pairing workflow."""
 
-    def test_engine_pair_point(
-        self, model_2d: xr.Dataset, point_obs: xr.Dataset
-    ) -> None:
+    def test_engine_pair_point(self, model_2d: xr.Dataset, point_obs: xr.Dataset) -> None:
         """Test full pairing workflow through engine for point data."""
         engine = PairingEngine()
         config = PairingConfig(radius_of_influence=200000.0)
@@ -592,9 +600,7 @@ class TestPairingIntegration:
         assert "obs_temperature" in paired.data.data_vars
         assert "model_temperature" in paired.data.data_vars
 
-    def test_engine_pair_track(
-        self, model_3d: xr.Dataset, track_obs: xr.Dataset
-    ) -> None:
+    def test_engine_pair_track(self, model_3d: xr.Dataset, track_obs: xr.Dataset) -> None:
         """Test full pairing workflow through engine for track data."""
         engine = PairingEngine()
         config = PairingConfig(radius_of_influence=200000.0)
@@ -611,9 +617,7 @@ class TestPairingIntegration:
         assert "obs_ozone" in paired.data.data_vars
         assert "model_ozone" in paired.data.data_vars
 
-    def test_engine_pair_grid(
-        self, model_2d: xr.Dataset, gridded_obs: xr.Dataset
-    ) -> None:
+    def test_engine_pair_grid(self, model_2d: xr.Dataset, gridded_obs: xr.Dataset) -> None:
         """Test full pairing workflow through engine for gridded data."""
         engine = PairingEngine()
         config = PairingConfig()

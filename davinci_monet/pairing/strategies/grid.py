@@ -209,9 +209,7 @@ class GridStrategy(BasePairingStrategy):
             # For each target point, find nearest source point
             for i, lat in enumerate(target_lat.values):
                 for j, lon in enumerate(target_lon.values):
-                    dist = self._haversine_distance(
-                        lat, lon, source_lat_flat, source_lon_flat
-                    )
+                    dist = self._haversine_distance(lat, lon, source_lat_flat, source_lon_flat)
                     nearest_idx = np.argmin(dist)
                     src_i, src_j = np.unravel_index(nearest_idx, source_shape)
 

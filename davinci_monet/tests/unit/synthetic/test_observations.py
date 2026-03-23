@@ -98,9 +98,7 @@ class TestTrackObservations:
 
     def test_altitude_profile(self) -> None:
         """Test altitude has realistic profile."""
-        ds = create_track_observations(
-            n_points=100, altitude_range=(1000.0, 8000.0)
-        )
+        ds = create_track_observations(n_points=100, altitude_range=(1000.0, 8000.0))
 
         alt = ds.altitude.values
 
@@ -155,9 +153,7 @@ class TestProfileObservations:
 
     def test_vertical_structure(self) -> None:
         """Test O3 has vertical structure."""
-        ds = create_profile_observations(
-            variables=["O3"], n_profiles=1, n_levels=20
-        )
+        ds = create_profile_observations(variables=["O3"], n_profiles=1, n_levels=20)
 
         # O3 should generally increase with altitude (decreasing pressure)
         o3_profile = ds["O3"].isel(time=0).values

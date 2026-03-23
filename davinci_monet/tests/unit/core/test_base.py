@@ -67,9 +67,7 @@ class TestDataContainer:
         container = ConcreteContainer()
         assert container.is_loaded is False
 
-    def test_is_loaded_true_when_data_present(
-        self, sample_dataset: xr.Dataset
-    ) -> None:
+    def test_is_loaded_true_when_data_present(self, sample_dataset: xr.Dataset) -> None:
         """Test is_loaded returns True when data present."""
         container = ConcreteContainer(data=sample_dataset)
         assert container.is_loaded is True
@@ -381,9 +379,7 @@ class TestCreatePairedDataset:
             {"o3": (["time", "site"], np.random.randn(10, 5))},
             coords={"time": np.arange(10), "site": np.arange(5)},
         )
-        paired = create_paired_dataset(
-            obs, model, obs_vars=["ozone"], model_vars=["o3"]
-        )
+        paired = create_paired_dataset(obs, model, obs_vars=["ozone"], model_vars=["o3"])
         assert "obs_ozone" in paired
         assert "model_ozone" in paired
 
@@ -392,9 +388,7 @@ class TestCreatePairedDataset:
         obs = xr.Dataset({"ozone": (["time"], np.random.randn(10))})
         model = xr.Dataset({"o3": (["time"], np.random.randn(10))})
         with pytest.raises(DataValidationError):
-            create_paired_dataset(
-                obs, model, obs_vars=["ozone", "pm25"], model_vars=["o3"]
-            )
+            create_paired_dataset(obs, model, obs_vars=["ozone", "pm25"], model_vars=["o3"])
 
     def test_custom_prefixes(self) -> None:
         """Test custom prefixes."""

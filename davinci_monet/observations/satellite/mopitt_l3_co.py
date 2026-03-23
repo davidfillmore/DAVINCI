@@ -25,7 +25,6 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import observation_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
-
 # Standard variable name mappings for MOPITT CO
 MOPITT_CO_VARIABLE_MAPPING: dict[str, str] = {
     "co": "RetrievedCOTotalColumnDay",

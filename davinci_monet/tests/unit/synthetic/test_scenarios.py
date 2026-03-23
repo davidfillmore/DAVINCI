@@ -215,9 +215,7 @@ class TestScenarioFactory:
 
     def test_geometry_parameter(self) -> None:
         """Test geometry parameter is passed correctly."""
-        scenario = create_scenario(
-            "perfect_match", geometry=DataGeometry.TRACK
-        )
+        scenario = create_scenario("perfect_match", geometry=DataGeometry.TRACK)
         assert scenario.geometry == DataGeometry.TRACK
 
 

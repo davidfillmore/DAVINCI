@@ -109,9 +109,7 @@ class TestObservationDataGeometryDetection:
             ("unknown", DataGeometry.POINT),  # default
         ],
     )
-    def test_geometry_from_obs_type(
-        self, obs_type: str, expected: DataGeometry
-    ) -> None:
+    def test_geometry_from_obs_type(self, obs_type: str, expected: DataGeometry) -> None:
         """Test geometry detection from obs_type string."""
         assert ObservationData.geometry_from_obs_type(obs_type) == expected
 
@@ -186,9 +184,7 @@ class TestObservationDataProcessing:
 
     def test_filter_by_bbox(self, obs_with_data: ObservationData) -> None:
         """Test filtering by bounding box."""
-        obs_with_data.filter_by_bbox(
-            lon_min=-98, lon_max=-92, lat_min=32, lat_max=38
-        )
+        obs_with_data.filter_by_bbox(lon_min=-98, lon_max=-92, lat_min=32, lat_max=38)
         # Should filter to subset of sites
         assert obs_with_data.data is not None
 
@@ -197,9 +193,7 @@ class TestObservationDataProcessing:
         obs_with_data.sum_variables("total", ["ozone", "pm25"])
         assert "total" in obs_with_data.data  # type: ignore
 
-    def test_sum_variables_existing_raises(
-        self, obs_with_data: ObservationData
-    ) -> None:
+    def test_sum_variables_existing_raises(self, obs_with_data: ObservationData) -> None:
         """Test summing into existing variable raises error."""
         with pytest.raises(DataValidationError):
             obs_with_data.sum_variables("ozone", ["pm25", "flag"])

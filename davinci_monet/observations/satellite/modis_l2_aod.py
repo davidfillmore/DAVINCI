@@ -26,7 +26,6 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import observation_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
-
 # Standard variable name mappings for MODIS AOD
 MODIS_AOD_VARIABLE_MAPPING: dict[str, str] = {
     "aod": "Optical_Depth_Land_And_Ocean",
@@ -181,9 +180,7 @@ class MODISL2AODReader:
 
         return ds
 
-    def _apply_qa_filter(
-        self, ds: xr.Dataset, qa_threshold: int
-    ) -> xr.Dataset:
+    def _apply_qa_filter(self, ds: xr.Dataset, qa_threshold: int) -> xr.Dataset:
         """Apply quality assurance filtering to dataset."""
         qa_var = None
         for name in ["Land_Ocean_Quality_Flag", "qa", "Quality_Assurance_Land"]:

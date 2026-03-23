@@ -37,8 +37,17 @@ if TYPE_CHECKING:
 def _superscript(n: int) -> str:
     """Convert integer to superscript string."""
     superscripts = {
-        "-": "\u207b", "0": "\u2070", "1": "\u00b9", "2": "\u00b2", "3": "\u00b3",
-        "4": "\u2074", "5": "\u2075", "6": "\u2076", "7": "\u2077", "8": "\u2078", "9": "\u2079",
+        "-": "\u207b",
+        "0": "\u2070",
+        "1": "\u00b9",
+        "2": "\u00b2",
+        "3": "\u00b3",
+        "4": "\u2074",
+        "5": "\u2075",
+        "6": "\u2076",
+        "7": "\u2077",
+        "8": "\u2078",
+        "9": "\u2079",
     }
     return "".join(superscripts.get(c, c) for c in str(n))
 
@@ -156,9 +165,18 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         fig, plot_ax = plt.subplots(figsize=self.default_figsize)
 
         self._plot_site_panel(
-            plot_ax, site_data, paired_data, site,
-            obs_var, model_var, time_dim, site_dim,
-            scale_factor, obs_style, model_style, show_stats,
+            plot_ax,
+            site_data,
+            paired_data,
+            site,
+            obs_var,
+            model_var,
+            time_dim,
+            site_dim,
+            scale_factor,
+            obs_style,
+            model_style,
+            show_stats,
             single_panel=True,
         )
 
@@ -235,9 +253,18 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             fig, ax = plt.subplots(figsize=self.default_figsize)
 
             self._plot_site_panel(
-                ax, site_data, paired_data, site,
-                obs_var, model_var, time_dim, site_dim,
-                scale_factor, obs_style, model_style, show_stats,
+                ax,
+                site_data,
+                paired_data,
+                site,
+                obs_var,
+                model_var,
+                time_dim,
+                site_dim,
+                scale_factor,
+                obs_style,
+                model_style,
+                show_stats,
                 single_panel=True,
             )
 
@@ -307,28 +334,47 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         # Plot observations
         if obs_style == "scatter":
             ax.scatter(
-                times[valid_obs], obs_vals[valid_obs],
-                s=20, alpha=0.7, color="black", label="Obs", zorder=3,
+                times[valid_obs],
+                obs_vals[valid_obs],
+                s=20,
+                alpha=0.7,
+                color="black",
+                label="Obs",
+                zorder=3,
             )
         else:
             ax.plot(
-                times[valid_obs], obs_vals[valid_obs],
-                "o-", color="black", markersize=4, linewidth=0.8,
-                alpha=0.7, label="Obs", zorder=3,
+                times[valid_obs],
+                obs_vals[valid_obs],
+                "o-",
+                color="black",
+                markersize=4,
+                linewidth=0.8,
+                alpha=0.7,
+                label="Obs",
+                zorder=3,
             )
 
         # Plot model
         if model_style == "line":
             ax.plot(
-                times, mod_vals,
-                color=style.model_color, linewidth=2, alpha=0.8,
-                label="Model", zorder=2,
+                times,
+                mod_vals,
+                color=style.model_color,
+                linewidth=2,
+                alpha=0.8,
+                label="Model",
+                zorder=2,
             )
         else:
             ax.scatter(
-                times[valid_both], mod_vals[valid_both],
-                s=20, alpha=0.7, color=style.model_color,
-                label="Model", zorder=2,
+                times[valid_both],
+                mod_vals[valid_both],
+                s=20,
+                alpha=0.7,
+                color=style.model_color,
+                label="Model",
+                zorder=2,
             )
 
         # Statistics box
@@ -355,9 +401,13 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
 
             fontsize = text_cfg.annotation if single_panel else text_cfg.annotation_small
             ax.text(
-                0.97, 0.97, stats_text,
-                transform=ax.transAxes, fontsize=fontsize,
-                verticalalignment="top", horizontalalignment="right",
+                0.97,
+                0.97,
+                stats_text,
+                transform=ax.transAxes,
+                fontsize=fontsize,
+                verticalalignment="top",
+                horizontalalignment="right",
                 bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
             )
 

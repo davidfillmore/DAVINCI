@@ -256,8 +256,8 @@ class LoadModelsStage(BaseStage):
         import time
         from glob import glob
 
-        from davinci_monet.models import open_model
         from davinci_monet.core.exceptions import ConfigurationError
+        from davinci_monet.models import open_model
 
         start = time.time()
         model_config = context.config.get("model") or context.config.get("models", {})
@@ -280,7 +280,9 @@ class LoadModelsStage(BaseStage):
         loaded_count = 0
         for label, config in model_config.items():
             try:
-                context.log_progress(f"    Loading model: {label} ({loaded_count + 1}/{total_models})")
+                context.log_progress(
+                    f"    Loading model: {label} ({loaded_count + 1}/{total_models})"
+                )
 
                 files = config.get("files", config.get("filename"))
                 if files is None or (isinstance(files, str) and not files.strip()):
@@ -296,7 +298,9 @@ class LoadModelsStage(BaseStage):
                     file_list = glob(files)
                     n_files = len(file_list)
                     if debug:
-                        context.log_progress(f"      [TIMING] glob: {_format_duration(time.time() - t0)}")
+                        context.log_progress(
+                            f"      [TIMING] glob: {_format_duration(time.time() - t0)}"
+                        )
                     context.log_progress(f"step: Opening {n_files} files...")
                 else:
                     context.log_progress(f"step: Opening dataset...")
@@ -314,7 +318,9 @@ class LoadModelsStage(BaseStage):
                     label=label,
                 )
                 if debug:
-                    context.log_progress(f"      [TIMING] open_model: {_format_duration(time.time() - t0)}")
+                    context.log_progress(
+                        f"      [TIMING] open_model: {_format_duration(time.time() - t0)}"
+                    )
 
                 # Apply variable configuration (scaling, masking, renaming) and metadata
                 if isinstance(variables, dict):
@@ -329,8 +335,14 @@ class LoadModelsStage(BaseStage):
 
                     for var_name, var_config in model_data.variables.items():
                         if var_name in model_data.data.data_vars:
-                            units = var_config.get("units") if isinstance(var_config, dict) else None
-                            display = var_config.get("display_name") if isinstance(var_config, dict) else None
+                            units = (
+                                var_config.get("units") if isinstance(var_config, dict) else None
+                            )
+                            display = (
+                                var_config.get("display_name")
+                                if isinstance(var_config, dict)
+                                else None
+                            )
                             if units:
                                 model_data.data[var_name].attrs["units"] = units
                             if display:
@@ -453,7 +465,9 @@ class LoadObservationsStage(BaseStage):
                         t0 = time.time()
                         files = sorted(glob(str(file_path)))
                         if debug:
-                            context.log_progress(f"      [TIMING] glob: {_format_duration(time.time() - t0)}")
+                            context.log_progress(
+                                f"      [TIMING] glob: {_format_duration(time.time() - t0)}"
+                            )
 
                         # Pre-filter files by date in filename (if analysis time range specified)
                         if files and analysis_start and analysis_end:
@@ -478,27 +492,37 @@ class LoadObservationsStage(BaseStage):
                                 t0 = time.time()
                                 data = self._load_icartt_files(files)
                                 if debug:
-                                    context.log_progress(f"      [TIMING] load_icartt: {_format_duration(time.time() - t0)}")
+                                    context.log_progress(
+                                        f"      [TIMING] load_icartt: {_format_duration(time.time() - t0)}"
+                                    )
                             elif obs_type == "lma":
                                 context.log_progress(f"step: Reading {n_files} LMA files...")
                                 t0 = time.time()
                                 data = self._load_lma_files(files)
                                 if debug:
-                                    context.log_progress(f"      [TIMING] load_lma: {_format_duration(time.time() - t0)}")
+                                    context.log_progress(
+                                        f"      [TIMING] load_lma: {_format_duration(time.time() - t0)}"
+                                    )
                             else:
                                 context.log_progress(f"step: Opening {n_files} files...")
                                 t0 = time.time()
                                 try:
-                                    data = xr.open_mfdataset(files, combine="by_coords", parallel=True)
+                                    data = xr.open_mfdataset(
+                                        files, combine="by_coords", parallel=True
+                                    )
                                 except Exception as e:
                                     log_dir = context.config.get("analysis", {}).get("log_dir")
-                                    error_file = write_error_log(e, f"Opening observation files for '{label}'", log_dir)
+                                    error_file = write_error_log(
+                                        e, f"Opening observation files for '{label}'", log_dir
+                                    )
                                     msg = f"Failed to open observation files for '{label}': {e}"
                                     if error_file:
                                         msg += f" (details: {error_file})"
                                     raise DataFormatError(msg) from e
                                 if debug:
-                                    context.log_progress(f"      [TIMING] open_mfdataset: {_format_duration(time.time() - t0)}")
+                                    context.log_progress(
+                                        f"      [TIMING] open_mfdataset: {_format_duration(time.time() - t0)}"
+                                    )
                     elif file_path.exists():
                         context.log_progress("step: Opening dataset...")
                         t0 = time.time()
@@ -509,6 +533,7 @@ class LoadObservationsStage(BaseStage):
                         elif label == "aeronet" or "aeronet" in str(file_path).lower():
                             # Use AERONET reader for proper dimension handling
                             from davinci_monet.observations.surface.aeronet import AERONETReader
+
                             reader = AERONETReader()
                             data = reader.open([str(file_path)])
                         else:
@@ -516,13 +541,17 @@ class LoadObservationsStage(BaseStage):
                                 data = xr.open_dataset(str(file_path))
                             except Exception as e:
                                 log_dir = context.config.get("analysis", {}).get("log_dir")
-                                error_file = write_error_log(e, f"Opening observation file '{file_path}'", log_dir)
+                                error_file = write_error_log(
+                                    e, f"Opening observation file '{file_path}'", log_dir
+                                )
                                 msg = f"Failed to open observation file '{file_path}': {e}"
                                 if error_file:
                                     msg += f" (details: {error_file})"
                                 raise DataFormatError(msg) from e
                         if debug:
-                            context.log_progress(f"      [TIMING] open_dataset: {_format_duration(time.time() - t0)}")
+                            context.log_progress(
+                                f"      [TIMING] open_dataset: {_format_duration(time.time() - t0)}"
+                            )
 
                 # Filter by analysis time range if specified
                 if data is not None and "time" in data.dims and analysis_start and analysis_end:
@@ -551,17 +580,25 @@ class LoadObservationsStage(BaseStage):
                     obs_type=obs_type,
                     data=data,
                     filename=filename,
-                    variables=normalized_variables if isinstance(normalized_variables, dict) else variables,
+                    variables=(
+                        normalized_variables
+                        if isinstance(normalized_variables, dict)
+                        else variables
+                    ),
                 )
                 if debug:
-                    context.log_progress(f"      [TIMING] create_observation_data: {_format_duration(time.time() - t0)}")
+                    context.log_progress(
+                        f"      [TIMING] create_observation_data: {_format_duration(time.time() - t0)}"
+                    )
 
                 # Apply temporal averaging if configured
                 resample_freq = config.get("resample")
                 if resample_freq:
                     min_count = config.get("min_obs_count")
                     track_count = config.get("track_obs_count", False)
-                    original_times = obs_data.data.sizes.get("time", 0) if obs_data.data is not None else 0
+                    original_times = (
+                        obs_data.data.sizes.get("time", 0) if obs_data.data is not None else 0
+                    )
 
                     t0 = time.time()
                     obs_data.resample_data(
@@ -569,7 +606,9 @@ class LoadObservationsStage(BaseStage):
                         min_count=min_count,
                         track_count=track_count,
                     )
-                    new_times = obs_data.data.sizes.get("time", 0) if obs_data.data is not None else 0
+                    new_times = (
+                        obs_data.data.sizes.get("time", 0) if obs_data.data is not None else 0
+                    )
 
                     if debug:
                         context.log_progress(
@@ -593,8 +632,14 @@ class LoadObservationsStage(BaseStage):
 
                     for var_name, var_config in obs_data.variables.items():
                         if var_name in obs_data.data.data_vars:
-                            units = var_config.get("units") if isinstance(var_config, dict) else None
-                            display = var_config.get("display_name") if isinstance(var_config, dict) else None
+                            units = (
+                                var_config.get("units") if isinstance(var_config, dict) else None
+                            )
+                            display = (
+                                var_config.get("display_name")
+                                if isinstance(var_config, dict)
+                                else None
+                            )
                             if units:
                                 obs_data.data[var_name].attrs["units"] = units
                             if display:
@@ -607,12 +652,7 @@ class LoadObservationsStage(BaseStage):
                 ds = obs_data.data
                 n_vars = len(ds.data_vars)
                 # Get record count (sites, points, or time steps)
-                n_records = (
-                    ds.sizes.get("site")
-                    or ds.sizes.get("x")
-                    or ds.sizes.get("time")
-                    or 0
-                )
+                n_records = ds.sizes.get("site") or ds.sizes.get("x") or ds.sizes.get("time") or 0
                 context.log_progress(f"done: {n_vars} vars, {_format_size(n_records)} records")
 
             except Exception as e:
@@ -734,9 +774,7 @@ class LoadObservationsStage(BaseStage):
 
         model_obj = context.models.get(grid_source)
         if model_obj is None:
-            context.log_progress(
-                f"done: grid_source model '{grid_source}' not loaded, skipping"
-            )
+            context.log_progress(f"done: grid_source model '{grid_source}' not loaded, skipping")
             return None
 
         model_ds = model_obj.data if hasattr(model_obj, "data") else model_obj
@@ -844,6 +882,7 @@ class LoadObservationsStage(BaseStage):
             Filtered file list.
         """
         import re
+
         import pandas as pd
 
         t_start = pd.Timestamp(start_time).date()
@@ -902,6 +941,7 @@ class LoadObservationsStage(BaseStage):
 
         if end_time_has_time is None and isinstance(end_time, str):
             import re
+
             end_time_has_time = bool(re.search(r"[T ]\d{2}:\d{2}", end_time))
 
         # If end_time is date-only, include the full day; otherwise honor exact timestamp.
@@ -933,11 +973,11 @@ class PairingStage(BaseStage):
         compute() which can block eager model pairings if run simultaneously.
         """
         import os
-        import time
         import platform
         import subprocess
+        import time
 
-        from davinci_monet.pairing import PairingEngine, PairingConfig
+        from davinci_monet.pairing import PairingConfig, PairingEngine
 
         start = time.time()
 
@@ -968,9 +1008,14 @@ class PairingStage(BaseStage):
 
                 pair_index += 1
                 pair_tuple = (
-                    pair_index, model_label, model_data,
-                    obs_label, obs_data,
-                    model_config, var_mapping, None
+                    pair_index,
+                    model_label,
+                    model_data,
+                    obs_label,
+                    obs_data,
+                    model_config,
+                    var_mapping,
+                    None,
                 )
 
                 if is_dask:
@@ -1042,8 +1087,18 @@ class PairingStage(BaseStage):
         def pair_single(args: tuple) -> tuple[int, str, Any, str | None, float]:
             """Process a single model-obs pair. Returns (index, pair_key, paired_ds, error, duration)."""
             import time as time_mod
+
             pair_start = time_mod.time()
-            idx, model_label, model_data, obs_label, obs_data, model_config, var_mapping, dask_workers = args
+            (
+                idx,
+                model_label,
+                model_data,
+                obs_label,
+                obs_data,
+                model_config,
+                var_mapping,
+                dask_workers,
+            ) = args
             pair_key = f"{model_label}_{obs_label}"
 
             try:
@@ -1054,7 +1109,13 @@ class PairingStage(BaseStage):
                 obs_ds = obs_data.data if hasattr(obs_data, "data") else obs_data
 
                 if model_ds is None or obs_ds is None:
-                    return (idx, pair_key, None, "Model or obs data is None", time_mod.time() - pair_start)
+                    return (
+                        idx,
+                        pair_key,
+                        None,
+                        "Model or obs data is None",
+                        time_mod.time() - pair_start,
+                    )
 
                 radius = model_config.get("radius_of_influence", 12000.0)
                 pairing_cfg = PairingConfig(
@@ -1065,6 +1126,7 @@ class PairingStage(BaseStage):
                 engine = PairingEngine()
                 if dask_workers is not None:
                     import dask
+
                     with dask.config.set(scheduler="threads", num_workers=dask_workers):
                         paired_ds = engine.pair(
                             model_ds,
@@ -1118,7 +1180,9 @@ class PairingStage(BaseStage):
                             f"{pair_key}: {error}"
                         )
                         if debug:
-                            context.log_progress(f"      [TIMING] {pair_key} failed: {_format_duration(pair_duration)}")
+                            context.log_progress(
+                                f"      [TIMING] {pair_key} failed: {_format_duration(pair_duration)}"
+                            )
                         # Still count as "completed" for progress display
                         context.log_progress(f"    parallel_completed: {pair_key} - FAILED")
                     elif paired_ds is not None:
@@ -1172,6 +1236,7 @@ class PairingStage(BaseStage):
         # Warn if pairing produced no data (transient Dask/HDF5 issue)
         if total_pairs > 0 and paired_count == 0:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.warning(
                 f"Pairing completed but produced no data ({total_pairs} pairs attempted). "
@@ -1247,9 +1312,7 @@ class StatisticsStage(BaseStage):
                 context.log_progress(f"done: {n_vars} vars, {n_metrics} metrics")
 
             except Exception as e:
-                context.metadata.setdefault("stats_errors", []).append(
-                    f"{pair_key}: {e}"
-                )
+                context.metadata.setdefault("stats_errors", []).append(f"{pair_key}: {e}")
                 context.log_progress(f"warning: stats failed for {pair_key}: {e}")
 
         return self._create_result(
@@ -1258,9 +1321,7 @@ class StatisticsStage(BaseStage):
             duration=time.time() - start,
         )
 
-    def _calculate_stats(
-        self, paired_data: xr.Dataset, config: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _calculate_stats(self, paired_data: xr.Dataset, config: dict[str, Any]) -> dict[str, Any]:
         """Calculate statistics for a paired dataset."""
         import numpy as np
 
@@ -1334,9 +1395,7 @@ class StatisticsStage(BaseStage):
 
         return stats
 
-    def _calculate_per_flight_stats(
-        self, paired_data: xr.Dataset
-    ) -> list[dict[str, Any]]:
+    def _calculate_per_flight_stats(self, paired_data: xr.Dataset) -> list[dict[str, Any]]:
         """Calculate statistics for each flight.
 
         Parameters
@@ -1480,7 +1539,9 @@ class PlottingStage(BaseStage):
 
                     # Get plotter config from model variable settings
                     model_var = var_spec.get("model_var", "")
-                    var_config = model_config.get(model_label, {}).get("variables", {}).get(model_var, {})
+                    var_config = (
+                        model_config.get(model_label, {}).get("variables", {}).get(model_var, {})
+                    )
                     vmin = var_config.get("vmin_plot")
                     vmax = var_config.get("vmax_plot")
                     vdiff = var_config.get("vdiff_plot")
@@ -1503,24 +1564,42 @@ class PlottingStage(BaseStage):
 
                     # Extract additional plot options from plot_spec
                     plot_options: dict[str, Any] = {}
-                    for opt_key in ["show_site_labels", "show_individual_sites",
-                                    "show_uncertainty", "uncertainty_type",
-                                    "resample", "aggregate_dim", "label_sites",
-                                    "site_label_var", "city_labels",
-                                    "show_density", "density_cmap", "alpha",
-                                    # spatial plotter rendering mode
-                                    "plot_type", "cmap",
-                                    # track_map_3d options
-                                    "show_surface_map", "surface_map_resolution",
-                                    "land_color", "ocean_color",
-                                    "show_var", "elev", "azim",
-                                    "show_coastlines", "show_borders",
-                                    "show_projection", "alt_scale"]:
+                    for opt_key in [
+                        "show_site_labels",
+                        "show_individual_sites",
+                        "show_uncertainty",
+                        "uncertainty_type",
+                        "resample",
+                        "aggregate_dim",
+                        "label_sites",
+                        "site_label_var",
+                        "city_labels",
+                        "show_density",
+                        "density_cmap",
+                        "alpha",
+                        # spatial plotter rendering mode
+                        "plot_type",
+                        "cmap",
+                        # track_map_3d options
+                        "show_surface_map",
+                        "surface_map_resolution",
+                        "land_color",
+                        "ocean_color",
+                        "show_var",
+                        "elev",
+                        "azim",
+                        "show_coastlines",
+                        "show_borders",
+                        "show_projection",
+                        "alt_scale",
+                    ]:
                         if opt_key in plot_spec:
                             plot_options[opt_key] = plot_spec[opt_key]
 
                     # Add city_labels from analysis config for spatial plots and 3D track maps
-                    if (plot_type.startswith("spatial") or plot_type == "track_map_3d") and "city_labels" not in plot_options:
+                    if (
+                        plot_type.startswith("spatial") or plot_type == "track_map_3d"
+                    ) and "city_labels" not in plot_options:
                         city_labels = analysis_config.get("city_labels")
                         if city_labels:
                             plot_options["city_labels"] = city_labels
@@ -1544,17 +1623,23 @@ class PlottingStage(BaseStage):
 
                         flight_count = 0
                         for flight_id, fig in plotter.plot_per_flight(
-                            paired_data, obs_var_name, model_var_name,
+                            paired_data,
+                            obs_var_name,
+                            model_var_name,
                             flight_coord=flight_coord,
                             min_points=min_points,
-                            **plot_options
+                            **plot_options,
                         ):
                             # Save plot with flight ID first for grouping by flight in slideshows
-                            output_path = obs_output_dir / f"{flight_id}_{file_index:02d}_{plot_name}.png"
+                            output_path = (
+                                obs_output_dir / f"{flight_id}_{file_index:02d}_{plot_name}.png"
+                            )
                             plotter.save(fig, output_path, dpi=300)
                             plots_generated.append(str(output_path))
 
-                            pdf_path = obs_output_dir / f"{flight_id}_{file_index:02d}_{plot_name}.pdf"
+                            pdf_path = (
+                                obs_output_dir / f"{flight_id}_{file_index:02d}_{plot_name}.pdf"
+                            )
                             plotter.save(fig, pdf_path)
                             plots_generated.append(str(pdf_path))
 
@@ -1571,16 +1656,22 @@ class PlottingStage(BaseStage):
 
                         site_count = 0
                         for site_id, fig in plotter.plot_per_site(
-                            paired_data, obs_var_name, model_var_name,
+                            paired_data,
+                            obs_var_name,
+                            model_var_name,
                             site_dim=site_dim,
                             min_points=min_points,
-                            **plot_options
+                            **plot_options,
                         ):
-                            output_path = obs_output_dir / f"site_{site_id}_{file_index:02d}_{plot_name}.png"
+                            output_path = (
+                                obs_output_dir / f"site_{site_id}_{file_index:02d}_{plot_name}.png"
+                            )
                             plotter.save(fig, output_path, dpi=300)
                             plots_generated.append(str(output_path))
 
-                            pdf_path = obs_output_dir / f"site_{site_id}_{file_index:02d}_{plot_name}.pdf"
+                            pdf_path = (
+                                obs_output_dir / f"site_{site_id}_{file_index:02d}_{plot_name}.pdf"
+                            )
                             plotter.save(fig, pdf_path)
                             plots_generated.append(str(pdf_path))
 
@@ -1591,7 +1682,9 @@ class PlottingStage(BaseStage):
                         context.log_progress(f"done: saved {site_count} sites to {obs_label}/")
                     else:
                         # Generate single plot (original behavior)
-                        fig = plotter.plot(paired_data, obs_var_name, model_var_name, **plot_options)
+                        fig = plotter.plot(
+                            paired_data, obs_var_name, model_var_name, **plot_options
+                        )
 
                         # Save plot (prefixed for ordering)
                         output_path = obs_output_dir / f"{file_index:02d}_{plot_name}.png"
@@ -1609,9 +1702,7 @@ class PlottingStage(BaseStage):
                         context.log_progress(f"done: saved to {obs_label}/")
 
             except Exception as e:
-                context.metadata.setdefault("plot_errors", []).append(
-                    f"{plot_name}: {e}"
-                )
+                context.metadata.setdefault("plot_errors", []).append(f"{plot_name}: {e}")
                 context.log_progress(f"warning: plot failed for {plot_name}: {e}")
 
         return self._create_result(
@@ -1629,9 +1720,9 @@ class SaveResultsStage(BaseStage):
 
     def execute(self, context: PipelineContext) -> StageResult:
         """Save analysis results to files."""
+        import math
         import time
         from pathlib import Path
-        import math
 
         import pandas as pd
 
@@ -1677,8 +1768,16 @@ class SaveResultsStage(BaseStage):
 
                     if isinstance(nmb, (int, float)) and not math.isnan(float(nmb)):
                         row["NMB_%"] = nmb
-                    elif isinstance(obs_mean, (int, float)) and obs_mean not in (0, -0.0) and not math.isnan(float(obs_mean)):
-                        row["NMB_%"] = (row["MB"] / obs_mean) * 100 if isinstance(row["MB"], (int, float)) else float("nan")
+                    elif (
+                        isinstance(obs_mean, (int, float))
+                        and obs_mean not in (0, -0.0)
+                        and not math.isnan(float(obs_mean))
+                    ):
+                        row["NMB_%"] = (
+                            (row["MB"] / obs_mean) * 100
+                            if isinstance(row["MB"], (int, float))
+                            else float("nan")
+                        )
                     else:
                         row["NMB_%"] = float("nan")
 
@@ -1766,8 +1865,16 @@ class ObsPlottingStage(BaseStage):
 
         # Keys to exclude when forwarding plot_spec to plotter kwargs
         _SCHEMA_KEYS = {
-            "type", "obs", "variable", "fig_kwargs", "default_plot_kwargs",
-            "text_kwargs", "domain_type", "domain_name", "data", "data_proc",
+            "type",
+            "obs",
+            "variable",
+            "fig_kwargs",
+            "default_plot_kwargs",
+            "text_kwargs",
+            "domain_type",
+            "domain_name",
+            "data",
+            "data_proc",
         }
 
         start = time.time()

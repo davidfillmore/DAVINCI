@@ -149,15 +149,25 @@ class CurtainPlotter(BasePlotter):
             # 1D trajectory data - create 2D representation
             # This is a simple approach; more sophisticated binning could be used
             self._plot_1d_trajectory(
-                ax, time_values, alt_values, data_values,
+                ax,
+                time_values,
+                alt_values,
+                data_values,
                 obs_data.values if show_scatter else None,
-                cmap, show_var, scatter_size,
+                cmap,
+                show_var,
+                scatter_size,
             )
         else:
             # 2D or higher - use contourf
             self._plot_2d_curtain(
-                ax, time_values, alt_values, data_values,
-                cmap, n_levels, show_var,
+                ax,
+                time_values,
+                alt_values,
+                data_values,
+                cmap,
+                n_levels,
+                show_var,
             )
 
         # Calculate limits
@@ -166,8 +176,14 @@ class CurtainPlotter(BasePlotter):
             norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
         else:
             data_flat = data_values[np.isfinite(data_values)]
-            vmin = self.config.vmin if self.config.vmin is not None else np.nanpercentile(data_flat, 2)
-            vmax = self.config.vmax if self.config.vmax is not None else np.nanpercentile(data_flat, 98)
+            vmin = (
+                self.config.vmin if self.config.vmin is not None else np.nanpercentile(data_flat, 2)
+            )
+            vmax = (
+                self.config.vmax
+                if self.config.vmax is not None
+                else np.nanpercentile(data_flat, 98)
+            )
             norm = None
 
         # Formatting
@@ -179,7 +195,9 @@ class CurtainPlotter(BasePlotter):
         if show_var == "bias":
             ylabel_text = "Bias (Model - Obs)"
         else:
-            ylabel_text = get_variable_label(paired_data, obs_var if show_var == "obs" else model_var)
+            ylabel_text = get_variable_label(
+                paired_data, obs_var if show_var == "obs" else model_var
+            )
 
         alt_units = get_variable_units(paired_data, alt_var) or "m"
         self.set_labels(
@@ -190,7 +208,9 @@ class CurtainPlotter(BasePlotter):
 
         # Title
         if self.config.title:
-            ax.set_title(format_plot_title(self.config.title), fontsize=self.config.text.title_fontsize)
+            ax.set_title(
+                format_plot_title(self.config.title), fontsize=self.config.text.title_fontsize
+            )
         else:
             var_label = get_variable_label(paired_data, obs_var)
             ax.set_title(
@@ -356,10 +376,12 @@ class CurtainPlotter(BasePlotter):
 
         # Set x-axis to show times
         ax.set_xticks(np.linspace(0, len(time_numeric) - 1, 5).astype(int))
-        ax.set_xticklabels([
-            time_numeric[int(i)].strftime("%H:%M")
-            for i in np.linspace(0, len(time_numeric) - 1, 5)
-        ])
+        ax.set_xticklabels(
+            [
+                time_numeric[int(i)].strftime("%H:%M")
+                for i in np.linspace(0, len(time_numeric) - 1, 5)
+            ]
+        )
 
         # Add colorbar
         cbar = ax.get_figure().colorbar(contour, ax=ax)

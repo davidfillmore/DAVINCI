@@ -22,7 +22,6 @@ from davinci_monet.core.exceptions import (
 from davinci_monet.core.registry import model_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
-
 # Standard variable name mappings for CMAQ
 CMAQ_VARIABLE_MAPPING: dict[str, str] = {
     "ozone": "O3",
@@ -187,7 +186,8 @@ class CMAQReader:
         """
         # Filter out our custom kwargs
         xr_kwargs = {
-            k: v for k, v in kwargs.items()
+            k: v
+            for k, v in kwargs.items()
             if k not in ("fname_vert", "fname_surf", "concatenate_forecasts", "surf_only")
         }
 
@@ -230,7 +230,9 @@ class CMAQReader:
                     msg += f" (details: {error_file})"
                 raise DataFormatError(msg) from e
 
-        raise DataFormatError(f"Failed to open CMAQ files after {max_retries} attempts") from last_error
+        raise DataFormatError(
+            f"Failed to open CMAQ files after {max_retries} attempts"
+        ) from last_error
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize CMAQ dataset dimensions and coordinates.
@@ -317,6 +319,7 @@ def open_cmaq(
         file_str = str(files)
         if "*" in file_str or "?" in file_str:
             from glob import glob
+
             file_list = sorted(glob(file_str))
             if not file_list:
                 raise DataNotFoundError(f"No files match pattern: {files}")

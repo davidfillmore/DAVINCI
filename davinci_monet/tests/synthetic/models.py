@@ -168,9 +168,7 @@ def create_model_dataset(
     for var_name in variables:
         spec = get_variable_spec(var_name)
         var_seed = int(rng.integers(0, 2**31)) if seed is not None else None
-        data_vars[var_name] = create_variable_field(
-            spec, shape, dims, seed=var_seed
-        )
+        data_vars[var_name] = create_variable_field(spec, shape, dims, seed=var_seed)
 
     ds = xr.Dataset(data_vars, coords=coords)
 

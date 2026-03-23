@@ -92,23 +92,14 @@ class VerticalProfilePlotter(ObsPlotter):
         color = color or NCAR_PRIMARY
 
         # Check for multi-flight data (>1 unique flight)
-        has_flights = (
-            "flight" in obs_data.coords
-            and len(np.unique(obs_data["flight"].values)) > 1
-        )
+        has_flights = "flight" in obs_data.coords and len(np.unique(obs_data["flight"].values)) > 1
 
         if has_flights:
-            self._plot_multi_flight(
-                ax, obs_data, variable, alt_coord, mode, n_bins, **kwargs
-            )
+            self._plot_multi_flight(ax, obs_data, variable, alt_coord, mode, n_bins, **kwargs)
         elif mode == "binned":
-            self._plot_binned(
-                ax, obs_data, variable, alt_coord, n_bins, color, **kwargs
-            )
+            self._plot_binned(ax, obs_data, variable, alt_coord, n_bins, color, **kwargs)
         else:
-            self._plot_scatter(
-                ax, obs_data, variable, alt_coord, color, **kwargs
-            )
+            self._plot_scatter(ax, obs_data, variable, alt_coord, color, **kwargs)
 
         # Labels
         var_label = get_variable_label(obs_data, variable, include_prefix=False)
@@ -225,13 +216,9 @@ class VerticalProfilePlotter(ObsPlotter):
             subset = obs_data.isel(time=mask)
 
             if mode == "binned":
-                self._plot_binned(
-                    ax, subset, variable, alt_coord, n_bins, color, **kwargs
-                )
+                self._plot_binned(ax, subset, variable, alt_coord, n_bins, color, **kwargs)
                 # Add invisible point for legend
                 ax.plot([], [], color=color, linewidth=1.5, label=str(fid))
             else:
-                self._plot_scatter(
-                    ax, subset, variable, alt_coord, color, **kwargs
-                )
+                self._plot_scatter(ax, subset, variable, alt_coord, color, **kwargs)
                 ax.scatter([], [], c=color, s=8, label=str(fid))

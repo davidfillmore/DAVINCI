@@ -105,6 +105,7 @@ def _get_system_info() -> str:
             )
             if result.returncode == 0:
                 import json
+
                 data = json.loads(result.stdout)
                 displays = data.get("SPDisplaysDataType", [])
                 for display in displays:
@@ -208,7 +209,7 @@ def display_error(title: str, message: str, config_path: str | None = None) -> N
         max_path_len = 70
         display_path = config_path
         if len(config_path) > max_path_len:
-            display_path = "..." + config_path[-(max_path_len - 3):]
+            display_path = "..." + config_path[-(max_path_len - 3) :]
         console.print(f"  [dim]Config:[/dim] {display_path}")
 
     console.print()
@@ -219,7 +220,6 @@ def display_error(title: str, message: str, config_path: str | None = None) -> N
     # Error details in lighter red
     console.print(f"  [{NCAR_RED_LIGHT}]{message}[/{NCAR_RED_LIGHT}]")
     console.print()
-
 
 
 def _get_full_name(obj: object) -> str:
@@ -259,9 +259,7 @@ def timer(desc: str = "") -> Generator[None, None, None]:
             tpl.format(status="failed", elapsed=time.perf_counter() - start),
             fg=ERROR_COLOR,
         )
-        typer.secho(
-            f"Error message (type: {_get_full_name(type(e))}): {e}", fg=ERROR_COLOR
-        )
+        typer.secho(f"Error message (type: {_get_full_name(type(e))}): {e}", fg=ERROR_COLOR)
         if DEBUG:
             raise
         else:

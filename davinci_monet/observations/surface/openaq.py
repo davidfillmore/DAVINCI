@@ -20,7 +20,6 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import observation_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
-
 # Standard variable name mappings for OpenAQ
 OPENAQ_VARIABLE_MAPPING: dict[str, str] = {
     "ozone": "o3",
@@ -97,8 +96,13 @@ class OpenAQReader:
             return self._open_files(file_paths, variables, **kwargs)
         elif dates is not None:
             return self._open_with_monetio(
-                dates, variables, country=country, city=city,
-                parameter=parameter, api_version=api_version, **kwargs
+                dates,
+                variables,
+                country=country,
+                city=city,
+                parameter=parameter,
+                api_version=api_version,
+                **kwargs,
             )
         else:
             raise DataNotFoundError("Either file_paths or dates must be provided")
@@ -189,16 +193,12 @@ class OpenAQReader:
         mio_kwargs.update(kwargs)
 
         try:
-            df: pd.DataFrame = openaq_mod.add_data(
-                start_date, end_date, **mio_kwargs
-            )
+            df: pd.DataFrame = openaq_mod.add_data(start_date, end_date, **mio_kwargs)
         except Exception as e:
             raise DataFormatError(f"Failed to query OpenAQ data: {e}") from e
 
         if df.empty:
-            raise DataNotFoundError(
-                f"No OpenAQ data found for {start_date} to {end_date}"
-            )
+            raise DataNotFoundError(f"No OpenAQ data found for {start_date} to {end_date}")
 
         ds: xr.Dataset = self._dataframe_to_dataset(df)
 

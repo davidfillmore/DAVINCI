@@ -96,8 +96,10 @@ class ProfileStrategy(BasePairingStrategy):
 
         # Find nearest model column
         lat_idx, lon_idx = self._find_nearest_indices(
-            model_lat, model_lon,
-            xr.DataArray([profile_lat]), xr.DataArray([profile_lon]),
+            model_lat,
+            model_lon,
+            xr.DataArray([profile_lat]),
+            xr.DataArray([profile_lon]),
             radius_of_influence=radius_of_influence,
         )
 
@@ -109,8 +111,11 @@ class ProfileStrategy(BasePairingStrategy):
 
         # Extract model column at profile location
         model_column = self._extract_column(
-            model, model_lat, model_lon,
-            int(lat_idx.values[0]), int(lon_idx.values[0]),
+            model,
+            model_lat,
+            model_lon,
+            int(lat_idx.values[0]),
+            int(lon_idx.values[0]),
         )
 
         # Interpolate model to observation times if needed
@@ -122,8 +127,7 @@ class ProfileStrategy(BasePairingStrategy):
         if interp_to_obs_levels and level_coord in obs.dims:
             obs_levels = obs[level_coord]
             model_column = self._interpolate_vertical(
-                model_column, obs_levels,
-                level_coord="z", method=vertical_method
+                model_column, obs_levels, level_coord="z", method=vertical_method
             )
 
         # Create paired output

@@ -12,7 +12,6 @@ from typing import Any, Callable
 
 from davinci_monet.core.exceptions import ConfigurationError
 
-
 # Version constants
 CURRENT_VERSION = "2.0.0"
 MINIMUM_VERSION = "1.0.0"
@@ -177,9 +176,7 @@ def _has_v2_features(config: dict[str, Any]) -> bool:
 def _is_v1_format(config: dict[str, Any]) -> bool:
     """Check if config follows v1 (MELODIES-MONET) format."""
     # V1 format has analysis, model, obs sections
-    has_sections = any(
-        key in config for key in ["analysis", "model", "obs", "plots", "stats"]
-    )
+    has_sections = any(key in config for key in ["analysis", "model", "obs", "plots", "stats"])
     return has_sections
 
 

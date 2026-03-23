@@ -68,7 +68,10 @@ def subset_modis_l2_files(
         return []
 
     subset_interval = pd.date_range(
-        start=start_time, end=end_time, freq="h", inclusive="left",
+        start=start_time,
+        end=end_time,
+        freq="h",
+        inclusive="left",
     )
 
     interval_files: list[str] = []
@@ -256,9 +259,7 @@ class MODISL2Reader:
         if len(time_range) < 1:
             time_range = pd.DatetimeIndex([pd.Timestamp(start_time)])
         ntime = len(time_range)
-        time_centers_epoch = (
-            time_range.values.astype("datetime64[s]").astype(np.float64)
-        )
+        time_centers_epoch = time_range.values.astype("datetime64[s]").astype(np.float64)
         time_edges = edges_from_centers(time_centers_epoch)
 
         lat_edges = edges_from_centers(lat_centers)
@@ -266,18 +267,12 @@ class MODISL2Reader:
 
         # One count/data grid per variable
         var_names = list(variable_dict.keys())
-        count_grids = {
-            v: np.zeros((ntime, nlon, nlat), dtype=np.int32) for v in var_names
-        }
-        data_grids = {
-            v: np.zeros((ntime, nlon, nlat), dtype=np.float64) for v in var_names
-        }
+        count_grids = {v: np.zeros((ntime, nlon, nlat), dtype=np.int32) for v in var_names}
+        data_grids = {v: np.zeros((ntime, nlon, nlat), dtype=np.float64) for v in var_names}
 
         n_valid_total = 0
         for i, (granule_key, granule) in enumerate(granules.items()):
-            obs_timestamp = pd.to_datetime(
-                granule_key, format="%Y%j%H%M"
-            ).timestamp()
+            obs_timestamp = pd.to_datetime(granule_key, format="%Y%j%H%M").timestamp()
 
             lat = granule["lat"].values.flatten().astype(np.float64)
             lon = granule["lon"].values.flatten().astype(np.float64)
@@ -301,9 +296,15 @@ class MODISL2Reader:
                 n_valid_total += int(np.isfinite(data_flat).sum())
 
                 bin_swath_to_grid(
-                    time_edges, lon_edges, lat_edges,
-                    time_flat, lon, lat, data_flat,
-                    count_grids[var_name], data_grids[var_name],
+                    time_edges,
+                    lon_edges,
+                    lat_edges,
+                    time_flat,
+                    lon,
+                    lat,
+                    data_flat,
+                    count_grids[var_name],
+                    data_grids[var_name],
                 )
 
             if progress_callback and (i + 1) % 50 == 0:

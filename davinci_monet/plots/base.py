@@ -208,16 +208,33 @@ class PlotConfig:
         if "domain_name" in config_dict:
             domain_dict.setdefault("domain_name", config_dict["domain_name"])
 
-        figure = FigureConfig(**{k: v for k, v in figure_dict.items() if k in FigureConfig.__dataclass_fields__})
-        text = TextConfig(**{k: v for k, v in text_dict.items() if k in TextConfig.__dataclass_fields__})
-        style = StyleConfig(**{k: v for k, v in style_dict.items() if k in StyleConfig.__dataclass_fields__})
-        domain = DomainConfig(**{k: v for k, v in domain_dict.items() if k in DomainConfig.__dataclass_fields__})
+        figure = FigureConfig(
+            **{k: v for k, v in figure_dict.items() if k in FigureConfig.__dataclass_fields__}
+        )
+        text = TextConfig(
+            **{k: v for k, v in text_dict.items() if k in TextConfig.__dataclass_fields__}
+        )
+        style = StyleConfig(
+            **{k: v for k, v in style_dict.items() if k in StyleConfig.__dataclass_fields__}
+        )
+        domain = DomainConfig(
+            **{k: v for k, v in domain_dict.items() if k in DomainConfig.__dataclass_fields__}
+        )
 
         # Extract top-level fields
         top_level_fields = {
-            "obs_var", "model_var", "obs_label", "model_label",
-            "vmin", "vmax", "xlabel", "ylabel", "title",
-            "output_dir", "output_format", "debug"
+            "obs_var",
+            "model_var",
+            "obs_label",
+            "model_label",
+            "vmin",
+            "vmax",
+            "xlabel",
+            "ylabel",
+            "title",
+            "output_dir",
+            "output_format",
+            "debug",
         }
         top_level = {k: v for k, v in config_dict.items() if k in top_level_fields}
 

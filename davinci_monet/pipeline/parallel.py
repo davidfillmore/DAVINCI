@@ -211,9 +211,7 @@ class ParallelPairingExecutor:
         # Build list of pairs to process
         for model_label, model_data in models.items():
             for obs_label, obs_data in observations.items():
-                pairs_to_process.append(
-                    (model_label, model_data, obs_label, obs_data, config)
-                )
+                pairs_to_process.append((model_label, model_data, obs_label, obs_data, config))
 
         def _is_var_mapping(value: Any) -> bool:
             return isinstance(value, dict) and all(
@@ -227,7 +225,11 @@ class ParallelPairingExecutor:
             model_cfg = cfg.get("model") if isinstance(cfg.get("model"), dict) else None
             if isinstance(model_cfg, dict) and model_label in model_cfg:
                 mapping = model_cfg[model_label].get("mapping", {})
-                if isinstance(mapping, dict) and obs_label in mapping and _is_var_mapping(mapping[obs_label]):
+                if (
+                    isinstance(mapping, dict)
+                    and obs_label in mapping
+                    and _is_var_mapping(mapping[obs_label])
+                ):
                     return mapping[obs_label]
 
             mapping_cfg = cfg.get("mapping")
@@ -273,11 +275,23 @@ class ParallelPairingExecutor:
                 else:
                     # Fallback to common variable names (identity mapping)
                     excluded = {
-                        "lat", "lon", "latitude", "longitude", "time",
-                        "x", "y", "z", "lev", "level", "altitude", "height", "pressure",
+                        "lat",
+                        "lon",
+                        "latitude",
+                        "longitude",
+                        "time",
+                        "x",
+                        "y",
+                        "z",
+                        "lev",
+                        "level",
+                        "altitude",
+                        "height",
+                        "pressure",
                     }
                     obs_vars = sorted(
-                        v for v in obs_ds.data_vars
+                        v
+                        for v in obs_ds.data_vars
                         if v in model_ds.data_vars
                         and v not in excluded
                         and not v.startswith(("obs_", "model_"))

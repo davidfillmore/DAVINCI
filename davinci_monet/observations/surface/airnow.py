@@ -20,7 +20,6 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import observation_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
-
 # Standard variable name mappings for AirNow
 AIRNOW_VARIABLE_MAPPING: dict[str, str] = {
     "ozone": "OZONE",
@@ -134,8 +133,7 @@ class AirNowReader:
             import monetio.obs.airnow as airnow_mod
         except ImportError as e:
             raise ImportError(
-                "monetio is required for AirNow API queries. "
-                "Install with: pip install monetio"
+                "monetio is required for AirNow API queries. " "Install with: pip install monetio"
             ) from e
 
         # Parse dates
@@ -147,18 +145,14 @@ class AirNowReader:
         ds_list = []
         for date in date_range:
             try:
-                df: pd.DataFrame = airnow_mod.add_data(
-                    date, wide_fmt=wide_fmt, **kwargs
-                )
+                df: pd.DataFrame = airnow_mod.add_data(date, wide_fmt=wide_fmt, **kwargs)
                 if not df.empty:
                     ds_list.append(df)
             except Exception:
                 continue
 
         if not ds_list:
-            raise DataNotFoundError(
-                f"No AirNow data found for {start_date} to {end_date}"
-            )
+            raise DataNotFoundError(f"No AirNow data found for {start_date} to {end_date}")
 
         # Combine and convert to xarray
         combined_df = pd.concat(ds_list, ignore_index=True)

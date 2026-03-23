@@ -11,12 +11,25 @@ import pytest
 
 from davinci_monet.stats.metrics import statistic_registry
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
 
-CORE_METRICS = ["N", "MB", "RMSE", "R", "NMB", "NME", "IOA", "MO", "MP", "STDO", "STDP", "MdnO", "MdnP"]
+CORE_METRICS = [
+    "N",
+    "MB",
+    "RMSE",
+    "R",
+    "NMB",
+    "NME",
+    "IOA",
+    "MO",
+    "MP",
+    "STDO",
+    "STDP",
+    "MdnO",
+    "MdnP",
+]
 
 
 def _get_metric(name: str):

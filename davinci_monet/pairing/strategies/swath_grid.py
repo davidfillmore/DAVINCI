@@ -131,20 +131,18 @@ class SwathGridStrategy(BasePairingStrategy):
 
         # Build target grid (filter kwargs to avoid duplicating named params)
         grid_kwargs = {
-            k: v for k, v in kwargs.items()
-            if k not in ("grid_mode", "time_resolution", "min_obs_count",
-                         "obs_var", "model_var")
+            k: v
+            for k, v in kwargs.items()
+            if k not in ("grid_mode", "time_resolution", "min_obs_count", "obs_var", "model_var")
         }
-        time_edges, lon_edges, lat_edges, time_centers, lon_centers, lat_centers = (
-            self._build_grid(
-                grid_mode=grid_mode,
-                model_lat=model_lat,
-                model_lon=model_lon,
-                t_start=t_start,
-                t_end=t_end,
-                time_resolution=time_resolution,
-                **grid_kwargs,
-            )
+        time_edges, lon_edges, lat_edges, time_centers, lon_centers, lat_centers = self._build_grid(
+            grid_mode=grid_mode,
+            model_lat=model_lat,
+            model_lon=model_lon,
+            t_start=t_start,
+            t_end=t_end,
+            time_resolution=time_resolution,
+            **grid_kwargs,
         )
 
         ntime = len(time_centers)
@@ -177,9 +175,15 @@ class SwathGridStrategy(BasePairingStrategy):
 
         # Bin swath pixels onto grid (numba fast path)
         bin_swath_to_grid(
-            time_edges, lon_edges, lat_edges,
-            time_flat, lon_flat, lat_flat, data_flat,
-            count_grid, data_grid,
+            time_edges,
+            lon_edges,
+            lat_edges,
+            time_flat,
+            lon_flat,
+            lat_flat,
+            data_flat,
+            count_grid,
+            data_grid,
         )
 
         # Normalize: sum → mean
@@ -213,8 +217,14 @@ class SwathGridStrategy(BasePairingStrategy):
             model_var = model_data_vars[0]
 
         model_on_grid = self._align_model_to_grid(
-            model_proc, model_var, time_coords, lon_centers, lat_centers,
-            model_lat, model_lon, grid_mode,
+            model_proc,
+            model_var,
+            time_coords,
+            lon_centers,
+            lat_centers,
+            model_lat,
+            model_lon,
+            grid_mode,
         )
 
         # Create paired output
@@ -233,8 +243,12 @@ class SwathGridStrategy(BasePairingStrategy):
         time_resolution: str,
         **kwargs: Any,
     ) -> tuple[
-        np.ndarray, np.ndarray, np.ndarray,
-        np.ndarray, np.ndarray, np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
     ]:
         """Build target grid edges and centers.
 
@@ -256,8 +270,7 @@ class SwathGridStrategy(BasePairingStrategy):
         if grid_mode == "match_model":
             if model_lat.ndim != 1 or model_lon.ndim != 1:
                 raise PairingError(
-                    "match_model grid mode requires 1D model lat/lon "
-                    "(rectilinear grid)"
+                    "match_model grid mode requires 1D model lat/lon " "(rectilinear grid)"
                 )
             lat_centers = model_lat.values.astype(np.float64)
             lon_centers = model_lon.values.astype(np.float64)
@@ -289,9 +302,7 @@ class SwathGridStrategy(BasePairingStrategy):
 
         return time_edges, lon_edges, lat_edges, time_centers_epoch, lon_centers, lat_centers
 
-    def _get_obs_timestamps(
-        self, obs: xr.Dataset, n_pixels: int
-    ) -> np.ndarray:
+    def _get_obs_timestamps(self, obs: xr.Dataset, n_pixels: int) -> np.ndarray:
         """Extract observation timestamps as flat epoch-second array.
 
         Parameters

@@ -170,15 +170,11 @@ def _write_dataset_safe(ds, output_path: Path, compress: bool = False) -> bool:
 
 @app.command("aeronet")
 def get_aeronet(
-    start_date: str = typer.Option(
-        ..., "-s", "--start-date", help=f"Start date. {_DATE_FMT_NOTE}"
-    ),
+    start_date: str = typer.Option(..., "-s", "--start-date", help=f"Start date. {_DATE_FMT_NOTE}"),
     end_date: str = typer.Option(
         ..., "-e", "--end-date", help=f"End date. {_DATE_FMT_NOTE} {_DATE_END_NOTE}"
     ),
-    daily: bool = typer.Option(
-        False, help="Whether to retrieve the daily averaged data product."
-    ),
+    daily: bool = typer.Option(False, help="Whether to retrieve the daily averaged data product."),
     freq: str = typer.Option(
         "h",
         "-f",
@@ -203,20 +199,15 @@ def get_aeronet(
         True,
         help="Apply compression to output file.",
     ),
-    num_workers: int = typer.Option(
-        1, "-n", "--num-workers", help="Number of download workers."
-    ),
+    num_workers: int = typer.Option(1, "-n", "--num-workers", help="Number of download workers."),
     verbose: bool = typer.Option(False, help="Enable verbose output."),
-    debug: bool = typer.Option(
-        False, "--debug", help="Print full tracebacks on error."
-    ),
+    debug: bool = typer.Option(False, "--debug", help="Print full tracebacks on error."),
 ) -> None:
     """Download AERONET data and reformat for DAVINCI usage."""
     import davinci_monet.cli.app as app_module
 
     app_module.DEBUG = debug
 
-    
     dst, out_name = _parse_output_path(out_name, dst, "AERONET_L15", start_date, end_date)
 
     with timer("Fetching AERONET data with monetio"):
@@ -252,15 +243,11 @@ def get_aeronet(
 
 @app.command("airnow")
 def get_airnow(
-    start_date: str = typer.Option(
-        ..., "-s", "--start-date", help=f"Start date. {_DATE_FMT_NOTE}"
-    ),
+    start_date: str = typer.Option(..., "-s", "--start-date", help=f"Start date. {_DATE_FMT_NOTE}"),
     end_date: str = typer.Option(
         ..., "-e", "--end-date", help=f"End date. {_DATE_FMT_NOTE} {_DATE_END_NOTE}"
     ),
-    daily: bool = typer.Option(
-        False, help="Whether to retrieve the daily averaged data product."
-    ),
+    daily: bool = typer.Option(False, help="Whether to retrieve the daily averaged data product."),
     out_name: str = typer.Option(
         None,
         "-o",
@@ -279,13 +266,9 @@ def get_airnow(
         True,
         help="Apply compression to output file.",
     ),
-    num_workers: int = typer.Option(
-        1, "-n", "--num-workers", help="Number of download workers."
-    ),
+    num_workers: int = typer.Option(1, "-n", "--num-workers", help="Number of download workers."),
     verbose: bool = typer.Option(False, help="Enable verbose output."),
-    debug: bool = typer.Option(
-        False, "--debug", help="Print full tracebacks on error."
-    ),
+    debug: bool = typer.Option(False, "--debug", help="Print full tracebacks on error."),
 ) -> None:
     """Download AirNow data and reformat for DAVINCI usage."""
     import warnings
@@ -294,7 +277,6 @@ def get_airnow(
 
     app_module.DEBUG = debug
 
-    
     dst, out_name = _parse_output_path(out_name, dst, "AirNow", start_date, end_date)
 
     with timer("Fetching AirNow data with monetio"):
@@ -334,15 +316,11 @@ def get_airnow(
 
 @app.command("aqs")
 def get_aqs(
-    start_date: str = typer.Option(
-        ..., "-s", "--start-date", help=f"Start date. {_DATE_FMT_NOTE}"
-    ),
+    start_date: str = typer.Option(..., "-s", "--start-date", help=f"Start date. {_DATE_FMT_NOTE}"),
     end_date: str = typer.Option(
         ..., "-e", "--end-date", help=f"End date. {_DATE_FMT_NOTE} {_DATE_END_NOTE}"
     ),
-    daily: bool = typer.Option(
-        False, help="Whether to retrieve the daily averaged data product."
-    ),
+    daily: bool = typer.Option(False, help="Whether to retrieve the daily averaged data product."),
     param: List[str] = typer.Option(
         ["O3", "PM2.5", "PM10"],
         "-p",
@@ -370,13 +348,9 @@ def get_aqs(
         True,
         help="Apply compression to output file.",
     ),
-    num_workers: int = typer.Option(
-        1, "-n", "--num-workers", help="Number of download workers."
-    ),
+    num_workers: int = typer.Option(1, "-n", "--num-workers", help="Number of download workers."),
     verbose: bool = typer.Option(False, help="Enable verbose output."),
-    debug: bool = typer.Option(
-        False, "--debug", help="Print full tracebacks on error."
-    ),
+    debug: bool = typer.Option(False, "--debug", help="Print full tracebacks on error."),
 ) -> None:
     """Download EPA AQS data and reformat for DAVINCI usage.
 
@@ -389,7 +363,6 @@ def get_aqs(
 
     app_module.DEBUG = debug
 
-    
     dst, out_name = _parse_output_path(out_name, dst, "AQS", start_date, end_date)
 
     with timer("Fetching AQS data with monetio"):
@@ -433,9 +406,7 @@ def get_aqs(
 
 @app.command("openaq")
 def get_openaq(
-    start_date: str = typer.Option(
-        ..., "-s", "--start-date", help=f"Start date. {_DATE_FMT_NOTE}"
-    ),
+    start_date: str = typer.Option(..., "-s", "--start-date", help=f"Start date. {_DATE_FMT_NOTE}"),
     end_date: str = typer.Option(
         ..., "-e", "--end-date", help=f"End date. {_DATE_FMT_NOTE} {_DATE_END_NOTE}"
     ),
@@ -448,9 +419,7 @@ def get_openaq(
             "Examples: 'no', 'no2', 'nox', 'so2', 'co', 'bc'."
         ),
     ),
-    reference_grade: bool = typer.Option(
-        True, help="Include reference-grade sensors."
-    ),
+    reference_grade: bool = typer.Option(True, help="Include reference-grade sensors."),
     low_cost: bool = typer.Option(False, help="Include low-cost sensors."),
     country: List[str] = typer.Option(
         None,
@@ -476,20 +445,15 @@ def get_openaq(
         True,
         help="Apply compression to output file.",
     ),
-    num_workers: int = typer.Option(
-        1, "-n", "--num-workers", help="Number of download workers."
-    ),
+    num_workers: int = typer.Option(1, "-n", "--num-workers", help="Number of download workers."),
     verbose: bool = typer.Option(False, help="Enable verbose output."),
-    debug: bool = typer.Option(
-        False, "--debug", help="Print full tracebacks on error."
-    ),
+    debug: bool = typer.Option(False, "--debug", help="Print full tracebacks on error."),
 ) -> None:
     """Download hourly OpenAQ data and reformat for DAVINCI usage."""
     import davinci_monet.cli.app as app_module
 
     app_module.DEBUG = debug
 
-    
     dst, out_name = _parse_output_path(out_name, dst, "OpenAQ", start_date, end_date)
 
     # Validate sensor type selection
@@ -500,8 +464,7 @@ def get_openaq(
         sensor_types.append("low-cost sensor")
     if not sensor_types:
         typer.secho(
-            "Error: no sensor types selected. "
-            "Use --reference-grade and/or --low-cost",
+            "Error: no sensor types selected. " "Use --reference-grade and/or --low-cost",
             fg=ERROR_COLOR,
         )
         raise typer.Exit(2)

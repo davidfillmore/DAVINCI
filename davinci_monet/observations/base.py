@@ -275,8 +275,7 @@ class ObservationData(DataContainer):
         if track_count or min_count is not None:
             # Count non-NaN values for first data variable (excluding coords)
             data_vars = [
-                v for v in self.data.data_vars
-                if v not in ("latitude", "longitude", "altitude")
+                v for v in self.data.data_vars if v not in ("latitude", "longitude", "altitude")
             ]
             if data_vars:
                 counts = resampler.count()[data_vars[0]]
@@ -384,12 +383,7 @@ class ObservationData(DataContainer):
         lat = self.data[lat_var]
         lon = self.data[lon_var]
 
-        mask = (
-            (lat >= lat_min)
-            & (lat <= lat_max)
-            & (lon >= lon_min)
-            & (lon <= lon_max)
-        )
+        mask = (lat >= lat_min) & (lat <= lat_max) & (lon >= lon_min) & (lon <= lon_max)
 
         self.data = self.data.where(mask, drop=True)
 
@@ -443,14 +437,10 @@ class ObservationData(DataContainer):
         # Check source variables exist
         missing = [v for v in source_vars if v not in self.data]
         if missing:
-            raise DataValidationError(
-                f"Cannot sum variables, missing: {missing}"
-            )
+            raise DataValidationError(f"Cannot sum variables, missing: {missing}")
 
         if new_var in self.data:
-            raise DataValidationError(
-                f"Variable '{new_var}' already exists"
-            )
+            raise DataValidationError(f"Variable '{new_var}' already exists")
 
         # Sum the variables
         result = self.data[source_vars[0]].copy()

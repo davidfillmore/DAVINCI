@@ -129,9 +129,7 @@ class StructuredFormatter(logging.Formatter):
         message = super().format(record)
 
         # Extract extra fields (non-standard attributes)
-        extra_fields = {
-            k: v for k, v in record.__dict__.items() if k not in self.STANDARD_FIELDS
-        }
+        extra_fields = {k: v for k, v in record.__dict__.items() if k not in self.STANDARD_FIELDS}
 
         if extra_fields:
             extras = " ".join(f"{k}={v!r}" for k, v in sorted(extra_fields.items()))
@@ -297,9 +295,7 @@ def configure_logging(
                         return f"{color}{message}{self.RESET}"
                     return message
 
-            console_formatter: logging.Formatter = ColorStructuredFormatter(
-                log_format, date_format
-            )
+            console_formatter: logging.Formatter = ColorStructuredFormatter(log_format, date_format)
         else:
             console_formatter = ColorFormatter(log_format, date_format)
     elif use_structured:

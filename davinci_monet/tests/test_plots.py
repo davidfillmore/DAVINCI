@@ -6,14 +6,14 @@ registry, and individual plot renderers.
 
 from __future__ import annotations
 
+import matplotlib
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
-import matplotlib
+
 matplotlib.use("Agg")  # Use non-interactive backend for testing
 import matplotlib.pyplot as plt
-
 
 # =============================================================================
 # Fixtures
@@ -61,7 +61,9 @@ def track_paired_data() -> xr.Dataset:
     time = pd.date_range("2023-01-01", periods=n_times, freq="1min")
 
     # Simulate aircraft track
-    altitude = 1000 + 5000 * np.sin(np.linspace(0, 2 * np.pi, n_times)) + np.random.normal(0, 100, n_times)
+    altitude = (
+        1000 + 5000 * np.sin(np.linspace(0, 2 * np.pi, n_times)) + np.random.normal(0, 100, n_times)
+    )
     lats = np.linspace(35, 40, n_times)
     lons = np.linspace(-120, -110, n_times)
 
@@ -164,7 +166,7 @@ class TestPlotConfig:
     def test_default_config(self):
         """Test default configuration creation."""
         from davinci_monet.plots.base import PlotConfig
-        from davinci_monet.plots.style import OBS_COLOR, MODEL_COLOR
+        from davinci_monet.plots.style import MODEL_COLOR, OBS_COLOR
 
         config = PlotConfig()
         assert config.figure.figsize == (8, 5)  # FigureConfig default
@@ -303,7 +305,7 @@ class TestRegistry:
 
     def test_get_plotter(self):
         """Test getting plotter instance."""
-        from davinci_monet.plots import get_plotter, TimeSeriesPlotter
+        from davinci_monet.plots import TimeSeriesPlotter, get_plotter
 
         plotter = get_plotter("timeseries")
         assert isinstance(plotter, TimeSeriesPlotter)
@@ -368,7 +370,7 @@ class TestTimeSeriesPlotter:
 
     def test_custom_labels(self, simple_paired_data):
         """Test custom labels."""
-        from davinci_monet.plots import TimeSeriesPlotter, PlotConfig
+        from davinci_monet.plots import PlotConfig, TimeSeriesPlotter
 
         config = PlotConfig(obs_label="Custom Obs", model_label="Custom Model")
         plotter = TimeSeriesPlotter(config=config)
@@ -545,12 +547,14 @@ class TestFlightTimeSeriesPlotter:
         from davinci_monet.plots import FlightTimeSeriesPlotter
 
         plotter = FlightTimeSeriesPlotter()
-        flight_plots = list(plotter.plot_per_flight(
-            flight_paired_data,
-            "obs_o3",
-            "model_o3",
-            min_points=10,
-        ))
+        flight_plots = list(
+            plotter.plot_per_flight(
+                flight_paired_data,
+                "obs_o3",
+                "model_o3",
+                min_points=10,
+            )
+        )
 
         # Should generate 3 flights (from fixture)
         assert len(flight_plots) == 3
@@ -568,12 +572,14 @@ class TestFlightTimeSeriesPlotter:
 
         plotter = FlightTimeSeriesPlotter()
         # Set min_points higher than data available per flight
-        flight_plots = list(plotter.plot_per_flight(
-            flight_paired_data,
-            "obs_o3",
-            "model_o3",
-            min_points=200,  # Each flight has 120 points
-        ))
+        flight_plots = list(
+            plotter.plot_per_flight(
+                flight_paired_data,
+                "obs_o3",
+                "model_o3",
+                min_points=200,  # Each flight has 120 points
+            )
+        )
 
         # No flights should pass the filter
         assert len(flight_plots) == 0
@@ -641,12 +647,14 @@ class TestFlightTimeSeriesPlotter:
         from davinci_monet.plots import FlightTimeSeriesPlotter
 
         plotter = FlightTimeSeriesPlotter()
-        flight_plots = list(plotter.plot_per_flight(
-            flight_paired_data,
-            "obs_o3",
-            "model_o3",
-            show_altitude=True,
-        ))
+        flight_plots = list(
+            plotter.plot_per_flight(
+                flight_paired_data,
+                "obs_o3",
+                "model_o3",
+                show_altitude=True,
+            )
+        )
 
         assert len(flight_plots) == 3  # 3 flights
         for flight_id, fig in flight_plots:
@@ -702,12 +710,14 @@ class TestScatterPlotter:
         from davinci_monet.plots import ScatterPlotter
 
         plotter = ScatterPlotter()
-        flight_plots = list(plotter.plot_per_flight(
-            flight_paired_data,
-            "obs_o3",
-            "model_o3",
-            min_points=10,
-        ))
+        flight_plots = list(
+            plotter.plot_per_flight(
+                flight_paired_data,
+                "obs_o3",
+                "model_o3",
+                min_points=10,
+            )
+        )
 
         # Should generate 3 flights (from fixture)
         assert len(flight_plots) == 3
@@ -725,12 +735,14 @@ class TestScatterPlotter:
 
         plotter = ScatterPlotter()
         # Set min_points higher than data available per flight
-        flight_plots = list(plotter.plot_per_flight(
-            flight_paired_data,
-            "obs_o3",
-            "model_o3",
-            min_points=200,  # Each flight has 120 points
-        ))
+        flight_plots = list(
+            plotter.plot_per_flight(
+                flight_paired_data,
+                "obs_o3",
+                "model_o3",
+                min_points=200,  # Each flight has 120 points
+            )
+        )
 
         # No flights should pass the filter
         assert len(flight_plots) == 0
@@ -913,13 +925,15 @@ class TestTrackMap3DPlotter:
         from davinci_monet.plots import TrackMap3DPlotter
 
         plotter = TrackMap3DPlotter()
-        flight_plots = list(plotter.plot_per_flight(
-            flight_paired_data,
-            "obs_o3",
-            "model_o3",
-            min_points=10,
-            show_coastlines=False,  # Faster for testing
-        ))
+        flight_plots = list(
+            plotter.plot_per_flight(
+                flight_paired_data,
+                "obs_o3",
+                "model_o3",
+                min_points=10,
+                show_coastlines=False,  # Faster for testing
+            )
+        )
 
         # Should generate 3 flights (from fixture)
         assert len(flight_plots) == 3
@@ -937,13 +951,15 @@ class TestTrackMap3DPlotter:
 
         plotter = TrackMap3DPlotter()
         # Set min_points higher than data available per flight
-        flight_plots = list(plotter.plot_per_flight(
-            flight_paired_data,
-            "obs_o3",
-            "model_o3",
-            min_points=200,  # Each flight has 120 points
-            show_coastlines=False,
-        ))
+        flight_plots = list(
+            plotter.plot_per_flight(
+                flight_paired_data,
+                "obs_o3",
+                "model_o3",
+                min_points=200,  # Each flight has 120 points
+                show_coastlines=False,
+            )
+        )
 
         # No flights should pass the filter
         assert len(flight_plots) == 0
@@ -986,7 +1002,7 @@ class TestSpatialPlotters:
 
     @pytest.mark.skipif(
         not pytest.importorskip("cartopy", reason="cartopy not available"),
-        reason="cartopy not available"
+        reason="cartopy not available",
     )
     def test_spatial_bias(self, simple_paired_data):
         """Test spatial bias plot."""
@@ -999,7 +1015,7 @@ class TestSpatialPlotters:
 
     @pytest.mark.skipif(
         not pytest.importorskip("cartopy", reason="cartopy not available"),
-        reason="cartopy not available"
+        reason="cartopy not available",
     )
     def test_spatial_distribution(self, simple_paired_data):
         """Test spatial distribution plot."""
@@ -1040,7 +1056,7 @@ class TestPlotterIntegration:
 
     def test_all_plotters_instantiate(self):
         """Test that all registered plotters can be instantiated."""
-        from davinci_monet.plots import list_plotters, get_plotter
+        from davinci_monet.plots import get_plotter, list_plotters
 
         for name in list_plotters():
             plotter = get_plotter(name)

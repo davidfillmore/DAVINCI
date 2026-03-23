@@ -92,8 +92,10 @@ class SwathStrategy(BasePairingStrategy):
 
         # Find nearest model grid for each pixel
         lat_idx, lon_idx = self._find_nearest_indices(
-            model_lat, model_lon,
-            xr.DataArray(obs_lat_flat), xr.DataArray(obs_lon_flat),
+            model_lat,
+            model_lon,
+            xr.DataArray(obs_lat_flat),
+            xr.DataArray(obs_lon_flat),
             radius_of_influence=radius_of_influence,
         )
 
@@ -106,8 +108,11 @@ class SwathStrategy(BasePairingStrategy):
 
         # Extract model values at pixel locations
         model_at_pixels = self._extract_at_pixels(
-            model_matched, model_lat, model_lon,
-            lat_idx.values, lon_idx.values,
+            model_matched,
+            model_lat,
+            model_lon,
+            lat_idx.values,
+            lon_idx.values,
             obs.shape if hasattr(obs, "shape") else obs_lat.shape,
         )
 
@@ -115,9 +120,7 @@ class SwathStrategy(BasePairingStrategy):
         if apply_ak:
             ak_var = kwargs.get("ak_var", "averaging_kernel")
             if ak_var in obs:
-                model_at_pixels = self._apply_averaging_kernel(
-                    model_at_pixels, obs, ak_var
-                )
+                model_at_pixels = self._apply_averaging_kernel(model_at_pixels, obs, ak_var)
 
         # Create paired output
         paired = self._create_paired_output(obs, model_at_pixels)

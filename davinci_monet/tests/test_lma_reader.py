@@ -12,12 +12,10 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
-
 # Ensure LMA reader is registered
 import davinci_monet.observations.lightning.lma  # noqa: F401
-
+from davinci_monet.core.protocols import DataGeometry
+from davinci_monet.core.registry import observation_registry
 
 # =============================================================================
 # Synthetic LMA Data
@@ -233,9 +231,7 @@ class TestLMAReader:
 
         ds = create_synthetic_lma_grid(network="oklma")
 
-        with tempfile.NamedTemporaryFile(
-            suffix=".nc", prefix="oklma_20120530_", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".nc", prefix="oklma_20120530_", delete=False) as f:
             ds.to_netcdf(f.name)
             reader = LMAReader()
             result = reader.open([f.name])
@@ -302,8 +298,8 @@ class TestLMAReader:
 
     def test_missing_files_raises(self):
         """Test that missing files raise DataNotFoundError."""
-        from davinci_monet.observations.lightning.lma import LMAReader
         from davinci_monet.core.exceptions import DataNotFoundError
+        from davinci_monet.observations.lightning.lma import LMAReader
 
         reader = LMAReader()
         with pytest.raises(DataNotFoundError):
@@ -311,8 +307,8 @@ class TestLMAReader:
 
     def test_empty_file_list_raises(self):
         """Test that empty file list raises DataNotFoundError."""
-        from davinci_monet.observations.lightning.lma import LMAReader
         from davinci_monet.core.exceptions import DataNotFoundError
+        from davinci_monet.observations.lightning.lma import LMAReader
 
         reader = LMAReader()
         with pytest.raises(DataNotFoundError):
@@ -350,9 +346,7 @@ class TestOpenLMA:
 
         for i, day in enumerate([28, 29, 30]):
             ds = create_synthetic_lma_grid(n_times=2)
-            ds["time"] = pd.date_range(
-                f"2012-05-{day}", periods=2, freq="10min"
-            )
+            ds["time"] = pd.date_range(f"2012-05-{day}", periods=2, freq="10min")
             ds.to_netcdf(tmp_path / f"oklma_201205{day:02d}_grid.nc")
 
         obs = open_lma(str(tmp_path / "oklma_*.nc"), label="oklma_multi")

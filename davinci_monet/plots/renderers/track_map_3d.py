@@ -32,7 +32,10 @@ if TYPE_CHECKING:
 
 
 def _get_coastline_segments(
-    lon_min: float, lon_max: float, lat_min: float, lat_max: float,
+    lon_min: float,
+    lon_max: float,
+    lat_min: float,
+    lat_max: float,
     scale: str = "10m",
 ) -> list[tuple[np.ndarray, np.ndarray]]:
     """Extract coastline segments from Natural Earth data within bounds.
@@ -93,7 +96,10 @@ def _get_coastline_segments(
 
 
 def _get_land_polygons(
-    lon_min: float, lon_max: float, lat_min: float, lat_max: float,
+    lon_min: float,
+    lon_max: float,
+    lat_min: float,
+    lat_max: float,
     scale: str = "50m",
 ) -> list[np.ndarray]:
     """Extract land polygon vertices from Natural Earth data within bounds.
@@ -205,7 +211,10 @@ def _get_border_segments(
 
 
 def _render_surface_map(
-    lon_min: float, lon_max: float, lat_min: float, lat_max: float,
+    lon_min: float,
+    lon_max: float,
+    lat_min: float,
+    lat_max: float,
     resolution: int = 250,
     land_color: str = "#E8E8E8",
     ocean_color: str = "#D4E9F7",
@@ -246,9 +255,10 @@ def _render_surface_map(
         RGBA image array, or None if cartopy unavailable.
     """
     try:
+        import io
+
         import cartopy.crs as ccrs
         import cartopy.feature as cfeature
-        import io
         from PIL import Image
     except ImportError:
         return None
@@ -268,13 +278,13 @@ def _render_surface_map(
 
     # Use 50m resolution Natural Earth features (balance of quality and speed)
     ocean = cfeature.NaturalEarthFeature(
-        'physical', 'ocean', '50m', facecolor=ocean_color, edgecolor='none'
+        "physical", "ocean", "50m", facecolor=ocean_color, edgecolor="none"
     )
     land = cfeature.NaturalEarthFeature(
-        'physical', 'land', '50m', facecolor=land_color, edgecolor='none'
+        "physical", "land", "50m", facecolor=land_color, edgecolor="none"
     )
     coastline = cfeature.NaturalEarthFeature(
-        'physical', 'coastline', '50m', facecolor='none', edgecolor=coastline_color
+        "physical", "coastline", "50m", facecolor="none", edgecolor=coastline_color
     )
 
     ax.add_feature(ocean)
@@ -283,8 +293,11 @@ def _render_surface_map(
 
     if show_borders:
         borders = cfeature.NaturalEarthFeature(
-            'cultural', 'admin_0_boundary_lines_land', '50m',
-            facecolor='none', edgecolor=border_color
+            "cultural",
+            "admin_0_boundary_lines_land",
+            "50m",
+            facecolor="none",
+            edgecolor=border_color,
         )
         ax.add_feature(borders, linewidth=border_linewidth)
 
@@ -293,9 +306,15 @@ def _render_surface_map(
 
     # Render to buffer
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=fig_dpi,
-                bbox_inches='tight', pad_inches=0,
-                facecolor=fig.get_facecolor(), edgecolor='none')
+    fig.savefig(
+        buf,
+        format="png",
+        dpi=fig_dpi,
+        bbox_inches="tight",
+        pad_inches=0,
+        facecolor=fig.get_facecolor(),
+        edgecolor="none",
+    )
     plt.close(fig)
     buf.seek(0)
 
@@ -519,7 +538,9 @@ class TrackMap3DPlotter(BasePlotter):
 
         # Plot 3D scatter
         scatter = ax3d.scatter(
-            lons, lats, alts,
+            lons,
+            lats,
+            alts,
             c=values,
             cmap=cmap,
             s=marker_size,
@@ -532,7 +553,9 @@ class TrackMap3DPlotter(BasePlotter):
         # Add 2D projection on bottom plane
         if show_projection:
             ax3d.scatter(
-                lons, lats, np.zeros_like(alts),
+                lons,
+                lats,
+                np.zeros_like(alts),
                 c=values,
                 cmap=cmap,
                 s=marker_size * 0.3,
@@ -556,7 +579,10 @@ class TrackMap3DPlotter(BasePlotter):
         if show_surface_map:
             # Render cartopy map as texture on z=0 plane
             map_img = _render_surface_map(
-                lon_min, lon_max, lat_min, lat_max,
+                lon_min,
+                lon_max,
+                lat_min,
+                lat_max,
                 resolution=surface_map_resolution,
                 land_color=land_color,
                 ocean_color=ocean_color,
@@ -576,9 +602,12 @@ class TrackMap3DPlotter(BasePlotter):
 
                 # Plot textured surface
                 ax3d.plot_surface(
-                    X, Y, Z,
+                    X,
+                    Y,
+                    Z,
                     facecolors=map_img,
-                    rstride=1, cstride=1,
+                    rstride=1,
+                    cstride=1,
                     shade=False,
                     zorder=1,
                 )
@@ -621,7 +650,9 @@ class TrackMap3DPlotter(BasePlotter):
                 if lon_min <= city_lon <= lon_max and lat_min <= city_lat <= lat_max:
                     # Plot marker
                     ax3d.scatter(
-                        [city_lon], [city_lat], [0],
+                        [city_lon],
+                        [city_lat],
+                        [0],
                         s=city_marker_size,
                         c=city_marker_color,
                         marker="^",
@@ -630,7 +661,9 @@ class TrackMap3DPlotter(BasePlotter):
                     )
                     # Add label
                     ax3d.text(
-                        city_lon, city_lat, 0,
+                        city_lon,
+                        city_lat,
+                        0,
                         f"  {city_name}",
                         fontsize=city_font_size,
                         color="black",
@@ -656,7 +689,7 @@ class TrackMap3DPlotter(BasePlotter):
         ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize, labelpad=8)
 
         # Tick label size
-        ax3d.tick_params(axis='both', labelsize=text_cfg.tick_fontsize)
+        ax3d.tick_params(axis="both", labelsize=text_cfg.tick_fontsize)
 
         # Colorbar
         units = get_variable_units(paired_data, obs_var)
@@ -668,7 +701,9 @@ class TrackMap3DPlotter(BasePlotter):
 
         # Title - centered above plot
         if self.config.title:
-            fig.suptitle(format_plot_title(self.config.title), fontsize=text_cfg.title_fontsize, y=0.85)
+            fig.suptitle(
+                format_plot_title(self.config.title), fontsize=text_cfg.title_fontsize, y=0.85
+            )
 
         plt.tight_layout(rect=[0, 0, 1, 0.95])  # Leave room at top for title
         return fig

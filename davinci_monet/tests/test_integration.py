@@ -31,7 +31,6 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
 from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario
 
-
 # =============================================================================
 # Helpers
 # =============================================================================
@@ -69,9 +68,9 @@ def _assert_plots(output_dir: Path, min_count: int) -> list[Path]:
         f"got {len(png_files)}: {[f.name for f in png_files]}"
     )
     for png in png_files:
-        assert png.stat().st_size > 1024, (
-            f"Plot {png.name} is too small ({png.stat().st_size} bytes)"
-        )
+        assert (
+            png.stat().st_size > 1024
+        ), f"Plot {png.name} is too small ({png.stat().st_size} bytes)"
     return png_files
 
 
@@ -88,22 +87,32 @@ class TestPointPipeline:
         from davinci_monet.tests.synthetic.models import create_model_dataset
 
         domain = Domain(
-            lon_min=-105.0, lon_max=-95.0,
-            lat_min=35.0, lat_max=45.0,
-            n_lon=12, n_lat=12,
+            lon_min=-105.0,
+            lon_max=-95.0,
+            lat_min=35.0,
+            lat_max=45.0,
+            n_lon=12,
+            n_lat=12,
         )
         time_cfg = TimeConfig(start="2024-01-15 00:00", end="2024-01-17 00:00", freq="1h")
 
         # Build model with latitude gradient
-        model_ds = create_model_dataset(variables=["O3"], domain=domain, time_config=time_cfg, seed=42)
+        model_ds = create_model_dataset(
+            variables=["O3"], domain=domain, time_config=time_cfg, seed=42
+        )
         lat_vals = model_ds.lat.values
         lat_norm = (lat_vals - lat_vals.min()) / (lat_vals.max() - lat_vals.min())
         model_ds["O3"] = model_ds["O3"] + 20.0 * lat_norm[:, np.newaxis]
 
         # Sample obs from gradient-enhanced model
         scenario = PerfectMatchScenario(
-            variables=["O3"], domain=domain, time_config=time_cfg,
-            geometry=DataGeometry.POINT, n_obs=10, noise_level=0.0, seed=42,
+            variables=["O3"],
+            domain=domain,
+            time_config=time_cfg,
+            geometry=DataGeometry.POINT,
+            n_obs=10,
+            noise_level=0.0,
+            seed=42,
         )
         obs_ds = scenario._generate_point_obs(model_ds)
 
@@ -112,7 +121,8 @@ class TestPointPipeline:
         lon_vals = model_ds.lon.values
         lon_norm = (lon_vals - lon_vals.min()) / (lon_vals.max() - lon_vals.min())
         model_ds["O3"] = (
-            model_ds["O3"] + 5.0
+            model_ds["O3"]
+            + 5.0
             + 6.0 * lon_norm[np.newaxis, :]
             + rng.normal(0, 3.0, size=model_ds["O3"].shape)
         )
@@ -142,7 +152,9 @@ class TestPointPipeline:
                     "variables": {
                         "O3": {
                             "units": "ppb",
-                            "vmin_plot": 30, "vmax_plot": 70, "vdiff_plot": 10,
+                            "vmin_plot": 30,
+                            "vmax_plot": 70,
+                            "vdiff_plot": 10,
                         },
                     },
                 },
@@ -156,19 +168,54 @@ class TestPointPipeline:
             },
             "pairs": {
                 "synthetic_surface": {
-                    "model": "synthetic", "obs": "surface",
+                    "model": "synthetic",
+                    "obs": "surface",
                     "variable": {"model_var": "O3", "obs_var": "O3"},
                 },
             },
             "plots": {
-                "scatter_o3": {"type": "scatter", "pairs": ["synthetic_surface"], "title": "O3: Model vs Observations"},
-                "taylor_o3": {"type": "taylor", "pairs": ["synthetic_surface"], "title": "O3 Taylor Diagram"},
-                "boxplot_o3": {"type": "boxplot", "pairs": ["synthetic_surface"], "title": "O3 Box Plot"},
-                "timeseries_o3": {"type": "timeseries", "pairs": ["synthetic_surface"], "title": "O3 Time Series", "aggregate_dim": "site"},
-                "diurnal_o3": {"type": "diurnal", "pairs": ["synthetic_surface"], "title": "O3 Diurnal Cycle"},
-                "spatial_bias_o3": {"type": "spatial_bias", "pairs": ["synthetic_surface"], "title": "O3 Spatial Bias"},
-                "spatial_dist_o3": {"type": "spatial_distribution", "pairs": ["synthetic_surface"], "title": "O3 Observed Distribution", "show_var": "obs"},
-                "scorecard_o3": {"type": "scorecard", "pairs": ["synthetic_surface"], "title": "O3 Scorecard"},
+                "scatter_o3": {
+                    "type": "scatter",
+                    "pairs": ["synthetic_surface"],
+                    "title": "O3: Model vs Observations",
+                },
+                "taylor_o3": {
+                    "type": "taylor",
+                    "pairs": ["synthetic_surface"],
+                    "title": "O3 Taylor Diagram",
+                },
+                "boxplot_o3": {
+                    "type": "boxplot",
+                    "pairs": ["synthetic_surface"],
+                    "title": "O3 Box Plot",
+                },
+                "timeseries_o3": {
+                    "type": "timeseries",
+                    "pairs": ["synthetic_surface"],
+                    "title": "O3 Time Series",
+                    "aggregate_dim": "site",
+                },
+                "diurnal_o3": {
+                    "type": "diurnal",
+                    "pairs": ["synthetic_surface"],
+                    "title": "O3 Diurnal Cycle",
+                },
+                "spatial_bias_o3": {
+                    "type": "spatial_bias",
+                    "pairs": ["synthetic_surface"],
+                    "title": "O3 Spatial Bias",
+                },
+                "spatial_dist_o3": {
+                    "type": "spatial_distribution",
+                    "pairs": ["synthetic_surface"],
+                    "title": "O3 Observed Distribution",
+                    "show_var": "obs",
+                },
+                "scorecard_o3": {
+                    "type": "scorecard",
+                    "pairs": ["synthetic_surface"],
+                    "title": "O3 Scorecard",
+                },
             },
             "stats": {"metrics": ["N", "MB", "RMSE", "R", "NMB", "NME", "IOA"]},
         }
@@ -203,16 +250,21 @@ class TestTrackPipeline:
         from davinci_monet.tests.synthetic.models import create_model_dataset
 
         domain = Domain(
-            lon_min=-105.0, lon_max=-95.0,
-            lat_min=35.0, lat_max=42.0,
-            n_lon=12, n_lat=10,
+            lon_min=-105.0,
+            lon_max=-95.0,
+            lat_min=35.0,
+            lat_max=42.0,
+            n_lon=12,
+            n_lat=10,
         )
         time_cfg = TimeConfig(start="2024-01-15 14:00", end="2024-01-15 17:00", freq="1h")
         rng = np.random.default_rng(42)
         n = 200
 
         # Build 2D model (surface only — track strategy falls back to surface extraction)
-        model_ds = create_model_dataset(variables=["O3"], domain=domain, time_config=time_cfg, seed=42)
+        model_ds = create_model_dataset(
+            variables=["O3"], domain=domain, time_config=time_cfg, seed=42
+        )
         model_ds["O3"] = model_ds["O3"] + rng.normal(0, 2.0, size=model_ds["O3"].shape)
 
         # Build synthetic track obs
@@ -268,18 +320,27 @@ class TestTrackPipeline:
             },
             "pairs": {
                 "synthetic_aircraft": {
-                    "model": "synthetic", "obs": "aircraft",
+                    "model": "synthetic",
+                    "obs": "aircraft",
                     "variable": {"model_var": "O3", "obs_var": "O3"},
                 },
             },
             "plots": {
-                "curtain_o3": {"type": "curtain", "pairs": ["synthetic_aircraft"], "title": "O3 Curtain"},
+                "curtain_o3": {
+                    "type": "curtain",
+                    "pairs": ["synthetic_aircraft"],
+                    "title": "O3 Curtain",
+                },
                 "track_3d_o3": {
-                    "type": "track_map_3d", "pairs": ["synthetic_aircraft"],
-                    "title": "O3 3D Track", "show_var": "obs", "show_coastlines": False,
+                    "type": "track_map_3d",
+                    "pairs": ["synthetic_aircraft"],
+                    "title": "O3 3D Track",
+                    "show_var": "obs",
+                    "show_coastlines": False,
                 },
                 "flight_ts_o3": {
-                    "type": "flight_timeseries", "pairs": ["synthetic_aircraft"],
+                    "type": "flight_timeseries",
+                    "pairs": ["synthetic_aircraft"],
                     "title": "O3 Flight Time Series",
                 },
             },
@@ -318,10 +379,16 @@ class TestObsOnlyPipeline:
 
         obs_ds = xr.Dataset(
             {
-                "O3": ("time", 30.0 + 6.0 * (alts / 1000) + rng.normal(0, 5, n),
-                       {"units": "ppbv", "long_name": "Ozone"}),
-                "CO": ("time", 80.0 + 20.0 * np.exp(-alts / 5000) + rng.normal(0, 10, n),
-                       {"units": "ppbv", "long_name": "Carbon Monoxide"}),
+                "O3": (
+                    "time",
+                    30.0 + 6.0 * (alts / 1000) + rng.normal(0, 5, n),
+                    {"units": "ppbv", "long_name": "Ozone"},
+                ),
+                "CO": (
+                    "time",
+                    80.0 + 20.0 * np.exp(-alts / 5000) + rng.normal(0, 10, n),
+                    {"units": "ppbv", "long_name": "Carbon Monoxide"},
+                ),
             },
             coords={
                 "time": times,
@@ -358,10 +425,30 @@ class TestObsOnlyPipeline:
                 },
             },
             "plots": {
-                "obs_ts_o3": {"type": "obs_timeseries", "obs": "dc8", "variable": "O3", "title": "O3 Time Series"},
-                "obs_hist_o3": {"type": "obs_histogram", "obs": "dc8", "variable": "O3", "title": "O3 Distribution"},
-                "obs_profile_o3": {"type": "obs_vertical_profile", "obs": "dc8", "variable": "O3", "title": "O3 Vertical Profile"},
-                "obs_track_o3": {"type": "obs_flight_track", "obs": "dc8", "variable": "O3", "title": "O3 Flight Track"},
+                "obs_ts_o3": {
+                    "type": "obs_timeseries",
+                    "obs": "dc8",
+                    "variable": "O3",
+                    "title": "O3 Time Series",
+                },
+                "obs_hist_o3": {
+                    "type": "obs_histogram",
+                    "obs": "dc8",
+                    "variable": "O3",
+                    "title": "O3 Distribution",
+                },
+                "obs_profile_o3": {
+                    "type": "obs_vertical_profile",
+                    "obs": "dc8",
+                    "variable": "O3",
+                    "title": "O3 Vertical Profile",
+                },
+                "obs_track_o3": {
+                    "type": "obs_flight_track",
+                    "obs": "dc8",
+                    "variable": "O3",
+                    "title": "O3 Flight Track",
+                },
             },
         }
 
@@ -399,9 +486,12 @@ class TestSwathGridPipeline:
 
         # --- Model: small global-ish grid with AOD-like values ---
         domain = Domain(
-            lon_min=100.0, lon_max=160.0,
-            lat_min=-50.0, lat_max=0.0,
-            n_lon=24, n_lat=20,
+            lon_min=100.0,
+            lon_max=160.0,
+            lat_min=-50.0,
+            lat_max=0.0,
+            n_lon=24,
+            n_lat=20,
         )
         time_cfg = TimeConfig(start="2019-12-21", end="2019-12-22", freq="1D")
 
@@ -414,8 +504,8 @@ class TestSwathGridPipeline:
         aod_field = np.full((1, domain.n_lat, domain.n_lon), 0.08)  # low background
         for i, la in enumerate(lat_centers):
             for j, lo in enumerate(lon_centers):
-                dist = np.sqrt((la - (-25.0))**2 + (lo - 120.0)**2)
-                aod_field[0, i, j] += 2.0 * np.exp(-dist**2 / 150)  # stronger, tighter plume
+                dist = np.sqrt((la - (-25.0)) ** 2 + (lo - 120.0) ** 2)
+                aod_field[0, i, j] += 2.0 * np.exp(-(dist**2) / 150)  # stronger, tighter plume
         aod_field += rng.normal(0, 0.03, aod_field.shape)
         aod_field = np.clip(aod_field, 0, 5)
 
@@ -438,8 +528,8 @@ class TestSwathGridPipeline:
         swath_aod = np.full((n_scan, n_pix), 0.15)
         for i in range(n_scan):
             for j in range(n_pix):
-                dist = np.sqrt((swath_lat[i, j] - (-25.0))**2 + (swath_lon[i, j] - 120.0)**2)
-                swath_aod[i, j] += 1.2 * np.exp(-dist**2 / 200)
+                dist = np.sqrt((swath_lat[i, j] - (-25.0)) ** 2 + (swath_lon[i, j] - 120.0) ** 2)
+                swath_aod[i, j] += 1.2 * np.exp(-(dist**2) / 200)
         swath_aod += rng.normal(0, 0.05, (n_scan, n_pix))
         swath_aod = np.clip(swath_aod, 0, 5)
 
@@ -464,9 +554,15 @@ class TestSwathGridPipeline:
         flat_time = np.full(len(flat_aod), time_center[0], dtype=np.float64)
 
         bin_swath_to_grid(
-            time_edges, lon_edges, lat_edges,
-            flat_time, flat_lon, flat_lat, flat_aod,
-            count_grid, data_grid,
+            time_edges,
+            lon_edges,
+            lat_edges,
+            flat_time,
+            flat_lon,
+            flat_lat,
+            flat_aod,
+            count_grid,
+            data_grid,
         )
         normalize_grid(count_grid, data_grid)
 
@@ -510,7 +606,9 @@ class TestSwathGridPipeline:
                         "AOD": {
                             "units": "1",
                             "ylabel_plot": "AOD (550 nm)",
-                            "vmin_plot": 0, "vmax_plot": 2.0, "vdiff_plot": 0.5,
+                            "vmin_plot": 0,
+                            "vmax_plot": 2.0,
+                            "vdiff_plot": 0.5,
                         },
                     },
                 },
@@ -529,22 +627,29 @@ class TestSwathGridPipeline:
             },
             "pairs": {
                 "cam6_satellite": {
-                    "model": "cam6", "obs": "satellite",
+                    "model": "cam6",
+                    "obs": "satellite",
                     "variable": {"model_var": "AOD", "obs_var": "AOD"},
                 },
             },
             "plots": {
                 "aod_scatter": {
-                    "type": "scatter", "pairs": ["cam6_satellite"],
-                    "title": "AOD: Model vs Satellite", "show_density": True,
+                    "type": "scatter",
+                    "pairs": ["cam6_satellite"],
+                    "title": "AOD: Model vs Satellite",
+                    "show_density": True,
                 },
                 "aod_obs_map": {
-                    "type": "spatial_distribution", "pairs": ["cam6_satellite"],
-                    "title": "Satellite AOD", "show_var": "obs",
-                    "plot_type": "pcolormesh", "cmap": "turbo",
+                    "type": "spatial_distribution",
+                    "pairs": ["cam6_satellite"],
+                    "title": "Satellite AOD",
+                    "show_var": "obs",
+                    "plot_type": "pcolormesh",
+                    "cmap": "turbo",
                 },
                 "aod_bias_map": {
-                    "type": "spatial_bias", "pairs": ["cam6_satellite"],
+                    "type": "spatial_bias",
+                    "pairs": ["cam6_satellite"],
                     "title": "AOD Bias (Model − Satellite)",
                     "plot_type": "pcolormesh",
                 },

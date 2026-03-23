@@ -595,6 +595,7 @@ def cleanup_netcdf_state() -> None:
     # Clear xarray's file manager cache
     try:
         from xarray.backends.file_manager import FILE_CACHE
+
         FILE_CACHE.clear()
     except (ImportError, AttributeError):
         pass
@@ -602,6 +603,7 @@ def cleanup_netcdf_state() -> None:
     # Try to clear any HDF5 state
     try:
         import h5py
+
         h5py._errors.silence_errors()
     except (ImportError, AttributeError):
         pass

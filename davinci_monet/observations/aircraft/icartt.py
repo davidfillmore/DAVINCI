@@ -21,7 +21,6 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import observation_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
-
 # Common variable name mappings for ICARTT aircraft data
 ICARTT_VARIABLE_MAPPING: dict[str, str] = {
     "ozone": "O3",
@@ -198,15 +197,17 @@ class ICARTTReader:
         data = []
         for line in data_lines:
             if line.strip():
-                values = [float(v) if v.strip() not in ("", "NaN") else np.nan
-                          for v in line.strip().split(",")]
+                values = [
+                    float(v) if v.strip() not in ("", "NaN") else np.nan
+                    for v in line.strip().split(",")
+                ]
                 data.append(values)
 
         if not data:
             raise DataFormatError(f"No data found in {file_path}")
 
         # Create DataFrame
-        df = pd.DataFrame(data, columns=var_names[:len(data[0])])
+        df = pd.DataFrame(data, columns=var_names[: len(data[0])])
 
         # Convert to xarray
         # Look for time variable (commonly first column or named time/Time_UTC)
@@ -246,8 +247,15 @@ class ICARTTReader:
         coord_renames: dict[str, str] = {}
 
         # Standardize coordinate names (including campaign-specific suffixes)
-        lat_aliases = ["Latitude", "latitude", "LAT", "lat",
-                       "Latitude_BENNETT", "G_LAT", "LATITUDE"]
+        lat_aliases = [
+            "Latitude",
+            "latitude",
+            "LAT",
+            "lat",
+            "Latitude_BENNETT",
+            "G_LAT",
+            "LATITUDE",
+        ]
         for alias in lat_aliases:
             if alias in ds.data_vars and "latitude" not in ds.coords:
                 ds = ds.set_coords(alias)
@@ -255,8 +263,15 @@ class ICARTTReader:
                     coord_renames[alias] = "latitude"
                 break
 
-        lon_aliases = ["Longitude", "longitude", "LON", "lon",
-                       "Longitude_BENNETT", "G_LONG", "LONGITUDE"]
+        lon_aliases = [
+            "Longitude",
+            "longitude",
+            "LON",
+            "lon",
+            "Longitude_BENNETT",
+            "G_LONG",
+            "LONGITUDE",
+        ]
         for alias in lon_aliases:
             if alias in ds.data_vars and "longitude" not in ds.coords:
                 ds = ds.set_coords(alias)
@@ -272,14 +287,25 @@ class ICARTTReader:
         km_vars = {"ALTP", "GPS_ALT", "GPS_ALT_MMS", "RadarAlt"}
         alt_aliases = [
             # Altitude in meters (preferred)
-            "GPS_Altitude_m_DIGANGI", "Altitude_AGL_m_DIGANGI",
-            "GPS_Altitude", "Altitude", "altitude", "ALT", "alt",
+            "GPS_Altitude_m_DIGANGI",
+            "Altitude_AGL_m_DIGANGI",
+            "GPS_Altitude",
+            "Altitude",
+            "altitude",
+            "ALT",
+            "alt",
             # Altitude in km (DC3 merge files, etc.)
-            "ALTP", "GPS_ALT", "GPS_ALT_MMS", "RadarAlt",
+            "ALTP",
+            "GPS_ALT",
+            "GPS_ALT_MMS",
+            "RadarAlt",
             # Altitude in feet (will be converted)
-            "Pressure_Altitude_BENNETT", "GPS_Altitude_BENNETT",
+            "Pressure_Altitude_BENNETT",
+            "GPS_Altitude_BENNETT",
             # Pressure as last resort (not recommended for plotting)
-            "Static_Pressure_BENNETT", "Static_Pressure", "PRESSURE",
+            "Static_Pressure_BENNETT",
+            "Static_Pressure",
+            "PRESSURE",
         ]
         for alias in alt_aliases:
             if alias in ds.data_vars and "altitude" not in ds.coords:

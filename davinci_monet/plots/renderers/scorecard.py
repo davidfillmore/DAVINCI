@@ -97,6 +97,7 @@ class ScorecardPlotter(BasePlotter):
 
         # Create simple 1-row scorecard
         import pandas as pd
+
         stats_df = pd.DataFrame([stats])
         stats_df.index = [obs_var.replace("obs_", "")]
 
@@ -208,7 +209,9 @@ class ScorecardPlotter(BasePlotter):
 
                         text = format(value, fmt)
                         ax.text(
-                            j, i, text,
+                            j,
+                            i,
+                            text,
                             ha="center",
                             va="center",
                             color=text_color,
@@ -227,7 +230,9 @@ class ScorecardPlotter(BasePlotter):
 
         # Title
         if self.config.title:
-            ax.set_title(format_plot_title(self.config.title), fontsize=self.config.text.title_fontsize)
+            ax.set_title(
+                format_plot_title(self.config.title), fontsize=self.config.text.title_fontsize
+            )
 
         plt.tight_layout()
         return fig
@@ -259,7 +264,8 @@ class ScorecardPlotter(BasePlotter):
                     best_j = np.nanargmax(row)
                     rect = Rectangle(
                         (best_j - 0.5, i - 0.5),
-                        1, 1,
+                        1,
+                        1,
                         fill=False,
                         edgecolor="gold",
                         linewidth=2,
@@ -273,7 +279,8 @@ class ScorecardPlotter(BasePlotter):
                     best_i = np.nanargmax(col)
                     rect = Rectangle(
                         (j - 0.5, best_i - 0.5),
-                        1, 1,
+                        1,
+                        1,
                         fill=False,
                         edgecolor="gold",
                         linewidth=2,
@@ -316,7 +323,8 @@ class ScorecardPlotter(BasePlotter):
 
         # Create subplots with standard size
         fig, axes = plt.subplots(
-            1, n_metrics,
+            1,
+            n_metrics,
             figsize=(8, 5),
             dpi=self.config.figure.dpi,
             squeeze=False,

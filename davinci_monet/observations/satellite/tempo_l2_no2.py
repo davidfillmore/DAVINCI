@@ -26,7 +26,6 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import observation_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
-
 # Standard variable name mappings for TEMPO NO2
 TEMPO_NO2_VARIABLE_MAPPING: dict[str, str] = {
     "no2": "nitrogendioxide_tropospheric_column",
@@ -187,9 +186,7 @@ class TEMPOL2NO2Reader:
 
         return ds
 
-    def _apply_qa_filter(
-        self, ds: xr.Dataset, qa_threshold: float
-    ) -> xr.Dataset:
+    def _apply_qa_filter(self, ds: xr.Dataset, qa_threshold: float) -> xr.Dataset:
         """Apply QA value filtering to dataset."""
         qa_var = None
         for name in ["qa_value", "quality_flag", "main_data_quality_flag"]:

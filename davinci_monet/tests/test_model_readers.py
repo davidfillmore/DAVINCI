@@ -26,7 +26,6 @@ from davinci_monet.models import (
     open_model,
 )
 
-
 # =============================================================================
 # Fixtures for synthetic model data
 # =============================================================================
@@ -74,12 +73,15 @@ def wrfchem_dataset() -> xr.Dataset:
 
     return xr.Dataset(
         {
-            "o3": (["Time", "bottom_top", "south_north", "west_east"],
-                   np.random.rand(24, 35, 100, 120)),
-            "PM2_5_DRY": (["Time", "bottom_top", "south_north", "west_east"],
-                          np.random.rand(24, 35, 100, 120)),
-            "T2": (["Time", "south_north", "west_east"],
-                   280 + 20 * np.random.rand(24, 100, 120)),
+            "o3": (
+                ["Time", "bottom_top", "south_north", "west_east"],
+                np.random.rand(24, 35, 100, 120),
+            ),
+            "PM2_5_DRY": (
+                ["Time", "bottom_top", "south_north", "west_east"],
+                np.random.rand(24, 35, 100, 120),
+            ),
+            "T2": (["Time", "south_north", "west_east"], 280 + 20 * np.random.rand(24, 100, 120)),
         },
         coords={
             "Time": times,
@@ -102,12 +104,9 @@ def ufs_dataset() -> xr.Dataset:
 
     return xr.Dataset(
         {
-            "o3": (["time", "pfull", "grid_yt", "grid_xt"],
-                   np.random.rand(6, 65, 100, 200)),
-            "pm25": (["time", "grid_yt", "grid_xt"],
-                     np.random.rand(6, 100, 200)),
-            "tmp2m": (["time", "grid_yt", "grid_xt"],
-                      280 + 20 * np.random.rand(6, 100, 200)),
+            "o3": (["time", "pfull", "grid_yt", "grid_xt"], np.random.rand(6, 65, 100, 200)),
+            "pm25": (["time", "grid_yt", "grid_xt"], np.random.rand(6, 100, 200)),
+            "tmp2m": (["time", "grid_yt", "grid_xt"], 280 + 20 * np.random.rand(6, 100, 200)),
         },
         coords={
             "time": times,
@@ -128,12 +127,9 @@ def cesm_fv_dataset() -> xr.Dataset:
 
     return xr.Dataset(
         {
-            "O3": (["time", "lev", "lat", "lon"],
-                   np.random.rand(31, 32, 192, 288)),
-            "T": (["time", "lev", "lat", "lon"],
-                  200 + 100 * np.random.rand(31, 32, 192, 288)),
-            "PS": (["time", "lat", "lon"],
-                   100000 + 5000 * np.random.rand(31, 192, 288)),
+            "O3": (["time", "lev", "lat", "lon"], np.random.rand(31, 32, 192, 288)),
+            "T": (["time", "lev", "lat", "lon"], 200 + 100 * np.random.rand(31, 32, 192, 288)),
+            "PS": (["time", "lat", "lon"], 100000 + 5000 * np.random.rand(31, 192, 288)),
         },
         coords={
             "time": times,
@@ -153,10 +149,8 @@ def generic_dataset() -> xr.Dataset:
 
     return xr.Dataset(
         {
-            "temperature": (["time", "lat", "lon"],
-                            280 + 20 * np.random.rand(10, 50, 100)),
-            "precipitation": (["time", "lat", "lon"],
-                              np.random.rand(10, 50, 100)),
+            "temperature": (["time", "lat", "lon"], 280 + 20 * np.random.rand(10, 50, 100)),
+            "precipitation": (["time", "lat", "lon"], np.random.rand(10, 50, 100)),
         },
         coords={
             "time": times,
@@ -449,8 +443,7 @@ class TestGenericReader:
 
         # Create dataset with non-standard dimension names
         ds = xr.Dataset(
-            {"temp": (["Time", "level", "latitude", "longitude"],
-                      np.random.rand(5, 10, 20, 30))},
+            {"temp": (["Time", "level", "latitude", "longitude"], np.random.rand(5, 10, 20, 30))},
             coords={
                 "Time": pd.date_range("2024-01-01", periods=5),
                 "level": np.arange(10),

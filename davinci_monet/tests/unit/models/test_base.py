@@ -137,17 +137,13 @@ class TestModelData:
             expected.values,
         )
 
-    def test_sum_variables_existing_raises(
-        self, sample_model_data: xr.Dataset
-    ) -> None:
+    def test_sum_variables_existing_raises(self, sample_model_data: xr.Dataset) -> None:
         """Test summing into existing variable raises error."""
         model = ModelData(data=sample_model_data.copy(deep=True))
         with pytest.raises(DataValidationError):
             model.sum_variables("O3", ["PM25", "NO2"])
 
-    def test_sum_variables_missing_raises(
-        self, sample_model_data: xr.Dataset
-    ) -> None:
+    def test_sum_variables_missing_raises(self, sample_model_data: xr.Dataset) -> None:
         """Test summing missing variables raises error."""
         model = ModelData(data=sample_model_data.copy(deep=True))
         with pytest.raises(DataValidationError):
@@ -179,8 +175,8 @@ class TestModelData:
             },
         )
         # Put distinct values at TOA (index 0) and surface (index -1)
-        ds["O3"][:, 0, :, :] = 9999.0   # stratospheric (TOA)
-        ds["O3"][:, -1, :, :] = 50.0     # surface
+        ds["O3"][:, 0, :, :] = 9999.0  # stratospheric (TOA)
+        ds["O3"][:, -1, :, :] = 50.0  # surface
 
         model = ModelData(data=ds)
         surface = model.extract_surface(level_dim="lev")
@@ -202,8 +198,8 @@ class TestModelData:
                 "lon": np.linspace(-100, -70, 3),
             },
         )
-        ds["O3"][:, 0, :, :] = 50.0     # surface (first index)
-        ds["O3"][:, -1, :, :] = 9999.0   # TOA
+        ds["O3"][:, 0, :, :] = 50.0  # surface (first index)
+        ds["O3"][:, -1, :, :] = 9999.0  # TOA
 
         model = ModelData(data=ds)
         surface = model.extract_surface(level_dim="lev")
@@ -404,9 +400,7 @@ class TestModelDataHorizontalRegridding:
         """Test horizontal regridding."""
         target_lats = np.linspace(35, 45, 10)
         target_lons = np.linspace(-90, -80, 15)
-        regridded = model_with_grid.regrid_horizontal(
-            target_lats, target_lons, method="nearest"
-        )
+        regridded = model_with_grid.regrid_horizontal(target_lats, target_lons, method="nearest")
         assert regridded.data is not None
         assert len(regridded.data["lat"]) == 10
         assert len(regridded.data["lon"]) == 15

@@ -231,7 +231,11 @@ class TaylorPlotter(BasePlotter):
         theta = np.linspace(0, np.pi / 2, 100)
 
         # Draw a few RMS contours
-        rms_values = [0.25, 0.5, 0.75, 1.0] if ref_std == 1.0 else [ref_std * x for x in [0.25, 0.5, 0.75, 1.0]]
+        rms_values = (
+            [0.25, 0.5, 0.75, 1.0]
+            if ref_std == 1.0
+            else [ref_std * x for x in [0.25, 0.5, 0.75, 1.0]]
+        )
 
         for rms in rms_values:
             if rms > max_std:

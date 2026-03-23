@@ -286,9 +286,7 @@ class PairingEngine:
         dims = set(obs.dims)
 
         # Grid: has lat/lon as dimensions
-        if ("lat" in dims or "latitude" in dims) and (
-            "lon" in dims or "longitude" in dims
-        ):
+        if ("lat" in dims or "latitude" in dims) and ("lon" in dims or "longitude" in dims):
             return DataGeometry.GRID
 
         # Swath: has scanline/pixel or similar
@@ -316,9 +314,7 @@ class PairingEngine:
             "Please set the 'geometry' attribute on the dataset."
         )
 
-    def _check_temporal_overlap(
-        self, model: xr.Dataset, obs: xr.Dataset
-    ) -> None:
+    def _check_temporal_overlap(self, model: xr.Dataset, obs: xr.Dataset) -> None:
         """Check if model and observation have temporal overlap.
 
         Parameters

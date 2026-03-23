@@ -21,7 +21,6 @@ from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
 from davinci_monet.tests.synthetic.models import create_model_dataset
 from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -34,19 +33,30 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     Returns (config_path, output_dir, log_dir, tmp_path).
     """
     domain = Domain(
-        lon_min=-105.0, lon_max=-95.0,
-        lat_min=35.0, lat_max=45.0,
-        n_lon=8, n_lat=8,
+        lon_min=-105.0,
+        lon_max=-95.0,
+        lat_min=35.0,
+        lat_max=45.0,
+        n_lon=8,
+        n_lat=8,
     )
     time_cfg = TimeConfig(start="2024-01-15 00:00", end="2024-01-16 00:00", freq="3h")
 
     model_ds = create_model_dataset(
-        variables=["O3"], domain=domain, time_config=time_cfg, seed=42,
+        variables=["O3"],
+        domain=domain,
+        time_config=time_cfg,
+        seed=42,
     )
 
     scenario = PerfectMatchScenario(
-        variables=["O3"], domain=domain, time_config=time_cfg,
-        geometry=DataGeometry.POINT, n_obs=5, noise_level=0.0, seed=42,
+        variables=["O3"],
+        domain=domain,
+        time_config=time_cfg,
+        geometry=DataGeometry.POINT,
+        n_obs=5,
+        noise_level=0.0,
+        seed=42,
     )
     obs_ds = scenario._generate_point_obs(model_ds)
 
@@ -62,7 +72,8 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     output_dir = tmp_path / "output"
     log_dir = tmp_path / "logs"
 
-    config_text = textwrap.dedent(f"""\
+    config_text = textwrap.dedent(
+        f"""\
         analysis:
           start_time: "2024-01-15"
           end_time: "2024-01-16"
@@ -110,7 +121,8 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
 
         stats:
           metrics: [N, MB, RMSE]
-    """)
+    """
+    )
 
     config_path = tmp_path / "config.yaml"
     config_path.write_text(config_text)
@@ -135,8 +147,7 @@ class TestCLIRunE2E:
         result = runner.invoke(app, ["run", str(config_path)])
 
         assert result.exit_code == 0, (
-            f"CLI failed with exit code {result.exit_code}.\n"
-            f"stdout: {result.stdout}\n"
+            f"CLI failed with exit code {result.exit_code}.\n" f"stdout: {result.stdout}\n"
         )
         assert "Analysis complete" in result.stdout
 
@@ -165,11 +176,15 @@ class TestCLIRunE2E:
         from typer.testing import CliRunner
 
         config_path = tmp_path / "bad.yaml"
-        config_path.write_text(textwrap.dedent("""\
+        config_path.write_text(
+            textwrap.dedent(
+                """\
             analysis:
               start_time: not-a-date
               end_time: also-not-a-date
-        """))
+        """
+            )
+        )
 
         runner = CliRunner()
         result = runner.invoke(app, ["run", str(config_path)])

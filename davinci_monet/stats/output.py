@@ -162,13 +162,9 @@ class StatisticsFormatter:
             Formatted DataFrame.
         """
         include_fullnames = (
-            include_fullnames
-            if include_fullnames is not None
-            else self.config.stat_fullname
+            include_fullnames if include_fullnames is not None else self.config.stat_fullname
         )
-        use_spaces = (
-            use_spaces if use_spaces is not None else self.config.stat_fullname_space
-        )
+        use_spaces = use_spaces if use_spaces is not None else self.config.stat_fullname_space
 
         df = stats_df.copy()
 
@@ -500,9 +496,7 @@ def create_comparison_table(
     comparison.index.name = "Stat_ID"
 
     # Add full names
-    comparison.insert(
-        0, "Stat_FullName", comparison.index.map(lambda x: get_metric_fullname(x))
-    )
+    comparison.insert(0, "Stat_FullName", comparison.index.map(lambda x: get_metric_fullname(x)))
     comparison = comparison.reset_index()
 
     # Filter to requested metrics

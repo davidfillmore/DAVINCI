@@ -214,6 +214,7 @@ def write_statistics(
 
         elif format == "json":
             import json
+
             with open(path, "w") as f:
                 json.dump(stats, f, indent=2, default=str)
 

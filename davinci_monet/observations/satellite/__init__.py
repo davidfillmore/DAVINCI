@@ -40,43 +40,6 @@ is not available, but some features (projections, swath geometry) may not
 work correctly without monetio.
 """
 
-# Satellite-specific L2 readers (require monetio for full functionality)
-from davinci_monet.observations.satellite.tropomi import (
-    TROPOMIReader,
-    open_tropomi,
-    TROPOMI_VARIABLE_MAPPING,
-)
-from davinci_monet.observations.satellite.tempo_l2_no2 import (
-    TEMPOL2NO2Reader,
-    open_tempo_l2_no2,
-    TEMPO_NO2_VARIABLE_MAPPING,
-)
-from davinci_monet.observations.satellite.modis_l2_aod import (
-    MODISL2AODReader,
-    open_modis_l2_aod,
-    MODIS_AOD_VARIABLE_MAPPING,
-)
-
-# Satellite-specific L3 readers (require monetio for full functionality)
-from davinci_monet.observations.satellite.goes_l3_aod import (
-    GOESL3AODReader,
-    GOESReader,  # Backward compatibility alias
-    open_goes_l3_aod,
-    open_goes,  # Backward compatibility alias (deprecated)
-    GOES_AOD_VARIABLE_MAPPING,
-    GOES_VARIABLE_MAPPING,  # Backward compatibility alias
-)
-from davinci_monet.observations.satellite.mopitt_l3_co import (
-    MOPITTL3COReader,
-    open_mopitt_l3_co,
-    MOPITT_CO_VARIABLE_MAPPING,
-)
-from davinci_monet.observations.satellite.omps_l3_o3 import (
-    OMPSL3O3Reader,
-    open_omps_l3_o3,
-    OMPS_O3_VARIABLE_MAPPING,
-)
-
 # Generic readers (pure xarray, no monetio dependency)
 from davinci_monet.observations.satellite.generic_l2 import (
     GenericL2Reader,
@@ -85,6 +48,49 @@ from davinci_monet.observations.satellite.generic_l2 import (
 from davinci_monet.observations.satellite.generic_l3 import (
     GenericL3Reader,
     open_satellite_l3,
+)
+
+# Satellite-specific L3 readers (require monetio for full functionality)
+from davinci_monet.observations.satellite.goes_l3_aod import (
+    GOES_VARIABLE_MAPPING,  # Backward compatibility alias
+)
+from davinci_monet.observations.satellite.goes_l3_aod import (
+    GOESReader,  # Backward compatibility alias
+)
+from davinci_monet.observations.satellite.goes_l3_aod import (
+    open_goes,  # Backward compatibility alias (deprecated)
+)
+from davinci_monet.observations.satellite.goes_l3_aod import (
+    GOES_AOD_VARIABLE_MAPPING,
+    GOESL3AODReader,
+    open_goes_l3_aod,
+)
+from davinci_monet.observations.satellite.modis_l2_aod import (
+    MODIS_AOD_VARIABLE_MAPPING,
+    MODISL2AODReader,
+    open_modis_l2_aod,
+)
+from davinci_monet.observations.satellite.mopitt_l3_co import (
+    MOPITT_CO_VARIABLE_MAPPING,
+    MOPITTL3COReader,
+    open_mopitt_l3_co,
+)
+from davinci_monet.observations.satellite.omps_l3_o3 import (
+    OMPS_O3_VARIABLE_MAPPING,
+    OMPSL3O3Reader,
+    open_omps_l3_o3,
+)
+from davinci_monet.observations.satellite.tempo_l2_no2 import (
+    TEMPO_NO2_VARIABLE_MAPPING,
+    TEMPOL2NO2Reader,
+    open_tempo_l2_no2,
+)
+
+# Satellite-specific L2 readers (require monetio for full functionality)
+from davinci_monet.observations.satellite.tropomi import (
+    TROPOMI_VARIABLE_MAPPING,
+    TROPOMIReader,
+    open_tropomi,
 )
 
 __all__ = [

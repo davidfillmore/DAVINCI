@@ -130,7 +130,9 @@ class DiurnalPlotter(BasePlotter):
         model_mean_vals = model_mean.values
         if obs_mean_vals.ndim > 1:
             obs_mean_vals = np.nanmean(obs_mean_vals, axis=tuple(range(1, obs_mean_vals.ndim)))
-            model_mean_vals = np.nanmean(model_mean_vals, axis=tuple(range(1, model_mean_vals.ndim)))
+            model_mean_vals = np.nanmean(
+                model_mean_vals, axis=tuple(range(1, model_mean_vals.ndim))
+            )
 
         # Get hour values for x-axis
         hours_arr = np.arange(24)
@@ -139,18 +141,20 @@ class DiurnalPlotter(BasePlotter):
         style = self.config.style
 
         # Get labels
-        obs_label = obs_label or get_variable_label(
-            paired_data, obs_var, self.config.obs_label
-        ) or "Observations"
-        model_label = model_label or get_variable_label(
-            paired_data, model_var, self.config.model_label
-        ) or "Model"
+        obs_label = (
+            obs_label
+            or get_variable_label(paired_data, obs_var, self.config.obs_label)
+            or "Observations"
+        )
+        model_label = (
+            model_label
+            or get_variable_label(paired_data, model_var, self.config.model_label)
+            or "Model"
+        )
 
         # Plot spread if requested
         if show_spread != "none":
-            self._add_spread_bands(
-                ax, obs_hourly, model_hourly, hours_arr, style, show_spread
-            )
+            self._add_spread_bands(ax, obs_hourly, model_hourly, hours_arr, style, show_spread)
 
         # Plot means
         ax.plot(
@@ -261,8 +265,12 @@ class DiurnalPlotter(BasePlotter):
         if obs_lower_vals.ndim > 1:
             obs_lower_vals = np.nanmean(obs_lower_vals, axis=tuple(range(1, obs_lower_vals.ndim)))
             obs_upper_vals = np.nanmean(obs_upper_vals, axis=tuple(range(1, obs_upper_vals.ndim)))
-            model_lower_vals = np.nanmean(model_lower_vals, axis=tuple(range(1, model_lower_vals.ndim)))
-            model_upper_vals = np.nanmean(model_upper_vals, axis=tuple(range(1, model_upper_vals.ndim)))
+            model_lower_vals = np.nanmean(
+                model_lower_vals, axis=tuple(range(1, model_lower_vals.ndim))
+            )
+            model_upper_vals = np.nanmean(
+                model_upper_vals, axis=tuple(range(1, model_upper_vals.ndim))
+            )
 
         # Plot bands
         ax.fill_between(

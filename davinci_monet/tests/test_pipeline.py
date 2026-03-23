@@ -30,7 +30,6 @@ from davinci_monet.pipeline import (
     parallel_process_files,
 )
 
-
 # =============================================================================
 # Test Fixtures
 # =============================================================================
@@ -374,9 +373,7 @@ class TestStatisticsStage:
         assert "correlation" in o3_stats
         assert o3_stats["n"] == 100
 
-    def test_metrics_takes_precedence_over_stat_list(
-        self, context_with_paired: PipelineContext
-    ):
+    def test_metrics_takes_precedence_over_stat_list(self, context_with_paired: PipelineContext):
         """Test that 'metrics' key takes precedence over 'stat_list'.
 
         Regression test for review finding #2: when both keys are present
@@ -766,12 +763,7 @@ class TestPipelineBuilder:
     def test_add_standard_stages(self):
         """Test adding standard stages."""
         runner = (
-            PipelineBuilder()
-            .add_models()
-            .add_observations()
-            .add_pairing()
-            .add_statistics()
-            .build()
+            PipelineBuilder().add_models().add_observations().add_pairing().add_statistics().build()
         )
 
         assert len(runner.stages) == 4
@@ -802,11 +794,7 @@ class TestPipelineBuilder:
         """Test adding hook."""
         called = []
 
-        runner = (
-            PipelineBuilder()
-            .with_hook("on_start", lambda ctx: called.append("start"))
-            .build()
-        )
+        runner = PipelineBuilder().with_hook("on_start", lambda ctx: called.append("start")).build()
 
         assert "on_start" in runner._hooks
 

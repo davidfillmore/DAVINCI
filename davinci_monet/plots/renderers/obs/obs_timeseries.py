@@ -92,10 +92,7 @@ class ObsTimeSeriesPlotter(ObsPlotter):
         time_values = pd.to_datetime(obs_data["time"].values)
         values = obs_data[variable].values
 
-        has_flights = (
-            "flight" in obs_data.coords
-            and len(np.unique(obs_data["flight"].values)) > 1
-        )
+        has_flights = "flight" in obs_data.coords and len(np.unique(obs_data["flight"].values)) > 1
 
         if has_flights:
             flight_ids = np.unique(obs_data["flight"].values)

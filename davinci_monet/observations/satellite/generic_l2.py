@@ -165,9 +165,7 @@ class GenericL2Reader:
         # Default to first dimension
         return list(ds.dims.keys())[0] if ds.dims else "time"
 
-    def _apply_dim_mapping(
-        self, ds: xr.Dataset, dim_mapping: Mapping[str, str]
-    ) -> xr.Dataset:
+    def _apply_dim_mapping(self, ds: xr.Dataset, dim_mapping: Mapping[str, str]) -> xr.Dataset:
         """Apply dimension name mapping."""
         renames = {}
         for old_name, new_name in dim_mapping.items():
@@ -177,9 +175,7 @@ class GenericL2Reader:
             ds = ds.rename(renames)
         return ds
 
-    def _apply_coord_mapping(
-        self, ds: xr.Dataset, coord_mapping: Mapping[str, str]
-    ) -> xr.Dataset:
+    def _apply_coord_mapping(self, ds: xr.Dataset, coord_mapping: Mapping[str, str]) -> xr.Dataset:
         """Apply coordinate name mapping."""
         renames = {}
         for old_name, new_name in coord_mapping.items():
@@ -191,9 +187,7 @@ class GenericL2Reader:
             ds = ds.rename(renames)
         return ds
 
-    def _apply_qa_filter(
-        self, ds: xr.Dataset, qa_variable: str, qa_threshold: float
-    ) -> xr.Dataset:
+    def _apply_qa_filter(self, ds: xr.Dataset, qa_variable: str, qa_threshold: float) -> xr.Dataset:
         """Apply quality assurance filtering."""
         if qa_variable not in ds.data_vars and qa_variable not in ds.coords:
             warnings.warn(

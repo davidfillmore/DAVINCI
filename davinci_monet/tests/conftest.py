@@ -28,7 +28,6 @@ from davinci_monet.tests.synthetic.scenarios import (
     create_scenario,
 )
 
-
 # =============================================================================
 # Domain and Time Fixtures
 # =============================================================================

@@ -66,9 +66,7 @@ class BasePairingStrategy(ABC):
         """
         ...
 
-    def _get_model_coords(
-        self, model: xr.Dataset
-    ) -> tuple[xr.DataArray, xr.DataArray]:
+    def _get_model_coords(self, model: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
         """Extract latitude and longitude coordinates from model.
 
         Parameters
@@ -113,9 +111,7 @@ class BasePairingStrategy(ABC):
 
         return lat, lon
 
-    def _get_obs_coords(
-        self, obs: xr.Dataset
-    ) -> tuple[xr.DataArray, xr.DataArray]:
+    def _get_obs_coords(self, obs: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
         """Extract latitude and longitude from observations.
 
         Parameters
@@ -195,8 +191,16 @@ class BasePairingStrategy(ABC):
             distances = self._haversine_distance(
                 obs_lat.values,
                 obs_lon.values,
-                model_lat.values[lat_idx] if model_lat.ndim == 1 else model_lat.values[lat_idx, lon_idx],
-                model_lon.values[lon_idx] if model_lon.ndim == 1 else model_lon.values[lat_idx, lon_idx],
+                (
+                    model_lat.values[lat_idx]
+                    if model_lat.ndim == 1
+                    else model_lat.values[lat_idx, lon_idx]
+                ),
+                (
+                    model_lon.values[lon_idx]
+                    if model_lon.ndim == 1
+                    else model_lon.values[lat_idx, lon_idx]
+                ),
             )
             mask = distances > radius_of_influence
             lat_idx = np.where(mask, -1, lat_idx)
@@ -262,9 +266,7 @@ class BasePairingStrategy(ABC):
 
         for k in range(n_obs):
             # Calculate distance to all grid points
-            dist = self._haversine_distance(
-                obs_lat[k], obs_lon[k], model_lat, model_lon
-            )
+            dist = self._haversine_distance(obs_lat[k], obs_lon[k], model_lat, model_lon)
             # Find minimum
             flat_idx = np.argmin(dist)
             i_idx[k], j_idx[k] = np.unravel_index(flat_idx, model_lat.shape)
@@ -299,10 +301,7 @@ class BasePairingStrategy(ABC):
         dlat = np.radians(lat2 - lat1)
         dlon = np.radians(lon2 - lon1)
 
-        a = (
-            np.sin(dlat / 2) ** 2
-            + np.cos(lat1_rad) * np.cos(lat2_rad) * np.sin(dlon / 2) ** 2
-        )
+        a = np.sin(dlat / 2) ** 2 + np.cos(lat1_rad) * np.cos(lat2_rad) * np.sin(dlon / 2) ** 2
         c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
         return np.asarray(R * c)
@@ -372,9 +371,7 @@ class BasePairingStrategy(ABC):
             return model.sel({level_coord: target_levels}, method="nearest")
         elif method == "log":
             # Log-pressure interpolation
-            model_log = model.assign_coords(
-                {level_coord: np.log(model[level_coord].values)}
-            )
+            model_log = model.assign_coords({level_coord: np.log(model[level_coord].values)})
             target_log = np.log(target_levels.values)
             result = model_log.interp({level_coord: target_log}, method="linear")
             return result.assign_coords({level_coord: target_levels.values})
@@ -384,9 +381,7 @@ class BasePairingStrategy(ABC):
                 method=method,  # type: ignore[arg-type]
             )
 
-    def _extract_surface(
-        self, model: xr.Dataset, level_dim: str | None = None
-    ) -> xr.Dataset:
+    def _extract_surface(self, model: xr.Dataset, level_dim: str | None = None) -> xr.Dataset:
         """Extract surface level from model data.
 
         Parameters

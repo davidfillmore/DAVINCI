@@ -1,15 +1,15 @@
 """Tests for davinci_monet.plots.base utilities."""
 
+import numpy as np
 import pytest
 import xarray as xr
-import numpy as np
 
 from davinci_monet.plots.base import (
-    VARIABLE_DISPLAY_NAMES,
     TITLE_FORMULA_REPLACEMENTS,
+    VARIABLE_DISPLAY_NAMES,
+    format_label_with_units,
     format_plot_title,
     format_variable_display_name,
-    format_label_with_units,
     get_variable_label,
     get_variable_units,
 )
@@ -48,7 +48,9 @@ class TestFormatPlotTitle:
 
     def test_pm25_formatting(self):
         """PM2.5 should be formatted with LaTeX subscripts."""
-        assert format_plot_title("PM2.5 Model vs Observations") == r"PM$_{2.5}$ Model vs Observations"
+        assert (
+            format_plot_title("PM2.5 Model vs Observations") == r"PM$_{2.5}$ Model vs Observations"
+        )
         assert format_plot_title("PM25 Time Series") == r"PM$_{2.5}$ Time Series"
 
     def test_no2_formatting(self):
@@ -102,12 +104,16 @@ class TestFormatVariableDisplayName:
 
     def test_obs_prefix_with_include_prefix_true(self):
         """obs_ prefix should add 'Observed ' when include_prefix=True."""
-        assert format_variable_display_name("obs_pm25", include_prefix=True) == r"Observed PM$_{2.5}$"
+        assert (
+            format_variable_display_name("obs_pm25", include_prefix=True) == r"Observed PM$_{2.5}$"
+        )
         assert format_variable_display_name("obs_o3", include_prefix=True) == r"Observed O$_3$"
 
     def test_model_prefix_with_include_prefix_true(self):
         """model_ prefix should add 'Modeled ' when include_prefix=True."""
-        assert format_variable_display_name("model_pm25", include_prefix=True) == r"Modeled PM$_{2.5}$"
+        assert (
+            format_variable_display_name("model_pm25", include_prefix=True) == r"Modeled PM$_{2.5}$"
+        )
         assert format_variable_display_name("model_o3", include_prefix=True) == r"Modeled O$_3$"
 
     def test_obs_prefix_with_include_prefix_false(self):
@@ -128,8 +134,13 @@ class TestFormatVariableDisplayName:
 
     def test_unknown_variable_with_prefix(self):
         """Unknown variables with prefix should still format correctly."""
-        assert format_variable_display_name("obs_some_var", include_prefix=True) == "Observed Some Var"
-        assert format_variable_display_name("model_some_var", include_prefix=True) == "Modeled Some Var"
+        assert (
+            format_variable_display_name("obs_some_var", include_prefix=True) == "Observed Some Var"
+        )
+        assert (
+            format_variable_display_name("model_some_var", include_prefix=True)
+            == "Modeled Some Var"
+        )
 
 
 class TestFormatLabelWithUnits:
@@ -159,21 +170,18 @@ class TestGetVariableLabel:
     @pytest.fixture
     def sample_dataset(self):
         """Create a sample dataset for testing."""
-        return xr.Dataset({
-            "obs_pm25": xr.DataArray(
-                [1, 2, 3],
-                attrs={"long_name": "PM2.5 Concentration", "units": "μg/m³"}
-            ),
-            "model_pm25": xr.DataArray(
-                [1.1, 2.1, 3.1],
-                attrs={"display_name": "Custom PM₂.₅", "units": "μg/m³"}
-            ),
-            "obs_temp": xr.DataArray(
-                [20, 21, 22],
-                attrs={"standard_name": "air_temperature"}
-            ),
-            "no_attrs_var": xr.DataArray([1, 2, 3]),
-        })
+        return xr.Dataset(
+            {
+                "obs_pm25": xr.DataArray(
+                    [1, 2, 3], attrs={"long_name": "PM2.5 Concentration", "units": "μg/m³"}
+                ),
+                "model_pm25": xr.DataArray(
+                    [1.1, 2.1, 3.1], attrs={"display_name": "Custom PM₂.₅", "units": "μg/m³"}
+                ),
+                "obs_temp": xr.DataArray([20, 21, 22], attrs={"standard_name": "air_temperature"}),
+                "no_attrs_var": xr.DataArray([1, 2, 3]),
+            }
+        )
 
     def test_custom_label_takes_precedence(self, sample_dataset):
         """Custom label should override everything."""
@@ -217,12 +225,9 @@ class TestGetVariableLabel:
 
     def test_none_display_name_attr_ignored(self):
         """display_name attr set to None should be ignored."""
-        ds = xr.Dataset({
-            "obs_pm25": xr.DataArray(
-                [1, 2, 3],
-                attrs={"display_name": None, "units": "μg/m³"}
-            )
-        })
+        ds = xr.Dataset(
+            {"obs_pm25": xr.DataArray([1, 2, 3], attrs={"display_name": None, "units": "μg/m³"})}
+        )
         result = get_variable_label(ds, "obs_pm25")
         # Should fall back to lookup table, not return "None"
         assert result == r"Observed PM$_{2.5}$"
@@ -234,16 +239,12 @@ class TestGetVariableUnits:
 
     def test_units_from_attrs(self):
         """Should return units from variable attrs."""
-        ds = xr.Dataset({
-            "pm25": xr.DataArray([1, 2, 3], attrs={"units": "μg/m³"})
-        })
+        ds = xr.Dataset({"pm25": xr.DataArray([1, 2, 3], attrs={"units": "μg/m³"})})
         assert get_variable_units(ds, "pm25") == "μg/m³"
 
     def test_no_units_attr(self):
         """Should return None if no units attr."""
-        ds = xr.Dataset({
-            "pm25": xr.DataArray([1, 2, 3])
-        })
+        ds = xr.Dataset({"pm25": xr.DataArray([1, 2, 3])})
         assert get_variable_units(ds, "pm25") is None
 
     def test_variable_not_in_dataset(self):

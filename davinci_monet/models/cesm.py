@@ -26,7 +26,6 @@ from davinci_monet.core.exceptions import (
 from davinci_monet.core.registry import model_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
-
 # Physical constants for column integration
 _P0_DEFAULT = 100000.0  # Pa, reference pressure for CESM hybrid coords
 _G = 9.80665  # m/s^2, gravitational acceleration
@@ -292,7 +291,9 @@ class CESMFVReader:
                 raise DataFormatError(msg) from e
 
         # Should not reach here, but just in case
-        raise DataFormatError(f"Failed to open CESM-FV files after {max_retries} attempts") from last_error
+        raise DataFormatError(
+            f"Failed to open CESM-FV files after {max_retries} attempts"
+        ) from last_error
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize CESM-FV dataset dimensions."""
@@ -476,7 +477,9 @@ class CESMSEReader:
                     msg += f" (details: {error_file})"
                 raise DataFormatError(msg) from e
 
-        raise DataFormatError(f"Failed to open CESM-SE files after {max_retries} attempts") from last_error
+        raise DataFormatError(
+            f"Failed to open CESM-SE files after {max_retries} attempts"
+        ) from last_error
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize CESM-SE dataset dimensions."""
@@ -536,6 +539,7 @@ def open_cesm(
         file_str = str(files)
         if "*" in file_str or "?" in file_str:
             from glob import glob
+
             file_list = sorted(glob(file_str))
             if not file_list:
                 raise DataNotFoundError(f"No files match pattern: {files}")

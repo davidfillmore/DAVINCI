@@ -22,7 +22,6 @@ from davinci_monet.core.exceptions import (
 from davinci_monet.core.registry import model_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
-
 # Standard variable name mappings for WRF-Chem
 # WRF-Chem variable names vary by chemical mechanism
 WRFCHEM_VARIABLE_MAPPING: dict[str, str] = {
@@ -220,7 +219,9 @@ class WRFChemReader:
                     msg += f" (details: {error_file})"
                 raise DataFormatError(msg) from e
 
-        raise DataFormatError(f"Failed to open WRF-Chem files after {max_retries} attempts") from last_error
+        raise DataFormatError(
+            f"Failed to open WRF-Chem files after {max_retries} attempts"
+        ) from last_error
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize WRF-Chem dataset dimensions and coordinates.
@@ -319,6 +320,7 @@ def open_wrfchem(
         file_str = str(files)
         if "*" in file_str or "?" in file_str:
             from glob import glob
+
             file_list = sorted(glob(file_str))
             if not file_list:
                 raise DataNotFoundError(f"No files match pattern: {files}")

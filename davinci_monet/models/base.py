@@ -229,9 +229,7 @@ class ModelData(DataContainer):
         # Check source variables exist
         missing = [v for v in source_vars if v not in self.data]
         if missing:
-            raise DataValidationError(
-                f"Cannot sum variables, missing: {missing}"
-            )
+            raise DataValidationError(f"Cannot sum variables, missing: {missing}")
 
         # Check new variable doesn't already exist
         if new_var in self.data:

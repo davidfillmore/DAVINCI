@@ -27,7 +27,6 @@ from davinci_monet.io import (
     write_statistics,
 )
 
-
 # =============================================================================
 # Test Fixtures
 # =============================================================================
@@ -474,9 +473,7 @@ class TestWriteCsv:
         result = pd.read_csv(filepath)
         assert "Unnamed: 0" not in result.columns
 
-    def test_creates_parent_directory(
-        self, sample_dataframe: pd.DataFrame, temp_dir: Path
-    ):
+    def test_creates_parent_directory(self, sample_dataframe: pd.DataFrame, temp_dir: Path):
         """Test parent directory is created."""
         filepath = temp_dir / "subdir" / "data.csv"
         write_csv(sample_dataframe, filepath)
@@ -487,9 +484,7 @@ class TestWriteCsv:
 class TestWritePairedData:
     """Tests for write_paired_data function."""
 
-    def test_write_netcdf(
-        self, sample_paired_datasets: dict[str, xr.Dataset], temp_dir: Path
-    ):
+    def test_write_netcdf(self, sample_paired_datasets: dict[str, xr.Dataset], temp_dir: Path):
         """Test writing paired data as NetCDF."""
         output_dir = temp_dir / "paired"
         written_files = write_paired_data(sample_paired_datasets, output_dir)
@@ -500,26 +495,18 @@ class TestWritePairedData:
         for f in written_files:
             assert Path(f).exists()
 
-    def test_write_pickle(
-        self, sample_paired_datasets: dict[str, xr.Dataset], temp_dir: Path
-    ):
+    def test_write_pickle(self, sample_paired_datasets: dict[str, xr.Dataset], temp_dir: Path):
         """Test writing paired data as pickle."""
         output_dir = temp_dir / "paired"
-        written_files = write_paired_data(
-            sample_paired_datasets, output_dir, format="pickle"
-        )
+        written_files = write_paired_data(sample_paired_datasets, output_dir, format="pickle")
 
         assert len(written_files) == 2
         assert all(f.endswith(".pkl") for f in written_files)
 
-    def test_with_prefix(
-        self, sample_paired_datasets: dict[str, xr.Dataset], temp_dir: Path
-    ):
+    def test_with_prefix(self, sample_paired_datasets: dict[str, xr.Dataset], temp_dir: Path):
         """Test writing with filename prefix."""
         output_dir = temp_dir / "paired"
-        written_files = write_paired_data(
-            sample_paired_datasets, output_dir, prefix="run1"
-        )
+        written_files = write_paired_data(sample_paired_datasets, output_dir, prefix="run1")
 
         assert all("run1_" in f for f in written_files)
 

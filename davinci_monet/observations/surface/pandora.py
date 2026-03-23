@@ -19,7 +19,6 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import observation_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
-
 # Standard variable name mappings for Pandora
 PANDORA_VARIABLE_MAPPING: dict[str, str] = {
     "no2_trop_column": "no2_trop_column",
@@ -143,13 +142,15 @@ def _parse_pandora_data(
             if no2_col < -1e90:
                 continue
 
-            records.append({
-                "time": dt,
-                "no2_trop_column": no2_col,
-                "no2_column_uncertainty": no2_unc,
-                "no2_quality_flag": qf,
-                "solar_zenith_angle": sza,
-            })
+            records.append(
+                {
+                    "time": dt,
+                    "no2_trop_column": no2_col,
+                    "no2_column_uncertainty": no2_unc,
+                    "no2_quality_flag": qf,
+                    "solar_zenith_angle": sza,
+                }
+            )
 
         except (ValueError, IndexError):
             # Skip malformed lines
@@ -263,9 +264,7 @@ class PandoraReader:
             site_metadata[site_name] = metadata
 
         if not all_data:
-            raise DataNotFoundError(
-                "No valid Pandora data found in provided files"
-            )
+            raise DataNotFoundError("No valid Pandora data found in provided files")
 
         # Combine all data
         combined_df = pd.concat(all_data, ignore_index=True)
@@ -303,13 +302,15 @@ class PandoraReader:
 
         # Pivot data variables
         data_vars = {}
-        for col in ["no2_trop_column", "no2_column_uncertainty",
-                    "no2_quality_flag", "solar_zenith_angle"]:
+        for col in [
+            "no2_trop_column",
+            "no2_column_uncertainty",
+            "no2_quality_flag",
+            "solar_zenith_angle",
+        ]:
             if col not in df.columns:
                 continue
-            pivoted = df.pivot_table(
-                index="time", columns="site", values=col, aggfunc="first"
-            )
+            pivoted = df.pivot_table(index="time", columns="site", values=col, aggfunc="first")
             pivoted = pivoted.reindex(index=times, columns=sites)
             data_vars[col] = (["time", "site"], pivoted.values)
 

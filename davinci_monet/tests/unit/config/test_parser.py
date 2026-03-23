@@ -97,17 +97,13 @@ class TestExpandEnvVars:
     def test_expand_nested(self) -> None:
         """Test nested dictionary expansion."""
         os.environ["TEST_DIR"] = "/data"
-        data = expand_env_vars({
-            "analysis": {"output_dir": "${TEST_DIR}/output"}
-        })
+        data = expand_env_vars({"analysis": {"output_dir": "${TEST_DIR}/output"}})
         assert data["analysis"]["output_dir"] == "/data/output"
 
     def test_expand_in_list(self) -> None:
         """Test expansion in list values."""
         os.environ["TEST_BASE"] = "/base"
-        data = expand_env_vars({
-            "files": ["${TEST_BASE}/a.nc", "${TEST_BASE}/b.nc"]
-        })
+        data = expand_env_vars({"files": ["${TEST_BASE}/a.nc", "${TEST_BASE}/b.nc"]})
         assert data["files"][0] == "/base/a.nc"
 
     def test_no_expansion_needed(self) -> None:
@@ -127,9 +123,7 @@ class TestPreprocessConfig:
 
     def test_null_projection_removed(self) -> None:
         """Test null projection is removed."""
-        data = preprocess_config({
-            "model": {"cmaq": {"projection": None}}
-        })
+        data = preprocess_config({"model": {"cmaq": {"projection": None}}})
         assert "projection" not in data["model"]["cmaq"]
 
 
@@ -201,10 +195,12 @@ class TestDumpConfig:
 
     def test_dump_and_reload(self) -> None:
         """Test dumping and reloading config."""
-        config = MonetConfig.model_validate({
-            "analysis": {"debug": True},
-            "model": {"cmaq": {"mod_type": "cmaq"}},
-        })
+        config = MonetConfig.model_validate(
+            {
+                "analysis": {"debug": True},
+                "model": {"cmaq": {"mod_type": "cmaq"}},
+            }
+        )
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             try:
                 dump_config(config, f.name)
@@ -244,9 +240,9 @@ class TestMergeConfigs:
 
     def test_merge_deep_dict(self) -> None:
         """Test deep merging of nested dicts."""
-        base = MonetConfig.model_validate({
-            "model": {"cmaq": {"mod_type": "cmaq", "radius_of_influence": 10000}}
-        })
+        base = MonetConfig.model_validate(
+            {"model": {"cmaq": {"mod_type": "cmaq", "radius_of_influence": 10000}}}
+        )
         override: dict[str, Any] = {"model": {"cmaq": {"radius_of_influence": 15000}}}
         merged = merge_configs(base, override)
         assert merged.model["cmaq"].mod_type == "cmaq"
@@ -263,49 +259,29 @@ class TestConfigBuilder:
 
     def test_set_analysis(self) -> None:
         """Test setting analysis options."""
-        config = (
-            ConfigBuilder()
-            .set_analysis(start_time="2024-01-01", debug=True)
-            .build()
-        )
+        config = ConfigBuilder().set_analysis(start_time="2024-01-01", debug=True).build()
         assert config.analysis.debug is True
 
     def test_add_model(self) -> None:
         """Test adding model."""
-        config = (
-            ConfigBuilder()
-            .add_model("cmaq", mod_type="cmaq", files="/data/*.nc")
-            .build()
-        )
+        config = ConfigBuilder().add_model("cmaq", mod_type="cmaq", files="/data/*.nc").build()
         assert "cmaq" in config.model
         assert config.model["cmaq"].mod_type == "cmaq"
 
     def test_add_observation(self) -> None:
         """Test adding observation."""
-        config = (
-            ConfigBuilder()
-            .add_observation("airnow", obs_type="pt_sfc")
-            .build()
-        )
+        config = ConfigBuilder().add_observation("airnow", obs_type="pt_sfc").build()
         assert "airnow" in config.obs
 
     def test_add_plot(self) -> None:
         """Test adding plot."""
-        config = (
-            ConfigBuilder()
-            .add_plot("ts1", "timeseries", data=["airnow_cmaq"])
-            .build()
-        )
+        config = ConfigBuilder().add_plot("ts1", "timeseries", data=["airnow_cmaq"]).build()
         assert "ts1" in config.plots
         assert config.plots["ts1"].type == "timeseries"
 
     def test_set_stats(self) -> None:
         """Test setting stats."""
-        config = (
-            ConfigBuilder()
-            .set_stats(stat_list=["MB", "R2"], round_output=2)
-            .build()
-        )
+        config = ConfigBuilder().set_stats(stat_list=["MB", "R2"], round_output=2).build()
         assert config.stats is not None
         assert config.stats.round_output == 2
 

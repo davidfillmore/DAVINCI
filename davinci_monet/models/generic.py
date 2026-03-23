@@ -24,16 +24,48 @@ from davinci_monet.core.exceptions import (
 from davinci_monet.core.registry import model_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
-
 # Common coordinate name aliases for standardization
 COMMON_COORDINATE_ALIASES: dict[str, list[str]] = {
     "time": ["time", "Time", "TSTEP", "t", "datetime", "date_time"],
-    "z": ["z", "lev", "level", "levels", "z_level", "altitude", "height",
-          "bottom_top", "LAY", "layer", "pfull", "phalf", "sigma"],
-    "lat": ["lat", "latitude", "LAT", "LATITUDE", "XLAT", "south_north",
-            "nlat", "rlat", "grid_yt", "y"],
-    "lon": ["lon", "longitude", "LON", "LONGITUDE", "XLONG", "west_east",
-            "nlon", "rlon", "grid_xt", "x"],
+    "z": [
+        "z",
+        "lev",
+        "level",
+        "levels",
+        "z_level",
+        "altitude",
+        "height",
+        "bottom_top",
+        "LAY",
+        "layer",
+        "pfull",
+        "phalf",
+        "sigma",
+    ],
+    "lat": [
+        "lat",
+        "latitude",
+        "LAT",
+        "LATITUDE",
+        "XLAT",
+        "south_north",
+        "nlat",
+        "rlat",
+        "grid_yt",
+        "y",
+    ],
+    "lon": [
+        "lon",
+        "longitude",
+        "LON",
+        "LONGITUDE",
+        "XLONG",
+        "west_east",
+        "nlon",
+        "rlon",
+        "grid_xt",
+        "x",
+    ],
 }
 
 
@@ -287,6 +319,7 @@ def open_model(
         file_str = str(files)
         if "*" in file_str or "?" in file_str:
             from glob import glob
+
             file_list = sorted(glob(file_str))
             if not file_list:
                 raise DataNotFoundError(f"No files match pattern: {files}")

@@ -11,7 +11,6 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -217,7 +216,7 @@ class TestCorrelationMetrics:
         r2_metric = get_metric("R2")
         r = r_metric.compute(obs, mod)
         r2 = r2_metric.compute(obs, mod)
-        assert r2 == pytest.approx(r ** 2)
+        assert r2 == pytest.approx(r**2)
 
     def test_index_of_agreement(self):
         """Test index of agreement."""
@@ -444,6 +443,7 @@ class TestStatisticsFormatter:
     def test_to_table_image(self, paired_dataset, tmp_path):
         """Test table image output."""
         import matplotlib
+
         matplotlib.use("Agg")
 
         from davinci_monet.stats import StatisticsCalculator, StatisticsFormatter
@@ -473,7 +473,7 @@ class TestOutputFunctions:
 
     def test_format_stats_summary(self, random_arrays):
         """Test format_stats_summary function."""
-        from davinci_monet.stats import quick_stats, format_stats_summary
+        from davinci_monet.stats import format_stats_summary, quick_stats
 
         obs, mod = random_arrays
         stats = quick_stats(obs, mod, metrics=["MB", "RMSE", "R"])
@@ -555,8 +555,8 @@ class TestIntegration:
         """Test complete statistics workflow."""
         from davinci_monet.stats import (
             calculate_statistics,
-            write_statistics_csv,
             format_stats_summary,
+            write_statistics_csv,
         )
 
         # Calculate statistics

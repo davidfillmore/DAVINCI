@@ -26,7 +26,6 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import observation_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
-
 # Standard variable name mappings for TROPOMI
 TROPOMI_VARIABLE_MAPPING: dict[str, str] = {
     "no2": "nitrogendioxide_tropospheric_column",
@@ -104,9 +103,7 @@ class TROPOMIReader:
 
         # Try monetio first
         try:
-            ds = self._open_with_monetio(
-                file_list, variables, product=product, **kwargs
-            )
+            ds = self._open_with_monetio(file_list, variables, product=product, **kwargs)
         except ImportError:
             warnings.warn(
                 "monetio not available, using basic xarray reader. "
@@ -183,9 +180,7 @@ class TROPOMIReader:
 
         return ds
 
-    def _apply_qa_filter(
-        self, ds: xr.Dataset, qa_threshold: float
-    ) -> xr.Dataset:
+    def _apply_qa_filter(self, ds: xr.Dataset, qa_threshold: float) -> xr.Dataset:
         """Apply QA value filtering to dataset."""
         qa_var = None
         for name in ["qa_value", "QA_value", "quality_flag"]:
@@ -292,9 +287,7 @@ def open_tropomi(
     else:
         file_paths = list(files)
 
-    ds = reader.open(
-        file_paths, variables, product=product, qa_threshold=qa_threshold, **kwargs
-    )
+    ds = reader.open(file_paths, variables, product=product, qa_threshold=qa_threshold, **kwargs)
 
     obs = create_observation_data(
         label=label,

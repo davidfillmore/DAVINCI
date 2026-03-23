@@ -14,7 +14,6 @@ from davinci_monet.pairing.grid_binning import (
 )
 from davinci_monet.pairing.strategies.swath_grid import SwathGridStrategy
 
-
 # =============================================================================
 # grid_binning unit tests
 # =============================================================================
@@ -56,12 +55,15 @@ class TestBinSwathToGrid:
         time_edges, lon_edges, lat_edges, count, data = self._make_grid()
         # Place one pixel at lon=45, lat=0 → should land in cell (0, 0, 2)
         bin_swath_to_grid(
-            time_edges, lon_edges, lat_edges,
-            np.array([100.0]),       # time (within first bin)
-            np.array([45.0]),        # lon
-            np.array([0.0]),         # lat
-            np.array([1.5]),         # data value
-            count, data,
+            time_edges,
+            lon_edges,
+            lat_edges,
+            np.array([100.0]),  # time (within first bin)
+            np.array([45.0]),  # lon
+            np.array([0.0]),  # lat
+            np.array([1.5]),  # data value
+            count,
+            data,
         )
         assert count.sum() == 1
         assert data.sum() == 1.5
@@ -73,12 +75,15 @@ class TestBinSwathToGrid:
         time_edges, lon_edges, lat_edges, count, data = self._make_grid()
         n = 5
         bin_swath_to_grid(
-            time_edges, lon_edges, lat_edges,
+            time_edges,
+            lon_edges,
+            lat_edges,
             np.full(n, 100.0),
             np.full(n, 45.0),
             np.full(n, 0.0),
             np.array([1.0, 2.0, 3.0, 4.0, 5.0]),
-            count, data,
+            count,
+            data,
         )
         assert count[0, 0, 2] == 5
         assert data[0, 0, 2] == 15.0  # sum, not mean yet
@@ -86,12 +91,15 @@ class TestBinSwathToGrid:
     def test_nan_pixels_skipped(self):
         time_edges, lon_edges, lat_edges, count, data = self._make_grid()
         bin_swath_to_grid(
-            time_edges, lon_edges, lat_edges,
+            time_edges,
+            lon_edges,
+            lat_edges,
             np.array([100.0, 100.0, 100.0]),
             np.array([45.0, 45.0, 45.0]),
             np.array([0.0, 0.0, 0.0]),
             np.array([1.0, np.nan, 3.0]),
-            count, data,
+            count,
+            data,
         )
         assert count[0, 0, 2] == 2
         assert data[0, 0, 2] == 4.0
@@ -100,12 +108,15 @@ class TestBinSwathToGrid:
         time_edges, lon_edges, lat_edges, count, data = self._make_grid()
         # Two pixels in different lon bins
         bin_swath_to_grid(
-            time_edges, lon_edges, lat_edges,
+            time_edges,
+            lon_edges,
+            lat_edges,
             np.array([100.0, 100.0]),
-            np.array([45.0, 135.0]),   # different lon bins
+            np.array([45.0, 135.0]),  # different lon bins
             np.array([0.0, 0.0]),
             np.array([10.0, 20.0]),
-            count, data,
+            count,
+            data,
         )
         assert count[0, 0, 2] == 1  # lon=45
         assert count[0, 1, 2] == 1  # lon=135
@@ -116,12 +127,15 @@ class TestBinSwathToGrid:
         time_edges, lon_edges, lat_edges, count, data = self._make_grid()
         # Pixel at extreme edge
         bin_swath_to_grid(
-            time_edges, lon_edges, lat_edges,
+            time_edges,
+            lon_edges,
+            lat_edges,
             np.array([100.0]),
             np.array([359.99]),  # near lon=360 edge
-            np.array([89.99]),   # near lat=90 edge
+            np.array([89.99]),  # near lat=90 edge
             np.array([7.0]),
-            count, data,
+            count,
+            data,
         )
         assert count.sum() == 1
         assert data.sum() == 7.0
@@ -134,10 +148,10 @@ class TestNormalizeGrid:
         count = np.array([[[3, 0], [1, 2]]], dtype=np.int32)
         data = np.array([[[9.0, 0.0], [5.0, 8.0]]], dtype=np.float64)
         normalize_grid(count, data)
-        assert data[0, 0, 0] == 3.0     # 9/3
+        assert data[0, 0, 0] == 3.0  # 9/3
         assert np.isnan(data[0, 0, 1])  # count=0 → NaN
-        assert data[0, 1, 0] == 5.0     # 5/1
-        assert data[0, 1, 1] == 4.0     # 8/2
+        assert data[0, 1, 0] == 5.0  # 5/1
+        assert data[0, 1, 1] == 4.0  # 8/2
 
     def test_all_empty(self):
         count = np.zeros((1, 2, 2), dtype=np.int32)
@@ -200,7 +214,8 @@ class TestSwathGridStrategy:
         obs = _make_synthetic_swath()
         strategy = SwathGridStrategy()
         paired = strategy.pair(
-            model, obs,
+            model,
+            obs,
             grid_mode="match_model",
             time_resolution="1D",
             obs_var="AOD_550",
@@ -219,7 +234,8 @@ class TestSwathGridStrategy:
         obs = _make_synthetic_swath()
         strategy = SwathGridStrategy()
         paired = strategy.pair(
-            model, obs,
+            model,
+            obs,
             grid_mode="match_model",
             time_resolution="1D",
             obs_var="AOD_550",
@@ -234,7 +250,8 @@ class TestSwathGridStrategy:
         obs = _make_synthetic_swath()
         strategy = SwathGridStrategy()
         paired = strategy.pair(
-            model, obs,
+            model,
+            obs,
             grid_mode="match_model",
             time_resolution="1D",
             obs_var="AOD_550",
@@ -250,7 +267,8 @@ class TestSwathGridStrategy:
         obs = _make_synthetic_swath()
         strategy = SwathGridStrategy()
         paired = strategy.pair(
-            model, obs,
+            model,
+            obs,
             grid_mode="match_model",
             time_resolution="1D",
             obs_var="AOD_550",
@@ -266,7 +284,8 @@ class TestSwathGridStrategy:
         obs = _make_synthetic_swath()
         strategy = SwathGridStrategy()
         paired = strategy.pair(
-            model, obs,
+            model,
+            obs,
             grid_mode="match_model",
             time_resolution="1D",
             obs_var="AOD_550",
@@ -285,7 +304,8 @@ class TestSwathGridStrategy:
         obs = _make_synthetic_swath(lon_range=(-180, 0))
         strategy = SwathGridStrategy()
         paired = strategy.pair(
-            model, obs,
+            model,
+            obs,
             grid_mode="match_model",
             time_resolution="1D",
             obs_var="AOD_550",
@@ -300,7 +320,8 @@ class TestSwathGridStrategy:
         obs = _make_synthetic_swath()
         strategy = SwathGridStrategy()
         paired = strategy.pair(
-            model, obs,
+            model,
+            obs,
             grid_mode="resolution",
             resolution=10.0,
             time_resolution="1D",
@@ -316,7 +337,8 @@ class TestSwathGridStrategy:
         obs = _make_synthetic_swath()
         strategy = SwathGridStrategy()
         paired = strategy.pair(
-            model, obs,
+            model,
+            obs,
             grid_mode="match_model",
             time_resolution="1D",
             obs_var="AOD_550",
@@ -333,7 +355,8 @@ class TestSwathGridStrategy:
         obs = _make_synthetic_swath(aod_range=(0.05, 0.8))
         strategy = SwathGridStrategy()
         paired = strategy.pair(
-            model, obs,
+            model,
+            obs,
             grid_mode="match_model",
             time_resolution="1D",
             obs_var="AOD_550",

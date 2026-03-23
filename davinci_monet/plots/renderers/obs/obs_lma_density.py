@@ -90,7 +90,9 @@ class ObsLMADensityPlotter(ObsPlotter):
 
             for hour_label, data_2d in hourly_groups:
                 fig = self._render_map(
-                    lat, lon, data_2d,
+                    lat,
+                    lon,
+                    data_2d,
                     projection=projection,
                     features=features,
                     cmap=cmap,
@@ -111,7 +113,9 @@ class ObsLMADensityPlotter(ObsPlotter):
                 summed = summed.transpose("latitude", "longitude")
             data_2d = summed.values
             fig = self._render_map(
-                lat, lon, data_2d,
+                lat,
+                lon,
+                data_2d,
                 projection=projection,
                 features=features,
                 cmap=cmap,
@@ -128,7 +132,8 @@ class ObsLMADensityPlotter(ObsPlotter):
         proj_name = map_config.get("projection", "LambertConformal")
         if proj_name == "LambertConformal":
             return ccrs.LambertConformal(
-                central_longitude=-98.5, central_latitude=35.0,
+                central_longitude=-98.5,
+                central_latitude=35.0,
             )
         elif proj_name == "PlateCarree":
             return ccrs.PlateCarree()
@@ -136,7 +141,9 @@ class ObsLMADensityPlotter(ObsPlotter):
             return ccrs.PlateCarree()
 
     def _aggregate_hourly(
-        self, ds: xr.Dataset, variable: str,
+        self,
+        ds: xr.Dataset,
+        variable: str,
     ) -> list[tuple[str, np.ndarray]]:
         """Aggregate data into hourly sums, returning only hours with activity.
 
@@ -191,14 +198,21 @@ class ObsLMADensityPlotter(ObsPlotter):
         ax.add_feature(cfeature.OCEAN, facecolor="white", zorder=0)
         if "states" in features:
             ax.add_feature(
-                cfeature.STATES, edgecolor="gray", linewidth=0.5, zorder=1,
+                cfeature.STATES,
+                edgecolor="gray",
+                linewidth=0.5,
+                zorder=1,
             )
         if "counties" in features:
             try:
                 ax.add_feature(
                     cfeature.NaturalEarthFeature(
-                        "cultural", "admin_2_counties_lakes_shp", "10m",
-                        edgecolor="lightgray", facecolor="none", linewidth=0.3,
+                        "cultural",
+                        "admin_2_counties_lakes_shp",
+                        "10m",
+                        edgecolor="lightgray",
+                        facecolor="none",
+                        linewidth=0.3,
                     ),
                     zorder=1,
                 )
@@ -207,11 +221,16 @@ class ObsLMADensityPlotter(ObsPlotter):
                 pass
         if "coastlines" in features:
             ax.add_feature(
-                cfeature.COASTLINE, edgecolor="black", linewidth=0.5, zorder=1,
+                cfeature.COASTLINE,
+                edgecolor="black",
+                linewidth=0.5,
+                zorder=1,
             )
 
         mesh = ax.pcolormesh(
-            lon, lat, data_2d,
+            lon,
+            lat,
+            data_2d,
             cmap=cmap,
             vmin=vmin,
             vmax=vmax,
@@ -228,7 +247,11 @@ class ObsLMADensityPlotter(ObsPlotter):
         gl.right_labels = False
 
         cbar = fig.colorbar(
-            mesh, ax=ax, orientation="horizontal", shrink=0.7, pad=0.06,
+            mesh,
+            ax=ax,
+            orientation="horizontal",
+            shrink=0.7,
+            pad=0.06,
         )
         cbar.set_label(
             "Flash extent density (flashes per grid cell)",
@@ -268,7 +291,8 @@ class ObsLMADensityPlotter(ObsPlotter):
             track_lon = track_ds["longitude"].values
 
             ax.plot(
-                track_lon, track_lat,
+                track_lon,
+                track_lat,
                 color=track_colors[label],
                 linewidth=1.5,
                 transform=ccrs.PlateCarree(),

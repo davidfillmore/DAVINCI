@@ -146,9 +146,7 @@ class GenericL3Reader:
 
         return ds
 
-    def _apply_dim_mapping(
-        self, ds: xr.Dataset, dim_mapping: Mapping[str, str]
-    ) -> xr.Dataset:
+    def _apply_dim_mapping(self, ds: xr.Dataset, dim_mapping: Mapping[str, str]) -> xr.Dataset:
         """Apply dimension name mapping."""
         renames = {}
         for old_name, new_name in dim_mapping.items():
@@ -158,9 +156,7 @@ class GenericL3Reader:
             ds = ds.rename(renames)
         return ds
 
-    def _apply_coord_mapping(
-        self, ds: xr.Dataset, coord_mapping: Mapping[str, str]
-    ) -> xr.Dataset:
+    def _apply_coord_mapping(self, ds: xr.Dataset, coord_mapping: Mapping[str, str]) -> xr.Dataset:
         """Apply coordinate name mapping."""
         renames = {}
         for old_name, new_name in coord_mapping.items():
