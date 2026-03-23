@@ -97,6 +97,16 @@ else:
 
 ---
 
+## Testing Rules
+
+1. **Integration tests must run through the pipeline.** Tests labeled as "integration" must exercise `PipelineRunner.run_from_config()` — the same code path a user takes with `davinci-monet run config.yaml`. Tests that call internal APIs directly (e.g., calling a plotter's `.plot()` method) are **unit tests**, not integration tests. Do not label a test as integration if it bypasses the pipeline.
+
+2. **Present test design before implementation.** Before writing tests, describe which code paths each test exercises and get approval. The list of assertions is not the design — the design is which entry points are called and what data flows through them.
+
+3. **No shortcuts for green checkmarks.** If the full pipeline path has unknowns, investigate them rather than falling back to a simpler path that skips the code under test. A test that passes by avoiding the hard part is worse than no test — it creates false confidence.
+
+---
+
 
 
 ```bash
