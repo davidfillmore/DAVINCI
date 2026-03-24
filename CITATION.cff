@@ -19,3 +19,12 @@ keywords:
   - satellite remote sensing
   - Python
   - xarray
+preferred-citation:
+  type: article
+  title: "DAVINCI: A Type-Safe, Geometry-Aware Toolkit for Atmospheric Chemistry Model Evaluation"
+  authors:
+    - family-names: Fillmore
+      given-names: David
+      orcid: "https://orcid.org/0000-0001-7726-4352"
+  journal: "Journal of Open Source Software"
+  year: 2026

@@ -128,7 +128,8 @@ illustrate the breadth of the software:
 
 - **ASIA-AQ**: Multi-observation paired evaluation of CESM/CAM-chem
   against four observation networks (AirNow surface, AERONET AOD,
-  Pandora NO$_2$ columns, DC-8 aircraft) over East and Southeast Asia.
+  Pandora NO$_2$ columns, DC-8 aircraft) over East and Southeast Asia
+  [@crawford_asia_aq].
 - **DC3**: Observation-only characterization of the Deep Convective
   Clouds and Chemistry field campaign, including DC-8 and GV aircraft
   trace gas profiles and Oklahoma Lightning Mapping Array flash density
@@ -137,9 +138,16 @@ illustrate the breadth of the software:
   MODIS L2 aerosol optical depth against two CAM6 model variants during
   the December 2019 Australian bushfire event.
 
+Representative outputs from each workflow are shown in Figures 1--3.
+
+![PM$_{2.5}$ spatial bias (Model $-$ Observations) across AirNow surface stations during the ASIA-AQ campaign period (February 2024). Warm colors indicate positive model bias; cool colors indicate negative bias.\label{fig:asia-aq}](gallery/asia-aq_pm25_spatial_bias.png){ width=80% }
+
+![DC-8 flight track colored by O$_3$ mixing ratio (ppbv) during a DC3 research flight on 29 May 2012 over the Oklahoma--Kansas region. This observation-only visualization was produced without model output.\label{fig:dc3}](gallery/dc3_dc8_track_o3.png){ width=60% }
+
+![Global comparison of MODIS Terra+Aqua L2 AOD (left) with two CAM6 model variants (center, right) on 21 December 2019 during the Australian bushfire event. Swath pixels are binned onto the model grid using numba-accelerated aggregation.\label{fig:modis}](gallery/modis_aod_comparison.png)
+
 These workflows are represented in the repository by checked-in
-configurations, analysis scripts, and a curated gallery of representative
-outputs under `paper/gallery/`. They are included as evidence that the same
+configurations, analysis scripts, and the gallery outputs shown above. They are included as evidence that the same
 package can support distinct workflow classes, not as new scientific results
 for this paper. Some workflows depend on external datasets or credentials, so
 DAVINCI does not claim that every analysis is push-button reproducible in a
