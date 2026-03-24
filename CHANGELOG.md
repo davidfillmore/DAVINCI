@@ -27,9 +27,9 @@ Initial public release for JOSS submission. Calendar versioned (YY.MM).
 - Column: Pandora
 - Sonde: Ozonesonde
 - Aircraft: ICARTT
-- Satellite L2: TROPOMI, MODIS, TEMPO
-- Satellite L3: MOPITT, OMPS, GOES
+- Satellite L2: MODIS AOD (validated)
 - Lightning: LMA
+- In development: TROPOMI, TEMPO, MOPITT, OMPS, GOES (readers exist, need averaging kernel support and validation)
 
 ### Quality
 

@@ -24,13 +24,18 @@ A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air 
 | **Column** | Pandora | Ground-based spectrometers | Tropospheric NO2 column |
 | **Sonde** | Ozonesonde | Balloon profiles | O3 vertical profiles |
 | **Aircraft** | ICARTT | NASA/NOAA flight campaigns | Multiple trace gases |
-| **Satellite L2** | TROPOMI | Polar; Sentinel-5P | NO2, O3, CO, HCHO, SO2 |
-| | MODIS | Polar; Terra/Aqua | AOD |
-| | TEMPO | Geo; hourly N. America | NO2, O3, HCHO |
+| **Satellite L2** | MODIS | Polar; Terra/Aqua | AOD |
 | **Lightning** | LMA | Lightning Mapping Array | Flash density, source density |
-| **Satellite L3** | MOPITT | Polar; Terra | CO |
-| | OMPS | Polar; Suomi-NPP | Total O3 |
-| | GOES | Geo; GOES-R/S | AOD |
+
+**In development** (readers exist, not yet validated against real data):
+
+| Type | Reader | Description | Status |
+|------|--------|-------------|--------|
+| Satellite L2 | TROPOMI | Sentinel-5P | Needs averaging kernel support |
+| | TEMPO | Hourly N. America | Needs averaging kernel support |
+| Satellite L3 | MOPITT | Terra CO | Needs averaging kernel support |
+| | OMPS | Suomi-NPP Total O3 | Untested |
+| | GOES | GOES-R/S AOD | Untested |
 
 <details>
 <summary><strong>Observation Acronyms</strong></summary>
