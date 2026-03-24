@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "davinci-monet"
-version = "1.0.0"
+version = "26.03"
 description = "Data Analysis and Validation Infrastructure for Chemistry - A modern refactor of MELODIES-MONET"
 readme = "README.md"
 license = {text = "Apache-2.0"}

@@ -1,8 +1,8 @@
 # Changelog
 
-## 1.0.0 (2026-03-23)
+## 26.03 (2026-03-23)
 
-Initial public release for JOSS submission.
+Initial public release for JOSS submission. Calendar versioned (YY.MM).
 
 ### Core Features
 
