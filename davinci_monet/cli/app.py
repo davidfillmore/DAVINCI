@@ -316,6 +316,51 @@ def register_commands() -> None:
     # Register subcommands
     app.add_typer(get_data.app, name="get")
 
+    # Radiative analysis subcommands
+    import typer as _typer
+
+    radiative_app = _typer.Typer(name="radiative", help="Smoke radiative analysis tools.")
+
+    @radiative_app.command("run")
+    def radiative_run(
+        config: str = _typer.Argument(..., help="Path to radiative analysis config (YAML)."),
+    ) -> None:
+        """Run a smoke radiative analysis from a config file."""
+        from davinci_monet.radiative.runner import run_radiative_analysis
+
+        result = run_radiative_analysis(config)
+        if result["success"]:
+            _typer.echo(f"Success: {len(result['plots_generated'])} plots generated")
+        else:
+            _typer.echo(f"Completed with errors: {result['errors']}", err=True)
+            raise _typer.Exit(code=1)
+
+    @radiative_app.command("fetch-ceres")
+    def radiative_fetch(
+        product: str = _typer.Option("syn1deg", help="CERES product: ebaf or syn1deg"),
+        start: str = _typer.Option(..., help="Start date (YYYY-MM-DD)"),
+        end: str = _typer.Option(..., help="End date (YYYY-MM-DD)"),
+        output: str = _typer.Option(".", help="Output directory"),
+    ) -> None:
+        """Fetch CERES data from OPeNDAP."""
+        from datetime import date as date_cls
+
+        from davinci_monet.radiative.loaders.ceres import fetch_ebaf, fetch_syn1deg_range
+
+        if product == "ebaf":
+            path = fetch_ebaf(start, end, output)
+            _typer.echo(f"Wrote: {path}")
+        elif product == "syn1deg":
+            paths = fetch_syn1deg_range(
+                date_cls.fromisoformat(start), date_cls.fromisoformat(end), output
+            )
+            _typer.echo(f"Wrote {len(paths)} files to {output}")
+        else:
+            _typer.echo(f"Unknown product: {product}", err=True)
+            raise _typer.Exit(code=1)
+
+    app.add_typer(radiative_app, name="radiative")
+
 
 # Register commands when module loads
 register_commands()
