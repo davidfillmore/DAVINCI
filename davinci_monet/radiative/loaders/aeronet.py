@@ -41,6 +41,15 @@ def load_aeronet(
     frames = [pd.read_csv(p) for p in paths]
     df = pd.concat(frames, ignore_index=True)
 
+    # Normalize column names: accept lat/lon or latitude/longitude
+    rename_map = {}
+    if "lat" in df.columns and "latitude" not in df.columns:
+        rename_map["lat"] = "latitude"
+    if "lon" in df.columns and "longitude" not in df.columns:
+        rename_map["lon"] = "longitude"
+    if rename_map:
+        df = df.rename(columns=rename_map)
+
     # Create unified "aod" column from AOD_500nm if needed
     if "AOD_500nm" in df.columns and "aod" not in df.columns:
         df["aod"] = df["AOD_500nm"]
