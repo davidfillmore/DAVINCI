@@ -25,8 +25,7 @@ logger = get_logger(__name__)
 
 # OPeNDAP base URL for CERES SYN1deg-Day
 _SYN1DEG_BASE_URL = (
-    "https://opendap.larc.nasa.gov/opendap/CERES/"
-    "SYN1deg-Day/Terra-Aqua-NOAA20_Edition4B"
+    "https://opendap.larc.nasa.gov/opendap/CERES/" "SYN1deg-Day/Terra-Aqua-NOAA20_Edition4B"
 )
 
 _NLAT, _NLON = 180, 360
@@ -112,9 +111,7 @@ def _build_syn1deg_url(d: date) -> str:
     )
 
 
-def _parse_dods_grid(
-    data: bytes, offset: int, shape: tuple[int, ...]
-) -> tuple[np.ndarray, int]:
+def _parse_dods_grid(data: bytes, offset: int, shape: tuple[int, ...]) -> tuple[np.ndarray, int]:
     """Parse a DAP2 Grid from binary .dods response.
 
     A Grid consists of the array data followed by each map vector.
@@ -137,9 +134,7 @@ def _parse_dods_grid(
     return arr, offset
 
 
-def _fetch_var_dods(
-    hdf_url: str, varname: str, shape: tuple[int, ...]
-) -> np.ndarray:
+def _fetch_var_dods(hdf_url: str, varname: str, shape: tuple[int, ...]) -> np.ndarray:
     """Fetch a single variable via the DAP2 binary interface."""
     import requests
 
@@ -228,9 +223,7 @@ def fetch_syn1deg_day(d: date, output_dir: str | Path) -> Path:
     for vname in variables_2d:
         try:
             data = _fetch_var_dods(hdf_url, vname, (_NLAT, _NLON))
-            dv = dst.createVariable(
-                vname, "f4", ("lat", "lon"), fill_value=-999.0, zlib=True
-            )
+            dv = dst.createVariable(vname, "f4", ("lat", "lon"), fill_value=-999.0, zlib=True)
             dv[:] = np.where(data > -900, data, -999.0)
             logger.debug("  %s ok", vname)
         except Exception as exc:
@@ -239,9 +232,7 @@ def fetch_syn1deg_day(d: date, output_dir: str | Path) -> Path:
     for vname in variables_3d:
         try:
             data = _fetch_var_dods(hdf_url, vname, (5, _NLAT, _NLON))
-            dv = dst.createVariable(
-                vname, "f4", ("lat", "lon"), fill_value=-999.0, zlib=True
-            )
+            dv = dst.createVariable(vname, "f4", ("lat", "lon"), fill_value=-999.0, zlib=True)
             dv[:] = np.where(data[0] > -900, data[0], -999.0)
             logger.debug("  %s (total column) ok", vname)
         except Exception as exc:
@@ -252,9 +243,7 @@ def fetch_syn1deg_day(d: date, output_dir: str | Path) -> Path:
     return out_path
 
 
-def fetch_syn1deg_range(
-    start: date, end: date, output_dir: str | Path
-) -> list[Path]:
+def fetch_syn1deg_range(start: date, end: date, output_dir: str | Path) -> list[Path]:
     """Fetch a range of CERES SYN1deg-Day files.
 
     Parameters

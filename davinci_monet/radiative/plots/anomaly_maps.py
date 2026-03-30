@@ -59,9 +59,7 @@ def plot_anomaly_maps(
         subplot_kw={"projection": proj},
     )
 
-    for ax, (title, key, cmap, vmin, vmax, cbar_label) in zip(
-        axes.flat, panels
-    ):
+    for ax, (title, key, cmap, vmin, vmax, cbar_label) in zip(axes.flat, panels):
         anomaly = record[key] - background[key]
         mesh = ax.pcolormesh(
             lons,

@@ -55,9 +55,7 @@ def plot_event_fields(
         subplot_kw={"projection": proj},
     )
 
-    for ax, (title, data, cmap, vmin, vmax, cbar_label) in zip(
-        axes.flat, panels
-    ):
+    for ax, (title, data, cmap, vmin, vmax, cbar_label) in zip(axes.flat, panels):
         mesh = ax.pcolormesh(
             lons,
             lats,

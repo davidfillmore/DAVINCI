@@ -73,7 +73,9 @@ def plot_surface_impact(
         fig.colorbar(mesh, ax=ax, label=cbar_label, shrink=0.8)
 
     date_str = record.get("date", "")
-    suptitle = f"{event_name} — Surface Impact {date_str}" if event_name else f"Surface Impact {date_str}"
+    suptitle = (
+        f"{event_name} — Surface Impact {date_str}" if event_name else f"Surface Impact {date_str}"
+    )
     fig.suptitle(suptitle, fontsize=16, color=NCAR_COLORS["space"])
     fig.tight_layout()
     return fig

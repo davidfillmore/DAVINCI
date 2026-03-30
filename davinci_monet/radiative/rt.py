@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import numpy as np
 
-
 # ── δ-Eddington two-stream solver ───────────────────────────────────────────
 
 
@@ -77,11 +76,12 @@ def delta_eddington_2stream(tau, omega, g, mu0, albedo=0.0):
     albedo = np.asarray(albedo, dtype=np.float64)
 
     # δ-Eddington rescaling
-    f = g ** 2
+    f = g**2
     ts = np.maximum((1.0 - omega * f) * tau, 1e-10)
     ws = np.clip(
         omega * (1.0 - f) / np.maximum(1.0 - omega * f, 1e-10),
-        0, 0.999999,
+        0,
+        0.999999,
     )
     gs = g / np.maximum(1.0 + g, 1e-10)
 
@@ -91,11 +91,9 @@ def delta_eddington_2stream(tau, omega, g, mu0, albedo=0.0):
     g3 = (2.0 - 3.0 * gs * mu0) / 4.0
     g4 = 1.0 - g3
 
-    k = np.sqrt(np.maximum(g1 ** 2 - g2 ** 2, 1e-20))
+    k = np.sqrt(np.maximum(g1**2 - g2**2, 1e-20))
     Gp = g2 / (g1 + k)  # Γ  for exp(−kτ) eigenmode
-    Gm = g2 / np.where(  # Γ' for exp(+kτ) eigenmode
-        np.abs(g1 - k) < 1e-10, 1e-10, g1 - k
-    )
+    Gm = g2 / np.where(np.abs(g1 - k) < 1e-10, 1e-10, g1 - k)  # Γ' for exp(+kτ) eigenmode
 
     # Clamp exponentials to avoid overflow
     kt = np.minimum(k * ts, 500.0)
@@ -108,7 +106,7 @@ def delta_eddington_2stream(tau, omega, g, mu0, albedo=0.0):
     # (γ₁ + 1/μ₀) Z⁺ − γ₂ Z⁻ = ω' γ₃
     # −γ₂ Z⁺ + (γ₁ − 1/μ₀) Z⁻ = ω' γ₄
     # det = k² − 1/μ₀²
-    det_ps = k ** 2 - 1.0 / mu0 ** 2
+    det_ps = k**2 - 1.0 / mu0**2
     det_ps = np.where(np.abs(det_ps) < 1e-10, -1e-10, det_ps)
 
     Zp = ws * ((g1 - 1.0 / mu0) * g3 + g2 * g4) / det_ps
@@ -136,9 +134,9 @@ def delta_eddington_2stream(tau, omega, g, mu0, albedo=0.0):
     c2 = (a_A1 * b_B - b_A * a_B1) / det_bc
 
     # ── Extract fluxes ──
-    R = c1 * Gp + c2 * Gm + Zp                       # F⁺(0)
-    F_diff_bot = c1 * emkt + c2 * ekt + Zm * etm      # F⁻(τ*)
-    F_dir_bot = mu0 * etm                              # direct at bottom
+    R = c1 * Gp + c2 * Gm + Zp  # F⁺(0)
+    F_diff_bot = c1 * emkt + c2 * ekt + Zm * etm  # F⁻(τ*)
+    F_dir_bot = mu0 * etm  # direct at bottom
 
     R_frac = np.clip(R / mu0, 0.0, 1.0)
     T_frac = np.clip((F_diff_bot + F_dir_bot) / mu0, 0.0, 1.5)
@@ -248,7 +246,6 @@ def daily_mean_coszen(lat_deg, doy):
     cos_ha0 = np.clip(-np.tan(lat) * np.tan(decl), -1.0, 1.0)
     ha0 = np.arccos(cos_ha0)
     mu_bar = (1.0 / np.pi) * (
-        ha0 * np.sin(lat) * np.sin(decl)
-        + np.cos(lat) * np.cos(decl) * np.sin(ha0)
+        ha0 * np.sin(lat) * np.sin(decl) + np.cos(lat) * np.cos(decl) * np.sin(ha0)
     )
     return np.maximum(mu_bar, 0.05)

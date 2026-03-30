@@ -15,7 +15,6 @@ import pandas as pd
 import pytest
 from matplotlib.figure import Figure
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -114,9 +113,7 @@ class TestScatter:
 
 
 class TestSiteTimeseries:
-    def test_produces_figure(
-        self, synthetic_event_data, synthetic_aeronet, synthetic_sites
-    ):
+    def test_produces_figure(self, synthetic_event_data, synthetic_aeronet, synthetic_sites):
         from davinci_monet.radiative.plots.site_timeseries import plot_site_timeseries
 
         lats, lons, records = synthetic_event_data

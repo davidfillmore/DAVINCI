@@ -24,9 +24,9 @@ from davinci_monet.radiative.loaders.merra2 import load_merra2
 from davinci_monet.radiative.plots import (
     plot_anomaly_maps,
     plot_event_fields,
+    plot_site_timeseries,
     plot_surface_impact,
     plot_sw_vs_aod_scatter,
-    plot_site_timeseries,
 )
 from davinci_monet.radiative.processing import (
     regrid_nearest,
@@ -131,12 +131,12 @@ def run_radiative_analysis(config_path: str) -> dict[str, Any]:
     # ------------------------------------------------------------------
     records: list[dict[str, Any]] = []
     dates = _dates_in_range(
-        cfg.event.start_time.date()
-        if hasattr(cfg.event.start_time, "date")
-        else cfg.event.start_time,
-        cfg.event.end_time.date()
-        if hasattr(cfg.event.end_time, "date")
-        else cfg.event.end_time,
+        (
+            cfg.event.start_time.date()
+            if hasattr(cfg.event.start_time, "date")
+            else cfg.event.start_time
+        ),
+        cfg.event.end_time.date() if hasattr(cfg.event.end_time, "date") else cfg.event.end_time,
     )
     for t in range(n_times):
         rec: dict[str, Any] = {}
@@ -243,10 +243,13 @@ def run_radiative_analysis(config_path: str) -> dict[str, Any]:
             # NOTE: Full MERRA-2 radiation (tavg1_2d_rad_Nx) loader
             # deferred to a follow-up task. For now, approximate.
             if "m2_sfc_effect" not in rec:
-                rec["m2_sfc_effect"] = rec.get(
-                    "semi_dimming",
-                    np.zeros_like(rec["smoke_aod"]),
-                ) * 0.9
+                rec["m2_sfc_effect"] = (
+                    rec.get(
+                        "semi_dimming",
+                        np.zeros_like(rec["smoke_aod"]),
+                    )
+                    * 0.9
+                )
 
     # ------------------------------------------------------------------
     # 7. Generate plots
@@ -261,18 +264,19 @@ def run_radiative_analysis(config_path: str) -> dict[str, Any]:
             if plot_type == "toa_event_fields":
                 fig = plot_event_fields(lats, lons, peak_rec, event_name=event_name)
             elif plot_type == "anomaly_maps":
-                fig = plot_anomaly_maps(
-                    lats, lons, peak_rec, background, event_name=event_name
-                )
+                fig = plot_anomaly_maps(lats, lons, peak_rec, background, event_name=event_name)
             elif plot_type == "sw_vs_aod_scatter":
-                fig = plot_sw_vs_aod_scatter(
-                    lats, lons, records, event_name=event_name
-                )
+                fig = plot_sw_vs_aod_scatter(lats, lons, records, event_name=event_name)
             elif plot_type == "site_timeseries":
                 if sites:
                     fig = plot_site_timeseries(
-                        lats, lons, records, bg_sw, sites,
-                        aeronet=aeronet_df, event_name=event_name,
+                        lats,
+                        lons,
+                        records,
+                        bg_sw,
+                        sites,
+                        aeronet=aeronet_df,
+                        event_name=event_name,
                     )
                 else:
                     logger.warning("site_timeseries requested but no sites configured")
@@ -283,13 +287,9 @@ def run_radiative_analysis(config_path: str) -> dict[str, Any]:
                         peak_rec["semi_dimming"] = np.zeros_like(peak_rec["smoke_aod"])
                     if "m2_sfc_effect" not in peak_rec:
                         peak_rec["m2_sfc_effect"] = peak_rec["semi_dimming"] * 0.9
-                    fig = plot_surface_impact(
-                        lats, lons, peak_rec, event_name=event_name
-                    )
+                    fig = plot_surface_impact(lats, lons, peak_rec, event_name=event_name)
                 else:
-                    logger.warning(
-                        "surface_impact plot requested but no surface impact data"
-                    )
+                    logger.warning("surface_impact plot requested but no surface impact data")
             else:
                 logger.warning("Unknown plot type: %s", plot_type)
                 continue

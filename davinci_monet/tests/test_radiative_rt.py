@@ -58,8 +58,7 @@ def test_energy_conservation_with_albedo():
         R, T, A = delta_eddington_2stream(tau, omega, g, mu0, alb)
         total = R + T + A
         assert abs(total - 1.0) < ATOL, (
-            f"Energy not conserved with albedo: τ={tau} α={alb} "
-            f"sum={total:.6f}"
+            f"Energy not conserved with albedo: τ={tau} α={alb} " f"sum={total:.6f}"
         )
 
 
@@ -68,9 +67,7 @@ def test_energy_conservation_arrays():
     tau = np.array([0.1, 0.5, 1.0, 3.0, 10.0])
     R, T, A = delta_eddington_2stream(tau, 0.92, 0.65, 0.5)
     total = R + T + A
-    assert np.allclose(total, 1.0, atol=ATOL), (
-        f"Array energy: {total}"
-    )
+    assert np.allclose(total, 1.0, atol=ATOL), f"Array energy: {total}"
 
 
 # ── Two-stream: physical limits ─────────────────────────────────────────────
@@ -107,18 +104,14 @@ def test_higher_mu_more_transmission():
     """Higher μ₀ (sun higher) → shorter path → more transmission."""
     _, T_low, _ = delta_eddington_2stream(1.0, 0.92, 0.65, 0.3)
     _, T_high, _ = delta_eddington_2stream(1.0, 0.92, 0.65, 0.8)
-    assert T_high > T_low, (
-        f"T(μ₀=0.8)={T_high:.4f} should > T(μ₀=0.3)={T_low:.4f}"
-    )
+    assert T_high > T_low, f"T(μ₀=0.8)={T_high:.4f} should > T(μ₀=0.3)={T_low:.4f}"
 
 
 def test_albedo_increases_reflection():
     """Surface albedo should increase total reflected flux."""
     R0, _, _ = delta_eddington_2stream(0.5, 0.92, 0.65, 0.5, albedo=0.0)
     R3, _, _ = delta_eddington_2stream(0.5, 0.92, 0.65, 0.5, albedo=0.3)
-    assert R3 > R0, (
-        f"R(α=0.3)={R3:.4f} should > R(α=0)={R0:.4f}"
-    )
+    assert R3 > R0, f"R(α=0.3)={R3:.4f} should > R(α=0)={R0:.4f}"
 
 
 def test_zero_tau():
