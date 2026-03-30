@@ -2,6 +2,10 @@ from davinci_monet.radiative.plots.anomaly_maps import plot_anomaly_maps
 from davinci_monet.radiative.plots.daily_correlation import plot_daily_correlation
 from davinci_monet.radiative.plots.event_fields import plot_event_fields
 from davinci_monet.radiative.plots.method_comparison import plot_method_comparison
+from davinci_monet.radiative.plots.rt_efficiency import plot_rt_efficiency
+from davinci_monet.radiative.plots.rt_scatter import plot_rt_scatter
+from davinci_monet.radiative.plots.rt_spatial import plot_rt_spatial
+from davinci_monet.radiative.plots.rt_timeseries import plot_rt_timeseries
 from davinci_monet.radiative.plots.scatter import plot_sw_vs_aod_scatter
 from davinci_monet.radiative.plots.site_timeseries import plot_site_timeseries
 from davinci_monet.radiative.plots.spatial_comparison import plot_spatial_comparison
@@ -14,6 +18,10 @@ __all__ = [
     "plot_daily_correlation",
     "plot_event_fields",
     "plot_method_comparison",
+    "plot_rt_efficiency",
+    "plot_rt_scatter",
+    "plot_rt_spatial",
+    "plot_rt_timeseries",
     "plot_site_timeseries",
     "plot_spatial_comparison",
     "plot_surface_dimming_timeseries",

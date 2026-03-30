@@ -25,6 +25,12 @@ from davinci_monet.radiative.plots.anomaly_maps import plot_anomaly_maps
 from davinci_monet.radiative.plots.daily_correlation import plot_daily_correlation
 from davinci_monet.radiative.plots.event_fields import plot_event_fields
 from davinci_monet.radiative.plots.method_comparison import plot_method_comparison
+
+# RT level comparison imports (lazy-loaded in runner body)
+from davinci_monet.radiative.plots.rt_efficiency import plot_rt_efficiency
+from davinci_monet.radiative.plots.rt_scatter import plot_rt_scatter
+from davinci_monet.radiative.plots.rt_spatial import plot_rt_spatial
+from davinci_monet.radiative.plots.rt_timeseries import plot_rt_timeseries
 from davinci_monet.radiative.plots.scatter import plot_sw_vs_aod_scatter
 from davinci_monet.radiative.plots.site_timeseries import plot_site_timeseries
 from davinci_monet.radiative.plots.spatial_comparison import plot_spatial_comparison
@@ -79,18 +85,13 @@ def _get_sites(cfg: RadiativeConfig) -> list[tuple[str, float, float, str]]:
     Falls back to AERONET site names with placeholder coordinates.
     """
     if cfg.sites is not None:
-        return [
-            (s.name, s.latitude, s.longitude, s.aeronet_id)
-            for s in cfg.sites
-        ]
+        return [(s.name, s.latitude, s.longitude, s.aeronet_id) for s in cfg.sites]
     if cfg.aeronet is not None and cfg.aeronet.sites is not None:
         return [(s, 0.0, 0.0, s) for s in cfg.aeronet.sites]
     return []
 
 
-def _find_peak_index(
-    cfg: RadiativeConfig, records: list[dict[str, Any]]
-) -> int:
+def _find_peak_index(cfg: RadiativeConfig, records: list[dict[str, Any]]) -> int:
     """Determine the peak day index from config or auto-select."""
     if cfg.event.peak_date is not None:
         peak = cfg.event.peak_date
@@ -204,13 +205,9 @@ def run_radiative_analysis(config_path: str) -> dict[str, Any]:
             m2_times = min(m2_ds.sizes["time"], len(records))
             for t in range(m2_times):
                 day_m2 = m2_ds.isel(time=t)
-                records[t]["smoke_aod"] = regrid_nearest(
-                    day_m2["SMOKEAOD"], lats, lons
-                ).values
+                records[t]["smoke_aod"] = regrid_nearest(day_m2["SMOKEAOD"], lats, lons).values
                 if "TOTEXTTAU" in day_m2:
-                    records[t]["tot_aod"] = regrid_nearest(
-                        day_m2["TOTEXTTAU"], lats, lons
-                    ).values
+                    records[t]["tot_aod"] = regrid_nearest(day_m2["TOTEXTTAU"], lats, lons).values
         except Exception as exc:
             logger.warning("MERRA-2 load/regrid failed: %s", exc)
             errors.append(f"MERRA-2: {exc}")
@@ -259,9 +256,7 @@ def run_radiative_analysis(config_path: str) -> dict[str, Any]:
     background: dict[str, Any] = {}
     for key in ("sw_all", "sw_clr", "toa_net", "aod", "sfc_sw_dn", "sfc_lw_dn"):
         if key in records[0]:
-            background[key] = np.nanmean(
-                np.stack([records[t][key] for t in range(bg_n)]), axis=0
-            )
+            background[key] = np.nanmean(np.stack([records[t][key] for t in range(bg_n)]), axis=0)
     bg_sw = background.get("sw_all")
     bg_desc = _bg_description(cfg, dates)
 
@@ -287,6 +282,76 @@ def run_radiative_analysis(config_path: str) -> dict[str, Any]:
                 )
 
     # ------------------------------------------------------------------
+    # 6b. MERRA-2 radiation + RT level comparison (if configured)
+    # ------------------------------------------------------------------
+    if cfg.merra2_rad is not None:
+        logger.info("Loading MERRA-2 radiation data for RT level comparison")
+        try:
+            from davinci_monet.radiative.loaders.merra2_rad import load_merra2_rad
+            from davinci_monet.radiative.processing_rt_levels import compute_rt_levels
+            from davinci_monet.radiative.rt import daily_mean_coszen
+
+            m2_rad_ds = load_merra2_rad(
+                files=cfg.merra2_rad.files,
+                domain=domain,
+            )
+            m2_lats = m2_rad_ds.lat.values
+            m2_lons = m2_rad_ds.lon.values
+
+            # Also reload MERRA-2 aerosol on native grid for RT levels
+            assert cfg.merra2 is not None  # validated by config
+            m2_aer_ds = load_merra2(
+                files=cfg.merra2.files,
+                domain=domain,
+                smoke_species=cfg.merra2.smoke_species,
+            )
+
+            import xarray as xr
+
+            doy_start = dates[0].timetuple().tm_yday
+            n_rt = min(
+                m2_rad_ds.sizes["time"],
+                m2_aer_ds.sizes["time"],
+                len(records),
+            )
+            for t in range(n_rt):
+                rec = records[t]
+                day_rad = m2_rad_ds.isel(time=t)
+                day_aer = m2_aer_ds.isel(time=t)
+
+                smoke_aod = day_aer["SMOKEAOD"].values
+                s0 = day_rad["SWGDNCLR"].values
+                albedo = np.clip(day_rad["ALBEDO"].values, 0.01, 0.99)
+
+                lat2d = np.broadcast_to(m2_lats[:, None], smoke_aod.shape)
+                mu_bar = daily_mean_coszen(lat2d, doy_start + t)
+
+                rec["m2_truth"] = day_rad["m2_sfc_effect"].values
+                rec["m2_lats"] = m2_lats
+                rec["m2_lons"] = m2_lons
+                rec["smoke_aod_m2"] = smoke_aod
+                rec["levels"] = compute_rt_levels(
+                    smoke_aod,
+                    s0,
+                    mu_bar,
+                    albedo,
+                )
+
+                # Update CERES-grid m2_sfc_effect with real radiation data
+                rec["m2_sfc_effect"] = regrid_nearest(
+                    xr.DataArray(
+                        day_rad["m2_sfc_effect"].values,
+                        dims=["lat", "lon"],
+                        coords={"lat": m2_lats, "lon": m2_lons},
+                    ),
+                    lats,
+                    lons,
+                ).values
+        except Exception as exc:
+            logger.warning("MERRA-2 radiation / RT levels failed: %s", exc)
+            errors.append(f"MERRA-2 radiation: {exc}")
+
+    # ------------------------------------------------------------------
     # 7. Determine peak day
     # ------------------------------------------------------------------
     peak_idx = _find_peak_index(cfg, records)
@@ -301,9 +366,19 @@ def run_radiative_analysis(config_path: str) -> dict[str, Any]:
     for plot_type in cfg.plots:
         try:
             fig = _dispatch_plot(
-                plot_type, cfg, lats, lons, records, peak_rec,
-                background, bg_sw, bg_desc, sites, aeronet_df,
-                event_name, ssa,
+                plot_type,
+                cfg,
+                lats,
+                lons,
+                records,
+                peak_rec,
+                background,
+                bg_sw,
+                bg_desc,
+                sites,
+                aeronet_df,
+                event_name,
+                ssa,
             )
             if fig is not None:
                 out_path = output_dir / f"{event_name}_{plot_type}.png"
@@ -349,8 +424,12 @@ def _dispatch_plot(
 
     if plot_type == "anomaly_maps":
         return plot_anomaly_maps(
-            lats, lons, peak_rec, background,
-            event_name=event_name, bg_description=bg_desc,
+            lats,
+            lons,
+            peak_rec,
+            background,
+            event_name=event_name,
+            bg_description=bg_desc,
         )
 
     if plot_type == "surface_flux":
@@ -365,7 +444,11 @@ def _dispatch_plot(
     if plot_type == "spatial_comparison":
         if bg_sw is not None:
             return plot_spatial_comparison(
-                lats, lons, peak_rec, bg_sw, event_name=event_name,
+                lats,
+                lons,
+                peak_rec,
+                bg_sw,
+                event_name=event_name,
             )
         logger.warning("spatial_comparison needs background SW")
         return None
@@ -373,27 +456,79 @@ def _dispatch_plot(
     if plot_type == "site_timeseries":
         if sites and bg_sw is not None:
             return plot_site_timeseries(
-                lats, lons, records, bg_sw, sites,
-                aeronet=aeronet_df, event_name=event_name,
+                lats,
+                lons,
+                records,
+                bg_sw,
+                sites,
+                aeronet=aeronet_df,
+                event_name=event_name,
             )
         logger.warning("site_timeseries needs sites and background SW")
         return None
 
     if plot_type == "surface_impact":
         return plot_surface_impact(
-            lats, lons, peak_rec, event_name=event_name, ssa=ssa,
+            lats,
+            lons,
+            peak_rec,
+            event_name=event_name,
+            ssa=ssa,
         )
 
     if plot_type == "surface_dimming_timeseries":
         if sites:
             return plot_surface_dimming_timeseries(
-                lats, lons, records, sites, event_name=event_name,
+                lats,
+                lons,
+                records,
+                sites,
+                event_name=event_name,
             )
         logger.warning("surface_dimming_timeseries needs sites")
         return None
 
     if plot_type == "method_comparison":
         return plot_method_comparison(records, event_name=event_name)
+
+    if plot_type == "rt_efficiency":
+        if "levels" in peak_rec:
+            return plot_rt_efficiency(records, event_name=event_name)
+        logger.warning("rt_efficiency needs merra2_rad config")
+        return None
+
+    if plot_type == "rt_scatter":
+        if "levels" in peak_rec:
+            return plot_rt_scatter(records, event_name=event_name)
+        logger.warning("rt_scatter needs merra2_rad config")
+        return None
+
+    if plot_type == "rt_timeseries":
+        if "levels" in peak_rec and sites:
+            m2_lats = peak_rec.get("m2_lats", lats)
+            m2_lons = peak_rec.get("m2_lons", lons)
+            return plot_rt_timeseries(
+                m2_lats,
+                m2_lons,
+                records,
+                sites,
+                event_name=event_name,
+            )
+        logger.warning("rt_timeseries needs merra2_rad config and sites")
+        return None
+
+    if plot_type == "rt_spatial":
+        if "levels" in peak_rec:
+            m2_lats = peak_rec.get("m2_lats", lats)
+            m2_lons = peak_rec.get("m2_lons", lons)
+            return plot_rt_spatial(
+                m2_lats,
+                m2_lons,
+                peak_rec,
+                event_name=event_name,
+            )
+        logger.warning("rt_spatial needs merra2_rad config")
+        return None
 
     logger.warning("Unknown plot type: %s", plot_type)
     return None

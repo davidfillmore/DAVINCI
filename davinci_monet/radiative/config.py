@@ -19,6 +19,10 @@ VALID_PLOT_TYPES = frozenset(
         "surface_impact",
         "surface_dimming_timeseries",
         "method_comparison",
+        "rt_efficiency",
+        "rt_scatter",
+        "rt_timeseries",
+        "rt_spatial",
     }
 )
 
@@ -68,6 +72,14 @@ class Merra2Config(BaseModel):
     smoke_species: list[str] = ["OCEXTTAU", "BCEXTTAU"]
 
 
+class Merra2RadConfig(BaseModel):
+    """MERRA-2 radiation data configuration (tavg1_2d_rad_Nx)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    files: str  # glob pattern for tavg1_2d_rad_Nx files
+
+
 class SiteConfig(BaseModel):
     """A named observation site with coordinates."""
 
@@ -106,6 +118,7 @@ class RadiativeConfig(BaseModel):
     event: EventConfig
     ceres: CeresConfig
     merra2: Merra2Config | None = None
+    merra2_rad: Merra2RadConfig | None = None
     aeronet: AeronetConfig | None = None
     sites: list[SiteConfig] | None = None
     surface_impact: SurfaceImpactConfig | None = None
@@ -116,9 +129,9 @@ class RadiativeConfig(BaseModel):
     def _check_constraints(self) -> RadiativeConfig:
         if self.surface_impact is not None and self.merra2 is None:
             raise ValueError("surface_impact requires merra2 configuration")
+        if self.merra2_rad is not None and self.merra2 is None:
+            raise ValueError("merra2_rad requires merra2 configuration")
         invalid = set(self.plots) - VALID_PLOT_TYPES
         if invalid:
-            raise ValueError(
-                f"Invalid plot types: {invalid}. Valid: {sorted(VALID_PLOT_TYPES)}"
-            )
+            raise ValueError(f"Invalid plot types: {invalid}. Valid: {sorted(VALID_PLOT_TYPES)}")
         return self
