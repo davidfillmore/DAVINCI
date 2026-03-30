@@ -2,7 +2,7 @@
 
 **Data Analysis and Validation Infrastructure for Chemistry**
 
-A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air quality models against observations. DAVINCI is a full refactor of [MELODIES-MONET](https://github.com/NOAA-CSL/MELODIES-MONET) with improved architecture, full type hints, and comprehensive testing.
+A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air quality models against observations.
 
 ## Features
 
@@ -149,7 +149,6 @@ See the [Wiki](../../wiki) for full documentation:
 - [CLI Reference](../../wiki/CLI-Reference) - Command-line interface
 - [API Reference](../../wiki/API-Reference) - Python API documentation
 - [Examples](../../wiki/Examples) - Detailed example walkthroughs
-- [Migration Guide](../../wiki/Migration-Guide) - Migrating from MELODIES-MONET
 
 ## Architecture
 
