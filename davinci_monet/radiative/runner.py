@@ -212,6 +212,7 @@ def run_radiative_analysis(config_path: str) -> dict[str, Any]:
         except Exception as exc:
             logger.warning("AERONET load failed: %s", exc)
             errors.append(f"AERONET: {exc}")
+            sites = []
     else:
         sites = []
 
