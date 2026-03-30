@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -11,9 +11,14 @@ VALID_PLOT_TYPES = frozenset(
     {
         "toa_event_fields",
         "anomaly_maps",
+        "surface_flux",
         "sw_vs_aod_scatter",
+        "daily_correlation",
+        "spatial_comparison",
         "site_timeseries",
         "surface_impact",
+        "surface_dimming_timeseries",
+        "method_comparison",
     }
 )
 
@@ -28,6 +33,7 @@ class EventConfig(BaseModel):
     end_time: datetime
     domain: tuple[float, float, float, float]  # (west, east, south, north)
     background_window: int = 3
+    peak_date: date | None = None  # if None, auto-select from event window
 
     @model_validator(mode="after")
     def _check_time_order(self) -> EventConfig:
@@ -62,6 +68,17 @@ class Merra2Config(BaseModel):
     smoke_species: list[str] = ["OCEXTTAU", "BCEXTTAU"]
 
 
+class SiteConfig(BaseModel):
+    """A named observation site with coordinates."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str  # display name, e.g. "Missoula MT"
+    latitude: float
+    longitude: float
+    aeronet_id: str  # AERONET site name, e.g. "Missoula"
+
+
 class AeronetConfig(BaseModel):
     """AERONET ground station configuration."""
 
@@ -90,6 +107,7 @@ class RadiativeConfig(BaseModel):
     ceres: CeresConfig
     merra2: Merra2Config | None = None
     aeronet: AeronetConfig | None = None
+    sites: list[SiteConfig] | None = None
     surface_impact: SurfaceImpactConfig | None = None
     plots: list[str]
     output_dir: str
@@ -100,5 +118,7 @@ class RadiativeConfig(BaseModel):
             raise ValueError("surface_impact requires merra2 configuration")
         invalid = set(self.plots) - VALID_PLOT_TYPES
         if invalid:
-            raise ValueError(f"Invalid plot types: {invalid}. Valid: {sorted(VALID_PLOT_TYPES)}")
+            raise ValueError(
+                f"Invalid plot types: {invalid}. Valid: {sorted(VALID_PLOT_TYPES)}"
+            )
         return self

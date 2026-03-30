@@ -23,6 +23,7 @@ def plot_anomaly_maps(
     record: dict[str, Any],
     background: dict[str, Any],
     event_name: str = "",
+    bg_description: str = "Pre-Event Mean",
 ) -> Figure:
     """Plot 2x2 anomaly maps (event - background).
 
@@ -46,10 +47,10 @@ def plot_anomaly_maps(
     proj = ccrs.PlateCarree()
 
     panels = [
-        ("\u0394AOD", "aod", "PuOr_r", -2, 2, "\u0394AOD"),
-        ("\u0394SW All-Sky", "sw_all", "RdBu_r", -100, 100, "W/m\u00b2"),
-        ("\u0394SW Clear-Sky", "sw_clr", "RdBu_r", -100, 100, "W/m\u00b2"),
-        ("\u0394Net", "toa_net", "RdBu_r", -100, 100, "W/m\u00b2"),
+        ("\u0394AOD 550 nm", "aod", "PuOr_r", -2, 2, "\u0394AOD"),
+        ("\u0394TOA SW Reflected (W/m\u00b2)", "sw_all", "RdBu_r", -100, 100, "W/m\u00b2"),
+        ("\u0394TOA SW Clear-Sky (W/m\u00b2)", "sw_clr", "RdBu_r", -100, 100, "W/m\u00b2"),
+        ("\u0394TOA Net Flux (W/m\u00b2)", "toa_net", "RdBu_r", -100, 100, "W/m\u00b2"),
     ]
 
     fig, axes = plt.subplots(
@@ -77,8 +78,12 @@ def plot_anomaly_maps(
         ax.set_title(title)
         fig.colorbar(mesh, ax=ax, label=cbar_label, shrink=0.8)
 
-    date_str = record.get("date", "")
-    suptitle = f"{event_name} — Anomaly {date_str}" if event_name else f"Anomaly {date_str}"
+    date_obj = record.get("date", "")
+    if hasattr(date_obj, "strftime"):
+        date_str = date_obj.strftime("%b %-d")
+    else:
+        date_str = str(date_obj)
+    suptitle = f"CERES SYN1deg \u2014 {date_str} Anomaly vs Pre-Event ({bg_description})"
     fig.suptitle(suptitle, fontsize=16, color=NCAR_COLORS["space"])
     fig.tight_layout()
     return fig

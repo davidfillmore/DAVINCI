@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
 
 from davinci_monet.plots.style import NCAR_COLORS
 
@@ -77,19 +78,20 @@ def plot_site_timeseries(
         sw_vals = [r["sw_all"][ilat, ilon] for r in records]
         dsw = [sw - bg_sw[ilat, ilon] for sw in sw_vals]
 
-        ax.bar(x, smoke_vals, color=NCAR_COLORS["orange"], alpha=0.7, label="Smoke AOD")
+        ax.bar(x, smoke_vals, color=NCAR_COLORS["orange"], alpha=0.7, label="MERRA-2 Smoke AOD")
         ax.set_ylabel("Smoke AOD", color=NCAR_COLORS["orange"])
         ax.set_xticks(x)
         ax.set_xticklabels(dates, rotation=45, ha="right", fontsize=7)
         ax.set_title(name)
 
         ax2 = ax.twinx()
-        ax2.plot(x, dsw, color=NCAR_COLORS["ncar_blue"], marker="o", label="\u0394SW")
+        ax2.plot(x, dsw, color=NCAR_COLORS["ncar_blue"], marker="o", label="CERES \u0394SW all-sky")
         ax2.set_ylabel("\u0394SW (W/m\u00b2)", color=NCAR_COLORS["ncar_blue"])
 
-        # AERONET overlay
-        if aeronet is not None and aeronet_name in aeronet["siteid"].values:
-            site_df = aeronet[aeronet["siteid"] == aeronet_name].copy()
+        # AERONET overlay — handle both "siteid" and "site" column names
+        site_col = "siteid" if aeronet is not None and "siteid" in aeronet.columns else "site"
+        if aeronet is not None and site_col in aeronet.columns and aeronet_name in aeronet[site_col].values:
+            site_df = aeronet[aeronet[site_col] == aeronet_name].copy()
             site_df["date_str"] = site_df["time"].dt.strftime("%Y-%m-%d")
             # Scatter individual points
             for di, d in enumerate(dates):
@@ -119,7 +121,19 @@ def plot_site_timeseries(
         row, col = divmod(idx, ncols)
         axes[row, col].set_visible(False)
 
-    suptitle = f"{event_name} — Site Time Series" if event_name else "Site Time Series"
-    fig.suptitle(suptitle, fontsize=16, color=NCAR_COLORS["space"])
-    fig.tight_layout()
+    suptitle = (
+        f"Smoke AOD & CERES TOA SW \u2014 {event_name}"
+        if event_name
+        else "Smoke AOD & CERES TOA SW"
+    )
+    fig.suptitle(suptitle, fontsize=18, color=NCAR_COLORS["space"])
+
+    # Shared legend at bottom using proxy artists
+    legend_handles = [
+        Line2D([0], [0], color=NCAR_COLORS["orange"], linewidth=8, alpha=0.7, label="MERRA-2 Smoke AOD"),
+        Line2D([0], [0], color=NCAR_COLORS["red"], marker="D", linestyle="None", markersize=6, label="AERONET AOD 500 nm"),
+        Line2D([0], [0], color=NCAR_COLORS["ncar_blue"], marker="o", linewidth=2, label="CERES \u0394SW all-sky"),
+    ]
+    fig.legend(handles=legend_handles, loc="lower center", ncol=3, fontsize=10, frameon=False)
+    fig.tight_layout(rect=[0, 0.05, 1, 0.95])
     return fig

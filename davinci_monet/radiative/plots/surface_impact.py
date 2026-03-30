@@ -22,6 +22,7 @@ def plot_surface_impact(
     lons: np.ndarray,
     record: dict[str, Any],
     event_name: str = "",
+    ssa: float = 0.92,
 ) -> Figure:
     """Plot 1x3 surface radiative impact maps.
 
@@ -43,9 +44,9 @@ def plot_surface_impact(
     proj = ccrs.PlateCarree()
 
     panels = [
-        ("Smoke AOD", record["smoke_aod"], "YlOrRd", 0, 3, "AOD"),
-        ("MERRA-2 \u0394SW$_{net}$", record["m2_sfc_effect"], "RdBu_r", -250, 250, "W/m\u00b2"),
-        ("Semi-empirical \u0394SW", record["semi_dimming"], "RdBu_r", -250, 250, "W/m\u00b2"),
+        ("MERRA-2 Smoke AOD (OC+BC)", record["smoke_aod"], "YlOrRd", 0, 3, "AOD"),
+        ("MERRA-2 \u0394SW_net Surface\n(aerosol \u2212 no aerosol)", record["m2_sfc_effect"], "RdBu_r", -250, 250, "W/m\u00b2"),
+        (f"Semi-Empirical \u0394SW Surface\n(Beer-Lambert, SSA={ssa})", record["semi_dimming"], "RdBu_r", -250, 250, "W/m\u00b2"),
     ]
 
     fig, axes = plt.subplots(
@@ -72,10 +73,12 @@ def plot_surface_impact(
         ax.set_title(title)
         fig.colorbar(mesh, ax=ax, label=cbar_label, shrink=0.8)
 
-    date_str = record.get("date", "")
-    suptitle = (
-        f"{event_name} — Surface Impact {date_str}" if event_name else f"Surface Impact {date_str}"
-    )
+    date_obj = record.get("date", "")
+    if hasattr(date_obj, "strftime"):
+        date_str = date_obj.strftime("%B %-d, %Y")
+    else:
+        date_str = str(date_obj)
+    suptitle = f"Surface SW Impact of Smoke \u2014 {date_str}"
     fig.suptitle(suptitle, fontsize=16, color=NCAR_COLORS["space"])
     fig.tight_layout()
     return fig

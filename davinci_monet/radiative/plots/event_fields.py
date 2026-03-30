@@ -42,10 +42,10 @@ def plot_event_fields(
     proj = ccrs.PlateCarree()
 
     panels = [
-        ("AOD", record["aod"], "YlOrRd", 0, 3, "AOD"),
-        ("TOA SW All-Sky", record["sw_all"], "YlOrRd", 0, 350, "W/m\u00b2"),
-        ("TOA Net", record["toa_net"], "RdBu_r", -150, 150, "W/m\u00b2"),
-        ("Cloud Fraction", record["cld_frac"], "Blues", 0, 100, "%"),
+        ("AOD 550 nm (MATCH)", record["aod"], "YlOrRd", 0, 3, "AOD"),
+        ("TOA SW Reflected (W/m\u00b2)", record["sw_all"], "YlOrRd", 0, 350, "W/m\u00b2"),
+        ("TOA Net Flux (W/m\u00b2)", record["toa_net"], "RdBu_r", -150, 150, "W/m\u00b2"),
+        ("Cloud Fraction (%)", record["cld_frac"], "Blues", 0, 100, "%"),
     ]
 
     fig, axes = plt.subplots(
@@ -72,8 +72,12 @@ def plot_event_fields(
         ax.set_title(title)
         fig.colorbar(mesh, ax=ax, label=cbar_label, shrink=0.8)
 
-    date_str = record.get("date", "")
-    suptitle = f"{event_name} — {date_str}" if event_name else date_str
+    date_obj = record.get("date", "")
+    if hasattr(date_obj, "strftime"):
+        date_str = date_obj.strftime("%B %-d, %Y")
+    else:
+        date_str = str(date_obj)
+    suptitle = f"CERES SYN1deg \u2014 {date_str} ({event_name})" if event_name else f"CERES SYN1deg \u2014 {date_str}"
     fig.suptitle(suptitle, fontsize=16, color=NCAR_COLORS["space"])
     fig.tight_layout()
     return fig

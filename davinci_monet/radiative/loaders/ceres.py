@@ -68,7 +68,8 @@ def load_ceres_local(
         # Replace fill values
         ds = ds.where(ds > -900.0)
         if variables is not None:
-            ds = ds[variables]
+            available = [v for v in variables if v in ds]
+            ds = ds[available]
         datasets.append(ds)
 
     if len(datasets) == 1:
