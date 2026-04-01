@@ -24,14 +24,14 @@ analysis:
 obs:
   dc8:
     obs_type: icartt
-    filename: ${FIREX_AQ_DATA}/aircraft/merge/firexaq-MRG60-DC8_MERGE_*_R2.ict
+    filename: ${FIREX_AQ_DATA}/aircraft/merge/FIREXAQ-MRG60-DC8_MERGE_*.ict
     variables:
-      "O3":   { source_name: O3_CL }
-      "CO":   { source_name: CO_DACOM }
-      "NO":   { source_name: NO_CL }
-      "NO2":  { source_name: NO2_CL }
-      "CH2O": { source_name: CH2O_ISAF }
-      "CO2":  { source_name: CO2_DACOM }
+      "O3":   { source_name: O3_CL_RYERSON }
+      "CO":   { source_name: CO_DACOM_DISKIN }
+      "NO":   { source_name: NO_CL_RYERSON }
+      "NO2":  { source_name: NO2_CL_RYERSON }
+      "CH2O": { source_name: CH2O_ISAF_HANISCO }
+      "CO2":  { source_name: CO2_7000_ppm_DISKIN }
 
 plots:
   dc8_track_co:

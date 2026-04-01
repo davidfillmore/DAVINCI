@@ -252,6 +252,7 @@ class ICARTTReader:
             "latitude",
             "LAT",
             "lat",
+            "Latitude_YANG",
             "Latitude_BENNETT",
             "G_LAT",
             "LATITUDE",
@@ -268,6 +269,7 @@ class ICARTTReader:
             "longitude",
             "LON",
             "lon",
+            "Longitude_YANG",
             "Longitude_BENNETT",
             "G_LONG",
             "LONGITUDE",
@@ -289,6 +291,7 @@ class ICARTTReader:
             # Altitude in meters (preferred)
             "GPS_Altitude_m_DIGANGI",
             "Altitude_AGL_m_DIGANGI",
+            "MSL_GPS_Altitude_YANG",
             "MSL_GPS_Altitude",
             "GPS_Altitude",
             "Altitude",
