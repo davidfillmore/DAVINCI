@@ -85,6 +85,17 @@ The obs-only pipeline produces:
 - **Time series** -- Variable along flight time, with optional altitude shading
 - **Histograms** -- Distribution of observed values with summary statistics
 
+## Radiative Analysis (CERES Branch)
+
+Smoke radiative effects are analyzed via the `davinci_monet/radiative/` subpackage on the `ceres` branch. The Williams Flats fire (Aug 2019) is the primary target event.
+
+```bash
+# Run FIREX-AQ radiative analysis
+davinci-monet radiative run analyses/ceres-smoke/configs/firex-aq-williams-flats-2019.yaml
+```
+
+See `analyses/ceres-smoke/configs/firex-aq-williams-flats-2019.yaml` for the event config.
+
 ## Data Source
 
 - **NASA ASDC:** [asdc.larc.nasa.gov/project/FIREX-AQ](https://asdc.larc.nasa.gov/project/FIREX-AQ)

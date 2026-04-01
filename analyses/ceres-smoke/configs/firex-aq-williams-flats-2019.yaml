@@ -1,0 +1,87 @@
+# FIREX-AQ: Williams Flats Fire Radiative Analysis
+#
+# Smoke radiative effects from the Williams Flats fire (Colville
+# Reservation, WA), the most intensively sampled wildfire during
+# FIREX-AQ. DC-8 flights on Aug 3, 6, 7, 8 targeted this fire.
+#
+# Data requirements:
+#   - CERES SYN1deg daily files covering 2019-07-28 through 2019-08-15
+#   - MERRA-2 tavg1_2d_aer_Nx and tavg1_2d_rad_Nx for the same period
+#   - AERONET Level 1.5+ AOD data for NW US sites
+#
+# Usage:
+#   davinci-monet radiative run analyses/ceres-smoke/configs/firex-aq-williams-flats-2019.yaml
+
+radiative:
+  event:
+    name: "firex-aq-williams-flats-2019"
+    start_time: "2019-08-01"
+    end_time: "2019-08-12"
+    domain: [-125, -110, 42, 52]
+    background_window: 3
+    peak_date: "2019-08-08"
+
+  ceres:
+    product: syn1deg
+    source: local
+    files: ~/Data/FIREX-AQ/ceres/CERES_SYN1deg-Day_*.nc
+
+  merra2:
+    files: ~/Data/FIREX-AQ/merra2/MERRA2_401.tavg1_2d_aer_Nx.*.nc4
+    smoke_species: [OCEXTTAU, BCEXTTAU]
+
+  merra2_rad:
+    files: ~/Data/FIREX-AQ/merra2/MERRA2_401.tavg1_2d_rad_Nx.*.nc4
+
+  sites:
+    - name: "Missoula MT"
+      latitude: 46.9
+      longitude: -114.1
+      aeronet_id: Missoula
+    - name: "Boise ID"
+      latitude: 43.6
+      longitude: -116.4
+      aeronet_id: Meridian_DEQ
+    - name: "Spokane WA"
+      latitude: 47.65
+      longitude: -117.4
+      aeronet_id: Spokane_DTC
+    - name: "Seattle WA"
+      latitude: 47.6
+      longitude: -122.3
+      aeronet_id: Seattle
+    - name: "Portland OR"
+      latitude: 45.5
+      longitude: -122.7
+      aeronet_id: Portland_State_Univ
+    - name: "Kelowna BC"
+      latitude: 49.9
+      longitude: -119.5
+      aeronet_id: Kelowna_UAS
+
+  aeronet:
+    files: ~/Data/FIREX-AQ/aeronet/AERONET_AOD15_NWUS_20190801-20190812.csv
+    sites: [Missoula, Meridian_DEQ, Spokane_DTC, Seattle, Portland_State_Univ, Kelowna_UAS]
+
+  surface_impact:
+    method: [merra2, semi_empirical]
+    ssa: 0.91
+    asymmetry: 0.64
+
+  plots:
+    - toa_event_fields
+    - anomaly_maps
+    - surface_flux
+    - sw_vs_aod_scatter
+    - daily_correlation
+    - spatial_comparison
+    - site_timeseries
+    - surface_impact
+    - surface_dimming_timeseries
+    - method_comparison
+    - rt_efficiency
+    - rt_scatter
+    - rt_timeseries
+    - rt_spatial
+
+  output_dir: analyses/ceres-smoke/output/firex-aq-williams-flats-2019
