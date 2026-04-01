@@ -289,6 +289,7 @@ class ICARTTReader:
             # Altitude in meters (preferred)
             "GPS_Altitude_m_DIGANGI",
             "Altitude_AGL_m_DIGANGI",
+            "MSL_GPS_Altitude",
             "GPS_Altitude",
             "Altitude",
             "altitude",

@@ -1,0 +1,181 @@
+# FIREX-AQ Model Evaluation - DC-8 Aircraft
+#
+# Model vs. obs evaluation using DC-8 ICARTT merge data.
+# Template: fill in model.files with your simulation output path.
+#
+# Required environment variables:
+#   FIREX_AQ_DATA     — Root directory containing FIREX-AQ merge files
+#   FIREX_AQ_ANALYSIS — Analysis directory (parent of output/ and logs/)
+#
+# Usage:
+#   export FIREX_AQ_DATA=~/Data/FIREX-AQ
+#   export FIREX_AQ_ANALYSIS=$(pwd)
+#   davinci-monet run analyses/firex-aq/configs/firex-aq-model-dc8.example.yaml
+
+analysis:
+  start_time: "2019-07-22"
+  end_time: "2019-09-06"
+  output_dir: ${FIREX_AQ_ANALYSIS}/output/model-dc8
+  log_dir: ${FIREX_AQ_ANALYSIS}/logs
+  style:
+    theme: ncar
+
+model:
+  cam_firex:
+    mod_type: generic
+    files: /path/to/model/output/*.nc    # <-- Replace with your model output
+    radius_of_influence: 15000
+
+    mapping:
+      dc8:
+        O3_CL: O3
+        CO_DACOM: CO
+        NO_CL: "NO"
+        NO2_CL: NO2
+
+    variables:
+      O3:
+        unit_scale: 1.0e9
+        units: ppb
+        ylabel_plot: "O$_3$ (ppb)"
+        vmin_plot: 0
+        vmax_plot: 120
+        vdiff_plot: 40
+      CO:
+        unit_scale: 1.0e9
+        units: ppb
+        ylabel_plot: "CO (ppb)"
+        vmin_plot: 0
+        vmax_plot: 2000
+        vdiff_plot: 500
+      "NO":
+        unit_scale: 1.0e9
+        units: ppb
+        ylabel_plot: "NO (ppb)"
+        vmin_plot: 0
+        vmax_plot: 20
+        vdiff_plot: 10
+      NO2:
+        unit_scale: 1.0e9
+        units: ppb
+        ylabel_plot: "NO$_2$ (ppb)"
+        vmin_plot: 0
+        vmax_plot: 20
+        vdiff_plot: 10
+
+obs:
+  dc8:
+    obs_type: icartt
+    filename: ${FIREX_AQ_DATA}/aircraft/merge/firexaq-MRG60-DC8_MERGE_*_R2.ict
+    variables:
+      O3_CL:
+        obs_min: 0
+        obs_max: 200
+        units: ppb
+        ylabel_plot: "O$_3$ (ppb)"
+        display_name: "O$_3$"
+      CO_DACOM:
+        obs_min: 0
+        obs_max: 5000
+        units: ppb
+        ylabel_plot: "CO (ppb)"
+        display_name: "CO"
+      NO_CL:
+        obs_min: 0
+        obs_max: 50
+        units: ppb
+        ylabel_plot: "NO (ppb)"
+        display_name: "NO"
+      NO2_CL:
+        obs_min: 0
+        obs_max: 50
+        units: ppb
+        ylabel_plot: "NO$_2$ (ppb)"
+        display_name: "NO$_2$"
+
+pairs:
+  cam_dc8_o3:
+    model: cam_firex
+    obs: dc8
+    variable:
+      model_var: O3
+      obs_var: O3_CL
+
+  cam_dc8_co:
+    model: cam_firex
+    obs: dc8
+    variable:
+      model_var: CO
+      obs_var: CO_DACOM
+
+  cam_dc8_no:
+    model: cam_firex
+    obs: dc8
+    variable:
+      model_var: "NO"
+      obs_var: NO_CL
+
+  cam_dc8_no2:
+    model: cam_firex
+    obs: dc8
+    variable:
+      model_var: NO2
+      obs_var: NO2_CL
+
+plots:
+  dc8_o3_scatter:
+    type: scatter
+    pairs: [cam_dc8_o3]
+    title: "O3: Model vs DC-8 Aircraft"
+    split_by_flight: true
+    min_points: 10
+
+  dc8_co_scatter:
+    type: scatter
+    pairs: [cam_dc8_co]
+    title: "CO: Model vs DC-8 Aircraft"
+    split_by_flight: true
+    min_points: 10
+
+  dc8_o3_flight_timeseries:
+    type: flight_timeseries
+    pairs: [cam_dc8_o3]
+    title: "O3: Model vs DC-8"
+    split_by_flight: true
+    min_points: 10
+
+  dc8_co_flight_timeseries:
+    type: flight_timeseries
+    pairs: [cam_dc8_co]
+    title: "CO: Model vs DC-8"
+    split_by_flight: true
+    min_points: 10
+
+  dc8_o3_track_3d:
+    type: track_map_3d
+    pairs: [cam_dc8_o3]
+    title: "O3 Bias: DC-8 3D Track"
+    show_var: bias
+    split_by_flight: true
+    min_points: 10
+    show_surface_map: false
+    elev: 25
+    azim: -60
+
+  dc8_co_track_3d:
+    type: track_map_3d
+    pairs: [cam_dc8_co]
+    title: "CO Bias: DC-8 3D Track"
+    show_var: bias
+    split_by_flight: true
+    min_points: 10
+    show_surface_map: false
+    elev: 25
+    azim: -60
+
+stats:
+  output_table: true
+  output_table_kwargs:
+    precision: 3
+  metrics: [N, MO, MP, MB, RMSE, R, NMB, NME, IOA]
+  per_flight: true
