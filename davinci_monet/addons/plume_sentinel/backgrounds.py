@@ -51,9 +51,13 @@ def render_background(
 
 def _render_gibs(ax: matplotlib.axes.Axes, spec: dict[str, Any]) -> None:
     """Render a NASA GIBS WMTS tile layer on the axes."""
+    import warnings
+
     layer = spec["layer"]
     date = spec.get("date")
     wmts_kwargs: dict[str, Any] = {}
     if date:
         wmts_kwargs["time"] = date
-    ax.add_wmts(GIBS_URL, layer, wmts_kwargs=wmts_kwargs)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", module="owslib")
+        ax.add_wmts(GIBS_URL, layer, wmts_kwargs=wmts_kwargs)
