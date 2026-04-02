@@ -5,7 +5,7 @@ description: Runs a DAVINCI-MONET analysis pipeline in a new Terminal window. Us
 
 # Plume Sentinel
 
-This skill automates the execution of DAVINCI-MONET pipelines in isolated terminal windows. This is particularly useful for long-running analyses or when using the `--open-plots` flag.
+This skill automates the execution of DAVINCI-MONET pipelines in isolated terminal windows. This is particularly useful for long-running analyses or when using the `--show-plots` flag.
 
 ## Workflow
 
@@ -17,7 +17,7 @@ This skill automates the execution of DAVINCI-MONET pipelines in isolated termin
 2.  **Handle Date Overrides**: Create a temporary copy and update the `start_time` and `end_time` fields under the `analysis` section to the requested date.
 3.  **Validate Input**: Ensure the final YAML configuration files exist and are valid.
 4.  **Verify Environment**: Confirm the `davinci-monet` conda environment is available.
-5.  **Execute in New Window (Serial)**: Use `osascript` to spawn a *single* new terminal and run each identified analysis sequentially (one after the other). Append the `--open-plots` flag to each command.
+5.  **Execute in New Window (Serial)**: Use `osascript` to spawn a *single* new terminal and run each identified analysis sequentially (one after the other). Append the `--show-plots` flag to each command.
 6.  **Monitor & Summarize**:
     -   After the analysis has had time to run, check the `output/` directory for new image files.
     -   **Copy images** to the project temporary directory (e.g., `/Users/fillmore/.gemini/tmp/davinci-monet/plume_sentinel/`) before using `read_file`.
@@ -35,7 +35,7 @@ Use `osascript` to launch a new Terminal window. To run multiple configs in seri
 ```bash
 osascript -e 'tell application "Terminal"
 set orig_window to id of front window
-do script "cd /Users/fillmore/EarthSystem/DAVINCI-MONET && conda activate davinci-monet && osascript -e \"tell application \\\"Terminal\\\" to activate\" && davinci-monet run <config_path_1> --open-plots && sleep 5 && osascript -e \"tell application \\\"Terminal\\\" to activate\" && davinci-monet run <config_path_2> --open-plots && sleep 5 && osascript -e \"tell application \\\"Terminal\\\" to set index of window id " & orig_window & " to 1\" -e \"tell application \\\"Terminal\\\" to activate\""
+do script "cd /Users/fillmore/EarthSystem/DAVINCI-MONET && conda activate davinci-monet && osascript -e \"tell application \\\"Terminal\\\" to activate\" && davinci-monet run <config_path_1> --show-plots && sleep 5 && osascript -e \"tell application \\\"Terminal\\\" to activate\" && davinci-monet run <config_path_2> --show-plots && sleep 5 && osascript -e \"tell application \\\"Terminal\\\" to set index of window id " & orig_window & " to 1\" -e \"tell application \\\"Terminal\\\" to activate\""
 end tell'
 ```
 
