@@ -134,6 +134,8 @@ class LogCollector:
         # New parallel pairing patterns
         parallel_started_match = re.match(r"\s*parallel_started: (\S+)", message)
         parallel_completed_match = re.match(r"\s*parallel_completed: (\S+)(.*)", message)
+        addon_input_match = re.match(r"\s*Loading input: (\S+)", message)
+        geo_op_match = re.match(r"\s*GeoOp: (\S+)", message)
 
         if model_match:
             name = model_match.group(1)
@@ -144,6 +146,12 @@ class LogCollector:
         elif pair_match:
             name = pair_match.group(1)
             self._start_item(name, "pair")
+        elif addon_input_match:
+            name = addon_input_match.group(1)
+            self._start_item(name, "addon_input")
+        elif geo_op_match:
+            name = geo_op_match.group(1)
+            self._start_item(name, "geo_op")
         elif parallel_started_match:
             name = parallel_started_match.group(1)
             self._start_item(name, "pair")
@@ -1568,6 +1576,16 @@ class PipelineRunner:
                     if match:
                         name, idx, total = match.groups()
                         fmt.item_start("stats", name, int(idx), int(total))
+                elif msg.strip().startswith("Loading input:"):
+                    match = re.match(r"\s*Loading input: (\S+) \((\d+)/(\d+)\)", msg)
+                    if match:
+                        name, idx, total = match.groups()
+                        fmt.item_start("addon_input", name, int(idx), int(total))
+                elif msg.strip().startswith("GeoOp:"):
+                    match = re.match(r"\s*GeoOp: (\S+) \((\d+)/(\d+)\)", msg)
+                    if match:
+                        name, idx, total = match.groups()
+                        fmt.item_start("geo_op", name, int(idx), int(total))
                 elif msg.strip().startswith("Plot:"):
                     match = re.match(r"\s*Plot: (\S+) \((\d+)/(\d+)\)", msg)
                     if match:
@@ -1720,15 +1738,18 @@ class PipelineRunner:
         # Validate that config has something to process
         model_config = config.get("model") or {}
         obs_config = config.get("obs") or {}
+        analysis_config = config.get("analysis") or {}
+        workflow = analysis_config.get("workflow")
 
-        if not model_config and not obs_config:
+        if workflow == "plume_sentinel":
+            from davinci_monet.addons.plume_sentinel.workflow import create_plume_sentinel_pipeline
+            self._stages = create_plume_sentinel_pipeline()
+        elif not model_config and not obs_config:
             raise ConfigurationError(
                 "Configuration is empty or incomplete. "
                 "At least one model or observation must be defined."
             )
-
-        # Auto-detect obs-only mode
-        if not model_config and obs_config:
+        elif not model_config and obs_config:
             from davinci_monet.pipeline.stages import create_obs_pipeline
 
             self._stages = create_obs_pipeline()
