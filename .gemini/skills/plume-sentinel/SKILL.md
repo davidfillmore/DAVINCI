@@ -22,7 +22,7 @@ This skill automates the execution of DAVINCI-MONET pipelines in isolated termin
     -   After the analysis has had time to run, check the `output/` directory for new image files.
     -   **Copy images** to the project temporary directory (e.g., `/Users/fillmore/.gemini/tmp/davinci-monet/plume_sentinel/`) before using `read_file`.
     -   **Session Re-activation**: Ensure the `osascript` command captures the original session window ID and robustly brings it back to the foreground once all analyses complete.
-    -   Use `read_file` to inspect the images and provide a natural language summary of the findings.
+    -   Use `read_file` to inspect the images. Craft the final summary as a **formal meteorological report**, written in the authoritative tone of a weather agency (e.g., NOAA or NWS) issuing a high wildfire smoke event alert. Include structured sections for Synoptic Overview, Aerosol Optical Depth (AOD) Analysis, and Hazard Mapping System (HMS) observations based on the visual findings.
 
 ### Platform-Specific Commands
 
