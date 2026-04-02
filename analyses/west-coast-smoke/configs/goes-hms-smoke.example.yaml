@@ -1,0 +1,38 @@
+# GOES-16 True Color + HMS Smoke Contours — Sep 9, 2020 West Coast Event
+#
+# Usage:
+#   export WEST_COAST_SMOKE=$(pwd)
+#   export WEST_COAST_SMOKE_DATA=~/Data/west-coast-smoke
+#   davinci-monet run configs/goes-hms-smoke.example.yaml
+
+analysis:
+  workflow: plume_sentinel
+  start_time: "2020-09-09"
+  end_time: "2020-09-09"
+  output_dir: ${WEST_COAST_SMOKE}/output
+  log_dir: ${WEST_COAST_SMOKE}/logs
+  style:
+    theme: ncar
+    context: default
+
+plume_sentinel:
+  inputs:
+    goes_event_image:
+      type: goes_truecolor
+      file: ${WEST_COAST_SMOKE_DATA}/goes16/ABI-L2-MCMIPC_20200909_2001.nc
+      gamma: 1.8
+
+    hms_smoke_event:
+      type: hms_smoke
+      file: ${WEST_COAST_SMOKE_DATA}/hms/smoke/2020/hms_smoke20200909.shp
+
+  plots:
+    goes_hms_smoke:
+      type: truecolor_contour
+      background: goes_event_image
+      overlays: [hms_smoke_event]
+      extent: [-130, -110, 30, 52]
+      projection:
+        type: lambert_conformal
+        central_longitude: -120
+      title: "GOES-16 True Color with HMS Smoke Contours - Sep 9, 2020"

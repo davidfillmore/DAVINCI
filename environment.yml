@@ -10,6 +10,8 @@ dependencies:
   - melodies-monet
 
   # Additional I/O support
+  - earthaccess  # NASA Earthdata cloud/download
+  - geopandas  # Geospatial vector data (shapefiles, GeoJSON)
   - pyhdf  # HDF4/HDF-EOS for MODIS
 
   # Progress display
