@@ -1702,7 +1702,7 @@ class PipelineRunner:
                             plot_paths.extend(stage_result.data["plots_generated"])
                 if plot_paths:
                     formatter.preview_plots(
-                        plot_paths, duration=1.0, preview_format=self._preview_format
+                        plot_paths, duration=10.0, preview_format=self._preview_format
                     )
 
             # Open plots persistently if --open-plots and pipeline succeeded
