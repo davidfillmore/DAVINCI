@@ -24,6 +24,7 @@ def run_analysis(
     debug: bool = False,
     show_plots: bool = False,
     preview_format: str = "pdf",
+    open_plots: bool = False,
 ) -> None:
     """Execute DAVINCI analysis from a control file.
 
@@ -54,7 +55,8 @@ def run_analysis(
 
     try:
         result = pipeline_run(
-            str(p), show_progress=True, show_plots=show_plots, preview_format=preview_format  # type: ignore[arg-type]
+            str(p), show_progress=True, show_plots=show_plots,
+            preview_format=preview_format, open_plots=open_plots,  # type: ignore[arg-type]
         )
     except ConfigurationError as e:
         # Styled display for configuration/YAML errors (before pipeline starts)

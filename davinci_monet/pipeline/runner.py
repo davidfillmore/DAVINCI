@@ -1289,6 +1289,7 @@ class PipelineRunner:
         show_progress: bool = True,
         show_plots: bool = False,
         preview_format: Literal["pdf", "png"] = "pdf",
+        open_plots: bool = False,
     ) -> None:
         """Initialize pipeline runner.
 
@@ -1306,6 +1307,8 @@ class PipelineRunner:
             Display interactive plot preview after completion (requires display).
         preview_format
             Format for plot preview: "pdf" opens in system viewer, "png" in matplotlib.
+        open_plots
+            Open generated plot files in system viewer after successful run.
         """
         self._stages = list(stages) if stages is not None else create_standard_pipeline()
         self._fail_fast = fail_fast
@@ -1313,6 +1316,7 @@ class PipelineRunner:
         self._show_progress = show_progress
         self._show_plots = show_plots
         self._preview_format = preview_format
+        self._open_plots = open_plots
 
     @property
     def stages(self) -> list[Stage]:
@@ -1701,12 +1705,50 @@ class PipelineRunner:
                         plot_paths, duration=1.0, preview_format=self._preview_format
                     )
 
+            # Open plots persistently if --open-plots and pipeline succeeded
+            if self._open_plots and result.success:
+                open_paths: list[str] = []
+                for sn in ("plotting", "obs_plotting"):
+                    if sn in context.results:
+                        sr = context.results[sn]
+                        if sr.data and "plots_generated" in sr.data:
+                            open_paths.extend(sr.data["plots_generated"])
+                if open_paths:
+                    self._open_plot_files(open_paths)
+
         result.end_time = datetime.now()
         result.total_duration_seconds = time.time() - start_time
 
         self._call_hook("on_end", result)
 
         return result
+
+    @staticmethod
+    def _open_plot_files(paths: list[str]) -> None:
+        """Open plot files in the system viewer."""
+        import platform
+        import subprocess
+
+        system = platform.system()
+        for p in paths:
+            try:
+                if system == "Darwin":
+                    subprocess.Popen(["open", p])
+                elif system == "Linux":
+                    subprocess.Popen(["xdg-open", p])
+                else:
+                    import logging
+
+                    logging.getLogger(__name__).warning(
+                        f"Cannot open plots: unsupported platform {system}"
+                    )
+                    return
+            except FileNotFoundError:
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    f"System opener not available for {p}"
+                )
 
     def run_from_config(self, config: dict[str, Any] | str) -> PipelineResult:
         """Execute pipeline from configuration.
@@ -1932,6 +1974,7 @@ def run_analysis(
     show_progress: bool = True,
     show_plots: bool = False,
     preview_format: Literal["pdf", "png"] = "pdf",
+    open_plots: bool = False,
 ) -> PipelineResult:
     """Convenience function to run a complete analysis.
 
@@ -1945,6 +1988,8 @@ def run_analysis(
         Display interactive plot preview after completion (requires display).
     preview_format
         Format for plot preview: "pdf" opens in system viewer, "png" in matplotlib.
+    open_plots
+        Open generated plot files in system viewer after successful run.
 
     Returns
     -------
@@ -1961,5 +2006,6 @@ def run_analysis(
         show_progress=show_progress,
         show_plots=show_plots,
         preview_format=preview_format,
+        open_plots=open_plots,
     )
     return runner.run_from_config(config)

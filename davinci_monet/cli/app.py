@@ -345,6 +345,11 @@ def run(
         "-p",
         help="Format for plot preview: 'pdf' (opens in system viewer) or 'png' (matplotlib window).",
     ),
+    open_plots: bool = typer.Option(
+        False,
+        "--open-plots",
+        help="Open generated plot files in system viewer after successful run.",
+    ),
 ) -> None:
     """Run DAVINCI analysis as described in the control file."""
     from davinci_monet.cli.commands.run import run_analysis
@@ -352,7 +357,7 @@ def run(
     global DEBUG
     DEBUG = debug
 
-    run_analysis(control, debug=debug, show_plots=show_plots, preview_format=preview_format)
+    run_analysis(control, debug=debug, show_plots=show_plots, preview_format=preview_format, open_plots=open_plots)
 
 
 @app.command()
