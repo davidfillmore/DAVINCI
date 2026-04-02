@@ -33,9 +33,31 @@ This command automates the execution of DAVINCI-MONET pipelines in isolated term
 9.  **Monitor & Summarize** (triggered when watcher completes):
     -   Read `/tmp/plume-sentinel-manifest.txt` to get the list of output image files.
     -   Use the Read tool to inspect each output image.
-    -   **Image Analysis Thought Process**: Before crafting the formal report, share a concise, bulleted "Image Analysis Thought Process". This should explain how you are interpreting the visual data (e.g., identifying plume boundaries, interpreting AOD color scales, or correlating HMS contours with satellite imagery).
-    -   Craft the final summary as a **formal meteorological report**, written in the authoritative tone of "PlumeSentinel AI" issuing a high wildfire smoke event alert. The report MUST clearly indicate that it is a **TEST BULLETIN**. Include structured sections for Synoptic Overview, Aerosol Optical Depth (AOD) Analysis, Hazard Mapping System (HMS) observations based on the visual findings, and Health Impacts. **Display this bulletin in its entirety at the end of the response.**
-    -   **MQTT Publishing**: After crafting the report, save it to a text file (e.g., `report.txt`) and use an available MQTT client to publish the full text to the public HiveMQ broker (`broker.hivemq.com`). For example, if using the npm `mqtt` CLI, pipe the file content using the `-s` (stdin) flag: `cat report.txt | npx --yes mqtt pub -t 'plume-sentinel-ai/alerts/test' -h broker.hivemq.com -s`. Publish under the base topic `plume-sentinel-ai`.
+    -   **Image Analysis Thought Process**: Before filling in the bulletin, share a concise, bulleted "Image Analysis Thought Process". This should explain how you are interpreting the visual data (e.g., identifying plume boundaries, interpreting AOD color scales, or correlating HMS contours with satellite imagery).
+    -   **Fill in the bulletin template**: Read the template at `analyses/plume-sentinel/templates/bulletin.template`. Populate all `{{PLACEHOLDER}}` tokens and write the result to `report.txt` (overwrite). The placeholders are:
+
+        **Auto-derived from config/data** (do not hallucinate — extract from the YAML configs):
+        | Placeholder | Source |
+        |---|---|
+        | `{{BULLETIN_ID}}` | Format: `PS-{julian_day}-{REGION_SLUG}-001` (e.g., `PS-2020253-WESTCOAST-001`) |
+        | `{{ISSUED_DATE}}` | Today's date |
+        | `{{EVENT_DATE}}` | From config `analysis.start_time`, formatted as e.g., `September 9, 2020` |
+        | `{{OBSERVATION_TIME}}` | From input filenames/metadata (e.g., `~19:05-19:10 UTC`) |
+        | `{{SENSOR_SOURCES}}` | Derived from config input types (e.g., `MODIS Terra AOD, GOES-16 ABI, NOAA HMS`) |
+
+        **AI-analyzed from images** (write in the authoritative tone of "PlumeSentinel AI"):
+        | Placeholder | Guidance |
+        |---|---|
+        | `{{REGION}}` | Geographic region derived from map extent and fire context |
+        | `{{SEVERITY}}` | One of: LOW, MODERATE, HIGH, EXTREME — based on holistic assessment of AOD values, HMS coverage, and population impact |
+        | `{{SYNOPTIC_OVERVIEW}}` | 2-3 paragraphs: weather pattern, wind regime, fire complexes involved, smoke transport |
+        | `{{AOD_ANALYSIS}}` | Structured findings: peak AOD, inland extent, offshore transport, retrieval failures, notable sub-regions |
+        | `{{HMS_ANALYSIS}}` | Breakdown by density: Heavy (red), Medium (orange), Light (yellow) contours with spatial extent |
+        | `{{HEALTH_IMPACTS}}` | Risk level, estimated AQI, affected population, recommended actions, visibility impacts |
+        | `{{ASSESSMENT}}` | Confidence level, classification, historical context |
+
+    -   **Display the completed bulletin** in its entirety at the end of the response.
+    -   **MQTT Publishing**: Use an available MQTT client to publish the full text of `report.txt` to the public HiveMQ broker (`broker.hivemq.com`). For example, if using the npm `mqtt` CLI, pipe the file content using the `-s` (stdin) flag: `cat report.txt | npx --yes mqtt pub -t 'plume-sentinel-ai/alerts/test' -h broker.hivemq.com -s`. Publish under the base topic `plume-sentinel-ai`.
         -   *Suggested subtopics*: `plume-sentinel-ai/alerts/test` (for test broadcasts), `plume-sentinel-ai/reports/west-coast` (for region-specific reports), or `plume-sentinel-ai/events/wildfire-smoke` (for event-specific tracking).
 
 ### Platform-Specific Commands
