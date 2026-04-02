@@ -99,6 +99,8 @@ class AnalysisConfig(FlexibleModel):
         Enable debug mode.
     style
         Plot styling configuration (NCAR branding, fonts, colors).
+    workflow
+        Optional workflow name for add-on pipelines (e.g., "plume_sentinel").
     """
 
     start_time: datetime | str | None = None
