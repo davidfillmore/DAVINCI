@@ -198,3 +198,22 @@ class TestPlumeSentinelConfigMODIS:
         )
         assert plot.background.type == "gibs_wmts"
         assert plot.background.layer == "BlueMarble"
+
+
+class TestWorkflowFactory:
+    def test_creates_three_stages(self):
+        from davinci_monet.addons.plume_sentinel.workflow import (
+            create_plume_sentinel_pipeline,
+        )
+
+        stages = create_plume_sentinel_pipeline()
+        assert len(stages) == 3
+
+    def test_stage_names(self):
+        from davinci_monet.addons.plume_sentinel.workflow import (
+            create_plume_sentinel_pipeline,
+        )
+
+        stages = create_plume_sentinel_pipeline()
+        names = [s.name for s in stages]
+        assert names == ["load_inputs", "prepare_geospatial", "plotting"]
