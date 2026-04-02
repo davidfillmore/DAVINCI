@@ -169,9 +169,15 @@ def prepare_modis_aod(
 
     if len(data_obs) > 0:
         bin_swath_to_grid(
-            time_edges, lon_edges, lat_edges,
-            time_obs, lon_obs, lat_obs, data_obs,
-            count_grid, data_grid,
+            time_edges,
+            lon_edges,
+            lat_edges,
+            time_obs,
+            lon_obs,
+            lat_obs,
+            data_obs,
+            count_grid,
+            data_grid,
         )
         normalize_grid(count_grid, data_grid)
 

@@ -1,4 +1,5 @@
 """HMS smoke polygon overlay renderer for PlumeSentinel add-on."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -43,9 +44,7 @@ def render_overlays(
     return legend_handles
 
 
-def _render_hms_smoke(
-    ax: matplotlib.axes.Axes, gdf: Any
-) -> list[mpatches.Patch]:
+def _render_hms_smoke(ax: matplotlib.axes.Axes, gdf: Any) -> list[mpatches.Patch]:
     """Render HMS smoke polygons colored by density category.
 
     Parameters
