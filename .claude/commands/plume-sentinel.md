@@ -1,11 +1,10 @@
----
-name: plume-sentinel
-description: Runs a DAVINCI-MONET analysis pipeline in a new Terminal window. Use when the user requests an analysis run (e.g., "/plume-sentinel MODIS AOD") and provides a natural language description. The skill will search for matching configuration files in analyses/*/configs/ and handle date-based filtering if provided.
----
-
 # Plume Sentinel
 
-This skill automates the execution of DAVINCI-MONET pipelines in isolated terminal windows. This is particularly useful for long-running analyses or when using the `--show-plots` flag.
+Run a DAVINCI-MONET analysis pipeline in a new Terminal window.
+
+User request: $ARGUMENTS
+
+This command automates the execution of DAVINCI-MONET pipelines in isolated terminal windows. This is particularly useful for long-running analyses or when using the `--show-plots` flag.
 
 ## Workflow
 
@@ -20,7 +19,7 @@ This skill automates the execution of DAVINCI-MONET pipelines in isolated termin
 5.  **Execute in New Window (Serial)**: Use `osascript` to spawn a *single* new terminal and run each identified analysis sequentially (one after the other). Append the `--show-plots` flag to each command.
 6.  **Monitor & Summarize**:
     -   After the analysis has had time to run, check the `output/` directory for new image files.
-    -   Use `read_file` to inspect the output images.
+    -   Use the Read tool to inspect the output images.
     -   **Image Analysis Thought Process**: Before crafting the formal report, share a concise, bulleted "Image Analysis Thought Process". This should explain how you are interpreting the visual data (e.g., identifying plume boundaries, interpreting AOD color scales, or correlating HMS contours with satellite imagery).
     -   Craft the final summary as a **formal meteorological report**, written in the authoritative tone of "PlumeSentinel AI" issuing a high wildfire smoke event alert. The report MUST clearly indicate that it is a **TEST BULLETIN**. Include structured sections for Synoptic Overview, Aerosol Optical Depth (AOD) Analysis, Hazard Mapping System (HMS) observations based on the visual findings, and Health Impacts. **Display this bulletin in its entirety at the end of the response.**
     -   **MQTT Publishing**: After crafting the report, save it to a text file (e.g., `report.txt`) and use an available MQTT client to publish the full text to the public HiveMQ broker (`broker.hivemq.com`). For example, if using the npm `mqtt` CLI, pipe the file content using the `-s` (stdin) flag: `cat report.txt | npx --yes mqtt pub -t 'plume-sentinel-ai/alerts/test' -h broker.hivemq.com -s`. Publish under the base topic `plume-sentinel-ai`.
