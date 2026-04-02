@@ -107,6 +107,7 @@ class AnalysisConfig(FlexibleModel):
     log_dir: Path | str | None = None
     debug: bool = False
     style: PlotStyleConfig | dict[str, Any] | None = None
+    workflow: str | None = None
 
     @field_validator("style", mode="before")
     @classmethod
