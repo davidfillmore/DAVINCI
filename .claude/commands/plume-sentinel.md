@@ -16,10 +16,23 @@ This command automates the execution of DAVINCI-MONET pipelines in isolated term
 2.  **Handle Date Overrides**: Create a temporary copy and update the `start_time` and `end_time` fields under the `analysis` section to the requested date.
 3.  **Validate Input**: Ensure the final YAML configuration files exist and are valid.
 4.  **Verify Environment**: Confirm the `davinci-monet` conda environment is available.
-5.  **Execute in New Window (Serial)**: Use `osascript` to spawn a *single* new terminal and run each identified analysis sequentially (one after the other). Append the `--show-plots` flag to each command.
-6.  **Monitor & Summarize**:
-    -   After the analysis has had time to run, check the `output/` directory for new image files.
-    -   Use the Read tool to inspect the output images.
+5.  **Prepare Completion Detection**: Remove any stale sentinel files before launching:
+    ```bash
+    rm -f /tmp/plume-sentinel-done /tmp/plume-sentinel-manifest.txt /tmp/plume-sentinel-window-id
+    ```
+6.  **Execute in New Window (Serial)**: Use `osascript` to spawn a *single* new terminal and run each identified analysis sequentially. Append the `--show-plots` flag to each command. At the end of the command chain, write a manifest of output files and touch a sentinel file to signal completion (see Platform-Specific Commands below).
+7.  **Wait for Completion**: Immediately after launching the terminal, start a background watcher using Bash with `run_in_background: true`:
+    ```bash
+    while [ ! -f /tmp/plume-sentinel-done ]; do sleep 5; done && echo "Pipelines complete"
+    ```
+    Continue informing the user that analyses are running. When the background watcher completes, you will be notified automatically — do NOT poll or sleep.
+8.  **Close Pipeline Terminal**: Once completion is detected, close the spawned Terminal window:
+    ```bash
+    osascript -e 'tell application "Terminal" to close (every window whose id is '"$(cat /tmp/plume-sentinel-window-id)"')'
+    ```
+9.  **Monitor & Summarize** (triggered when watcher completes):
+    -   Read `/tmp/plume-sentinel-manifest.txt` to get the list of output image files.
+    -   Use the Read tool to inspect each output image.
     -   **Image Analysis Thought Process**: Before crafting the formal report, share a concise, bulleted "Image Analysis Thought Process". This should explain how you are interpreting the visual data (e.g., identifying plume boundaries, interpreting AOD color scales, or correlating HMS contours with satellite imagery).
     -   Craft the final summary as a **formal meteorological report**, written in the authoritative tone of "PlumeSentinel AI" issuing a high wildfire smoke event alert. The report MUST clearly indicate that it is a **TEST BULLETIN**. Include structured sections for Synoptic Overview, Aerosol Optical Depth (AOD) Analysis, Hazard Mapping System (HMS) observations based on the visual findings, and Health Impacts. **Display this bulletin in its entirety at the end of the response.**
     -   **MQTT Publishing**: After crafting the report, save it to a text file (e.g., `report.txt`) and use an available MQTT client to publish the full text to the public HiveMQ broker (`broker.hivemq.com`). For example, if using the npm `mqtt` CLI, pipe the file content using the `-s` (stdin) flag: `cat report.txt | npx --yes mqtt pub -t 'plume-sentinel-ai/alerts/test' -h broker.hivemq.com -s`. Publish under the base topic `plume-sentinel-ai`.
@@ -29,14 +42,34 @@ This command automates the execution of DAVINCI-MONET pipelines in isolated term
 
 #### macOS (Darwin)
 
-Use `osascript` to launch a new Terminal window. To run multiple configs in serial in the same window, and return to the original window after a 5 second delay:
+Use `osascript` to launch a new Terminal window. The command chain must:
+1. `cd` to the project directory
+2. Activate the conda environment
+3. Run each config sequentially with `--show-plots`
+4. Write output file manifest to `/tmp/plume-sentinel-manifest.txt`
+5. Touch `/tmp/plume-sentinel-done` to signal completion
+6. Return focus to the original window
+
+The osascript captures the spawned window ID by comparing window lists before and after spawning, then writes it to `/tmp/plume-sentinel-window-id` so it can be closed after completion.
+
+**IMPORTANT**: Use absolute paths for config files and output directories. The spawned terminal starts in the user's home directory, and `cd` inside the command chain can silently fail. Absolute paths are reliable.
 
 ```bash
 osascript -e 'tell application "Terminal"
 set orig_window to id of front window
-do script "cd /Users/fillmore/EarthSystem/DAVINCI-MONET && conda activate davinci-monet && osascript -e \"tell application \\\"Terminal\\\" to activate\" && davinci-monet run <config_path_1> --show-plots && sleep 5 && osascript -e \"tell application \\\"Terminal\\\" to activate\" && davinci-monet run <config_path_2> --show-plots && sleep 5 && osascript -e \"tell application \\\"Terminal\\\" to set index of window id " & orig_window & " to 1\" -e \"tell application \\\"Terminal\\\" to activate\""
+set winsBefore to id of every window
+do script "conda activate davinci-monet && osascript -e \"tell application \\\"Terminal\\\" to activate\" && davinci-monet run <absolute_config_path_1> --show-plots && sleep 5 && osascript -e \"tell application \\\"Terminal\\\" to activate\" && davinci-monet run <absolute_config_path_2> --show-plots && ls <absolute_output_dir>/*.png > /tmp/plume-sentinel-manifest.txt && touch /tmp/plume-sentinel-done && sleep 5 && osascript -e \"tell application \\\"Terminal\\\" to set index of window id " & orig_window & " to 1\" -e \"tell application \\\"Terminal\\\" to activate\""
+delay 1
+set winsAfter to id of every window
+repeat with w in winsAfter
+if w is not in winsBefore then
+do shell script "echo " & w & " > /tmp/plume-sentinel-window-id"
+end if
+end repeat
 end tell'
 ```
+
+Replace `<absolute_config_path_1>`, `<absolute_config_path_2>`, and `<absolute_output_dir>` with full paths derived from the identified configs (e.g., `/Users/fillmore/EarthSystem/DAVINCI-MONET/analyses/plume-sentinel/configs/modis-aod-truecolor-gemini.yaml`).
 
 ### Example Usage
 
