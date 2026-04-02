@@ -33,7 +33,7 @@ Use `osascript` to launch a new Terminal window. To run multiple configs in seri
 ```bash
 osascript -e 'tell application "Terminal"
 set orig_window to id of front window
-do script "cd /Users/fillmore/EarthSystem/DAVINCI-MONET && conda activate davinci-monet && davinci-monet run <config_path_1> --open-plots && davinci-monet run <config_path_2> --open-plots && sleep 5 && osascript -e \"tell application \\\"Terminal\\\" to set index of window id " & orig_window & " to 1\" -e \"tell application \\\"Terminal\\\" to activate\""
+do script "cd /Users/fillmore/EarthSystem/DAVINCI-MONET && conda activate davinci-monet && osascript -e \"tell application \\\"Terminal\\\" to activate\" && davinci-monet run <config_path_1> --open-plots && sleep 5 && osascript -e \"tell application \\\"Terminal\\\" to activate\" && davinci-monet run <config_path_2> --open-plots && sleep 5 && osascript -e \"tell application \\\"Terminal\\\" to set index of window id " & orig_window & " to 1\" -e \"tell application \\\"Terminal\\\" to activate\""
 end tell'
 ```
 
