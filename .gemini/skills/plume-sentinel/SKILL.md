@@ -22,7 +22,9 @@ This skill automates the execution of DAVINCI-MONET pipelines in isolated termin
     -   After the analysis has had time to run, check the `output/` directory for new image files.
     -   **Copy images** to the project temporary directory (e.g., `/Users/fillmore/.gemini/tmp/davinci-monet/plume_sentinel/`) before using `read_file`.
     -   **Session Re-activation**: Ensure the `osascript` command captures the original session window ID and robustly brings it back to the foreground once all analyses complete.
-    -   Use `read_file` to inspect the images. Craft the final summary as a **formal meteorological report**, written in the authoritative tone of a weather agency (e.g., NOAA or NWS) issuing a high wildfire smoke event alert. Include structured sections for Synoptic Overview, Aerosol Optical Depth (AOD) Analysis, and Hazard Mapping System (HMS) observations based on the visual findings.
+    -   Use `read_file` to inspect the images. Craft the final summary as a **formal meteorological report**, written in the authoritative tone of "PlumeSentinel AI" issuing a high wildfire smoke event alert. The report MUST clearly indicate that it is a **TEST BULLETIN**. Include structured sections for Synoptic Overview, Aerosol Optical Depth (AOD) Analysis, and Hazard Mapping System (HMS) observations based on the visual findings.
+    -   **MQTT Publishing**: After crafting the report, use an available MQTT client (e.g., `mosquitto_pub` or a Python script via `paho-mqtt`) to publish the full text of the bulletin to the public HiveMQ broker (`broker.hivemq.com`). Publish it under the base topic `plume-sentinel-ai`. 
+        -   *Suggested subtopics*: `plume-sentinel-ai/alerts/test` (for test broadcasts), `plume-sentinel-ai/reports/west-coast` (for region-specific reports), or `plume-sentinel-ai/events/wildfire-smoke` (for event-specific tracking).
 
 ### Platform-Specific Commands
 
