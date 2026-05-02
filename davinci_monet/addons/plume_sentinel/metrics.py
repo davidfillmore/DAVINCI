@@ -105,5 +105,9 @@ def hms_metrics(hms_gdf: Any) -> dict[str, float]:
     for cls, key in by_class.items():
         subset = projected[classes_lower == cls.lower()]
         if not subset.empty:
-            out[key] = float(subset.geometry.area.sum() / 1e6)  # m² → km²
+            # Dissolve overlapping polygons before measuring area; raw
+            # subset.geometry.area.sum() double-counts where polygons overlap.
+            # Operational HMS shapefiles routinely contain overlapping plumes
+            # (e.g., 2020-09-09 had 14 Heavy polygons with ~47% overlap).
+            out[key] = float(subset.geometry.union_all().area / 1e6)  # m² → km²
     return out
