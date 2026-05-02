@@ -57,6 +57,7 @@ def run(
     run_id: str | None = None,
     region: str | None = None,
     config_slug: str | None = None,
+    event_date: str | None = None,
 ):
     """Run the Plume Sentinel pipeline; optionally write a metrics.json sidecar.
 
@@ -75,6 +76,15 @@ def run(
         is synthesized from event_date + region + config_slug.
     region, config_slug
         Provenance fields included verbatim in the metrics payload.
+    event_date
+        Optional ``YYYY-MM-DD`` date that, when provided, overrides
+        ``analysis.start_time`` and ``analysis.end_time`` in the loaded
+        config to a full UTC day spanning the date
+        (``<event_date>T00:00:00+00:00`` through ``<event_date>T23:59:59+00:00``).
+        The mutated config drives the rest of the run, so the emitted
+        metrics payload's ``event_date`` and ``valid_time`` reflect the
+        requested date. When omitted, behavior is unchanged from prior
+        Phase 3 semantics.
 
     Returns
     -------
@@ -99,6 +109,9 @@ def run(
     if output_dir is not None:
         config.setdefault("analysis", {})
         config["analysis"]["output_dir"] = str(output_dir)
+
+    if event_date is not None:
+        _apply_event_date_override(config, event_date)
 
     runner = PipelineRunner(show_progress=False)
 
@@ -160,6 +173,35 @@ def _to_iso(value: Any, default: str) -> str:
         # Already a string; assume caller knows what they're doing.
         return value
     return str(value)
+
+
+def _apply_event_date_override(config: dict[str, Any], event_date: str) -> None:
+    """Mutate ``config['analysis']`` so its time window spans ``event_date``.
+
+    Sets ``analysis.start_time`` to ``<event_date>T00:00:00+00:00`` and
+    ``analysis.end_time`` to ``<event_date>T23:59:59+00:00`` (UTC day).
+    The values are stored as timezone-aware ``datetime`` objects, which
+    matches the shape produced by ``Config.model_dump()`` and is accepted
+    by ``PipelineRunner.run_from_config`` and the metrics-payload helpers
+    (``_event_date_from_config`` / ``_to_iso``).
+
+    Accepts a config whose existing ``start_time``/``end_time`` are bare
+    YAML dates (``str``), pre-parsed ``datetime`` objects, or absent —
+    the override always wins.
+    """
+    try:
+        parsed = datetime.strptime(event_date, "%Y-%m-%d")
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"event_date must be YYYY-MM-DD, got {event_date!r}: {exc}"
+        ) from exc
+
+    start = parsed.replace(hour=0, minute=0, second=0, tzinfo=timezone.utc)
+    end = parsed.replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+
+    analysis = config.setdefault("analysis", {})
+    analysis["start_time"] = start
+    analysis["end_time"] = end
 
 
 def _event_date_from_config(analysis_cfg: dict[str, Any]) -> str:

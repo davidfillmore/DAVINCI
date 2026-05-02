@@ -47,6 +47,7 @@ def run_analysis(
     run_id: str | None = None,
     region: str | None = None,
     config_slug: str | None = None,
+    event_date: str | None = None,
 ) -> None:
     """Execute DAVINCI analysis from a control file.
 
@@ -71,6 +72,11 @@ def run_analysis(
         Run identifier embedded in the metrics payload.
     region, config_slug
         Provenance tags included in the metrics payload.
+    event_date
+        If provided (YYYY-MM-DD), overrides the config's
+        ``analysis.start_time`` / ``analysis.end_time`` to span the
+        given UTC day before the workflow runs (plume_sentinel only).
+        Lets one config drive multiple manifest dates.
     """
     # Update global debug flag
     import davinci_monet.cli.app as app_module
@@ -92,6 +98,7 @@ def run_analysis(
         "--region": region,
         "--config-slug": config_slug,
         "--output-dir": output_dir,
+        "--event-date": event_date,
     }
     if not plume_sentinel:
         provided = [name for name, value in ps_flags.items() if value is not None]
@@ -122,19 +129,27 @@ def run_analysis(
                 run_id=run_id,
                 region=region,
                 config_slug=config_slug,
+                event_date=event_date,
             )
         else:
             from davinci_monet.pipeline.runner import run_analysis as pipeline_run
 
-            # If the user passed --output-dir for a plume_sentinel workflow
-            # without --emit-metrics-json, still honor it by editing the
-            # config dict before run.
-            if plume_sentinel and output_dir is not None:
+            # If the user passed --output-dir or --event-date for a
+            # plume_sentinel workflow without --emit-metrics-json, still
+            # honor them by editing the config dict before run.
+            if plume_sentinel and (output_dir is not None or event_date is not None):
                 from davinci_monet.config import load_config
 
                 cfg = load_config(str(p)).model_dump()
                 cfg.setdefault("analysis", {})
-                cfg["analysis"]["output_dir"] = str(output_dir)
+                if output_dir is not None:
+                    cfg["analysis"]["output_dir"] = str(output_dir)
+                if event_date is not None:
+                    from davinci_monet.addons.plume_sentinel.workflow import (
+                        _apply_event_date_override,
+                    )
+
+                    _apply_event_date_override(cfg, event_date)
                 from davinci_monet.pipeline.runner import PipelineRunner
 
                 runner = PipelineRunner(

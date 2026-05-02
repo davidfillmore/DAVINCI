@@ -381,6 +381,15 @@ def run(
         "--config-slug",
         help="Config slug included in the metrics payload (plume_sentinel workflows only).",
     ),
+    event_date: str | None = typer.Option(
+        None,
+        "--event-date",
+        help=(
+            "Override analysis.start_time/end_time to span the given UTC day "
+            "(YYYY-MM-DD). Lets one config drive multiple manifest dates "
+            "(plume_sentinel workflows only)."
+        ),
+    ),
 ) -> None:
     """Run DAVINCI analysis as described in the control file."""
     from davinci_monet.cli.commands.run import run_analysis
@@ -399,6 +408,7 @@ def run(
         run_id=run_id,
         region=region,
         config_slug=config_slug,
+        event_date=event_date,
     )
 
 
