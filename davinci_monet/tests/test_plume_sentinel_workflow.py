@@ -166,3 +166,72 @@ class TestPlumeSentinelWorkflow:
         assert "produced_at" in payload
         assert "valid_time" in payload
         assert "config_files" in payload
+
+    def test_workflow_event_date_override(self, tmp_path):
+        """`--event-date` overrides config start/end_time and propagates to metrics.json.
+
+        The fixture config declares start_time/end_time = 2020-09-09; we invoke
+        ``workflow.run`` with ``event_date='2020-09-10'`` and verify the emitted
+        metrics payload reflects the overridden date in ``event_date``,
+        ``valid_time``, and any config-derived ``input_datasets[*].valid_time``.
+        """
+        goes_path = tmp_path / "goes_test.nc"
+        self._create_synthetic_goes(goes_path)
+        output_dir = tmp_path / "output"
+        metrics_path = tmp_path / "metrics.json"
+
+        config = {
+            "analysis": {
+                "workflow": "plume_sentinel",
+                "start_time": "2020-09-09",
+                "end_time": "2020-09-09",
+                "output_dir": str(output_dir),
+                "style": {"theme": "ncar", "context": "default"},
+            },
+            "plume_sentinel": {
+                "inputs": {
+                    "goes_event": {
+                        "type": "goes_truecolor",
+                        "file": str(goes_path),
+                        "gamma": 1.8,
+                    },
+                },
+                "plots": {
+                    "test_goes": {
+                        "type": "truecolor_contour",
+                        "background": "goes_event",
+                        "overlays": [],
+                        "extent": [-130, -110, 30, 52],
+                        "projection": {
+                            "type": "lambert_conformal",
+                            "central_longitude": -120,
+                        },
+                        "title": "Test GOES Plot",
+                    },
+                },
+            },
+        }
+
+        result = ps_workflow.run(
+            config,
+            emit_metrics_json=metrics_path,
+            run_id="test-westcoast-modisaod-override",
+            region="westcoast",
+            config_slug="modisaod",
+            event_date="2020-09-10",
+        )
+
+        assert result.success, (
+            f"Pipeline failed: {[s.error for s in result.stage_results if s.error]}"
+        )
+        assert metrics_path.exists()
+
+        payload = json.loads(metrics_path.read_text())
+        assert payload["event_date"] == "2020-09-10", payload["event_date"]
+        assert payload["valid_time"].startswith("2020-09-10"), payload["valid_time"]
+        # Any config-derived input_datasets should also carry the overridden valid_time
+        # (loader-provided structured provenance, when present, is allowed to differ).
+        for ds in payload.get("input_datasets", []):
+            assert ds["valid_time"].startswith("2020-09-10"), (
+                f"input_dataset {ds.get('name')} valid_time = {ds.get('valid_time')!r}"
+            )
