@@ -84,7 +84,13 @@ def _make_projection(proj_spec: dict[str, Any] | None) -> ccrs.Projection:
 
 
 def _save_figure(fig: plt.Figure, output_dir: str | Path, plot_name: str) -> list[str]:
-    """Save figure to PNG and close it.
+    """Save figure to PNG with a transparent figure background and close it.
+
+    Transparent figure/axes backgrounds let the embedding context (e.g.
+    a dark Grafana dashboard panel) show through the figure margins
+    instead of a hard-edged white box. The plot content area itself
+    (satellite tile, AOD raster, HMS contours) remains opaque because
+    those layers paint their own pixels.
 
     Returns
     -------
@@ -94,7 +100,10 @@ def _save_figure(fig: plt.Figure, output_dir: str | Path, plot_name: str) -> lis
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     png_path = output_dir / f"{plot_name}.png"
-    fig.savefig(png_path, dpi=200, bbox_inches="tight")
+    fig.patch.set_alpha(0.0)
+    for ax in fig.axes:
+        ax.patch.set_alpha(0.0)
+    fig.savefig(png_path, dpi=200, bbox_inches="tight", transparent=True)
     plt.close(fig)
     return [str(png_path)]
 
@@ -155,9 +164,10 @@ def _render_truecolor_contour(
             framealpha=0.8,
         )
 
-    # Title
-    title = plot_spec.get("title", plot_name)
-    fig.suptitle(title, fontsize=16, fontweight="bold")
+    # Title is intentionally NOT drawn on the figure: the embedding
+    # context (Grafana panel header, bulletin section heading) provides
+    # it. Keeping the title metadata in plot_spec for downstream
+    # consumers; not rendering it on the canvas.
 
     return _save_figure(fig, output_dir, plot_name)
 
@@ -230,11 +240,19 @@ def _render_truecolor_aod(
             zorder=3,
         )
 
-        # Add colorbar
+        # Add colorbar. Style text white so it reads against the dark
+        # Grafana panel background once the figure facecolor is
+        # transparent. On a light background (e.g. when the PNG is
+        # opened directly) the colorbar text will be hard to read; that
+        # tradeoff is acceptable — the dashboard is the primary
+        # consumer of these plots.
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
         cbar_label = plot_spec.get("colorbar_label", "AOD")
-        fig.colorbar(sm, ax=ax, label=cbar_label, shrink=0.7, pad=0.02)
+        cbar = fig.colorbar(sm, ax=ax, label=cbar_label, shrink=0.7, pad=0.02)
+        cbar.ax.tick_params(colors="white")
+        cbar.set_label(cbar_label, color="white")
+        cbar.outline.set_edgecolor("white")
 
     # Add political/geographic features using NCAR brand colors
     ax.add_feature(  # type: ignore[attr-defined]
@@ -251,8 +269,7 @@ def _render_truecolor_aod(
         zorder=5,
     )
 
-    # Title
-    title = plot_spec.get("title", plot_name)
-    fig.suptitle(title, fontsize=16, fontweight="bold")
+    # Title is intentionally NOT drawn on the figure (see notes in the
+    # truecolor-contour renderer above).
 
     return _save_figure(fig, output_dir, plot_name)
