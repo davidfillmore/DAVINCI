@@ -350,6 +350,37 @@ def run(
         "--open-plots",
         help="Open generated plot files in system viewer after successful run.",
     ),
+    output_dir: str | None = typer.Option(
+        None,
+        "--output-dir",
+        help="Override analysis.output_dir from the config (plume_sentinel workflows).",
+    ),
+    emit_metrics_json: str | None = typer.Option(
+        None,
+        "--emit-metrics-json",
+        help=(
+            "Write a plumesentinel.metrics.v1 JSON sidecar to this path "
+            "(plume_sentinel workflows only)."
+        ),
+    ),
+    run_id: str | None = typer.Option(
+        None,
+        "--run-id",
+        help=(
+            "Run identifier embedded in the metrics payload "
+            "(plume_sentinel workflows only)."
+        ),
+    ),
+    region: str | None = typer.Option(
+        None,
+        "--region",
+        help="Region tag included in the metrics payload (plume_sentinel workflows only).",
+    ),
+    config_slug: str | None = typer.Option(
+        None,
+        "--config-slug",
+        help="Config slug included in the metrics payload (plume_sentinel workflows only).",
+    ),
 ) -> None:
     """Run DAVINCI analysis as described in the control file."""
     from davinci_monet.cli.commands.run import run_analysis
@@ -357,7 +388,18 @@ def run(
     global DEBUG
     DEBUG = debug
 
-    run_analysis(control, debug=debug, show_plots=show_plots, preview_format=preview_format, open_plots=open_plots)
+    run_analysis(
+        control,
+        debug=debug,
+        show_plots=show_plots,
+        preview_format=preview_format,
+        open_plots=open_plots,
+        output_dir=output_dir,
+        emit_metrics_json=emit_metrics_json,
+        run_id=run_id,
+        region=region,
+        config_slug=config_slug,
+    )
 
 
 @app.command()

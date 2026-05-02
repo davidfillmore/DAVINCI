@@ -73,7 +73,8 @@ def hms_metrics(hms_gdf: Any) -> dict[str, float]:
 
     Projects the GeoDataFrame to NA Albers Equal-Area (EPSG:5070) before
     computing geometry areas, so results are real km² rather than
-    degrees-squared.
+    degrees-squared. Accepts ``density`` or ``Density`` column names
+    (the operational HMS shapefiles use ``Density`` with a capital D).
     """
     import geopandas as gpd  # heavy import — keep local
 
@@ -84,15 +85,25 @@ def hms_metrics(hms_gdf: Any) -> dict[str, float]:
     projected = hms_gdf.to_crs("EPSG:5070") if hms_gdf.crs else hms_gdf
 
     out = {"hms_heavy_km2": 0.0, "hms_medium_km2": 0.0, "hms_light_km2": 0.0}
+
+    # Locate the density column (case-insensitive).
+    density_col: str | None = None
+    for col in projected.columns:
+        if str(col).lower() == "density":
+            density_col = col
+            break
+    if density_col is None:
+        return out
+
     by_class = {
         "Heavy": "hms_heavy_km2",
         "Medium": "hms_medium_km2",
         "Light": "hms_light_km2",
     }
-    if "density" not in projected.columns:
-        return out
+    # Compare case-insensitively against the canonical class names.
+    classes_lower = projected[density_col].astype(str).str.strip().str.lower()
     for cls, key in by_class.items():
-        subset = projected[projected["density"] == cls]
+        subset = projected[classes_lower == cls.lower()]
         if not subset.empty:
             out[key] = float(subset.geometry.area.sum() / 1e6)  # m² → km²
     return out

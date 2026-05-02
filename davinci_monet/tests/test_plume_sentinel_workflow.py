@@ -6,6 +6,7 @@ data and verifies the full load -> prepare -> plot path produces output.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import matplotlib
@@ -16,6 +17,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from davinci_monet.addons.plume_sentinel import workflow as ps_workflow
 from davinci_monet.pipeline.runner import PipelineRunner
 
 
@@ -95,3 +97,72 @@ class TestPlumeSentinelWorkflow:
         plots = plotting_result.data.get("plots_generated", [])
         assert len(plots) >= 1
         assert Path(plots[0]).exists()
+
+    def test_workflow_emits_metrics_json(self, tmp_path):
+        """`workflow.run` with `emit_metrics_json` writes a v1-conformant sidecar."""
+        goes_path = tmp_path / "goes_test.nc"
+        self._create_synthetic_goes(goes_path)
+        output_dir = tmp_path / "output"
+        metrics_path = tmp_path / "metrics.json"
+
+        config = {
+            "analysis": {
+                "workflow": "plume_sentinel",
+                "start_time": "2020-09-09",
+                "end_time": "2020-09-09",
+                "output_dir": str(output_dir),
+                "style": {"theme": "ncar", "context": "default"},
+            },
+            "plume_sentinel": {
+                "inputs": {
+                    "goes_event": {
+                        "type": "goes_truecolor",
+                        "file": str(goes_path),
+                        "gamma": 1.8,
+                    },
+                },
+                "plots": {
+                    "test_goes": {
+                        "type": "truecolor_contour",
+                        "background": "goes_event",
+                        "overlays": [],
+                        "extent": [-130, -110, 30, 52],
+                        "projection": {
+                            "type": "lambert_conformal",
+                            "central_longitude": -120,
+                        },
+                        "title": "Test GOES Plot",
+                    },
+                },
+            },
+        }
+
+        result = ps_workflow.run(
+            config,
+            emit_metrics_json=metrics_path,
+            run_id="test-westcoast-modisaod",
+            region="westcoast",
+            config_slug="modisaod",
+        )
+
+        assert result.success, (
+            f"Pipeline failed: {[s.error for s in result.stage_results if s.error]}"
+        )
+        assert metrics_path.exists()
+
+        payload = json.loads(metrics_path.read_text())
+        assert payload["schema"] == "plumesentinel.metrics.v1"
+        assert payload["run_id"] == "test-westcoast-modisaod"
+        assert payload["region"] == "westcoast"
+        assert payload["config_slug"] == "modisaod"
+        assert "metrics" in payload
+        assert "pipeline_version" in payload
+        assert "davinci_monet" in payload["pipeline_version"]
+        assert "plume_sentinel_addon" in payload["pipeline_version"]
+        assert "input_datasets" in payload
+        assert "quality_flags" in payload
+        assert "plot_urls" in payload
+        assert "wallclock_s" in payload
+        assert "produced_at" in payload
+        assert "valid_time" in payload
+        assert "config_files" in payload
