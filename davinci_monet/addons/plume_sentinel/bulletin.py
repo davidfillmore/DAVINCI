@@ -14,6 +14,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+import paho.mqtt.client as paho_mqtt
+
 
 def _julian_day(date_str: str) -> str:
     """Convert YYYY-MM-DD to a 7-digit YYYYDDD julian day string."""
@@ -95,3 +97,25 @@ def build_prompt(
     out = out.replace("{{OBSERVATION_TIME}}", obs_time)
     out = out.replace("{{SENSOR_SOURCES}}", sensors)
     return out
+
+
+def publish_mqtt(
+    *,
+    text: str,
+    broker: str,
+    topic: str,
+    port: int = 1883,
+    qos: int = 0,
+) -> None:
+    """Publish ``text`` to ``topic`` on the given MQTT broker.
+
+    Synchronous: connect, publish, disconnect. Raises on connect or publish
+    failure; the caller is responsible for converting that into a
+    ``quality_flag``.
+    """
+    client = paho_mqtt.Client()
+    client.connect(broker, port, 60)
+    try:
+        client.publish(topic, payload=text, qos=qos)
+    finally:
+        client.disconnect()

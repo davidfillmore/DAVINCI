@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
-from davinci_monet.addons.plume_sentinel.bulletin import build_prompt
+from davinci_monet.addons.plume_sentinel.bulletin import build_prompt, publish_mqtt
 
 
 TEMPLATE = """BULLETIN ID: {{BULLETIN_ID}}
@@ -66,3 +68,37 @@ def test_build_prompt_handles_missing_input_datasets():
     out = build_prompt(TEMPLATE, payload, issued_date="May 14, 2026")
     # Falls back to "unknown" or empty rather than crashing
     assert "{{SENSOR_SOURCES}}" not in out
+
+
+def test_publish_mqtt_uses_config():
+    fake_client = MagicMock()
+    with patch(
+        "davinci_monet.addons.plume_sentinel.bulletin.paho_mqtt.Client",
+        return_value=fake_client,
+    ):
+        publish_mqtt(
+            text="HELLO",
+            broker="broker.example.com",
+            topic="t/test",
+            port=1884,
+            qos=1,
+        )
+    fake_client.connect.assert_called_once_with("broker.example.com", 1884, 60)
+    fake_client.publish.assert_called_once_with("t/test", payload="HELLO", qos=1)
+    fake_client.disconnect.assert_called_once()
+
+
+def test_publish_mqtt_raises_on_connect_failure():
+    fake_client = MagicMock()
+    fake_client.connect.side_effect = OSError("broker unreachable")
+    with patch(
+        "davinci_monet.addons.plume_sentinel.bulletin.paho_mqtt.Client",
+        return_value=fake_client,
+    ):
+        with pytest.raises(OSError, match="broker unreachable"):
+            publish_mqtt(
+                text="HELLO",
+                broker="broker.example.com",
+                topic="t/test",
+            )
+    fake_client.publish.assert_not_called()
