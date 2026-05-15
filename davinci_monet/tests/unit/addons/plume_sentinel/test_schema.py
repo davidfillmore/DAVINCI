@@ -217,3 +217,62 @@ class TestWorkflowFactory:
         stages = create_plume_sentinel_pipeline()
         names = [s.name for s in stages]
         assert names == ["load_inputs", "prepare_geospatial", "plotting"]
+
+
+import pytest
+from pydantic import ValidationError
+
+from davinci_monet.addons.plume_sentinel.schema import (
+    BulletinConfig,
+    MqttConfig,
+    PlumeSentinelConfig,
+)
+
+
+def test_mqtt_config_defaults():
+    cfg = MqttConfig(topic="plume-sentinel-ai/reports/test")
+    assert cfg.broker == "broker.hivemq.com"
+    assert cfg.port == 1883
+    assert cfg.qos == 0
+    assert cfg.topic == "plume-sentinel-ai/reports/test"
+
+
+def test_bulletin_config_defaults():
+    cfg = BulletinConfig()
+    assert cfg.template is None
+    assert cfg.output_filename == "bulletin.txt"
+    assert cfg.model == "claude-sonnet-4-6"
+    assert cfg.include_images is False
+    assert cfg.api_key_env == "ANTHROPIC_API_KEY"
+    assert cfg.mqtt is None
+    assert cfg.on_error == "warn"
+
+
+def test_bulletin_config_on_error_only_accepts_warn():
+    with pytest.raises(ValidationError):
+        BulletinConfig(on_error="fail")
+
+
+def test_bulletin_config_parses_mqtt_subblock():
+    cfg = BulletinConfig(
+        mqtt={"topic": "plume-sentinel-ai/reports/west-coast", "qos": 1}
+    )
+    assert isinstance(cfg.mqtt, MqttConfig)
+    assert cfg.mqtt.topic == "plume-sentinel-ai/reports/west-coast"
+    assert cfg.mqtt.qos == 1
+
+
+def test_plume_sentinel_config_bulletin_optional():
+    cfg = PlumeSentinelConfig(inputs={}, plots={})
+    assert cfg.bulletin is None
+
+
+def test_plume_sentinel_config_bulletin_present():
+    cfg = PlumeSentinelConfig(
+        inputs={},
+        plots={},
+        bulletin={"model": "claude-opus-4-7", "include_images": True},
+    )
+    assert cfg.bulletin is not None
+    assert cfg.bulletin.model == "claude-opus-4-7"
+    assert cfg.bulletin.include_images is True

@@ -65,8 +65,46 @@ class PlotSpec(BaseModel, extra="allow"):
         return v
 
 
+class MqttConfig(BaseModel):
+    """MQTT broker connection and publish parameters."""
+
+    broker: str = "broker.hivemq.com"
+    topic: str
+    port: int = 1883
+    qos: int = 0
+
+
+class BulletinConfig(BaseModel):
+    """Configuration for the bulletin generation stage."""
+
+    template: str | None = None
+    output_filename: str = "bulletin.txt"
+    model: str = "claude-sonnet-4-6"
+    include_images: bool = False
+    api_key_env: str = "ANTHROPIC_API_KEY"
+    mqtt: MqttConfig | None = None
+    on_error: str = "warn"
+
+    @field_validator("on_error")
+    @classmethod
+    def _on_error_must_be_warn(cls, v: str) -> str:
+        if v != "warn":
+            raise ValueError(
+                'on_error currently only supports "warn"; "fail" is reserved'
+            )
+        return v
+
+    @field_validator("mqtt", mode="before")
+    @classmethod
+    def _parse_mqtt(cls, v):  # noqa: ANN001, ANN201
+        if isinstance(v, dict):
+            return MqttConfig(**v)
+        return v
+
+
 class PlumeSentinelConfig(BaseModel):
     """Top-level configuration for the PlumeSentinel add-on workflow."""
 
     inputs: dict[str, InputSpec]
     plots: dict[str, PlotSpec]
+    bulletin: BulletinConfig | None = None
