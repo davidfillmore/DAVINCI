@@ -71,7 +71,7 @@ where = ["."]
 include = ["davinci_monet*"]
 
 [tool.setuptools.package-data]
-davinci_monet = ["py.typed"]
+davinci_monet = ["py.typed", "addons/plume_sentinel/templates/*.template"]
 
 [tool.black]
 line-length = 100
