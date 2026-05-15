@@ -2,6 +2,32 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+## Execution Progress (as of 2026-05-14, paused)
+
+| Task | Status | Commit |
+|------|--------|--------|
+| 1. Refactor metrics_payload module | ✅ DONE | `0c8a30b` |
+| 2. Add anthropic + paho-mqtt deps | ✅ DONE | `4f5b73e` |
+| 3. Package bulletin template | ✅ DONE | `f3451b8` |
+| 4. Add BulletinConfig + MqttConfig schema | ✅ DONE | `8e76c50` |
+| 5. Implement `build_prompt()` | ✅ DONE | `f443b71` |
+| 6. Implement `publish_mqtt()` | ✅ DONE | `d865725` |
+| 7. Implement `BulletinResponse` + `generate_bulletin()` | ⏸ NEXT | — |
+| 8. `PlumeSentinelBulletinStage` happy path + skip cases | pending | — |
+| 9. Bulletin stage error paths | pending | — |
+| 10. Wire into pipeline + extend metrics payload | pending | — |
+| 11. Demo stages module | pending | — |
+| 12. Factory + runner dispatch for `demo_mode` | pending | — |
+| 13. Canned-bulletin handling in BulletinStage | pending | — |
+| 14. CLI flags `--demo-mode` and `--demo-bulletin` | pending | — |
+| 15. Final verification | pending | — |
+
+**Branch:** `feature/plume-sentinel-addon`. None of these task commits have been pushed yet.
+
+**Handoff notes:** `HANDOFF_BULLETIN_STAGE.md` (repo root) — read this first on resume; it has the resume instructions, conda env details, and review-flow guidance.
+
+---
+
 **Goal:** Add a `PlumeSentinelBulletinStage` to the plume_sentinel addon that generates a meteorological bulletin via the Anthropic Claude API and optionally publishes it to MQTT, all from inside DAVINCI with no interactive Claude Code session.
 
 **Architecture:** New stage appended after `PlumeSentinelPlotStage` in `create_plume_sentinel_pipeline()`. A new `bulletin.py` module hosts pure helpers (`build_prompt`, `generate_bulletin`, `publish_mqtt`). Schema gains an optional `bulletin:` block; absent block → stage no-ops. All failures warn-and-continue via `quality_flags`. Anthropic system prompt uses prompt caching across persona + partial bulletin + metrics JSON; user message holds the directive and optional vision blocks.
