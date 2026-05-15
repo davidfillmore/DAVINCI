@@ -42,6 +42,8 @@ dependencies = [
     "monet>=2.2",
     "monetio>=0.2",
     "rich>=13.0",
+    "anthropic>=0.40",
+    "paho-mqtt>=2.0",
 ]
 
 [project.optional-dependencies]

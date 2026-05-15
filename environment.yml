@@ -29,3 +29,5 @@ dependencies:
   - pip
   - pip:
     - -e ".[dev]"
+    - anthropic>=0.40
+    - paho-mqtt>=2.0
