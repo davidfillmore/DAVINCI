@@ -8,7 +8,6 @@ import pytest
 
 from davinci_monet.addons.plume_sentinel.bulletin import build_prompt, publish_mqtt
 
-
 TEMPLATE = """BULLETIN ID: {{BULLETIN_ID}}
 ISSUED: {{ISSUED_DATE}}
 EVENT DATE: {{EVENT_DATE}}
@@ -102,3 +101,106 @@ def test_publish_mqtt_raises_on_connect_failure():
                 topic="t/test",
             )
     fake_client.publish.assert_not_called()
+
+
+import base64
+import json as _json
+from pathlib import Path
+from types import SimpleNamespace
+
+from davinci_monet.addons.plume_sentinel.bulletin import (
+    BulletinResponse,
+    generate_bulletin,
+)
+
+
+def _fake_anthropic_response(text="RENDERED", input_tok=100, cache_read=80, out_tok=50):
+    return SimpleNamespace(
+        content=[SimpleNamespace(type="text", text=text)],
+        model="claude-sonnet-4-6",
+        usage=SimpleNamespace(
+            input_tokens=input_tok,
+            cache_read_input_tokens=cache_read,
+            output_tokens=out_tok,
+        ),
+    )
+
+
+def test_generate_bulletin_returns_response_and_token_counts():
+    fake_messages = MagicMock()
+    fake_messages.create.return_value = _fake_anthropic_response()
+    fake_client = SimpleNamespace(messages=fake_messages)
+    with patch(
+        "davinci_monet.addons.plume_sentinel.bulletin.anthropic.Anthropic",
+        return_value=fake_client,
+    ):
+        resp = generate_bulletin(
+            prompt="prepared partial bulletin",
+            metrics_json={"event_date": "2020-09-09"},
+            image_paths=[],
+            model="claude-sonnet-4-6",
+            api_key="sk-fake",
+        )
+    assert isinstance(resp, BulletinResponse)
+    assert resp.text == "RENDERED"
+    assert resp.model == "claude-sonnet-4-6"
+    assert resp.input_tokens == 100
+    assert resp.cache_read_tokens == 80
+    assert resp.output_tokens == 50
+
+    args, kwargs = fake_messages.create.call_args
+    # System content is a list with cache_control on the last block
+    assert isinstance(kwargs["system"], list)
+    assert kwargs["system"][-1]["cache_control"] == {"type": "ephemeral"}
+    # Three system blocks: persona, partial bulletin, metrics JSON
+    assert len(kwargs["system"]) == 3
+
+
+def test_generate_bulletin_attaches_image_blocks_when_present(tmp_path: Path):
+    png_path = tmp_path / "plot.png"
+    png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
+    png_path.write_bytes(png_bytes)
+
+    fake_messages = MagicMock()
+    fake_messages.create.return_value = _fake_anthropic_response()
+    fake_client = SimpleNamespace(messages=fake_messages)
+    with patch(
+        "davinci_monet.addons.plume_sentinel.bulletin.anthropic.Anthropic",
+        return_value=fake_client,
+    ):
+        generate_bulletin(
+            prompt="x",
+            metrics_json={},
+            image_paths=[png_path],
+            model="claude-sonnet-4-6",
+            api_key="sk-fake",
+        )
+    _args, kwargs = fake_messages.create.call_args
+    user_content = kwargs["messages"][0]["content"]
+    image_blocks = [b for b in user_content if isinstance(b, dict) and b.get("type") == "image"]
+    assert len(image_blocks) == 1
+    assert image_blocks[0]["source"]["media_type"] == "image/png"
+    assert image_blocks[0]["source"]["data"] == base64.b64encode(png_bytes).decode("ascii")
+
+
+def test_generate_bulletin_skips_missing_images(tmp_path: Path):
+    missing = tmp_path / "nope.png"  # never written
+    fake_messages = MagicMock()
+    fake_messages.create.return_value = _fake_anthropic_response()
+    fake_client = SimpleNamespace(messages=fake_messages)
+    with patch(
+        "davinci_monet.addons.plume_sentinel.bulletin.anthropic.Anthropic",
+        return_value=fake_client,
+    ):
+        resp = generate_bulletin(
+            prompt="x",
+            metrics_json={},
+            image_paths=[missing],
+            model="claude-sonnet-4-6",
+            api_key="sk-fake",
+        )
+    assert resp.skipped_images == [str(missing)]
+    _args, kwargs = fake_messages.create.call_args
+    user_content = kwargs["messages"][0]["content"]
+    image_blocks = [b for b in user_content if isinstance(b, dict) and b.get("type") == "image"]
+    assert image_blocks == []

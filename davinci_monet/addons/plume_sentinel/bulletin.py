@@ -11,9 +11,14 @@ Three responsibilities:
 
 from __future__ import annotations
 
+import base64
+import json
+from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
+import anthropic
 import paho.mqtt.client as paho_mqtt
 
 
@@ -119,3 +124,97 @@ def publish_mqtt(
         client.publish(topic, payload=text, qos=qos)
     finally:
         client.disconnect()
+
+
+PERSONA_SYSTEM_BLOCK = (
+    "You are PlumeSentinel AI, an automated meteorological analysis system. "
+    "You will be given a partial bulletin with {{PLACEHOLDER}} tokens already "
+    "filled for the deterministic fields, plus a <metrics> block containing "
+    "the quantitative event data. Replace every remaining {{PLACEHOLDER}} "
+    "token with your authoritative analysis written in formal meteorological "
+    "tone. Return ONLY the rendered bulletin text, with no preamble, no "
+    "code fences, and no commentary."
+)
+
+
+@dataclass
+class BulletinResponse:
+    """Result of a Claude API bulletin call."""
+
+    text: str
+    model: str
+    input_tokens: int
+    cache_read_tokens: int
+    output_tokens: int
+    skipped_images: list[str] = field(default_factory=list)
+
+
+def _encode_image_block(path: Path) -> dict[str, Any]:
+    """Encode a PNG on disk as an Anthropic image content block."""
+    data = base64.b64encode(path.read_bytes()).decode("ascii")
+    return {
+        "type": "image",
+        "source": {"type": "base64", "media_type": "image/png", "data": data},
+    }
+
+
+def generate_bulletin(
+    *,
+    prompt: str,
+    metrics_json: dict[str, Any],
+    image_paths: list[Path],
+    model: str,
+    api_key: str,
+    max_tokens: int = 4096,
+    temperature: float = 0.2,
+) -> BulletinResponse:
+    """Call the Anthropic API to render the bulletin from ``prompt`` + metrics.
+
+    Builds a three-block cached system prompt (persona, partial bulletin,
+    metrics JSON) plus a user message containing the directive and optional
+    vision blocks for each image path on disk.
+    """
+    metrics_text = json.dumps(
+        metrics_json, indent=2, sort_keys=True, default=str, ensure_ascii=False
+    )
+
+    system_blocks = [
+        {"type": "text", "text": PERSONA_SYSTEM_BLOCK},
+        {"type": "text", "text": prompt},
+        {
+            "type": "text",
+            "text": f"<metrics>\n{metrics_text}\n</metrics>",
+            "cache_control": {"type": "ephemeral"},
+        },
+    ]
+
+    user_content: list[dict[str, Any]] = []
+    skipped: list[str] = []
+    for p in image_paths:
+        if not p.is_file():
+            skipped.append(str(p))
+            continue
+        user_content.append(_encode_image_block(p))
+    user_content.append({"type": "text", "text": "Render the bulletin for this event."})
+
+    client = anthropic.Anthropic(api_key=api_key)
+    resp = client.messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        system=system_blocks,
+        messages=[{"role": "user", "content": user_content}],
+    )
+
+    text_parts = [b.text for b in resp.content if getattr(b, "type", None) == "text"]
+    text = "".join(text_parts)
+
+    cache_read = getattr(resp.usage, "cache_read_input_tokens", 0) or 0
+    return BulletinResponse(
+        text=text,
+        model=resp.model,
+        input_tokens=resp.usage.input_tokens,
+        cache_read_tokens=cache_read,
+        output_tokens=resp.usage.output_tokens,
+        skipped_images=skipped,
+    )
