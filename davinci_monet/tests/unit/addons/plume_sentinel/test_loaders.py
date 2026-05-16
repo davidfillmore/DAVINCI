@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 import numpy as np
 import pytest
 import xarray as xr
+
 from davinci_monet.addons.plume_sentinel.loaders import load_input
+
 
 class TestGoesLoader:
     def test_loads_goes_netcdf(self, tmp_path):
@@ -11,13 +14,17 @@ class TestGoesLoader:
                 "CMI_C01": (["y", "x"], np.random.rand(10, 10).astype(np.float32)),
                 "CMI_C02": (["y", "x"], np.random.rand(10, 10).astype(np.float32)),
                 "CMI_C03": (["y", "x"], np.random.rand(10, 10).astype(np.float32)),
-                "goes_imager_projection": ([], 0, {
-                    "perspective_point_height": 35786023.0,
-                    "longitude_of_projection_origin": -75.0,
-                    "sweep_angle_axis": "x",
-                    "semi_major_axis": 6378137.0,
-                    "semi_minor_axis": 6356752.31414,
-                }),
+                "goes_imager_projection": (
+                    [],
+                    0,
+                    {
+                        "perspective_point_height": 35786023.0,
+                        "longitude_of_projection_origin": -75.0,
+                        "sweep_angle_axis": "x",
+                        "semi_major_axis": 6378137.0,
+                        "semi_minor_axis": 6356752.31414,
+                    },
+                ),
             },
             coords={"x": np.linspace(-0.1, 0.1, 10), "y": np.linspace(-0.1, 0.1, 10)},
         )
@@ -35,11 +42,13 @@ class TestGoesLoader:
         with pytest.raises(FileNotFoundError):
             load_input(spec)
 
+
 class TestHmsLoader:
     def test_hms_missing_file_raises(self):
         spec = {"type": "hms_smoke", "file": "/nonexistent/hms.shp"}
         with pytest.raises(Exception):
             load_input(spec)
+
 
 class TestModisLoader:
     def test_modis_missing_files_raises(self):
@@ -51,6 +60,7 @@ class TestModisLoader:
         }
         with pytest.raises(FileNotFoundError):
             load_input(spec)
+
 
 class TestUnknownType:
     def test_unknown_type_raises(self):

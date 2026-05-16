@@ -254,9 +254,7 @@ def test_bulletin_config_on_error_only_accepts_warn():
 
 
 def test_bulletin_config_parses_mqtt_subblock():
-    cfg = BulletinConfig(
-        mqtt={"topic": "plume-sentinel-ai/reports/west-coast", "qos": 1}
-    )
+    cfg = BulletinConfig(mqtt={"topic": "plume-sentinel-ai/reports/west-coast", "qos": 1})
     assert isinstance(cfg.mqtt, MqttConfig)
     assert cfg.mqtt.topic == "plume-sentinel-ai/reports/west-coast"
     assert cfg.mqtt.qos == 1

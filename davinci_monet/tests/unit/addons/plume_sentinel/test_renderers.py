@@ -1,4 +1,5 @@
 """Tests for PlumeSentinel renderers and overlays."""
+
 from __future__ import annotations
 
 from davinci_monet.addons.plume_sentinel.overlays import SMOKE_DENSITY_STYLES

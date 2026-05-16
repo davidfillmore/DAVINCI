@@ -202,8 +202,11 @@ def run_analysis(
                 result = runner.run_from_config(cfg)
             else:
                 result = pipeline_run(
-                    str(p), show_progress=True, show_plots=show_plots,
-                    preview_format=preview_format, open_plots=open_plots,  # type: ignore[arg-type]
+                    str(p),
+                    show_progress=True,
+                    show_plots=show_plots,
+                    preview_format=preview_format,
+                    open_plots=open_plots,  # type: ignore[arg-type]
                 )
     except ConfigurationError as e:
         # Styled display for configuration/YAML errors (before pipeline starts)

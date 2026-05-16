@@ -89,9 +89,7 @@ class BulletinConfig(BaseModel):
     @classmethod
     def _on_error_must_be_warn(cls, v: str) -> str:
         if v != "warn":
-            raise ValueError(
-                'on_error currently only supports "warn"; "fail" is reserved'
-            )
+            raise ValueError('on_error currently only supports "warn"; "fail" is reserved')
         return v
 
     @field_validator("mqtt", mode="before")
