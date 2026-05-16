@@ -89,7 +89,7 @@ class TestPlumeSentinelWorkflow:
         assert result.success, (
             f"Pipeline failed: {[s.error for s in result.stage_results if s.error]}"
         )
-        assert len(result.completed_stages) == 3
+        assert len(result.completed_stages) == 4
 
         # Check plots_generated
         plotting_result = result.context.results["plotting"]

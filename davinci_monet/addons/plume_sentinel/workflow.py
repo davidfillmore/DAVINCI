@@ -18,6 +18,7 @@ from davinci_monet.addons.plume_sentinel.metrics_payload import (
     build_metrics_payload,
 )
 from davinci_monet.addons.plume_sentinel.stages import (
+    PlumeSentinelBulletinStage,
     PlumeSentinelLoadStage,
     PlumeSentinelPlotStage,
     PlumeSentinelPrepareStage,
@@ -28,17 +29,18 @@ ADDON_VERSION = "0.1.0"
 
 
 def create_plume_sentinel_pipeline() -> list[BaseStage]:
-    """Create the three-stage Plume Sentinel pipeline.
+    """Create the four-stage Plume Sentinel pipeline.
 
     Returns
     -------
     list[BaseStage]
-        Ordered list: load_inputs -> prepare_geospatial -> plotting.
+        Ordered list: load_inputs -> prepare_geospatial -> plotting -> bulletin.
     """
     return [
         PlumeSentinelLoadStage(),
         PlumeSentinelPrepareStage(),
         PlumeSentinelPlotStage(),
+        PlumeSentinelBulletinStage(),
     ]
 
 

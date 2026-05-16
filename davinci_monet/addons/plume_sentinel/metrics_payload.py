@@ -213,4 +213,7 @@ def build_metrics_payload(
         "input_datasets": input_datasets,
         "quality_flags": quality_flags,
     }
+    bulletin_info = context_metadata.get("plume_sentinel_bulletin")
+    if bulletin_info:
+        payload["bulletin"] = bulletin_info
     return payload

@@ -201,13 +201,13 @@ class TestPlumeSentinelConfigMODIS:
 
 
 class TestWorkflowFactory:
-    def test_creates_three_stages(self):
+    def test_creates_four_stages(self):
         from davinci_monet.addons.plume_sentinel.workflow import (
             create_plume_sentinel_pipeline,
         )
 
         stages = create_plume_sentinel_pipeline()
-        assert len(stages) == 3
+        assert len(stages) == 4
 
     def test_stage_names(self):
         from davinci_monet.addons.plume_sentinel.workflow import (
@@ -216,7 +216,7 @@ class TestWorkflowFactory:
 
         stages = create_plume_sentinel_pipeline()
         names = [s.name for s in stages]
-        assert names == ["load_inputs", "prepare_geospatial", "plotting"]
+        assert names == ["load_inputs", "prepare_geospatial", "plotting", "bulletin"]
 
 
 import pytest
