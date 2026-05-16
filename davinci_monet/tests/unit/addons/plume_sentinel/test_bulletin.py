@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import base64
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from davinci_monet.addons.plume_sentinel.bulletin import build_prompt, publish_mqtt
+from davinci_monet.addons.plume_sentinel.bulletin import (
+    BulletinResponse,
+    build_prompt,
+    generate_bulletin,
+    publish_mqtt,
+)
 
 TEMPLATE = """BULLETIN ID: {{BULLETIN_ID}}
 ISSUED: {{ISSUED_DATE}}
@@ -101,17 +109,6 @@ def test_publish_mqtt_raises_on_connect_failure():
                 topic="t/test",
             )
     fake_client.publish.assert_not_called()
-
-
-import base64
-import json as _json
-from pathlib import Path
-from types import SimpleNamespace
-
-from davinci_monet.addons.plume_sentinel.bulletin import (
-    BulletinResponse,
-    generate_bulletin,
-)
 
 
 def _fake_anthropic_response(text="RENDERED", input_tok=100, cache_read=80, out_tok=50):
