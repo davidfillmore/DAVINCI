@@ -104,3 +104,55 @@ def test_metrics_payload_includes_bulletin_field_when_present(
     assert payload["bulletin"]["cache_read_tokens"] == 8
     assert payload["bulletin"]["output_tokens"] == 5
     assert payload["bulletin"]["path"].endswith("bulletin.txt")
+
+
+def test_create_plume_sentinel_pipeline_demo_mode_uses_demo_stages():
+    from davinci_monet.addons.plume_sentinel.demo_stages import (
+        PlumeSentinelDemoLoadStage,
+        PlumeSentinelDemoPlotStage,
+        PlumeSentinelDemoPrepareStage,
+    )
+
+    pipeline = create_plume_sentinel_pipeline(demo_mode=True)
+    types = [type(s) for s in pipeline]
+    assert types[0] is PlumeSentinelDemoLoadStage
+    assert types[1] is PlumeSentinelDemoPrepareStage
+    assert types[2] is PlumeSentinelDemoPlotStage
+    # Bulletin stage is the same in both modes
+    assert pipeline[3].name == "bulletin"
+
+
+def test_runner_dispatches_to_demo_pipeline_when_flag_set(tmp_path, monkeypatch):
+    """When config.analysis._demo.enabled is True, runner uses demo stages."""
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-fake")
+    (tmp_path / "modis_aod_truecolor.png").write_bytes(b"\x89PNG")
+    config = {
+        "analysis": {
+            "output_dir": str(tmp_path),
+            "start_time": "2020-09-09",
+            "end_time": "2020-09-09",
+            "workflow": "plume_sentinel",
+            "_demo": {"enabled": True, "canned_bulletin": None},
+        },
+        "plume_sentinel": {"inputs": {}, "plots": {}, "bulletin": {"include_images": False}},
+    }
+    fake_resp = BulletinResponse(
+        text="==DEMO BULLETIN==",
+        model="claude-sonnet-4-6",
+        input_tokens=1,
+        cache_read_tokens=0,
+        output_tokens=1,
+    )
+    with (
+        patch(
+            "davinci_monet.addons.plume_sentinel.stages.generate_bulletin",
+            return_value=fake_resp,
+        ),
+        patch("davinci_monet.addons.plume_sentinel.demo_stages.time.sleep"),
+    ):
+        runner = PipelineRunner(show_progress=False)
+        result = runner.run_from_config(config)
+    assert result.success
+    assert (tmp_path / "bulletin.txt").read_text() == "==DEMO BULLETIN=="

@@ -14,6 +14,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from davinci_monet.addons.plume_sentinel.demo_stages import (
+    PlumeSentinelDemoLoadStage,
+    PlumeSentinelDemoPlotStage,
+    PlumeSentinelDemoPrepareStage,
+)
 from davinci_monet.addons.plume_sentinel.metrics_payload import (
     build_metrics_payload,
 )
@@ -28,14 +33,24 @@ from davinci_monet.pipeline.stages import BaseStage
 ADDON_VERSION = "0.1.0"
 
 
-def create_plume_sentinel_pipeline() -> list[BaseStage]:
+def create_plume_sentinel_pipeline(*, demo_mode: bool = False) -> list[BaseStage]:
     """Create the four-stage Plume Sentinel pipeline.
 
-    Returns
-    -------
-    list[BaseStage]
-        Ordered list: load_inputs -> prepare_geospatial -> plotting -> bulletin.
+    Parameters
+    ----------
+    demo_mode:
+        When True, replace the load/prepare/plot stages with their demo
+        counterparts (simulated delays, no data work). The bulletin stage
+        is unchanged. See ``demo_stages`` and the spec at
+        ``docs/superpowers/specs/2026-05-14-plume-sentinel-bulletin-stage-design.md``.
     """
+    if demo_mode:
+        return [
+            PlumeSentinelDemoLoadStage(),
+            PlumeSentinelDemoPrepareStage(),
+            PlumeSentinelDemoPlotStage(),
+            PlumeSentinelBulletinStage(),
+        ]
     return [
         PlumeSentinelLoadStage(),
         PlumeSentinelPrepareStage(),

@@ -1746,9 +1746,7 @@ class PipelineRunner:
             except FileNotFoundError:
                 import logging
 
-                logging.getLogger(__name__).warning(
-                    f"System opener not available for {p}"
-                )
+                logging.getLogger(__name__).warning(f"System opener not available for {p}")
 
     def run_from_config(self, config: dict[str, Any] | str) -> PipelineResult:
         """Execute pipeline from configuration.
@@ -1785,7 +1783,9 @@ class PipelineRunner:
 
         if workflow == "plume_sentinel":
             from davinci_monet.addons.plume_sentinel.workflow import create_plume_sentinel_pipeline
-            self._stages = create_plume_sentinel_pipeline()
+
+            demo_enabled = bool((analysis_config.get("_demo") or {}).get("enabled", False))
+            self._stages = create_plume_sentinel_pipeline(demo_mode=demo_enabled)
         elif not model_config and not obs_config:
             raise ConfigurationError(
                 "Configuration is empty or incomplete. "

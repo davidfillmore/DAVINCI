@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from davinci_monet.addons.plume_sentinel.schema import PlumeSentinelConfig
 from davinci_monet.pipeline.stages import BaseStage, PipelineContext, StageResult, StageStatus
 
 LOAD_SLEEP_SECONDS = 3.0
@@ -43,6 +44,11 @@ class PlumeSentinelDemoLoadStage(BaseStage):
             time.sleep(per_step)
 
         context.metadata["plume_sentinel_loaded"] = stub_inputs
+        # Store parsed addon config so downstream stages (notably the
+        # bulletin stage) can read ``cfg.bulletin`` the same way they do
+        # in the real pipeline.
+        ps_dict = context.config.get("plume_sentinel", {})
+        context.metadata["plume_sentinel_config"] = PlumeSentinelConfig(**ps_dict)
         return self._create_result(
             StageStatus.COMPLETED,
             data={"inputs_loaded": list(stub_inputs.keys()), "demo": True},
