@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from davinci_monet.addons.plume_sentinel.bulletin import BulletinResponse
 from davinci_monet.addons.plume_sentinel.schema import PlumeSentinelConfig
