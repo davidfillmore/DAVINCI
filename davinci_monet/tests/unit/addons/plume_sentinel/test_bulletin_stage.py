@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+import anthropic as _anthropic_module
+
 from davinci_monet.addons.plume_sentinel.bulletin import BulletinResponse
 from davinci_monet.addons.plume_sentinel.schema import PlumeSentinelConfig
 from davinci_monet.addons.plume_sentinel.stages import PlumeSentinelBulletinStage
@@ -138,3 +140,80 @@ def test_stage_omits_images_when_include_images_false(tmp_path, monkeypatch):
         stage.execute(ctx)
     _args, kwargs = gen.call_args
     assert kwargs["image_paths"] == []
+
+
+def test_stage_records_quality_flag_on_api_error(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-fake")
+    stage = PlumeSentinelBulletinStage()
+    ctx = _make_context(tmp_path, bulletin={})
+    with (
+        patch(
+            "davinci_monet.addons.plume_sentinel.stages.build_metrics_payload",
+            return_value={"event_date": "2020-09-09", "region": "westcoast", "input_datasets": []},
+        ),
+        patch(
+            "davinci_monet.addons.plume_sentinel.stages.generate_bulletin",
+            side_effect=_anthropic_module.APIError("boom", request=None, body=None),
+        ),
+    ):
+        result = stage.execute(ctx)
+    assert result.status == StageStatus.COMPLETED
+    assert result.data.get("bulletin") == "skipped (api error)"
+    flags = ctx.metadata.get("plume_sentinel_quality_flags", [])
+    assert any(f["category"] == "bulletin" and "API call failed" in f["message"] for f in flags)
+    assert not (tmp_path / "bulletin.txt").exists()
+
+
+def test_stage_records_quality_flag_on_mqtt_error(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-fake")
+    stage = PlumeSentinelBulletinStage()
+    ctx = _make_context(
+        tmp_path,
+        bulletin={"mqtt": {"topic": "t/test", "broker": "broker.example.com"}},
+    )
+    fake_resp = BulletinResponse(
+        text="HELLO",
+        model="claude-sonnet-4-6",
+        input_tokens=1,
+        cache_read_tokens=0,
+        output_tokens=1,
+    )
+    with (
+        patch(
+            "davinci_monet.addons.plume_sentinel.stages.build_metrics_payload",
+            return_value={"event_date": "2020-09-09", "region": "westcoast", "input_datasets": []},
+        ),
+        patch(
+            "davinci_monet.addons.plume_sentinel.stages.generate_bulletin",
+            return_value=fake_resp,
+        ),
+        patch(
+            "davinci_monet.addons.plume_sentinel.stages.publish_mqtt",
+            side_effect=OSError("broker unreachable"),
+        ),
+    ):
+        result = stage.execute(ctx)
+    assert result.status == StageStatus.COMPLETED
+    # File still written
+    assert (tmp_path / "bulletin.txt").read_text() == "HELLO"
+    assert result.data["mqtt_published"] is False
+    flags = ctx.metadata.get("plume_sentinel_quality_flags", [])
+    assert any(f["category"] == "bulletin" and "MQTT publish" in f["message"] for f in flags)
+
+
+def test_stage_records_quality_flag_on_missing_template(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-fake")
+    stage = PlumeSentinelBulletinStage()
+    ctx = _make_context(
+        tmp_path,
+        bulletin={"template": str(tmp_path / "nope.template")},
+    )
+    with patch(
+        "davinci_monet.addons.plume_sentinel.stages.build_metrics_payload",
+        return_value={"event_date": "2020-09-09", "region": "westcoast", "input_datasets": []},
+    ):
+        result = stage.execute(ctx)
+    assert result.status == StageStatus.COMPLETED
+    assert result.data.get("bulletin") == "skipped (template missing)"
+    flags = ctx.metadata.get("plume_sentinel_quality_flags", [])
+    assert any(f["category"] == "bulletin" and "template not found" in f["message"] for f in flags)
