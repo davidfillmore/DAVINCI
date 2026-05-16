@@ -36,6 +36,26 @@ def _is_plume_sentinel_workflow(control_path: str) -> bool:
         return False
 
 
+def _apply_demo_flags(
+    config: dict,
+    *,
+    demo_mode: bool,
+    demo_bulletin: str | None,
+) -> None:
+    """Translate ``--demo-mode`` / ``--demo-bulletin`` into config state.
+
+    Mutates ``config['analysis']['_demo']`` when ``demo_mode`` is True. The
+    leading underscore signals "not part of the YAML schema" — these values
+    come from CLI flags only.
+    """
+    if demo_bulletin is not None and not demo_mode:
+        raise ValueError("--demo-bulletin requires --demo-mode")
+    if not demo_mode:
+        return
+    analysis = config.setdefault("analysis", {})
+    analysis["_demo"] = {"enabled": True, "canned_bulletin": demo_bulletin}
+
+
 def run_analysis(
     control_path: str,
     debug: bool = False,
@@ -48,6 +68,8 @@ def run_analysis(
     region: str | None = None,
     config_slug: str | None = None,
     event_date: str | None = None,
+    demo_mode: bool = False,
+    demo_bulletin: str | None = None,
 ) -> None:
     """Execute DAVINCI analysis from a control file.
 
@@ -77,6 +99,12 @@ def run_analysis(
         ``analysis.start_time`` / ``analysis.end_time`` to span the
         given UTC day before the workflow runs (plume_sentinel only).
         Lets one config drive multiple manifest dates.
+    demo_mode
+        If True, skip data load/prepare/plot stages and reuse pre-existing
+        PNGs from output_dir (plume_sentinel only).
+    demo_bulletin
+        Path to a pre-saved bulletin text file; skips the Claude API call
+        and reuses the saved text (requires ``demo_mode=True``).
     """
     # Update global debug flag
     import davinci_monet.cli.app as app_module
@@ -99,6 +127,8 @@ def run_analysis(
         "--config-slug": config_slug,
         "--output-dir": output_dir,
         "--event-date": event_date,
+        "--demo-mode": demo_mode if demo_mode else None,
+        "--demo-bulletin": demo_bulletin,
     }
     if not plume_sentinel:
         provided = [name for name, value in ps_flags.items() if value is not None]
@@ -120,6 +150,16 @@ def run_analysis(
                     "the metrics payload will use a synthesized run_id.",
                     fg=WARNING_COLOR,
                 )
+            # The metrics-emission path goes through ps_workflow.run which
+            # loads the YAML internally; we can't inject demo state into
+            # that cfg dict from here without changing its signature. Warn
+            # and proceed without applying demo flags in this branch.
+            if demo_mode:
+                typer.secho(
+                    "Warning: --demo-mode is ignored when --emit-metrics-json "
+                    "is set; metrics emission uses the standard workflow path.",
+                    fg=WARNING_COLOR,
+                )
             from davinci_monet.addons.plume_sentinel import workflow as ps_workflow
 
             result = ps_workflow.run(
@@ -134,10 +174,10 @@ def run_analysis(
         else:
             from davinci_monet.pipeline.runner import run_analysis as pipeline_run
 
-            # If the user passed --output-dir or --event-date for a
-            # plume_sentinel workflow without --emit-metrics-json, still
-            # honor them by editing the config dict before run.
-            if plume_sentinel and (output_dir is not None or event_date is not None):
+            # If the user passed --output-dir, --event-date, or --demo-mode
+            # for a plume_sentinel workflow without --emit-metrics-json,
+            # still honor them by editing the config dict before run.
+            if plume_sentinel and (output_dir is not None or event_date is not None or demo_mode):
                 from davinci_monet.config import load_config
 
                 cfg = load_config(str(p)).model_dump()
@@ -150,6 +190,7 @@ def run_analysis(
                     )
 
                     _apply_event_date_override(cfg, event_date)
+                _apply_demo_flags(cfg, demo_mode=demo_mode, demo_bulletin=demo_bulletin)
                 from davinci_monet.pipeline.runner import PipelineRunner
 
                 runner = PipelineRunner(

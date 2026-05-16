@@ -390,6 +390,16 @@ def run(
             "(plume_sentinel workflows only)."
         ),
     ),
+    demo_mode: bool = typer.Option(
+        False,
+        "--demo-mode",
+        help="Skip data load/prepare/plot. Reuse PNGs in output_dir; simulate processing.",
+    ),
+    demo_bulletin: str | None = typer.Option(
+        None,
+        "--demo-bulletin",
+        help="Path to a pre-saved bulletin; skips the Claude API call (requires --demo-mode).",
+    ),
 ) -> None:
     """Run DAVINCI analysis as described in the control file."""
     from davinci_monet.cli.commands.run import run_analysis
@@ -409,6 +419,8 @@ def run(
         region=region,
         config_slug=config_slug,
         event_date=event_date,
+        demo_mode=demo_mode,
+        demo_bulletin=demo_bulletin,
     )
 
 
