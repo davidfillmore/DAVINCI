@@ -54,6 +54,12 @@ def _apply_demo_flags(
         return
     analysis = config.setdefault("analysis", {})
     analysis["_demo"] = {"enabled": True, "canned_bulletin": demo_bulletin}
+    if demo_bulletin is not None:
+        # Ensure the bulletin stage's canned branch is reachable even when
+        # the YAML lacks a ``bulletin:`` block — canned mode is a CLI-only
+        # override that should not require a schema edit.
+        ps = config.setdefault("plume_sentinel", {})
+        ps.setdefault("bulletin", {})
 
 
 def run_analysis(

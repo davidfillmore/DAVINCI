@@ -39,3 +39,19 @@ def test_apply_demo_flags_initialises_analysis_block():
     _apply_demo_flags(cfg, demo_mode=True, demo_bulletin=None)
     assert "analysis" in cfg
     assert cfg["analysis"]["_demo"] == {"enabled": True, "canned_bulletin": None}
+
+
+def test_apply_demo_flags_canned_injects_bulletin_block():
+    """Canned mode must work without a YAML ``bulletin:`` block."""
+    cfg: dict = {"plume_sentinel": {"inputs": {}, "plots": {}}}
+    _apply_demo_flags(cfg, demo_mode=True, demo_bulletin="/tmp/saved.txt")
+    assert cfg["plume_sentinel"]["bulletin"] == {}
+
+
+def test_apply_demo_flags_canned_preserves_existing_bulletin_block():
+    """When the YAML already has a bulletin block, do not overwrite it."""
+    cfg: dict = {
+        "plume_sentinel": {"bulletin": {"output_filename": "custom.txt"}},
+    }
+    _apply_demo_flags(cfg, demo_mode=True, demo_bulletin="/tmp/saved.txt")
+    assert cfg["plume_sentinel"]["bulletin"] == {"output_filename": "custom.txt"}
