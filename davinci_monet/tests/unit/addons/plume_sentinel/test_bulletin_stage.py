@@ -217,3 +217,98 @@ def test_stage_records_quality_flag_on_missing_template(tmp_path, monkeypatch):
     assert result.data.get("bulletin") == "skipped (template missing)"
     flags = ctx.metadata.get("plume_sentinel_quality_flags", [])
     assert any(f["category"] == "bulletin" and "template not found" in f["message"] for f in flags)
+
+
+def test_stage_existing_live_path_reports_mode_live(tmp_path, monkeypatch):
+    """The existing live path must include `mode: live` in stage data."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-fake")
+    stage = PlumeSentinelBulletinStage()
+    ctx = _make_context(tmp_path, bulletin={})
+    fake_resp = BulletinResponse(
+        text="BODY",
+        model="claude-sonnet-4-6",
+        input_tokens=1,
+        cache_read_tokens=0,
+        output_tokens=1,
+    )
+    with (
+        patch(
+            "davinci_monet.addons.plume_sentinel.stages.generate_bulletin",
+            return_value=fake_resp,
+        ),
+        patch(
+            "davinci_monet.addons.plume_sentinel.stages.build_metrics_payload",
+            return_value={"event_date": "2020-09-09", "region": "westcoast", "input_datasets": []},
+        ),
+    ):
+        result = stage.execute(ctx)
+    assert result.data.get("mode") == "live"
+
+
+def _make_demo_context(tmp_path: Path, canned_bulletin: str | None) -> PipelineContext:
+    config = {
+        "analysis": {
+            "output_dir": str(tmp_path),
+            "start_time": "2020-09-09",
+            "_demo": {"enabled": True, "canned_bulletin": canned_bulletin},
+        },
+        "plume_sentinel": {"inputs": {}, "plots": {}, "bulletin": {}},
+    }
+    ctx = PipelineContext(config=config)
+    ctx.metadata["plume_sentinel_config"] = PlumeSentinelConfig(**config["plume_sentinel"])
+    ctx.metadata["plume_sentinel_prepared"] = {}
+    ctx.metadata["plume_sentinel_plots_generated"] = []
+    return ctx
+
+
+def test_stage_canned_mode_copies_file_and_skips_api(tmp_path):
+    canned = tmp_path / "saved.txt"
+    canned.write_text("==PRE-SAVED BULLETIN==")
+    stage = PlumeSentinelBulletinStage()
+    ctx = _make_demo_context(tmp_path, canned_bulletin=str(canned))
+    with (
+        patch("davinci_monet.addons.plume_sentinel.stages.generate_bulletin") as gen,
+        patch(
+            "davinci_monet.addons.plume_sentinel.stages.build_metrics_payload",
+            return_value={"event_date": "2020-09-09", "region": "westcoast", "input_datasets": []},
+        ),
+    ):
+        result = stage.execute(ctx)
+    assert result.status == StageStatus.COMPLETED
+    bulletin_path = tmp_path / "bulletin.txt"
+    assert bulletin_path.read_text() == "==PRE-SAVED BULLETIN=="
+    assert result.data.get("mode") == "canned"
+    assert result.data.get("source") == str(canned)
+    gen.assert_not_called()  # API skipped
+
+
+def test_stage_canned_mode_skips_when_file_missing(tmp_path):
+    missing = tmp_path / "nope.txt"
+    stage = PlumeSentinelBulletinStage()
+    ctx = _make_demo_context(tmp_path, canned_bulletin=str(missing))
+    with patch(
+        "davinci_monet.addons.plume_sentinel.stages.build_metrics_payload",
+        return_value={"event_date": "2020-09-09", "region": "westcoast", "input_datasets": []},
+    ):
+        result = stage.execute(ctx)
+    assert result.status == StageStatus.COMPLETED
+    assert result.data.get("bulletin") == "skipped (canned bulletin missing)"
+    flags = ctx.metadata.get("plume_sentinel_quality_flags", [])
+    assert any(
+        f["category"] == "bulletin" and "Canned bulletin not found" in f["message"] for f in flags
+    )
+
+
+def test_stage_canned_mode_works_without_api_key(tmp_path, monkeypatch):
+    """Canned mode must short-circuit before the API key check."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    canned = tmp_path / "saved.txt"
+    canned.write_text("==NO KEY NEEDED==")
+    stage = PlumeSentinelBulletinStage()
+    ctx = _make_demo_context(tmp_path, canned_bulletin=str(canned))
+    with patch("davinci_monet.addons.plume_sentinel.stages.generate_bulletin") as gen:
+        result = stage.execute(ctx)
+    assert result.status == StageStatus.COMPLETED
+    assert result.data.get("mode") == "canned"
+    assert (tmp_path / "bulletin.txt").read_text() == "==NO KEY NEEDED=="
+    gen.assert_not_called()

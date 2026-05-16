@@ -178,6 +178,75 @@ class PlumeSentinelBulletinStage(BaseStage):
             )
 
         bcfg = cfg.bulletin
+
+        # Canned-bulletin mode (demo): read pre-saved bulletin and skip API.
+        demo_block = context.config.get("analysis", {}).get("_demo", {}) or {}
+        canned_path = demo_block.get("canned_bulletin")
+        if canned_path:
+            canned = Path(canned_path)
+            if not canned.is_file():
+                _append_quality_flag(
+                    context,
+                    "warning",
+                    f"Canned bulletin not found at {canned}; bulletin skipped",
+                )
+                return self._create_result(
+                    StageStatus.COMPLETED,
+                    data={"bulletin": "skipped (canned bulletin missing)"},
+                    duration=time.time() - start,
+                )
+            output_dir = _get_output_dir(context)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            bulletin_path = output_dir / bcfg.output_filename
+            text = canned.read_text()
+            try:
+                bulletin_path.write_text(text)
+            except OSError as exc:
+                _append_quality_flag(
+                    context,
+                    "warning",
+                    f"Bulletin file write failed: {exc}",
+                )
+                return self._create_result(
+                    StageStatus.COMPLETED,
+                    data={"bulletin": "skipped (file write failed)"},
+                    duration=time.time() - start,
+                )
+
+            mqtt_published = False
+            if bcfg.mqtt is not None:
+                try:
+                    publish_mqtt(
+                        text=text,
+                        broker=bcfg.mqtt.broker,
+                        topic=bcfg.mqtt.topic,
+                        port=bcfg.mqtt.port,
+                        qos=bcfg.mqtt.qos,
+                    )
+                    mqtt_published = True
+                except Exception as exc:  # noqa: BLE001
+                    _append_quality_flag(
+                        context,
+                        "warning",
+                        f"MQTT publish to {bcfg.mqtt.broker}:{bcfg.mqtt.port} failed: {exc}",
+                    )
+
+            context.metadata["plume_sentinel_bulletin"] = {
+                "path": str(bulletin_path),
+                "mode": "canned",
+                "source": str(canned),
+            }
+            return self._create_result(
+                StageStatus.COMPLETED,
+                data={
+                    "bulletin_path": str(bulletin_path),
+                    "mqtt_published": mqtt_published,
+                    "mode": "canned",
+                    "source": str(canned),
+                },
+                duration=time.time() - start,
+            )
+
         api_key = os.environ.get(bcfg.api_key_env)
         if not api_key:
             _append_quality_flag(
@@ -305,6 +374,7 @@ class PlumeSentinelBulletinStage(BaseStage):
         # payload extension (Task 10) can include it.
         context.metadata["plume_sentinel_bulletin"] = {
             "path": str(bulletin_path),
+            "mode": "live",
             "model": resp.model,
             "input_tokens": resp.input_tokens,
             "cache_read_tokens": resp.cache_read_tokens,
@@ -316,6 +386,7 @@ class PlumeSentinelBulletinStage(BaseStage):
             data={
                 "bulletin_path": str(bulletin_path),
                 "mqtt_published": mqtt_published,
+                "mode": "live",
                 "model": resp.model,
                 "input_tokens": resp.input_tokens,
                 "cache_read_tokens": resp.cache_read_tokens,
