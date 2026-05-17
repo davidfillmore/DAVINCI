@@ -292,6 +292,66 @@ class TestWRFChemReader:
         assert "y" in standardized.dims
         assert "x" in standardized.dims
 
+    def test_open_falls_back_to_xarray_on_compat_error(
+        self, tmp_path: Path, wrfchem_dataset: xr.Dataset, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When monetio's wrf-python path fails with NotImplementedError
+        (the wrf-python ↔ newer netCDF4 incompatibility), open() falls back
+        to the xarray reader, strips monetio-only kwargs, and warns."""
+        f = tmp_path / "wrfout_d01_2025-08-01_00:00:00.nc"
+        f.touch()
+
+        reader = WRFChemReader()
+
+        def fake_monetio(self_, file_paths, variables, **kw):  # type: ignore[no-untyped-def]
+            raise NotImplementedError("Dataset is not picklable")
+
+        captured: dict[str, Any] = {}
+
+        def fake_xarray(self_, file_paths, variables, **kw):  # type: ignore[no-untyped-def]
+            captured["kwargs"] = dict(kw)
+            return wrfchem_dataset
+
+        monkeypatch.setattr(WRFChemReader, "_open_with_monetio", fake_monetio)
+        monkeypatch.setattr(WRFChemReader, "_open_with_xarray", fake_xarray)
+
+        with pytest.warns(UserWarning, match="monetio WRF-Chem reader unavailable"):
+            ds = reader.open([f], mech="racm_esrl_vcp", convert_to_ppb=True, foo="bar")
+
+        # monetio-only kwargs stripped
+        assert "mech" not in captured["kwargs"]
+        assert "convert_to_ppb" not in captured["kwargs"]
+        # other kwargs pass through
+        assert captured["kwargs"].get("foo") == "bar"
+        # result is the xarray fallback dataset (post-standardize)
+        assert "time" in ds.dims
+
+    def test_open_keeps_monetio_kwargs_when_monetio_succeeds(
+        self, tmp_path: Path, wrfchem_dataset: xr.Dataset, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Happy-path regression: when monetio succeeds, mech and other
+        monetio kwargs pass through unchanged and no warning fires."""
+        f = tmp_path / "wrfout_d01_2025-08-01_00:00:00.nc"
+        f.touch()
+
+        reader = WRFChemReader()
+        captured: dict[str, Any] = {}
+
+        def fake_monetio(self_, file_paths, variables, **kw):  # type: ignore[no-untyped-def]
+            captured["kwargs"] = dict(kw)
+            return wrfchem_dataset
+
+        monkeypatch.setattr(WRFChemReader, "_open_with_monetio", fake_monetio)
+
+        import warnings as _warnings
+
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error", UserWarning)
+            ds = reader.open([f], mech="racm_esrl_vcp")
+
+        assert captured["kwargs"].get("mech") == "racm_esrl_vcp"
+        assert "time" in ds.dims
+
 
 # =============================================================================
 # Tests for UFSReader

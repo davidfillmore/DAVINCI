@@ -54,6 +54,12 @@ WRFCHEM_VARIABLE_MAPPING: dict[str, str] = {
 # Reverse mapping
 WRFCHEM_STANDARD_NAMES: dict[str, str] = {v: k for k, v in WRFCHEM_VARIABLE_MAPPING.items()}
 
+# monetio's WRF-Chem reader accepts these kwargs but xarray.open_dataset does
+# not. When the monetio path fails (e.g. wrf-python / netCDF4 version
+# incompatibility) and the reader falls back to xarray, these are stripped to
+# avoid TypeError from xarray's backend.
+_MONETIO_ONLY_KWARGS = ("mech", "convert_to_ppb", "surf_only", "surf_only_nc")
+
 
 @model_registry.register("wrfchem")
 class WRFChemReader:
@@ -107,16 +113,27 @@ class WRFChemReader:
         if missing:
             raise DataNotFoundError(f"WRF-Chem files not found: {missing}")
 
-        # Try monetio first
+        # Try monetio first; fall back to plain xarray if monetio's wrf-python
+        # path isn't usable (e.g. wrf-python ↔ netCDF4 incompatibility raising
+        # NotImplementedError("Dataset is not picklable") from wrf-python's
+        # internal copy.copy on a netCDF4.Dataset).
         try:
             ds = self._open_with_monetio(file_list, variables, **kwargs)
-        except ImportError:
+        except (ImportError, NotImplementedError) as e:
+            xarray_kwargs = {k: v for k, v in kwargs.items() if k not in _MONETIO_ONLY_KWARGS}
+            dropped = [k for k in kwargs if k in _MONETIO_ONLY_KWARGS]
             warnings.warn(
-                "monetio not available, using basic xarray reader. "
-                "Some WRF-Chem specific features may not work.",
+                "monetio WRF-Chem reader unavailable "
+                f"({type(e).__name__}: {e}); falling back to xarray. "
+                f"Dropped monetio-only kwargs: {dropped}. "
+                "Raw WRF-Chem variables are returned without mech-aware "
+                "decoding — e.g. `o3` will be in ppmv (not ppb) and derived "
+                "diagnostics will not be added. Use `unit_scale` in the "
+                "config to compensate.",
                 UserWarning,
+                stacklevel=2,
             )
-            ds = self._open_with_xarray(file_list, variables, **kwargs)
+            ds = self._open_with_xarray(file_list, variables, **xarray_kwargs)
 
         # Standardize dimensions
         ds = self._standardize_dataset(ds)
@@ -187,9 +204,14 @@ class WRFChemReader:
         for attempt in range(max_retries):
             try:
                 if len(file_paths) > 1:
+                    # WRF files store time as the `Times` char-array (not a
+                    # coord variable on `Time`), so combine="by_coords" cannot
+                    # infer a concat dim. Use nested concat along Time, with
+                    # file paths sorted to provide chronological order.
                     ds = xr.open_mfdataset(
-                        [str(f) for f in file_paths],
-                        combine="by_coords",
+                        [str(f) for f in sorted(file_paths, key=str)],
+                        combine="nested",
+                        concat_dim="Time",
                         parallel=True,
                         **kwargs,
                     )

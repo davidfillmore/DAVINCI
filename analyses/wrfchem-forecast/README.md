@@ -82,3 +82,14 @@ Two crontab entries replace the legacy `airnow.sh` + `wrfchem.yaml` chain:
   per-state panels are needed.
 - **Mechanism**: `mod_kwargs: {mech: racm_esrl_vcp}` is forwarded to monetio's
   WRF-Chem reader for proper variable resolution.
+- **wrf-python compatibility**: monetio's WRF-Chem reader requires `wrf-python`,
+  which in turn breaks against `netCDF4 >= 1.7` (raises
+  `NotImplementedError: Dataset is not picklable` from wrf-python's internal
+  `copy.copy()` on a `netCDF4.Dataset`). The DAVINCI WRF-Chem reader catches
+  this and falls back to a plain xarray open with a loud warning. In the
+  fallback path, raw WRF variables are returned without mech-aware decoding —
+  notably `o3` stays in **ppmv** instead of being converted to ppb. The
+  example config keeps `o3.unit_scale: 1.0` for the monetio path; if the
+  fallback fires (the warning will tell you), switch it to `1.0e3` so the
+  AirNow comparison is unit-consistent. To restore the monetio path,
+  pin `netCDF4<1.7` or an older `wrf-python` build in `environment.yml`.

@@ -34,6 +34,19 @@ model:
         "PM2.5": PM2_5_DRY
         OZONE: o3
 
+    # Variable-side unit scaling. With monetio's mech-aware reader (wrf-python
+    # available) o3 is converted to ppb and PM2_5_DRY is already ug/m^3, so
+    # unit_scale is 1. When the reader falls back to the xarray path (logged
+    # with a clear warning) o3 stays in ppmv — switch `o3.unit_scale` to 1.0e3
+    # to convert to ppb so the AirNow comparison is correct.
+    variables:
+      PM2_5_DRY:
+        unit_scale: 1.0
+        units: "ug/m3"
+      o3:
+        unit_scale: 1.0  # set to 1.0e3 if running with xarray-only fallback
+        units: ppb
+
     plot_kwargs:
       color: magenta
       marker: s
