@@ -33,6 +33,8 @@ model:
       airnow:
         "PM2.5": PM2_5_DRY
         OZONE: o3
+      aeronet:
+        aod_500nm: AOD2D_OUT
 
     # Variable-side unit scaling. With monetio's mech-aware reader (wrf-python
     # available) o3 is converted to ppb and PM2_5_DRY is already ug/m^3, so
@@ -46,6 +48,10 @@ model:
       o3:
         unit_scale: 1.0  # set to 1.0e3 if running with xarray-only fallback
         units: ppb
+      AOD2D_OUT:
+        unit_scale: 1.0
+        units: "1"
+        display_name: "WRF-Chem AOD"
 
     plot_kwargs:
       color: magenta
@@ -73,6 +79,21 @@ obs:
         vmin_plot: 15.0
         vmax_plot: 55.0
         vdiff_plot: 20.0
+        nlevels_plot: 21
+
+  aeronet:
+    obs_type: pt_sfc
+    filename: /glade/work/fillmore/Data/AeroNet/AeroNet_${YYYY}${MM}${DD}.nc
+    variables:
+      aod_500nm:
+        obs_min: 0.0
+        obs_max: 5.0
+        units: "1"
+        ylabel_plot: "AOD (500 nm)"
+        display_name: "AOD"
+        vmin_plot: 0.0
+        vmax_plot: 1.0
+        vdiff_plot: 0.5
         nlevels_plot: 21
 
 plots:
@@ -115,6 +136,47 @@ plots:
       fontsize: 14
     domain_type: [conus, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region]
     domain_name: [CONUS,  R1,         R2,         R3,         R4,         R5,         R6,         R7,         R8,         R9,         R10]
+    data_proc:
+      rem_obs_nan: true
+      set_axis: true
+
+  aeronet_scatter:
+    type: scatter
+    data: [WRF-Chem_aeronet]
+    fig_kwargs:
+      figsize: [7, 7]
+    text_kwargs:
+      fontsize: 14
+    domain_type: [conus]
+    domain_name: [CONUS]
+    data_proc:
+      rem_obs_nan: true
+      set_axis: true
+
+  aeronet_spatial_overlay:
+    type: spatial_overlay
+    data: [WRF-Chem_aeronet]
+    fig_kwargs:
+      states: true
+      figsize: [10, 5]
+    text_kwargs:
+      fontsize: 14
+    domain_type: [conus]
+    domain_name: [CONUS]
+    data_proc:
+      rem_obs_nan: true
+      set_axis: true
+
+  aeronet_spatial_bias:
+    type: spatial_bias
+    data: [WRF-Chem_aeronet]
+    fig_kwargs:
+      states: true
+      figsize: [10, 5]
+    text_kwargs:
+      fontsize: 14
+    domain_type: [conus]
+    domain_name: [CONUS]
     data_proc:
       rem_obs_nan: true
       set_axis: true
