@@ -1,0 +1,110 @@
+# Daily WRF-Chem AQ Forecast Evaluation vs AirNow
+#
+# Replicates the legacy melodies-scripts/wrfchem.yaml pipeline against the
+# operational AQ_WATCH WRF-Chem forecast. Pairs hourly forecast output with
+# the previous day's AirNow surface observations and produces CONUS + EPA-
+# region timeseries, spatial overlay, and spatial bias plots.
+#
+# Date substitution is via environment variables, not a Python wrapper. The
+# qsub driver (scripts/qsub_wrfchem_daily.sh) exports YYYY, MM, DD from
+# `date -d yesterday` and passes them through DAVINCI's ${VAR} expansion.
+#
+# Usage:
+#   export YYYY=2025 MM=08 DD=01     # or use scripts/qsub_wrfchem_daily.sh
+#   davinci-monet run analyses/wrfchem-forecast/configs/wrfchem-forecast.example.yaml
+
+analysis:
+  start_time: "${YYYY}-${MM}-${DD}"
+  end_time:   "${YYYY}-${MM}-${DD} 23:00:00"
+  output_dir: /glade/work/fillmore/Plots/AirNow_WRF-Chem-Forecast/${YYYY}/${MM}/${DD}
+  log_dir:    /glade/work/fillmore/Plots/AirNow_WRF-Chem-Forecast/${YYYY}/${MM}/${DD}/logs
+  style:
+    theme: ncar
+
+model:
+  WRF-Chem:
+    mod_type: wrfchem
+    files: /glade/campaign/acom/acom-da/vweeks/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_hourly_d01_${YYYY}-${MM}-${DD}_*
+    mod_kwargs:
+      mech: racm_esrl_vcp
+    radius_of_influence: 12000
+
+    mapping:
+      airnow:
+        "PM2.5": PM2_5_DRY
+        OZONE: o3
+
+    plot_kwargs:
+      color: magenta
+      marker: s
+      linestyle: "-"
+
+obs:
+  airnow:
+    obs_type: pt_sfc
+    filename: /glade/work/fillmore/Data/AirNow/AirNow_${YYYY}${MM}${DD}.nc
+    drop_unused_vars: true
+    variables:
+      "PM2.5":
+        nan_value: -1.0
+        units: "ug/m3"
+        ylabel_plot: "PM2.5 (ug/m3)"
+        vmin_plot: 0.0
+        vmax_plot: 22.0
+        vdiff_plot: 15.0
+        nlevels_plot: 23
+      OZONE:
+        nan_value: -1.0
+        units: ppb
+        ylabel_plot: "Ozone (ppbv)"
+        vmin_plot: 15.0
+        vmax_plot: 55.0
+        vdiff_plot: 20.0
+        nlevels_plot: 21
+
+plots:
+
+  timeseries_panels:
+    type: timeseries
+    data: [WRF-Chem_airnow]
+    fig_kwargs:
+      figsize: [12, 6]
+    text_kwargs:
+      fontsize: 18
+    domain_type: [conus, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region]
+    domain_name: [CONUS,  R1,         R2,         R3,         R4,         R5,         R6,         R7,         R8,         R9,         R10]
+    data_proc:
+      rem_obs_nan: true
+      ts_avg_window: H
+      set_axis: true
+
+  spatial_overlay_panels:
+    type: spatial_overlay
+    data: [WRF-Chem_airnow]
+    fig_kwargs:
+      states: true
+      figsize: [10, 5]
+    text_kwargs:
+      fontsize: 14
+    domain_type: [conus, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region]
+    domain_name: [CONUS,  R1,         R2,         R3,         R4,         R5,         R6,         R7,         R8,         R9,         R10]
+    data_proc:
+      rem_obs_nan: true
+      set_axis: true
+
+  spatial_bias_panels:
+    type: spatial_bias
+    data: [WRF-Chem_airnow]
+    fig_kwargs:
+      states: true
+      figsize: [10, 5]
+    text_kwargs:
+      fontsize: 14
+    domain_type: [conus, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region]
+    domain_name: [CONUS,  R1,         R2,         R3,         R4,         R5,         R6,         R7,         R8,         R9,         R10]
+    data_proc:
+      rem_obs_nan: true
+      set_axis: true
+
+stats:
+  metrics: [N, MB, RMSE, R, NMB, NME, IOA]

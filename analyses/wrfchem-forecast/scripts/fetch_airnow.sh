@@ -1,0 +1,31 @@
+#!/bin/bash
+# Fetch the previous UTC day's AirNow surface observations into the standard
+# AirNow archive used by the daily WRF-Chem forecast evaluation.
+#
+# Replicates the legacy melodies-scripts/get_airnow.sh: writes one file per
+# day, named AirNow_YYYYMMDD.nc, where YYYYMMDD is yesterday's date.
+#
+# Usage:
+#   ./fetch_airnow.sh
+#
+# Or pass an explicit date:
+#   ./fetch_airnow.sh 20250801
+set -euo pipefail
+
+AIRNOW_DIR=${AIRNOW_DIR:-/glade/work/fillmore/Data/AirNow}
+
+if [ "$#" -ge 1 ]; then
+    fetch_date=$1
+else
+    fetch_date=$(date --date=yesterday '+%Y%m%d')
+fi
+
+next_date=$(date --date="${fetch_date} + 1 day" '+%Y%m%d')
+
+mkdir -p "${AIRNOW_DIR}"
+
+echo "Fetching AirNow ${fetch_date} -> ${next_date}"
+davinci-monet get airnow \
+    --start-date "${fetch_date}" \
+    --end-date   "${next_date}" \
+    -o "${AIRNOW_DIR}/AirNow_${fetch_date}.nc"
