@@ -221,7 +221,15 @@ class WRFChemReader:
                 if variables is not None:
                     available = [v for v in variables if v in ds.data_vars]
                     if available:
-                        ds = ds[available]
+                        # Preserve WRF housekeeping variables that
+                        # _standardize_dataset relies on (Times is the
+                        # char-array time encoding; XLAT/XLONG are the lat/
+                        # lon coords). These get dropped or set as coords by
+                        # standardize_dataset after the user's selection.
+                        keep_aux = [
+                            v for v in ("Times", "XLAT", "XLONG") if v in ds.variables
+                        ]
+                        ds = ds[available + [v for v in keep_aux if v not in available]]
 
                 return ds
 
@@ -279,18 +287,48 @@ class WRFChemReader:
         if dim_renames:
             ds = ds.rename(dim_renames)
 
-        # Handle WRF lat/lon (XLAT, XLONG)
+        # Decode WRF's `Times` char-array variable into a datetime coord on
+        # the `time` dim. monetio's path normally handles this; in the xarray
+        # fallback we have to do it ourselves so downstream pairing can align
+        # model times with observation times.
+        if "Times" in ds.variables and "time" in ds.dims and "time" not in ds.coords:
+            times_bytes = ds["Times"].values
+            try:
+                time_strs = [
+                    t.decode("ascii") if isinstance(t, bytes) else str(t)
+                    for t in times_bytes.tolist()
+                ]
+                # WRF format: 'YYYY-MM-DD_HH:MM:SS' — replace '_' for parsing
+                import numpy as _np
+
+                times_np = _np.array(
+                    [_np.datetime64(s.replace("_", "T")) for s in time_strs]
+                )
+                ds = ds.assign_coords(time=("time", times_np))
+                ds = ds.drop_vars("Times")
+            except (ValueError, TypeError, AttributeError):
+                # If decoding fails, leave Times alone — better than crashing
+                pass
+
+        # Handle WRF lat/lon (XLAT, XLONG). WRF replicates these across the
+        # Time dim even though they are static; squeeze that out so downstream
+        # pairing strategies see 2D (y, x) lat/lon as expected.
+        def _squeeze_time(da: xr.DataArray) -> xr.DataArray:
+            if "time" in da.dims and da.sizes["time"] > 0:
+                return da.isel(time=0, drop=True)
+            return da
+
         if "XLAT" in ds.data_vars or "XLAT" in ds.coords:
             if "XLAT" in ds.data_vars:
                 ds = ds.set_coords("XLAT")
             if "lat" not in ds.coords:
-                ds = ds.assign_coords(lat=ds["XLAT"])
+                ds = ds.assign_coords(lat=_squeeze_time(ds["XLAT"]))
 
         if "XLONG" in ds.data_vars or "XLONG" in ds.coords:
             if "XLONG" in ds.data_vars:
                 ds = ds.set_coords("XLONG")
             if "lon" not in ds.coords:
-                ds = ds.assign_coords(lon=ds["XLONG"])
+                ds = ds.assign_coords(lon=_squeeze_time(ds["XLONG"]))
 
         # Handle latitude/longitude if present
         if "latitude" in ds.data_vars and "latitude" not in ds.coords:

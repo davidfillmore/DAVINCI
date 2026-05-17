@@ -352,6 +352,61 @@ class TestWRFChemReader:
         assert captured["kwargs"].get("mech") == "racm_esrl_vcp"
         assert "time" in ds.dims
 
+    def test_standardize_dataset_decodes_wrf_times_chararray(self) -> None:
+        """The xarray fallback path leaves WRF time as a `Times` char-array
+        variable (no coord on the time dim). _standardize_dataset must decode
+        it into a datetime coord so downstream pairing can align with obs."""
+        times_bytes = np.array(
+            [b"2025-08-01_00:00:00", b"2025-08-01_01:00:00", b"2025-08-01_02:00:00"]
+        )
+        ds = xr.Dataset(
+            {
+                "Times": (["Time"], times_bytes),
+                "o3": (
+                    ["Time", "bottom_top", "south_north", "west_east"],
+                    np.zeros((3, 2, 4, 5)),
+                ),
+            }
+        )
+
+        out = WRFChemReader()._standardize_dataset(ds)
+
+        assert "time" in out.coords
+        assert out.time.dtype == np.dtype("datetime64[ns]")
+        assert str(out.time.values[0]) == "2025-08-01T00:00:00.000000000"
+        assert "Times" not in out.variables  # consumed by decode
+
+    def test_standardize_dataset_squeezes_time_dim_from_xlat_xlong(self) -> None:
+        """WRF replicates XLAT/XLONG across the Time dim. lat/lon coords must
+        be reduced to 2D (y, x) so the point-pairing strategy can use them
+        (it only handles 1D or 2D coords, not 3D)."""
+        ntime, ny, nx = 3, 4, 5
+        lat = 30 + 0.1 * np.arange(ny)[:, None] + np.zeros((ny, nx))
+        lon = -120 + 0.1 * np.arange(nx)[None, :] + np.zeros((ny, nx))
+        # WRF stores XLAT/XLONG with Time dim (constant across time)
+        lat_3d = np.broadcast_to(lat, (ntime, ny, nx)).copy()
+        lon_3d = np.broadcast_to(lon, (ntime, ny, nx)).copy()
+
+        ds = xr.Dataset(
+            {
+                "o3": (
+                    ["Time", "bottom_top", "south_north", "west_east"],
+                    np.zeros((ntime, 2, ny, nx)),
+                ),
+                "XLAT": (["Time", "south_north", "west_east"], lat_3d),
+                "XLONG": (["Time", "south_north", "west_east"], lon_3d),
+            }
+        )
+
+        out = WRFChemReader()._standardize_dataset(ds)
+
+        assert "lat" in out.coords and "lon" in out.coords
+        # lat/lon must be 2D, not 3D (time dim squeezed)
+        assert out.lat.ndim == 2
+        assert out.lon.ndim == 2
+        assert out.lat.shape == (ny, nx)
+        assert out.lon.shape == (ny, nx)
+
 
 # =============================================================================
 # Tests for UFSReader
