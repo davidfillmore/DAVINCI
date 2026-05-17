@@ -24,7 +24,7 @@ analysis:
 model:
   WRF-Chem:
     mod_type: wrfchem
-    files: /glade/campaign/acom/acom-da/vweeks/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_hourly_d01_${YYYY}-${MM}-${DD}_*
+    files: /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_*
     mod_kwargs:
       mech: racm_esrl_vcp
     radius_of_influence: 12000
