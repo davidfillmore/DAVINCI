@@ -1,7 +1,20 @@
 """Swath-to-grid pairing strategy.
 
 This module implements pairing for satellite swath observations (L2 products)
-with gridded model output.
+with gridded model output via per-pixel nearest-neighbor matching.
+
+Note
+----
+For production satellite analyses prefer :class:`SwathGridStrategy` (or the
+external `bin_swath_to_grid` helper in ``pairing/grid_binning.py``). Real L2
+swaths have 10^5-10^6 pixels and per-pixel nearest-neighbor matching is too
+slow; the binning path collapses pixels onto a target grid once and then
+pairs grid-to-grid. MODIS L2 obs (``observations/satellite/modis_l2.py``)
+follow that pattern and emit ``geometry = "GRID"``.
+
+This class is preserved for possible future use cases that genuinely need
+direct per-pixel pairing (e.g. small swaths, sparse retrievals, debugging).
+It is not on the current production path.
 """
 
 from __future__ import annotations
@@ -31,6 +44,13 @@ class SwathStrategy(BasePairingStrategy):
     2. Optionally matches model to satellite overpass time
     3. Optionally applies averaging kernels to model profiles
     4. Creates paired dataset with collocated values
+
+    .. note::
+        Production satellite analyses use :class:`SwathGridStrategy` or the
+        external ``bin_swath_to_grid`` helper, which collapse pixels onto a
+        target grid before pairing. This direct per-pixel class is preserved
+        for possible future use and is not on the current production path —
+        see the module docstring.
 
     Examples
     --------
