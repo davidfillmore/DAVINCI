@@ -21,19 +21,19 @@ env-var expansion in the YAML config.
 
 | Source | Path |
 |---|---|
-| WRF-Chem forecast | `/glade/campaign/acom/acom-da/vweeks/AQ_WATCH/YYYYMMDD/wrf/wrfout_hourly_d01_YYYY-MM-DD_*` |
+| WRF-Chem forecast | `/glade/campaign/acom/acom-da/shawnh/AQ_WATCH/YYYYMMDD/wrf/wrfout_d01_YYYY-MM-DD_*` |
 | AirNow observations | `/glade/work/fillmore/Data/AirNow/AirNow_YYYYMMDD.nc` |
+| AERONET observations | `/glade/work/fillmore/Data/AeroNet/AeroNet_YYYYMMDD.nc` |
 | Plot output | `/glade/work/fillmore/Plots/AirNow_WRF-Chem-Forecast/YYYY/MM/DD/` |
 
-The WRF-Chem forecast is produced by the `vweeks` daily AQ_WATCH system; the
-upstream scripts and 28-day retention policy live in
-`/glade/campaign/acom/acom-da/vweeks/aq_fcst_system_scripts/`.
+The WRF-Chem forecast is the operational AQ-WATCH run (CONUS d01, every
+6 hours per init day, multi-day forecast horizon), owned by `shawnh` in
+the acom-da group. Plots from this run are published at
+<https://acom.ucar.edu/firex-aq/forecast.html>.
 
-**Note (May 2026):** the operational WRF-Chem forecast has not produced
-complete `wrf/` output since approximately August 2025 — recent dated
-directories (e.g. `20260130/`) contain only `met_input` and `logs`. This
-config is verified against the historical run `20250801` and is ready to
-resume daily operation once vweeks's system is producing output again.
+Note that the WRF-Chem files are named `wrfout_d01_YYYY-MM-DD_HH:MM:SS`
+(no `_hourly_` infix, no `.nc` extension) — DAVINCI's WRF-Chem reader
+opens them via netCDF4 regardless of extension.
 
 ## Files
 
@@ -82,3 +82,14 @@ Two crontab entries replace the legacy `airnow.sh` + `wrfchem.yaml` chain:
   per-state panels are needed.
 - **Mechanism**: `mod_kwargs: {mech: racm_esrl_vcp}` is forwarded to monetio's
   WRF-Chem reader for proper variable resolution.
+- **wrf-python compatibility**: monetio's WRF-Chem reader requires `wrf-python`,
+  which in turn breaks against `netCDF4 >= 1.7` (raises
+  `NotImplementedError: Dataset is not picklable` from wrf-python's internal
+  `copy.copy()` on a `netCDF4.Dataset`). The DAVINCI WRF-Chem reader catches
+  this and falls back to a plain xarray open with a loud warning. In the
+  fallback path, raw WRF variables are returned without mech-aware decoding —
+  notably `o3` stays in **ppmv** instead of being converted to ppb. The
+  example config keeps `o3.unit_scale: 1.0` for the monetio path; if the
+  fallback fires (the warning will tell you), switch it to `1.0e3` so the
+  AirNow comparison is unit-consistent. To restore the monetio path,
+  pin `netCDF4<1.7` or an older `wrf-python` build in `environment.yml`.

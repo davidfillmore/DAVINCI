@@ -1017,6 +1017,84 @@ class TestSpatialPlotters:
         not pytest.importorskip("cartopy", reason="cartopy not available"),
         reason="cartopy not available",
     )
+    def test_spatial_bias_point_data_with_singleton_y_dim(self):
+        """Spatial bias must handle point/site data with a residual size-1
+        dim (legacy AirNow stores all sites as `(time, y=1, x=sites)`).
+        Previously the renderer wrongly took the regular-grid meshgrid
+        path, producing a (sites, sites) broadcast that crashed."""
+        import numpy as np
+        import xarray as xr
+        from davinci_monet.plots import plot_spatial_bias
+
+        times = np.array(
+            ["2025-08-01T00:00", "2025-08-01T01:00", "2025-08-01T02:00"],
+            dtype="datetime64[ns]",
+        )
+        n_sites = 5
+        lats = np.array([30.0, 35.0, 40.0, 45.0, 50.0])
+        lons = np.array([-110.0, -100.0, -90.0, -80.0, -70.0])
+        rng = np.random.default_rng(0)
+        obs = rng.uniform(20, 60, size=(3, 1, n_sites))
+        mod = obs + rng.uniform(-5, 5, size=(3, 1, n_sites))
+
+        ds = xr.Dataset(
+            {
+                "obs_o3": (("time", "y", "x"), obs),
+                "model_o3": (("time", "y", "x"), mod),
+            },
+            coords={
+                "time": times,
+                "latitude": (("x",), lats),
+                "longitude": (("x",), lons),
+            },
+        )
+
+        fig = plot_spatial_bias(ds, "obs_o3", "model_o3")
+        assert fig is not None
+        plt.close(fig)
+
+    @pytest.mark.skipif(
+        not pytest.importorskip("cartopy", reason="cartopy not available"),
+        reason="cartopy not available",
+    )
+    def test_spatial_bias_point_data_site_geometry(self):
+        """Regression: AERONET-style paired data with `(time, site)` dims and
+        lat/lon on the site dim must still render (no residual y dim, but
+        lats/lons share a single dim like AirNow)."""
+        import numpy as np
+        import xarray as xr
+        from davinci_monet.plots import plot_spatial_bias
+
+        times = np.array(
+            ["2025-08-01T00:00", "2025-08-01T01:00"], dtype="datetime64[ns]"
+        )
+        n_sites = 5
+        lats = np.linspace(20.0, 50.0, n_sites)
+        lons = np.linspace(-110.0, -70.0, n_sites)
+        rng = np.random.default_rng(1)
+        obs = rng.uniform(0, 1, size=(2, n_sites))
+        mod = obs + rng.uniform(-0.2, 0.2, size=(2, n_sites))
+
+        ds = xr.Dataset(
+            {
+                "obs_aod": (("time", "site"), obs),
+                "model_aod": (("time", "site"), mod),
+            },
+            coords={
+                "time": times,
+                "lat": (("site",), lats),
+                "lon": (("site",), lons),
+            },
+        )
+
+        fig = plot_spatial_bias(ds, "obs_aod", "model_aod")
+        assert fig is not None
+        plt.close(fig)
+
+    @pytest.mark.skipif(
+        not pytest.importorskip("cartopy", reason="cartopy not available"),
+        reason="cartopy not available",
+    )
     def test_spatial_distribution(self, simple_paired_data):
         """Test spatial distribution plot."""
         from davinci_monet.plots import plot_spatial_distribution
