@@ -385,6 +385,62 @@ class TestPointStrategy:
         # Surface extraction removes z dimension
         assert "z" not in paired.dims
 
+    def test_pair_drops_sites_outside_radius(self, model_2d: xr.Dataset) -> None:
+        """Sites beyond radius_of_influence must be removed from the paired output.
+
+        Regression test for the WRF-Chem-vs-AirNow PM2.5 zig-zag: AirNow-International
+        sites in Delhi/Chennai were thousands of km from the CONUS model grid, so the
+        nearest-index lookup masked their model values to NaN — but the obs side kept
+        the original values. Cross-site aggregates (e.g. timeseries domain-mean) were
+        then polluted by sites with no model match.
+
+        The paired dataset must contain only sites where *both* sides are valid.
+        """
+        # model_2d covers lat 30-50, lon -120 to -80. Build obs with 3 in-domain
+        # sites and 2 far-out sites (analogous to Delhi/Chennai).
+        times = pd.date_range("2024-01-01", periods=24, freq="h")
+        site_lats = np.array([35.0, 40.0, 45.0, 28.6, 13.1])  # last two: Delhi, Chennai
+        site_lons = np.array([-100.0, -105.0, -95.0, 77.2, 80.3])
+        # Make the out-of-domain obs values dramatically different so any leak shows up
+        temp = np.array(
+            [[285.0, 285.0, 285.0, 1000.0, 1000.0]] * 24
+        )
+        obs = xr.Dataset(
+            {"temperature": (["time", "site"], temp)},
+            coords={
+                "time": times,
+                "site": np.arange(5),
+                "latitude": ("site", site_lats),
+                "longitude": ("site", site_lons),
+            },
+        )
+
+        strategy = PointStrategy()
+        # 200 km radius matches model_2d's ~100 km grid spacing; Delhi/Chennai
+        # are still ~10,000 km from any in-domain cell so they're dropped.
+        paired = strategy.pair(model_2d, obs, radius_of_influence=200000.0)
+
+        # Only the 3 in-domain sites should survive
+        assert paired.sizes["site"] == 3, (
+            f"Expected 3 paired sites, got {paired.sizes['site']}. "
+            "Sites outside radius_of_influence must be dropped from the paired output."
+        )
+
+        # No NaN on the model side — every retained site has a valid model match
+        assert not np.isnan(paired["model_temperature"].values).any(), (
+            "Model values must be finite at all paired sites."
+        )
+
+        # No leak of the 1000.0 sentinel values from the dropped Delhi/Chennai sites
+        assert (paired["temperature"].values < 999.0).all(), (
+            "Obs values from out-of-domain sites leaked into the paired dataset."
+        )
+
+        # Retained sites must be exactly the in-domain ones
+        np.testing.assert_array_equal(
+            np.sort(paired["latitude"].values), np.array([35.0, 40.0, 45.0])
+        )
+
 
 # =============================================================================
 # Tests for TrackStrategy

@@ -6,6 +6,7 @@ ground sites) with gridded model output.
 
 from __future__ import annotations
 
+import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Hashable
@@ -18,6 +19,8 @@ from davinci_monet.core.exceptions import PairingError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.types import TimeDelta
 from davinci_monet.pairing.strategies.base import BasePairingStrategy
+
+_logger = logging.getLogger(__name__)
 
 
 class PointStrategy(BasePairingStrategy):
@@ -115,6 +118,27 @@ class PointStrategy(BasePairingStrategy):
             xr.DataArray(site_lons),
             radius_of_influence=radius_of_influence,
         )
+
+        # Drop obs sites that fall outside radius_of_influence. Without this,
+        # _extract_at_sites masks the model to NaN at unpaired sites but leaves
+        # the obs values intact, so cross-site aggregates (timeseries domain-mean)
+        # are polluted by sites with no model match.
+        valid = (lat_idx.values >= 0) & (lon_idx.values >= 0)
+        if not valid.all():
+            keep = np.where(valid)[0]
+            _logger.info(
+                "PointStrategy: dropping %d obs site(s) outside %.0f m "
+                "radius of influence (kept %d/%d).",
+                int((~valid).sum()),
+                radius_of_influence,
+                int(valid.sum()),
+                len(valid),
+            )
+            obs = obs.isel({site_dim: keep})
+            site_lats = site_lats[keep]
+            site_lons = site_lons[keep]
+            lat_idx = xr.DataArray(lat_idx.values[keep])
+            lon_idx = xr.DataArray(lon_idx.values[keep])
 
         # Extract model values at observation sites
         model_at_sites = self._extract_at_sites(
