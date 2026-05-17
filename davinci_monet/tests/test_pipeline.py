@@ -288,6 +288,46 @@ class TestLoadModelsStage:
         assert result.error is not None
         assert "missing required 'files'" in result.error
 
+    def test_execute_passes_mod_kwargs_to_open_model(self, monkeypatch):
+        """mod_kwargs from config must flow through to the model reader."""
+        captured: dict[str, Any] = {}
+
+        def fake_open_model(**kwargs: Any) -> Any:
+            captured.update(kwargs)
+
+            class _Stub:
+                data = None
+                variables: dict[str, Any] = {}
+
+                def apply_variable_config(self) -> None:
+                    pass
+
+            return _Stub()
+
+        import davinci_monet.models as models_mod
+
+        monkeypatch.setattr(models_mod, "open_model", fake_open_model)
+
+        stage = LoadModelsStage()
+        ctx = PipelineContext(
+            config={
+                "model": {
+                    "WRF-Chem": {
+                        "files": "/path/to/wrfout.nc",
+                        "mod_type": "wrfchem",
+                        "mod_kwargs": {"mech": "racm_esrl_vcp"},
+                    }
+                }
+            }
+        )
+
+        result = stage.execute(ctx)
+
+        assert result.status == StageStatus.COMPLETED, result.error
+        assert captured.get("mech") == "racm_esrl_vcp"
+        assert captured.get("mod_type") == "wrfchem"
+        assert captured.get("label") == "WRF-Chem"
+
 
 class TestLoadObservationsStage:
     """Tests for LoadObservationsStage."""

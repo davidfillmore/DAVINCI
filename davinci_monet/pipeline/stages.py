@@ -291,6 +291,7 @@ class LoadModelsStage(BaseStage):
                     )
                 mod_type = config.get("mod_type", "generic")
                 variables = config.get("variables")
+                mod_kwargs = config.get("mod_kwargs") or {}
 
                 # Count files for progress message
                 t0 = time.time()
@@ -316,6 +317,7 @@ class LoadModelsStage(BaseStage):
                     mod_type=mod_type,
                     variables=var_list,
                     label=label,
+                    **mod_kwargs,
                 )
                 if debug:
                     context.log_progress(

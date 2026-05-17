@@ -196,6 +196,89 @@ class AirNowReader:
         return AIRNOW_VARIABLE_MAPPING
 
 
+def _dataframe_to_xarray(df: pd.DataFrame, daily: bool = False) -> xr.Dataset:
+    """Convert wide-format monetio AirNow DataFrame to an xarray Dataset.
+
+    Produces the legacy MELODIES-MONET AirNow file layout: dims (time, y=1, x)
+    with `latitude`/`longitude` coordinates, site metadata variables, per-
+    species units propagated from `*_unit` columns, and (for non-daily data)
+    a derived `time_local` variable computed from `utcoffset`.
+
+    Parameters
+    ----------
+    df
+        Wide-format DataFrame from `monetio.airnow.add_data(..., wide_fmt=True)`.
+    daily
+        If True, the data is daily and lacks `utcoffset`/`time_local`.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with dims (time, y, x) and AirNow species as data variables.
+    """
+    if df is None or df.empty:
+        raise DataFormatError("Empty AirNow DataFrame provided")
+
+    df = df.dropna(subset=["latitude", "longitude"])
+
+    site_vns = [
+        "site",
+        "siteid",
+        "utcoffset",
+        "latitude",
+        "longitude",
+        "cmsa_name",
+        "msa_code",
+        "msa_name",
+        "state_name",
+        "epa_region",
+    ]
+    if daily:
+        site_vns.remove("utcoffset")
+
+    site_vns = [c for c in site_vns if c in df.columns]
+
+    ds_site = (
+        df[site_vns]
+        .groupby("siteid")
+        .first()
+        .to_xarray()
+        .swap_dims(siteid="x")
+    )
+
+    unit_suff = "_unit"
+    unit_cols = [n for n in df.columns if n.endswith(unit_suff)]
+    units: dict[str, str] = {}
+    if unit_cols:
+        non_null = df[unit_cols].dropna(how="all")
+        if not non_null.empty:
+            units = non_null.iloc[0].dropna().to_dict()
+
+    cols = [n for n in df.columns if not n.endswith(unit_suff)]
+    ds = (
+        df[cols]
+        .set_index(["time", "siteid"])
+        .to_xarray()
+        .swap_dims(siteid="x")
+        .drop_vars(site_vns)
+        .merge(ds_site)
+        .set_coords(["latitude", "longitude"])
+        .assign(x=range(ds_site.sizes["x"]))
+    )
+
+    for k, u in units.items():
+        vn = k[: -len(unit_suff)]
+        if vn in ds.data_vars:
+            ds[vn].attrs["units"] = u
+
+    if not daily and "utcoffset" in ds.data_vars:
+        ds["time_local"] = ds.time + ds.utcoffset.astype("timedelta64[h]")
+
+    ds = ds.expand_dims("y").transpose("time", "y", "x")
+
+    return ds
+
+
 def open_airnow(
     files: str | Path | Sequence[str | Path] | None = None,
     variables: Sequence[str] | None = None,
