@@ -433,6 +433,56 @@ class TestStatisticsStage:
         # IOA is in 'metrics' but not in 'stat_list' - must be present
         assert "IOA" in o3_stats
 
+    def test_domain_filter_restricts_stats_to_conus(self):
+        """Stats config domain_type / domain_name must filter paired_data before metrics.
+
+        Regression test for the silent no-op: pre-fix, writing
+        ``stats: {domain_type: [conus]}`` had no effect — stats were
+        computed over the full paired dataset including non-CONUS sites.
+        """
+        # 6 sites across regions: 4 CONUS, 2 in Asia. The Asian sites have
+        # large obs values that would skew an unfiltered mean.
+        n_times = 12
+        times = np.datetime64("2024-01-01") + np.arange(n_times) * np.timedelta64(1, "h")
+        site_lats = np.array([35.0, 40.0, 45.0, 43.0, 28.6, 13.1])
+        site_lons = np.array([-100.0, -105.0, -95.0, -85.0, 77.2, 80.3])
+        obs = np.full((n_times, 6), 10.0)
+        obs[:, 4:] = 200.0  # Asian sites: dramatically different
+        model = np.full((n_times, 6), 11.0)
+
+        paired = xr.Dataset(
+            {
+                "obs_pm25": (["time", "site"], obs),
+                "model_pm25": (["time", "site"], model),
+            },
+            coords={
+                "time": times,
+                "site": np.arange(6),
+                "latitude": ("site", site_lats),
+                "longitude": ("site", site_lons),
+            },
+        )
+
+        ctx = PipelineContext()
+        ctx.paired["mod_obs"] = paired
+        ctx.config["stats"] = {"domain_type": ["conus"], "metrics": ["N", "MB"]}
+
+        stage = StatisticsStage()
+        result = stage.execute(ctx)
+
+        assert result.status == StageStatus.COMPLETED
+        pm25_stats = result.data["mod_obs"]["pm25"]
+        # 4 CONUS sites x 12 timesteps = 48 paired points
+        assert pm25_stats["N"] == 48, (
+            f"Expected N=48 after CONUS filter, got {pm25_stats['N']}. "
+            "domain_type filter is not being applied in StatisticsStage."
+        )
+        # MB should reflect only CONUS sites: model=11, obs=10 → MB=+1
+        assert abs(pm25_stats["MB"] - 1.0) < 0.01, (
+            f"Expected MB≈1.0 (CONUS only), got {pm25_stats['MB']}. "
+            "Asian sites leaked through the filter."
+        )
+
 
 class TestPlottingStage:
     """Tests for PlottingStage."""

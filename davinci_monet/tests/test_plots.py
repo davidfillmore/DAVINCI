@@ -385,6 +385,56 @@ class TestTimeSeriesPlotter:
         assert fig is not None
         plt.close(fig)
 
+    def test_smart_ylim_matches_plotted_aggregate(self):
+        """When no aggregate_dim is passed, plot() averages across non-time dims;
+        smart-ylim must compute its range from that same aggregate, not the
+        raw per-site values.
+
+        Regression test for the wide-y-axis cosmetic bug seen in the WRF-Chem
+        PM2.5 timeseries: per-site max (e.g. a wildfire site at 200 µg/m³)
+        was driving vmax even though the plotted line was the cross-site mean
+        around ~10.
+        """
+        import numpy as np
+        import pandas as pd
+        import xarray as xr
+
+        from davinci_monet.plots import TimeSeriesPlotter
+
+        n_times, n_sites = 24, 10
+        times = pd.date_range("2024-01-01", periods=n_times, freq="h")
+        # 9 sites at ~10, 1 outlier site at ~200 (wildfire). Mean ≈ 29 raw,
+        # but the cross-site mean is ((9*10) + 200) / 10 = 29 — wait, that's
+        # still 29. Use a less extreme ratio to make the test discriminating:
+        # 9 sites at 10, 1 site at 200 → mean = 29. data_max for the plotted
+        # mean = 29; data_max for raw = 200. The fix should produce ylim ~32,
+        # the bug produces ylim ~220.
+        obs = np.full((n_times, n_sites), 10.0)
+        obs[:, -1] = 200.0
+        model = np.full((n_times, n_sites), 11.0)
+        model[:, -1] = 200.0
+
+        paired = xr.Dataset(
+            {
+                "obs_pm25": (["time", "site"], obs),
+                "model_pm25": (["time", "site"], model),
+            },
+            coords={"time": times, "site": np.arange(n_sites)},
+        )
+
+        plotter = TimeSeriesPlotter()
+        # Do not pass aggregate_dim → plot() auto-aggregates over 'site'
+        fig = plotter.plot(paired, "obs_pm25", "model_pm25")
+
+        ax = fig.axes[0]
+        _, ymax = ax.get_ylim()
+        # Plotted mean tops out near 29; padded vmax should be ~32, not >100.
+        assert ymax < 60.0, (
+            f"Smart-ylim should use the plotted aggregate (~29), not the raw "
+            f"per-site max (200). Got ymax={ymax}."
+        )
+        plt.close(fig)
+
 
 class TestDiurnalPlotter:
     """Tests for diurnal cycle plotter."""

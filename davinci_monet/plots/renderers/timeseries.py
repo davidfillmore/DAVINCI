@@ -555,10 +555,19 @@ class TimeSeriesPlotter(BasePlotter):
                     )
                 )
         else:
-            # Just use mean values
+            # Just use mean values. Replicate plot()'s aggregation so that
+            # ylim is computed from the actual plotted line, not the raw
+            # per-site/per-track-point distribution. Without this, a single
+            # outlier (e.g. one wildfire-impacted PM2.5 site at 200 µg/m³)
+            # drives vmax far above the cross-site mean that's plotted.
             if aggregate_dim is not None and aggregate_dim in obs_data.dims:
                 obs_data = obs_data.mean(dim=aggregate_dim)
                 model_data = model_data.mean(dim=aggregate_dim)
+            else:
+                other_dims = [d for d in obs_data.sizes if d != time_dim]
+                if other_dims:
+                    obs_data = obs_data.mean(dim=other_dims)
+                    model_data = model_data.mean(dim=other_dims)
 
             data_min = float(min(np.nanmin(obs_data.values), np.nanmin(model_data.values)))
             data_max = float(max(np.nanmax(obs_data.values), np.nanmax(model_data.values)))
