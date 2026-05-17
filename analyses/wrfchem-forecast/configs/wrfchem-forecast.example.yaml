@@ -16,8 +16,8 @@
 analysis:
   start_time: "${YYYY}-${MM}-${DD}"
   end_time:   "${YYYY}-${MM}-${DD} 23:00:00"
-  output_dir: /glade/campaign/acom/acom-da/fillmore/WRF-Chem/${YYYY}/${MM}/${DD}
-  log_dir:    /glade/campaign/acom/acom-da/fillmore/WRF-Chem/${YYYY}/${MM}/${DD}/logs
+  output_dir: /glade/campaign/acom/acom-da/fillmore/DAVINCI/WRF-Chem/${YYYY}/${MM}/${DD}
+  log_dir:    /glade/campaign/acom/acom-da/fillmore/DAVINCI/WRF-Chem/${YYYY}/${MM}/${DD}/logs
   style:
     theme: ncar
 
