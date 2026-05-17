@@ -21,7 +21,8 @@ env-var expansion in the YAML config.
 
 | Source | Path |
 |---|---|
-| WRF-Chem forecast | `/glade/campaign/acom/acom-da/shawnh/AQ_WATCH/YYYYMMDD/wrf/wrfout_d01_YYYY-MM-DD_*` |
+| WRF-Chem forecast (06/12/18Z) | `/glade/campaign/acom/acom-da/shawnh/AQ_WATCH/YYYYMMDD/wrf/wrfout_d01_YYYY-MM-DD_{06,12,18}:00:00` |
+| WRF-Chem forecast (00Z) | `/glade/campaign/acom/acom-da/shawnh/AQ_WATCH/PREV_YYYYMMDD/wrf/wrfout_d01_YYYY-MM-DD_00:00:00` (prev cycle +24h) |
 | AirNow observations | `/glade/work/fillmore/Data/AirNow/AirNow_YYYYMMDD.nc` |
 | AERONET observations | `/glade/work/fillmore/Data/AeroNet/AeroNet_YYYYMMDD.nc` |
 | Plot output | `/glade/campaign/acom/acom-da/fillmore/DAVINCI/WRF-Chem/YYYY/MM/DD/` |
@@ -34,6 +35,18 @@ the acom-da group. Plots from this run are published at
 Note that the WRF-Chem files are named `wrfout_d01_YYYY-MM-DD_HH:MM:SS`
 (no `_hourly_` infix, no `.nc` extension) — DAVINCI's WRF-Chem reader
 opens them via netCDF4 regardless of extension.
+
+### Hour-0 from the previous cycle
+
+The hour-0 file of each cycle (`wrfout_d01_YYYY-MM-DD_00:00:00`) is the IC
+dump — written before any chemistry tendency step has run — so the
+`PM2_5_DRY` diagnostic is exactly zero across the entire grid. The other
+snapshots are populated normally. For the daily evaluation, hour 00 comes
+from the **previous** cycle's +24h forecast (file at the same
+`YYYY-MM-DD_00:00:00` timestamp, but under `AQ_WATCH/${PREV_YYYYMMDD}/`),
+where the diagnostic is populated. The `qsub_wrfchem_daily.sh` script
+exports `PREV_YYYYMMDD` for this purpose. The WRF-Chem reader also drops
+any all-zero PM2.5 step it sees as a defense-in-depth backstop.
 
 ## Files
 
@@ -59,6 +72,7 @@ analyses/wrfchem-forecast/scripts/qsub_wrfchem_daily.sh
 **Manual run without qsub:**
 ```bash
 export YYYY=2025 MM=08 DD=01
+export PREV_YYYYMMDD=20250731     # previous-day cycle for hour-0 file
 davinci-monet run analyses/wrfchem-forecast/configs/wrfchem-forecast.example.yaml
 ```
 

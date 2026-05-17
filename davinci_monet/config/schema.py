@@ -266,7 +266,7 @@ class ModelConfig(FlexibleModel):
         Apply averaging kernels for satellite comparison.
     """
 
-    files: str | Path | None = None
+    files: str | Path | list[str | Path] | None = None
     files_vert: str | Path | None = None
     files_surf: str | Path | None = None
     mod_type: str | None = None
@@ -278,7 +278,19 @@ class ModelConfig(FlexibleModel):
     plot_kwargs: PlotKwargs | dict[str, Any] | None = None
     apply_ak: bool = False
 
-    @field_validator("files", "files_vert", "files_surf", mode="before")
+    @field_validator("files", mode="before")
+    @classmethod
+    def convert_files(cls, v: Any) -> str | list[str] | None:
+        """Keep paths as strings to preserve glob patterns; accept a list of
+        paths for cases that need to combine multiple cycles or explicit files.
+        """
+        if v is None:
+            return None
+        if isinstance(v, (list, tuple)):
+            return [str(item) for item in v]
+        return str(v)
+
+    @field_validator("files_vert", "files_surf", mode="before")
     @classmethod
     def convert_path(cls, v: Any) -> str | None:
         """Keep paths as strings to preserve glob patterns."""

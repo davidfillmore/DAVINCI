@@ -24,7 +24,16 @@ analysis:
 model:
   WRF-Chem:
     mod_type: wrfchem
-    files: /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_*
+    # Hour-0 of the current cycle's wrfout is the IC dump — PM2_5_DRY is
+    # exactly zero there because the chemistry tendency hasn't run yet. We
+    # take hour 00 from the *previous* cycle's +24h forecast (where the
+    # diagnostic is populated) and hours 06/12/18 from the current cycle.
+    # The reader also drops any all-zero PM step as a safety net.
+    files:
+      - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${PREV_YYYYMMDD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_00:00:00
+      - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_06:00:00
+      - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_12:00:00
+      - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_18:00:00
     mod_kwargs:
       mech: racm_esrl_vcp
     radius_of_influence: 12000

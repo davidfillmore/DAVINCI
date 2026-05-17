@@ -18,9 +18,15 @@ else
     fcst_date=$(date --date=yesterday '+%Y%m%d')
 fi
 
+# The previous-day cycle's +24h forecast supplies the populated PM2_5_DRY at
+# hour 00 of the analysis day. The current cycle's hour-0 wrfout is the IC
+# dump and has PM2_5_DRY identically zero (diagnostic isn't computed yet).
+prev_date=$(date --date="${fcst_date:0:4}-${fcst_date:4:2}-${fcst_date:6:2} -1 day" '+%Y%m%d')
+
 export YYYY=${fcst_date:0:4}
 export MM=${fcst_date:4:2}
 export DD=${fcst_date:6:2}
+export PREV_YYYYMMDD=${prev_date}
 
 # HDF5 thread safety: WRF-Chem mfdataset under parallel dask occasionally
 # segfaults via libhdf5 file locks; disable file locking and pin Dask
@@ -33,5 +39,5 @@ qsub \
     -A P19010000 \
     -l select=1:ncpus=1 \
     -q casper@casper-pbs \
-    -v YYYY,MM,DD,HDF5_USE_FILE_LOCKING,DASK_NUM_WORKERS \
+    -v YYYY,MM,DD,PREV_YYYYMMDD,HDF5_USE_FILE_LOCKING,DASK_NUM_WORKERS \
     -- "${SCRIPT_DIR}/run_pipeline.sh"

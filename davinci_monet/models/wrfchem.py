@@ -138,6 +138,14 @@ class WRFChemReader:
         # Standardize dimensions
         ds = self._standardize_dataset(ds)
 
+        # Drop timesteps where chemistry diagnostics are identically zero.
+        # In the operational AQ_WATCH cycle the hour-0 wrfout is an IC dump
+        # written before any chemistry tendency step, so PM2_5_DRY/PM10 are
+        # exactly zero across the entire grid. Pairing such steps against
+        # surface obs silently biases stats negative and produces a 0-to-real
+        # discontinuity in timeseries plots.
+        ds = self._drop_uninitialized_chem_steps(ds)
+
         return ds
 
     def _open_with_monetio(
@@ -337,6 +345,74 @@ class WRFChemReader:
             ds = ds.set_coords("longitude")
 
         return ds
+
+    # Chemistry diagnostics computed during the chemistry tendency step.
+    # These are exactly zero in the hour-0 IC dump and become populated only
+    # after the first chemistry step. Used by _drop_uninitialized_chem_steps.
+    _CHEM_DIAGNOSTICS: tuple[str, ...] = ("PM2_5_DRY", "PM10")
+
+    def _drop_uninitialized_chem_steps(self, ds: xr.Dataset) -> xr.Dataset:
+        """Drop timesteps where chemistry diagnostics are identically zero.
+
+        WRF-Chem diagnostics like ``PM2_5_DRY`` and ``PM10`` are computed
+        inside the chemistry tendency routine. The hour-0 wrfout file is
+        written from initial conditions before any chemistry step has run,
+        so these diagnostics are exactly zero across the entire grid. Other
+        timesteps in the cycle are populated normally.
+
+        Parameters
+        ----------
+        ds
+            Standardized dataset (post :meth:`_standardize_dataset`).
+
+        Returns
+        -------
+        xr.Dataset
+            Dataset with all-zero diagnostic timesteps removed. Returns the
+            input unchanged when no chemistry diagnostic is present or all
+            timesteps look populated.
+        """
+        if "time" not in ds.dims:
+            return ds
+
+        # Find timesteps where ANY tracked diagnostic is all-zero across its
+        # non-time dimensions.
+        import numpy as np
+
+        bad_steps: set[int] = set()
+        triggering_var: str | None = None
+        for diag in self._CHEM_DIAGNOSTICS:
+            if diag not in ds.data_vars:
+                continue
+            da = ds[diag]
+            other_dims = [d for d in da.dims if d != "time"]
+            if not other_dims:
+                continue
+            max_per_t = da.max(dim=other_dims).values
+            zero_t = np.where(max_per_t == 0)[0]
+            if zero_t.size:
+                bad_steps.update(int(i) for i in zero_t)
+                if triggering_var is None:
+                    triggering_var = diag
+
+        if not bad_steps:
+            return ds
+
+        keep = np.array(
+            [i for i in range(ds.sizes["time"]) if i not in bad_steps], dtype=int
+        )
+        bad_times = ds["time"].values[sorted(bad_steps)]
+        warnings.warn(
+            f"WRF-Chem: dropping {len(bad_steps)} timestep(s) where "
+            f"{triggering_var} is identically zero across the grid. This is "
+            f"the hour-0 IC dump before any chemistry tendency step has run; "
+            f"the diagnostic is not populated. Dropped times: "
+            f"{[str(t) for t in bad_times]}. For analysis that needs these "
+            f"hours, supply the previous cycle's +24h forecast file instead.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return ds.isel(time=keep)
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return WRF-Chem variable name mapping.
