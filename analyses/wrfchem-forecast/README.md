@@ -10,9 +10,9 @@ surface observations, replacing the legacy `melodies-scripts/wrfchem.yaml` +
    `/glade/work/fillmore/Data/AirNow/AirNow_YYYYMMDD.nc`.
 2. `qsub_wrfchem_daily.sh` exports `YYYY/MM/DD` (yesterday by default), submits
    `davinci-monet run` to PBS on Casper. The pipeline pairs the dated WRF-Chem
-   forecast with that day's AirNow file and writes CONUS + EPA region (R1–R10)
-   timeseries, spatial overlay, and spatial bias plots to
-   `/glade/work/fillmore/Plots/AirNow_WRF-Chem-Forecast/YYYY/MM/DD/`.
+   forecast with that day's AirNow + AERONET files and writes CONUS scatter,
+   timeseries, and spatial bias plots for PM2.5 / OZONE / AOD to
+   `/glade/campaign/acom/acom-da/fillmore/WRF-Chem/YYYY/MM/DD/`.
 
 No Python wrapper — date substitution is done entirely via DAVINCI's `${VAR}`
 env-var expansion in the YAML config.
@@ -24,7 +24,7 @@ env-var expansion in the YAML config.
 | WRF-Chem forecast | `/glade/campaign/acom/acom-da/shawnh/AQ_WATCH/YYYYMMDD/wrf/wrfout_d01_YYYY-MM-DD_*` |
 | AirNow observations | `/glade/work/fillmore/Data/AirNow/AirNow_YYYYMMDD.nc` |
 | AERONET observations | `/glade/work/fillmore/Data/AeroNet/AeroNet_YYYYMMDD.nc` |
-| Plot output | `/glade/work/fillmore/Plots/AirNow_WRF-Chem-Forecast/YYYY/MM/DD/` |
+| Plot output | `/glade/campaign/acom/acom-da/fillmore/WRF-Chem/YYYY/MM/DD/` |
 
 The WRF-Chem forecast is the operational AQ-WATCH run (CONUS d01, every
 6 hours per init day, multi-day forecast horizon), owned by `shawnh` in

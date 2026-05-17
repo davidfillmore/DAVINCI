@@ -16,8 +16,8 @@
 analysis:
   start_time: "${YYYY}-${MM}-${DD}"
   end_time:   "${YYYY}-${MM}-${DD} 23:00:00"
-  output_dir: /glade/work/fillmore/Plots/AirNow_WRF-Chem-Forecast/${YYYY}/${MM}/${DD}
-  log_dir:    /glade/work/fillmore/Plots/AirNow_WRF-Chem-Forecast/${YYYY}/${MM}/${DD}/logs
+  output_dir: /glade/campaign/acom/acom-da/fillmore/WRF-Chem/${YYYY}/${MM}/${DD}
+  log_dir:    /glade/campaign/acom/acom-da/fillmore/WRF-Chem/${YYYY}/${MM}/${DD}/logs
   style:
     theme: ncar
 
@@ -96,90 +96,92 @@ obs:
         vdiff_plot: 0.5
         nlevels_plot: 21
 
+pairs:
+  wrfchem_airnow_pm25:
+    model: WRF-Chem
+    obs: airnow
+    variable:
+      model_var: PM2_5_DRY
+      obs_var: "PM2.5"
+
+  wrfchem_airnow_o3:
+    model: WRF-Chem
+    obs: airnow
+    variable:
+      model_var: o3
+      obs_var: OZONE
+
+  wrfchem_aeronet_aod:
+    model: WRF-Chem
+    obs: aeronet
+    variable:
+      model_var: AOD2D_OUT
+      obs_var: aod_500nm
+
 plots:
 
-  timeseries_panels:
-    type: timeseries
-    data: [WRF-Chem_airnow]
-    fig_kwargs:
-      figsize: [12, 6]
-    text_kwargs:
-      fontsize: 18
-    domain_type: [conus, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region]
-    domain_name: [CONUS,  R1,         R2,         R3,         R4,         R5,         R6,         R7,         R8,         R9,         R10]
-    data_proc:
-      rem_obs_nan: true
-      ts_avg_window: H
-      set_axis: true
-
-  spatial_overlay_panels:
-    type: spatial_overlay
-    data: [WRF-Chem_airnow]
-    fig_kwargs:
-      states: true
-      figsize: [10, 5]
-    text_kwargs:
-      fontsize: 14
-    domain_type: [conus, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region]
-    domain_name: [CONUS,  R1,         R2,         R3,         R4,         R5,         R6,         R7,         R8,         R9,         R10]
-    data_proc:
-      rem_obs_nan: true
-      set_axis: true
-
-  spatial_bias_panels:
-    type: spatial_bias
-    data: [WRF-Chem_airnow]
-    fig_kwargs:
-      states: true
-      figsize: [10, 5]
-    text_kwargs:
-      fontsize: 14
-    domain_type: [conus, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region, epa_region]
-    domain_name: [CONUS,  R1,         R2,         R3,         R4,         R5,         R6,         R7,         R8,         R9,         R10]
-    data_proc:
-      rem_obs_nan: true
-      set_axis: true
-
-  aeronet_scatter:
+  airnow_pm25_scatter:
     type: scatter
-    data: [WRF-Chem_aeronet]
-    fig_kwargs:
-      figsize: [7, 7]
-    text_kwargs:
-      fontsize: 14
+    pairs: [wrfchem_airnow_pm25]
+    title: "PM2.5: WRF-Chem vs AirNow"
     domain_type: [conus]
     domain_name: [CONUS]
-    data_proc:
-      rem_obs_nan: true
-      set_axis: true
 
-  aeronet_spatial_overlay:
-    type: spatial_overlay
-    data: [WRF-Chem_aeronet]
-    fig_kwargs:
-      states: true
-      figsize: [10, 5]
-    text_kwargs:
-      fontsize: 14
+  airnow_pm25_timeseries:
+    type: timeseries
+    pairs: [wrfchem_airnow_pm25]
+    title: "PM2.5 Time Series"
     domain_type: [conus]
     domain_name: [CONUS]
-    data_proc:
-      rem_obs_nan: true
-      set_axis: true
 
-  aeronet_spatial_bias:
+  airnow_pm25_spatial_bias:
     type: spatial_bias
-    data: [WRF-Chem_aeronet]
-    fig_kwargs:
-      states: true
-      figsize: [10, 5]
-    text_kwargs:
-      fontsize: 14
+    pairs: [wrfchem_airnow_pm25]
+    title: "PM2.5 Spatial Bias"
     domain_type: [conus]
     domain_name: [CONUS]
-    data_proc:
-      rem_obs_nan: true
-      set_axis: true
+
+  airnow_o3_scatter:
+    type: scatter
+    pairs: [wrfchem_airnow_o3]
+    title: "Ozone: WRF-Chem vs AirNow"
+    domain_type: [conus]
+    domain_name: [CONUS]
+
+  airnow_o3_timeseries:
+    type: timeseries
+    pairs: [wrfchem_airnow_o3]
+    title: "Ozone Time Series"
+    domain_type: [conus]
+    domain_name: [CONUS]
+
+  airnow_o3_spatial_bias:
+    type: spatial_bias
+    pairs: [wrfchem_airnow_o3]
+    title: "Ozone Spatial Bias"
+    domain_type: [conus]
+    domain_name: [CONUS]
+
+  aeronet_aod_scatter:
+    type: scatter
+    pairs: [wrfchem_aeronet_aod]
+    title: "AOD: WRF-Chem vs AERONET (500 nm)"
+    domain_type: [conus]
+    domain_name: [CONUS]
+
+  aeronet_aod_timeseries:
+    type: timeseries
+    pairs: [wrfchem_aeronet_aod]
+    title: "AOD Time Series"
+    domain_type: [conus]
+    domain_name: [CONUS]
+
+  aeronet_aod_spatial_bias:
+    type: spatial_bias
+    pairs: [wrfchem_aeronet_aod]
+    title: "AOD Spatial Bias"
+    domain_type: [conus]
+    domain_name: [CONUS]
 
 stats:
   metrics: [N, MB, RMSE, R, NMB, NME, IOA]
