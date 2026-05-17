@@ -12,6 +12,10 @@
 #   ./fetch_airnow.sh 20250801
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/activate_env.sh"
+
 AIRNOW_DIR=${AIRNOW_DIR:-/glade/work/fillmore/Data/AirNow}
 
 if [ "$#" -ge 1 ]; then

@@ -62,24 +62,44 @@ export YYYY=2025 MM=08 DD=01
 davinci-monet run analyses/wrfchem-forecast/configs/wrfchem-forecast.example.yaml
 ```
 
-## Cron template
+## Cron setup (cron.hpc.ucar.edu)
 
-Two crontab entries replace the legacy `airnow.sh` + `wrfchem.yaml` chain:
+Install the crontab on NCAR's high-availability cron server, **not** on a
+Casper login node:
+
+```bash
+ssh fillmore@cron.hpc.ucar.edu
+crontab -e
+```
+
+Two entries replace the legacy `airnow.sh` + `wrfchem.yaml` chain:
 
 ```
 20 08 * * * /glade/work/fillmore/DAVINCI-MONET/analyses/wrfchem-forecast/scripts/qsub_fetch_airnow.sh
 30 09 * * * /glade/work/fillmore/DAVINCI-MONET/analyses/wrfchem-forecast/scripts/qsub_wrfchem_daily.sh
 ```
 
+The cron server's environment is intentionally sparse (no modules, 1 GB
+user memory cap), so the scripts:
+
+- use fully-qualified queue names (`-q casper@casper-pbs`), as required
+  when submitting from the cron server to Casper PBS
+- run a small `activate_env.sh` to source conda and activate the
+  `davinci-monet` env before invoking the CLI on the compute node, so
+  nothing depends on the user's interactive shell init
+
+Override env paths if needed:
+```bash
+export DAVINCI_CONDA_BASE=/path/to/miniforge3   # default: /glade/work/fillmore/miniforge3
+export DAVINCI_CONDA_ENV=davinci-monet
+```
+
+Reference: [NCAR HPC Documentation — Cron services](https://ncar-hpc-docs.readthedocs.io/en/latest/compute-systems/additional-resources/cron/).
+
 ## Notes
 
-- **Domain**: vweeks's system writes `d01` only (the legacy rkumar config used
-  `d02`).
-- **State-level subdomains**: the legacy config produced per-state panels for
-  CA and CO. DAVINCI does not currently support `state_name` domains out of
-  the box; only CONUS + EPA regions R1–R10 are plotted. Add state extents
-  to `davinci_monet/plots/renderers/spatial/base.py:get_domain_extent` if
-  per-state panels are needed.
+- **Domain**: shawnh's operational d01 covers CONUS (lat 23.7→51.7,
+  lon -129.8→-64.2), 6-hourly snapshots over a multi-day forecast horizon.
 - **Mechanism**: `mod_kwargs: {mech: racm_esrl_vcp}` is forwarded to monetio's
   WRF-Chem reader for proper variable resolution.
 - **wrf-python compatibility**: monetio's WRF-Chem reader requires `wrf-python`,
