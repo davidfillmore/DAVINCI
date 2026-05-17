@@ -6,6 +6,7 @@ with gridded model output.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Hashable
 
 import numpy as np
@@ -15,6 +16,8 @@ from davinci_monet.core.exceptions import PairingError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.types import TimeDelta
 from davinci_monet.pairing.strategies.base import BasePairingStrategy
+
+_logger = logging.getLogger(__name__)
 
 
 class SwathStrategy(BasePairingStrategy):
@@ -98,6 +101,31 @@ class SwathStrategy(BasePairingStrategy):
             xr.DataArray(obs_lon_flat),
             radius_of_influence=radius_of_influence,
         )
+
+        # Mask obs values at pixels outside radius_of_influence so the paired
+        # output has obs and model NaN at the same locations. Swath data is
+        # inherently 2D (scanline x pixel), so we mask rather than drop —
+        # preserving the swath geometry for downstream spatial plotting.
+        # Without this, _extract_at_pixels NaNs the model side but the obs
+        # side retains valid values, polluting cross-pixel aggregates.
+        valid_flat = (lat_idx.values >= 0) & (lon_idx.values >= 0)
+        if not valid_flat.all():
+            spatial_dims = obs_lat.dims
+            valid_2d = valid_flat.reshape(obs_lat.shape)
+            valid_da = xr.DataArray(valid_2d, dims=spatial_dims)
+            _logger.info(
+                "SwathStrategy: masking %d swath pixel(s) outside %.0f m "
+                "radius of influence (kept %d/%d).",
+                int((~valid_flat).sum()),
+                radius_of_influence,
+                int(valid_flat.sum()),
+                len(valid_flat),
+            )
+            masked = obs.copy()
+            for var in obs.data_vars:
+                if all(d in obs[var].dims for d in spatial_dims):
+                    masked[var] = obs[var].where(valid_da)
+            obs = masked
 
         # Handle time matching
         if match_overpass and "time" in obs.coords:

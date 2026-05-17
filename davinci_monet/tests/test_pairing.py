@@ -635,6 +635,67 @@ class TestSwathStrategy:
         # Should have observation variable
         assert "column_ozone" in paired.data_vars
 
+    def test_pair_masks_pixels_outside_radius(self, model_2d: xr.Dataset) -> None:
+        """Swath pixels beyond radius_of_influence must be NaN on the obs side too.
+
+        Companion to test_pair_drops_sites_outside_radius (Point) and
+        test_pair_drops_track_points_outside_radius (Track). Swath data is
+        inherently 2D (scanline x pixel), so we mask rather than drop —
+        but the contract is the same: out-of-domain pixels must not contribute
+        valid obs values to cross-pixel aggregates.
+        """
+        # model_2d covers lat 30-50, lon -120 to -80. Build a 4 x 6 swath where
+        # the left half is over CONUS and the right half is over Asia.
+        n_scanlines, n_pixels = 4, 6
+        lats = np.broadcast_to(
+            np.linspace(35.0, 45.0, n_scanlines)[:, None], (n_scanlines, n_pixels)
+        ).copy()
+        # Pixels 0-2 over CONUS, pixels 3-5 over Asia
+        lons_row = np.array([-110.0, -100.0, -90.0, 60.0, 80.0, 100.0])
+        lons = np.broadcast_to(lons_row[None, :], (n_scanlines, n_pixels)).copy()
+
+        # Sentinel obs values at the out-of-domain pixels. Use "temperature"
+        # so it pairs with model_2d's temperature variable.
+        column = np.full((n_scanlines, n_pixels), 300.0)
+        column[:, 3:] = 9999.0
+
+        obs = xr.Dataset(
+            {"temperature": (["scanline", "pixel"], column)},
+            coords={
+                "scanline": np.arange(n_scanlines),
+                "pixel": np.arange(n_pixels),
+                "latitude": (["scanline", "pixel"], lats),
+                "longitude": (["scanline", "pixel"], lons),
+                "time": pd.Timestamp("2024-01-01 13:30"),
+            },
+        )
+
+        strategy = SwathStrategy()
+        paired = strategy.pair(model_2d, obs, radius_of_influence=200000.0)
+
+        # Swath dims preserved
+        assert paired.sizes["scanline"] == n_scanlines
+        assert paired.sizes["pixel"] == n_pixels
+
+        # Out-of-domain pixels: obs must be NaN, model must be NaN
+        out_obs = paired["temperature"].values[:, 3:]
+        out_model = paired["model_temperature"].values[:, 3:]
+        assert np.isnan(out_obs).all(), (
+            "Obs values at out-of-radius swath pixels must be NaN; "
+            f"got {out_obs}"
+        )
+        assert np.isnan(out_model).all(), (
+            "Model values at out-of-radius swath pixels must be NaN."
+        )
+
+        # In-domain pixels: obs must retain its 300.0 value, model must be finite
+        in_obs = paired["temperature"].values[:, :3]
+        in_model = paired["model_temperature"].values[:, :3]
+        np.testing.assert_array_equal(in_obs, np.full_like(in_obs, 300.0))
+        assert not np.isnan(in_model).any(), (
+            "Model values must be finite at in-domain swath pixels."
+        )
+
 
 # =============================================================================
 # Tests for GridStrategy
