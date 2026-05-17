@@ -467,6 +467,60 @@ class TestTrackStrategy:
         # Should have time dimension
         assert "time" in paired.dims
 
+    def test_pair_drops_track_points_outside_radius(self, model_3d: xr.Dataset) -> None:
+        """Track points beyond radius_of_influence must be removed from the paired output.
+
+        Companion to test_pair_drops_sites_outside_radius. Same half-paired bug
+        pattern: the model side was NaN-masked outside the radius, but the obs
+        side along the track was retained, polluting any cross-time aggregate
+        that includes obs-only points.
+        """
+        # model_3d covers lat 30-50, lon -120 to -80. Build a 10-point track
+        # with 6 points inside the domain and 4 points far out over the Atlantic.
+        times = pd.date_range("2024-01-01 06:00", periods=10, freq="h")
+        in_lats  = [35.0, 38.0, 42.0, 45.0, 40.0, 38.0]
+        in_lons  = [-110.0, -105.0, -95.0, -90.0, -100.0, -115.0]
+        out_lats = [35.0, 35.0, 35.0, 35.0]
+        out_lons = [0.0, 30.0, 60.0, 90.0]
+        lats = np.array(in_lats + out_lats)
+        lons = np.array(in_lons + out_lons)
+        alts = np.full(10, 500.0)
+        # Sentinel obs values for the out-of-domain points
+        ozone = np.array([50.0] * 6 + [9999.0] * 4)
+
+        obs = xr.Dataset(
+            {"ozone": ("time", ozone)},
+            coords={
+                "time": times,
+                "latitude": ("time", lats),
+                "longitude": ("time", lons),
+                "altitude": ("time", alts),
+            },
+        )
+
+        strategy = TrackStrategy()
+        paired = strategy.pair(model_3d, obs, radius_of_influence=200000.0)
+
+        # Only the 6 in-domain track points should survive
+        assert paired.sizes["time"] == 6, (
+            f"Expected 6 paired track points, got {paired.sizes['time']}. "
+            "Track points outside radius_of_influence must be dropped."
+        )
+
+        # No NaN on the model side at retained points
+        assert not np.isnan(paired["model_ozone"].values).any(), (
+            "Model values must be finite at all paired track points."
+        )
+
+        # No leak of sentinel values from dropped points
+        assert (paired["ozone"].values < 9000.0).all(), (
+            "Obs values from out-of-domain track points leaked into the paired dataset."
+        )
+
+        # Retained lat/lon coords match the in-domain track segment
+        np.testing.assert_array_equal(paired["latitude"].values, np.array(in_lats))
+        np.testing.assert_array_equal(paired["longitude"].values, np.array(in_lons))
+
     def test_vertical_interpolation(self) -> None:
         """Test vertical interpolation to aircraft altitude.
 
