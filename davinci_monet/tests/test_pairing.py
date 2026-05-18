@@ -385,6 +385,152 @@ class TestPointStrategy:
         # Surface extraction removes z dimension
         assert "z" not in paired.dims
 
+    def test_pair_time_method_linear_interpolates_between_sparse_snapshots(self) -> None:
+        """time_method='linear' must interpolate model values between sparse
+        snapshots, not hold them constant within nearest-neighbor bins.
+
+        Background: when paired with hourly obs, a model with 6-hourly output
+        (e.g. WRF-Chem AQ_WATCH) under the default 'nearest' time method
+        produces a step function with discontinuities at the bin midpoints
+        (03, 09, 15, 21 UTC). 'linear' smooths through the snapshots.
+        """
+        # 2 model timesteps 12 hours apart, with values 10.0 and 20.0
+        # 13 obs timesteps spanning the same window (hourly)
+        model_times = pd.date_range("2024-01-01 00:00", periods=2, freq="12h")
+        obs_times = pd.date_range("2024-01-01 00:00", periods=13, freq="h")
+
+        # Build a tiny rectangular-grid model around a single site
+        lats = np.linspace(34, 36, 5)
+        lons = np.linspace(-101, -99, 5)
+        # Make the field vary in time but uniform in space, so site extraction
+        # gives the temporal pattern cleanly.
+        tvals = np.array([10.0, 20.0])[:, None, None]
+        field = np.broadcast_to(tvals, (2, 5, 5)).copy()
+        model = xr.Dataset(
+            {"pm25": (["time", "lat", "lon"], field)},
+            coords={"time": model_times, "lat": lats, "lon": lons},
+        )
+
+        # One obs site at the center of the model grid; obs values are 0
+        # (irrelevant — we're checking the model interpolation, not stats)
+        obs = xr.Dataset(
+            {"pm25": (["time", "site"], np.zeros((13, 1)))},
+            coords={
+                "time": obs_times,
+                "site": np.arange(1),
+                "latitude": ("site", np.array([35.0])),
+                "longitude": ("site", np.array([-100.0])),
+            },
+        )
+
+        strategy = PointStrategy()
+        paired = strategy.pair(
+            model, obs, radius_of_influence=200000.0, time_method="linear"
+        )
+
+        m = paired["model_pm25"].values.squeeze()  # shape (13,)
+        # Endpoints exact
+        assert abs(m[0] - 10.0) < 1e-6
+        assert abs(m[12] - 20.0) < 1e-6
+        # Midpoint linearly interpolated: 15.0 at hour 06
+        assert abs(m[6] - 15.0) < 1e-6, f"Expected 15.0 at midpoint, got {m[6]}"
+        # No step function: every hour should be strictly between neighbors
+        diffs = np.diff(m)
+        assert np.all(diffs > 0), (
+            "Linear interp must produce monotonic increase between 10 and 20"
+        )
+        assert np.allclose(diffs, diffs[0]), (
+            "Linear interp must produce equal increments, got " + str(diffs)
+        )
+
+    def test_pair_time_method_nearest_still_steps(self) -> None:
+        """Default time_method='nearest' must still produce step function.
+        Regression guard so we don't accidentally flip the default."""
+        model_times = pd.date_range("2024-01-01 00:00", periods=2, freq="12h")
+        obs_times = pd.date_range("2024-01-01 00:00", periods=13, freq="h")
+
+        lats = np.linspace(34, 36, 5)
+        lons = np.linspace(-101, -99, 5)
+        tvals = np.array([10.0, 20.0])[:, None, None]
+        field = np.broadcast_to(tvals, (2, 5, 5)).copy()
+        model = xr.Dataset(
+            {"pm25": (["time", "lat", "lon"], field)},
+            coords={"time": model_times, "lat": lats, "lon": lons},
+        )
+        obs = xr.Dataset(
+            {"pm25": (["time", "site"], np.zeros((13, 1)))},
+            coords={
+                "time": obs_times,
+                "site": np.arange(1),
+                "latitude": ("site", np.array([35.0])),
+                "longitude": ("site", np.array([-100.0])),
+            },
+        )
+
+        paired = PointStrategy().pair(model, obs, radius_of_influence=200000.0)
+        m = paired["model_pm25"].values.squeeze()
+
+        # First 6 hours nearest to model[0]=10, last 7 nearest to model[1]=20.
+        # (Ties at the midpoint resolve toward the later snapshot.)
+        assert (m[:6] == 10.0).all()
+        assert (m[7:] == 20.0).all()
+
+    def test_pair_drops_sites_outside_radius(self, model_2d: xr.Dataset) -> None:
+        """Sites beyond radius_of_influence must be removed from the paired output.
+
+        Regression test for the WRF-Chem-vs-AirNow PM2.5 zig-zag: AirNow-International
+        sites in Delhi/Chennai were thousands of km from the CONUS model grid, so the
+        nearest-index lookup masked their model values to NaN — but the obs side kept
+        the original values. Cross-site aggregates (e.g. timeseries domain-mean) were
+        then polluted by sites with no model match.
+
+        The paired dataset must contain only sites where *both* sides are valid.
+        """
+        # model_2d covers lat 30-50, lon -120 to -80. Build obs with 3 in-domain
+        # sites and 2 far-out sites (analogous to Delhi/Chennai).
+        times = pd.date_range("2024-01-01", periods=24, freq="h")
+        site_lats = np.array([35.0, 40.0, 45.0, 28.6, 13.1])  # last two: Delhi, Chennai
+        site_lons = np.array([-100.0, -105.0, -95.0, 77.2, 80.3])
+        # Make the out-of-domain obs values dramatically different so any leak shows up
+        temp = np.array(
+            [[285.0, 285.0, 285.0, 1000.0, 1000.0]] * 24
+        )
+        obs = xr.Dataset(
+            {"temperature": (["time", "site"], temp)},
+            coords={
+                "time": times,
+                "site": np.arange(5),
+                "latitude": ("site", site_lats),
+                "longitude": ("site", site_lons),
+            },
+        )
+
+        strategy = PointStrategy()
+        # 200 km radius matches model_2d's ~100 km grid spacing; Delhi/Chennai
+        # are still ~10,000 km from any in-domain cell so they're dropped.
+        paired = strategy.pair(model_2d, obs, radius_of_influence=200000.0)
+
+        # Only the 3 in-domain sites should survive
+        assert paired.sizes["site"] == 3, (
+            f"Expected 3 paired sites, got {paired.sizes['site']}. "
+            "Sites outside radius_of_influence must be dropped from the paired output."
+        )
+
+        # No NaN on the model side — every retained site has a valid model match
+        assert not np.isnan(paired["model_temperature"].values).any(), (
+            "Model values must be finite at all paired sites."
+        )
+
+        # No leak of the 1000.0 sentinel values from the dropped Delhi/Chennai sites
+        assert (paired["temperature"].values < 999.0).all(), (
+            "Obs values from out-of-domain sites leaked into the paired dataset."
+        )
+
+        # Retained sites must be exactly the in-domain ones
+        np.testing.assert_array_equal(
+            np.sort(paired["latitude"].values), np.array([35.0, 40.0, 45.0])
+        )
+
 
 # =============================================================================
 # Tests for TrackStrategy
@@ -410,6 +556,60 @@ class TestTrackStrategy:
 
         # Should have time dimension
         assert "time" in paired.dims
+
+    def test_pair_drops_track_points_outside_radius(self, model_3d: xr.Dataset) -> None:
+        """Track points beyond radius_of_influence must be removed from the paired output.
+
+        Companion to test_pair_drops_sites_outside_radius. Same half-paired bug
+        pattern: the model side was NaN-masked outside the radius, but the obs
+        side along the track was retained, polluting any cross-time aggregate
+        that includes obs-only points.
+        """
+        # model_3d covers lat 30-50, lon -120 to -80. Build a 10-point track
+        # with 6 points inside the domain and 4 points far out over the Atlantic.
+        times = pd.date_range("2024-01-01 06:00", periods=10, freq="h")
+        in_lats  = [35.0, 38.0, 42.0, 45.0, 40.0, 38.0]
+        in_lons  = [-110.0, -105.0, -95.0, -90.0, -100.0, -115.0]
+        out_lats = [35.0, 35.0, 35.0, 35.0]
+        out_lons = [0.0, 30.0, 60.0, 90.0]
+        lats = np.array(in_lats + out_lats)
+        lons = np.array(in_lons + out_lons)
+        alts = np.full(10, 500.0)
+        # Sentinel obs values for the out-of-domain points
+        ozone = np.array([50.0] * 6 + [9999.0] * 4)
+
+        obs = xr.Dataset(
+            {"ozone": ("time", ozone)},
+            coords={
+                "time": times,
+                "latitude": ("time", lats),
+                "longitude": ("time", lons),
+                "altitude": ("time", alts),
+            },
+        )
+
+        strategy = TrackStrategy()
+        paired = strategy.pair(model_3d, obs, radius_of_influence=200000.0)
+
+        # Only the 6 in-domain track points should survive
+        assert paired.sizes["time"] == 6, (
+            f"Expected 6 paired track points, got {paired.sizes['time']}. "
+            "Track points outside radius_of_influence must be dropped."
+        )
+
+        # No NaN on the model side at retained points
+        assert not np.isnan(paired["model_ozone"].values).any(), (
+            "Model values must be finite at all paired track points."
+        )
+
+        # No leak of sentinel values from dropped points
+        assert (paired["ozone"].values < 9000.0).all(), (
+            "Obs values from out-of-domain track points leaked into the paired dataset."
+        )
+
+        # Retained lat/lon coords match the in-domain track segment
+        np.testing.assert_array_equal(paired["latitude"].values, np.array(in_lats))
+        np.testing.assert_array_equal(paired["longitude"].values, np.array(in_lons))
 
     def test_vertical_interpolation(self) -> None:
         """Test vertical interpolation to aircraft altitude.
@@ -524,6 +724,67 @@ class TestSwathStrategy:
 
         # Should have observation variable
         assert "column_ozone" in paired.data_vars
+
+    def test_pair_masks_pixels_outside_radius(self, model_2d: xr.Dataset) -> None:
+        """Swath pixels beyond radius_of_influence must be NaN on the obs side too.
+
+        Companion to test_pair_drops_sites_outside_radius (Point) and
+        test_pair_drops_track_points_outside_radius (Track). Swath data is
+        inherently 2D (scanline x pixel), so we mask rather than drop —
+        but the contract is the same: out-of-domain pixels must not contribute
+        valid obs values to cross-pixel aggregates.
+        """
+        # model_2d covers lat 30-50, lon -120 to -80. Build a 4 x 6 swath where
+        # the left half is over CONUS and the right half is over Asia.
+        n_scanlines, n_pixels = 4, 6
+        lats = np.broadcast_to(
+            np.linspace(35.0, 45.0, n_scanlines)[:, None], (n_scanlines, n_pixels)
+        ).copy()
+        # Pixels 0-2 over CONUS, pixels 3-5 over Asia
+        lons_row = np.array([-110.0, -100.0, -90.0, 60.0, 80.0, 100.0])
+        lons = np.broadcast_to(lons_row[None, :], (n_scanlines, n_pixels)).copy()
+
+        # Sentinel obs values at the out-of-domain pixels. Use "temperature"
+        # so it pairs with model_2d's temperature variable.
+        column = np.full((n_scanlines, n_pixels), 300.0)
+        column[:, 3:] = 9999.0
+
+        obs = xr.Dataset(
+            {"temperature": (["scanline", "pixel"], column)},
+            coords={
+                "scanline": np.arange(n_scanlines),
+                "pixel": np.arange(n_pixels),
+                "latitude": (["scanline", "pixel"], lats),
+                "longitude": (["scanline", "pixel"], lons),
+                "time": pd.Timestamp("2024-01-01 13:30"),
+            },
+        )
+
+        strategy = SwathStrategy()
+        paired = strategy.pair(model_2d, obs, radius_of_influence=200000.0)
+
+        # Swath dims preserved
+        assert paired.sizes["scanline"] == n_scanlines
+        assert paired.sizes["pixel"] == n_pixels
+
+        # Out-of-domain pixels: obs must be NaN, model must be NaN
+        out_obs = paired["temperature"].values[:, 3:]
+        out_model = paired["model_temperature"].values[:, 3:]
+        assert np.isnan(out_obs).all(), (
+            "Obs values at out-of-radius swath pixels must be NaN; "
+            f"got {out_obs}"
+        )
+        assert np.isnan(out_model).all(), (
+            "Model values at out-of-radius swath pixels must be NaN."
+        )
+
+        # In-domain pixels: obs must retain its 300.0 value, model must be finite
+        in_obs = paired["temperature"].values[:, :3]
+        in_model = paired["model_temperature"].values[:, :3]
+        np.testing.assert_array_equal(in_obs, np.full_like(in_obs, 300.0))
+        assert not np.isnan(in_model).any(), (
+            "Model values must be finite at in-domain swath pixels."
+        )
 
 
 # =============================================================================

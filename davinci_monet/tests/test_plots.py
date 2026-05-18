@@ -385,6 +385,56 @@ class TestTimeSeriesPlotter:
         assert fig is not None
         plt.close(fig)
 
+    def test_smart_ylim_matches_plotted_aggregate(self):
+        """When no aggregate_dim is passed, plot() averages across non-time dims;
+        smart-ylim must compute its range from that same aggregate, not the
+        raw per-site values.
+
+        Regression test for the wide-y-axis cosmetic bug seen in the WRF-Chem
+        PM2.5 timeseries: per-site max (e.g. a wildfire site at 200 µg/m³)
+        was driving vmax even though the plotted line was the cross-site mean
+        around ~10.
+        """
+        import numpy as np
+        import pandas as pd
+        import xarray as xr
+
+        from davinci_monet.plots import TimeSeriesPlotter
+
+        n_times, n_sites = 24, 10
+        times = pd.date_range("2024-01-01", periods=n_times, freq="h")
+        # 9 sites at ~10, 1 outlier site at ~200 (wildfire). Mean ≈ 29 raw,
+        # but the cross-site mean is ((9*10) + 200) / 10 = 29 — wait, that's
+        # still 29. Use a less extreme ratio to make the test discriminating:
+        # 9 sites at 10, 1 site at 200 → mean = 29. data_max for the plotted
+        # mean = 29; data_max for raw = 200. The fix should produce ylim ~32,
+        # the bug produces ylim ~220.
+        obs = np.full((n_times, n_sites), 10.0)
+        obs[:, -1] = 200.0
+        model = np.full((n_times, n_sites), 11.0)
+        model[:, -1] = 200.0
+
+        paired = xr.Dataset(
+            {
+                "obs_pm25": (["time", "site"], obs),
+                "model_pm25": (["time", "site"], model),
+            },
+            coords={"time": times, "site": np.arange(n_sites)},
+        )
+
+        plotter = TimeSeriesPlotter()
+        # Do not pass aggregate_dim → plot() auto-aggregates over 'site'
+        fig = plotter.plot(paired, "obs_pm25", "model_pm25")
+
+        ax = fig.axes[0]
+        _, ymax = ax.get_ylim()
+        # Plotted mean tops out near 29; padded vmax should be ~32, not >100.
+        assert ymax < 60.0, (
+            f"Smart-ylim should use the plotted aggregate (~29), not the raw "
+            f"per-site max (200). Got ymax={ymax}."
+        )
+        plt.close(fig)
+
 
 class TestDiurnalPlotter:
     """Tests for diurnal cycle plotter."""
@@ -1010,6 +1060,84 @@ class TestSpatialPlotters:
 
         fig = plot_spatial_bias(simple_paired_data, "obs_o3", "model_o3")
 
+        assert fig is not None
+        plt.close(fig)
+
+    @pytest.mark.skipif(
+        not pytest.importorskip("cartopy", reason="cartopy not available"),
+        reason="cartopy not available",
+    )
+    def test_spatial_bias_point_data_with_singleton_y_dim(self):
+        """Spatial bias must handle point/site data with a residual size-1
+        dim (legacy AirNow stores all sites as `(time, y=1, x=sites)`).
+        Previously the renderer wrongly took the regular-grid meshgrid
+        path, producing a (sites, sites) broadcast that crashed."""
+        import numpy as np
+        import xarray as xr
+        from davinci_monet.plots import plot_spatial_bias
+
+        times = np.array(
+            ["2025-08-01T00:00", "2025-08-01T01:00", "2025-08-01T02:00"],
+            dtype="datetime64[ns]",
+        )
+        n_sites = 5
+        lats = np.array([30.0, 35.0, 40.0, 45.0, 50.0])
+        lons = np.array([-110.0, -100.0, -90.0, -80.0, -70.0])
+        rng = np.random.default_rng(0)
+        obs = rng.uniform(20, 60, size=(3, 1, n_sites))
+        mod = obs + rng.uniform(-5, 5, size=(3, 1, n_sites))
+
+        ds = xr.Dataset(
+            {
+                "obs_o3": (("time", "y", "x"), obs),
+                "model_o3": (("time", "y", "x"), mod),
+            },
+            coords={
+                "time": times,
+                "latitude": (("x",), lats),
+                "longitude": (("x",), lons),
+            },
+        )
+
+        fig = plot_spatial_bias(ds, "obs_o3", "model_o3")
+        assert fig is not None
+        plt.close(fig)
+
+    @pytest.mark.skipif(
+        not pytest.importorskip("cartopy", reason="cartopy not available"),
+        reason="cartopy not available",
+    )
+    def test_spatial_bias_point_data_site_geometry(self):
+        """Regression: AERONET-style paired data with `(time, site)` dims and
+        lat/lon on the site dim must still render (no residual y dim, but
+        lats/lons share a single dim like AirNow)."""
+        import numpy as np
+        import xarray as xr
+        from davinci_monet.plots import plot_spatial_bias
+
+        times = np.array(
+            ["2025-08-01T00:00", "2025-08-01T01:00"], dtype="datetime64[ns]"
+        )
+        n_sites = 5
+        lats = np.linspace(20.0, 50.0, n_sites)
+        lons = np.linspace(-110.0, -70.0, n_sites)
+        rng = np.random.default_rng(1)
+        obs = rng.uniform(0, 1, size=(2, n_sites))
+        mod = obs + rng.uniform(-0.2, 0.2, size=(2, n_sites))
+
+        ds = xr.Dataset(
+            {
+                "obs_aod": (("time", "site"), obs),
+                "model_aod": (("time", "site"), mod),
+            },
+            coords={
+                "time": times,
+                "lat": (("site",), lats),
+                "lon": (("site",), lons),
+            },
+        )
+
+        fig = plot_spatial_bias(ds, "obs_aod", "model_aod")
         assert fig is not None
         plt.close(fig)
 

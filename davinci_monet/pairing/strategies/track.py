@@ -6,6 +6,7 @@ platforms) with gridded model output, including 3D interpolation.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any, Hashable
 
@@ -17,6 +18,8 @@ from davinci_monet.core.exceptions import PairingError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.types import TimeDelta
 from davinci_monet.pairing.strategies.base import BasePairingStrategy
+
+_logger = logging.getLogger(__name__)
 
 
 def altitude_to_pressure(
@@ -134,6 +137,28 @@ class TrackStrategy(BasePairingStrategy):
             obs_lon,
             radius_of_influence=radius_of_influence,
         )
+
+        # Drop track points that fall outside radius_of_influence so the paired
+        # output contains only matched points by construction. Without this,
+        # _extract_along_track masks the model to NaN at unpaired points but
+        # leaves the obs values intact, polluting any cross-time aggregate
+        # that mixes paired and unpaired points on the obs side.
+        valid = (lat_idx.values >= 0) & (lon_idx.values >= 0)
+        if not valid.all():
+            keep = np.where(valid)[0]
+            _logger.info(
+                "TrackStrategy: dropping %d track point(s) outside %.0f m "
+                "radius of influence (kept %d/%d).",
+                int((~valid).sum()),
+                radius_of_influence,
+                int(valid.sum()),
+                len(valid),
+            )
+            obs = obs.isel(time=keep)
+            obs_times = obs["time"]
+            n_points = len(obs_times)
+            lat_idx = xr.DataArray(lat_idx.values[keep])
+            lon_idx = xr.DataArray(lon_idx.values[keep])
 
         # Determine vertical coordinate
         obs_altitude = self._get_altitude(obs, altitude_var)
