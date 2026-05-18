@@ -27,13 +27,16 @@ model:
     # Hour-0 of the current cycle's wrfout is the IC dump — PM2_5_DRY is
     # exactly zero there because the chemistry tendency hasn't run yet. We
     # take hour 00 from the *previous* cycle's +24h forecast (where the
-    # diagnostic is populated) and hours 06/12/18 from the current cycle.
+    # diagnostic is populated), hours 06/12/18 from the current cycle, and
+    # the +24h forecast (next-day 00Z) from the current cycle so linear
+    # time interpolation reaches obs hours 19-23 UTC without extrapolating.
     # The reader also drops any all-zero PM step as a safety net.
     files:
       - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${PREV_YYYYMMDD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_00:00:00
       - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_06:00:00
       - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_12:00:00
       - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_18:00:00
+      - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${NEXT_YYYY}-${NEXT_MM}-${NEXT_DD}_00:00:00
     mod_kwargs:
       mech: racm_esrl_vcp
     radius_of_influence: 12000
@@ -191,6 +194,13 @@ plots:
     title: "AOD Spatial Bias"
     domain_type: [conus]
     domain_name: [CONUS]
+
+pairing:
+  # The WRF-Chem AQ_WATCH wrfout snapshots are 6-hourly; AirNow obs are
+  # hourly. Nearest-time interp would produce a step-function model line
+  # with discontinuities at 03 and 15 UTC. 'linear' interpolates smoothly
+  # between snapshots.
+  time_method: linear
 
 stats:
   metrics: [N, MB, RMSE, R, NMB, NME, IOA]

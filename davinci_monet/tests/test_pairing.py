@@ -385,6 +385,96 @@ class TestPointStrategy:
         # Surface extraction removes z dimension
         assert "z" not in paired.dims
 
+    def test_pair_time_method_linear_interpolates_between_sparse_snapshots(self) -> None:
+        """time_method='linear' must interpolate model values between sparse
+        snapshots, not hold them constant within nearest-neighbor bins.
+
+        Background: when paired with hourly obs, a model with 6-hourly output
+        (e.g. WRF-Chem AQ_WATCH) under the default 'nearest' time method
+        produces a step function with discontinuities at the bin midpoints
+        (03, 09, 15, 21 UTC). 'linear' smooths through the snapshots.
+        """
+        # 2 model timesteps 12 hours apart, with values 10.0 and 20.0
+        # 13 obs timesteps spanning the same window (hourly)
+        model_times = pd.date_range("2024-01-01 00:00", periods=2, freq="12h")
+        obs_times = pd.date_range("2024-01-01 00:00", periods=13, freq="h")
+
+        # Build a tiny rectangular-grid model around a single site
+        lats = np.linspace(34, 36, 5)
+        lons = np.linspace(-101, -99, 5)
+        # Make the field vary in time but uniform in space, so site extraction
+        # gives the temporal pattern cleanly.
+        tvals = np.array([10.0, 20.0])[:, None, None]
+        field = np.broadcast_to(tvals, (2, 5, 5)).copy()
+        model = xr.Dataset(
+            {"pm25": (["time", "lat", "lon"], field)},
+            coords={"time": model_times, "lat": lats, "lon": lons},
+        )
+
+        # One obs site at the center of the model grid; obs values are 0
+        # (irrelevant — we're checking the model interpolation, not stats)
+        obs = xr.Dataset(
+            {"pm25": (["time", "site"], np.zeros((13, 1)))},
+            coords={
+                "time": obs_times,
+                "site": np.arange(1),
+                "latitude": ("site", np.array([35.0])),
+                "longitude": ("site", np.array([-100.0])),
+            },
+        )
+
+        strategy = PointStrategy()
+        paired = strategy.pair(
+            model, obs, radius_of_influence=200000.0, time_method="linear"
+        )
+
+        m = paired["model_pm25"].values.squeeze()  # shape (13,)
+        # Endpoints exact
+        assert abs(m[0] - 10.0) < 1e-6
+        assert abs(m[12] - 20.0) < 1e-6
+        # Midpoint linearly interpolated: 15.0 at hour 06
+        assert abs(m[6] - 15.0) < 1e-6, f"Expected 15.0 at midpoint, got {m[6]}"
+        # No step function: every hour should be strictly between neighbors
+        diffs = np.diff(m)
+        assert np.all(diffs > 0), (
+            "Linear interp must produce monotonic increase between 10 and 20"
+        )
+        assert np.allclose(diffs, diffs[0]), (
+            "Linear interp must produce equal increments, got " + str(diffs)
+        )
+
+    def test_pair_time_method_nearest_still_steps(self) -> None:
+        """Default time_method='nearest' must still produce step function.
+        Regression guard so we don't accidentally flip the default."""
+        model_times = pd.date_range("2024-01-01 00:00", periods=2, freq="12h")
+        obs_times = pd.date_range("2024-01-01 00:00", periods=13, freq="h")
+
+        lats = np.linspace(34, 36, 5)
+        lons = np.linspace(-101, -99, 5)
+        tvals = np.array([10.0, 20.0])[:, None, None]
+        field = np.broadcast_to(tvals, (2, 5, 5)).copy()
+        model = xr.Dataset(
+            {"pm25": (["time", "lat", "lon"], field)},
+            coords={"time": model_times, "lat": lats, "lon": lons},
+        )
+        obs = xr.Dataset(
+            {"pm25": (["time", "site"], np.zeros((13, 1)))},
+            coords={
+                "time": obs_times,
+                "site": np.arange(1),
+                "latitude": ("site", np.array([35.0])),
+                "longitude": ("site", np.array([-100.0])),
+            },
+        )
+
+        paired = PointStrategy().pair(model, obs, radius_of_influence=200000.0)
+        m = paired["model_pm25"].values.squeeze()
+
+        # First 6 hours nearest to model[0]=10, last 7 nearest to model[1]=20.
+        # (Ties at the midpoint resolve toward the later snapshot.)
+        assert (m[:6] == 10.0).all()
+        assert (m[7:] == 20.0).all()
+
     def test_pair_drops_sites_outside_radius(self, model_2d: xr.Dataset) -> None:
         """Sites beyond radius_of_influence must be removed from the paired output.
 

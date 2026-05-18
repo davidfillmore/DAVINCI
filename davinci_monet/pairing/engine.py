@@ -36,6 +36,10 @@ class PairingConfig:
         Vertical interpolation method ('nearest', 'linear', 'log').
     horizontal_method : str
         Horizontal interpolation method ('nearest', 'bilinear').
+    time_method : str
+        Time interpolation method ('nearest', 'linear'). Use 'linear' for
+        models with sparse time output (e.g. 6-hourly WRF-Chem) to avoid
+        step-function artifacts in the paired time series.
     apply_averaging_kernel : bool
         Whether to apply satellite averaging kernels.
     require_overlap : bool
@@ -46,6 +50,7 @@ class PairingConfig:
     time_tolerance: TimeDelta | None = None
     vertical_method: str = "nearest"
     horizontal_method: str = "nearest"
+    time_method: str = "nearest"
     apply_averaging_kernel: bool = False
     require_overlap: bool = True
 
@@ -192,6 +197,7 @@ class PairingEngine:
             time_tolerance=config.time_tolerance,
             vertical_method=config.vertical_method,
             horizontal_method=config.horizontal_method,
+            time_method=config.time_method,
             **kwargs,
         )
 

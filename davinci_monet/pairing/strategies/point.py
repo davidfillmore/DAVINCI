@@ -55,6 +55,7 @@ class PointStrategy(BasePairingStrategy):
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
         horizontal_method: str = "nearest",
+        time_method: str = "nearest",
         **kwargs: Any,
     ) -> xr.Dataset:
         """Pair point observations with model grid.
@@ -73,6 +74,12 @@ class PointStrategy(BasePairingStrategy):
             Not used for surface observations.
         horizontal_method
             Horizontal matching method ('nearest' only currently).
+        time_method
+            Time interpolation method ('nearest' or 'linear'). Use 'linear'
+            when the model has sparse time output relative to observations
+            (e.g. 6-hourly WRF-Chem snapshots vs hourly AirNow) to avoid the
+            step-function artifact produced by 'nearest'. Default 'nearest'
+            preserves prior behavior.
         **kwargs
             Additional options:
             - extract_surface: bool, whether to extract surface level (default True)
@@ -154,7 +161,9 @@ class PointStrategy(BasePairingStrategy):
         # Interpolate model to observation times
         if "time" in model_at_sites.dims and "time" in obs.dims:
             obs_times = obs["time"]
-            model_at_sites = self._interpolate_time(model_at_sites, obs_times, method="nearest")
+            model_at_sites = self._interpolate_time(
+                model_at_sites, obs_times, method=time_method
+            )
 
         # Combine into paired dataset
         paired = self._create_paired_output(obs, model_at_sites, site_dim)

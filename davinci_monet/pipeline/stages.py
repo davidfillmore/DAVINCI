@@ -1127,6 +1127,7 @@ class PairingStage(BaseStage):
                 pairing_cfg = PairingConfig(
                     radius_of_influence=radius,
                     time_tolerance=pairing_config_dict.get("time_tolerance", "1h"),
+                    time_method=pairing_config_dict.get("time_method", "nearest"),
                 )
 
                 engine = PairingEngine()
