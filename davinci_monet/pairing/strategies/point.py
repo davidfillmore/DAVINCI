@@ -6,6 +6,7 @@ ground sites) with gridded model output.
 
 from __future__ import annotations
 
+import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Hashable
@@ -18,6 +19,8 @@ from davinci_monet.core.exceptions import PairingError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.types import TimeDelta
 from davinci_monet.pairing.strategies.base import BasePairingStrategy
+
+_logger = logging.getLogger(__name__)
 
 
 class PointStrategy(BasePairingStrategy):
@@ -52,6 +55,7 @@ class PointStrategy(BasePairingStrategy):
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
         horizontal_method: str = "nearest",
+        time_method: str = "nearest",
         **kwargs: Any,
     ) -> xr.Dataset:
         """Pair point observations with model grid.
@@ -70,6 +74,12 @@ class PointStrategy(BasePairingStrategy):
             Not used for surface observations.
         horizontal_method
             Horizontal matching method ('nearest' only currently).
+        time_method
+            Time interpolation method ('nearest' or 'linear'). Use 'linear'
+            when the model has sparse time output relative to observations
+            (e.g. 6-hourly WRF-Chem snapshots vs hourly AirNow) to avoid the
+            step-function artifact produced by 'nearest'. Default 'nearest'
+            preserves prior behavior.
         **kwargs
             Additional options:
             - extract_surface: bool, whether to extract surface level (default True)
@@ -116,6 +126,27 @@ class PointStrategy(BasePairingStrategy):
             radius_of_influence=radius_of_influence,
         )
 
+        # Drop obs sites that fall outside radius_of_influence. Without this,
+        # _extract_at_sites masks the model to NaN at unpaired sites but leaves
+        # the obs values intact, so cross-site aggregates (timeseries domain-mean)
+        # are polluted by sites with no model match.
+        valid = (lat_idx.values >= 0) & (lon_idx.values >= 0)
+        if not valid.all():
+            keep = np.where(valid)[0]
+            _logger.info(
+                "PointStrategy: dropping %d obs site(s) outside %.0f m "
+                "radius of influence (kept %d/%d).",
+                int((~valid).sum()),
+                radius_of_influence,
+                int(valid.sum()),
+                len(valid),
+            )
+            obs = obs.isel({site_dim: keep})
+            site_lats = site_lats[keep]
+            site_lons = site_lons[keep]
+            lat_idx = xr.DataArray(lat_idx.values[keep])
+            lon_idx = xr.DataArray(lon_idx.values[keep])
+
         # Extract model values at observation sites
         model_at_sites = self._extract_at_sites(
             model_surface,
@@ -130,7 +161,9 @@ class PointStrategy(BasePairingStrategy):
         # Interpolate model to observation times
         if "time" in model_at_sites.dims and "time" in obs.dims:
             obs_times = obs["time"]
-            model_at_sites = self._interpolate_time(model_at_sites, obs_times, method="nearest")
+            model_at_sites = self._interpolate_time(
+                model_at_sites, obs_times, method=time_method
+            )
 
         # Combine into paired dataset
         paired = self._create_paired_output(obs, model_at_sites, site_dim)

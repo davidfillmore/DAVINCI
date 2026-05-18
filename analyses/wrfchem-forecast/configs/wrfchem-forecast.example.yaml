@@ -1,0 +1,206 @@
+# Daily WRF-Chem AQ Forecast Evaluation vs AirNow
+#
+# Replicates the legacy melodies-scripts/wrfchem.yaml pipeline against the
+# operational AQ_WATCH WRF-Chem forecast. Pairs hourly forecast output with
+# the previous day's AirNow surface observations and produces CONUS + EPA-
+# region timeseries, spatial overlay, and spatial bias plots.
+#
+# Date substitution is via environment variables, not a Python wrapper. The
+# qsub driver (scripts/qsub_wrfchem_daily.sh) exports YYYY, MM, DD from
+# `date -d yesterday` and passes them through DAVINCI's ${VAR} expansion.
+#
+# Usage:
+#   export YYYY=2025 MM=08 DD=01     # or use scripts/qsub_wrfchem_daily.sh
+#   davinci-monet run analyses/wrfchem-forecast/configs/wrfchem-forecast.example.yaml
+
+analysis:
+  start_time: "${YYYY}-${MM}-${DD}"
+  end_time:   "${YYYY}-${MM}-${DD} 23:00:00"
+  output_dir: /glade/campaign/acom/acom-da/fillmore/DAVINCI/WRF-Chem/${YYYY}/${MM}/${DD}
+  log_dir:    /glade/campaign/acom/acom-da/fillmore/DAVINCI/WRF-Chem/${YYYY}/${MM}/${DD}/logs
+  style:
+    theme: ncar
+
+model:
+  WRF-Chem:
+    mod_type: wrfchem
+    # Hour-0 of the current cycle's wrfout is the IC dump — PM2_5_DRY is
+    # exactly zero there because the chemistry tendency hasn't run yet. We
+    # take hour 00 from the *previous* cycle's +24h forecast (where the
+    # diagnostic is populated), hours 06/12/18 from the current cycle, and
+    # the +24h forecast (next-day 00Z) from the current cycle so linear
+    # time interpolation reaches obs hours 19-23 UTC without extrapolating.
+    # The reader also drops any all-zero PM step as a safety net.
+    files:
+      - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${PREV_YYYYMMDD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_00:00:00
+      - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_06:00:00
+      - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_12:00:00
+      - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_18:00:00
+      - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${NEXT_YYYY}-${NEXT_MM}-${NEXT_DD}_00:00:00
+    mod_kwargs:
+      mech: racm_esrl_vcp
+    radius_of_influence: 12000
+
+    mapping:
+      airnow:
+        "PM2.5": PM2_5_DRY
+        OZONE: o3
+      aeronet:
+        aod_500nm: AOD2D_OUT
+
+    # Variable-side unit scaling. With monetio's mech-aware reader (wrf-python
+    # available) o3 is converted to ppb and PM2_5_DRY is already ug/m^3, so
+    # unit_scale is 1. When the reader falls back to the xarray path (logged
+    # with a clear warning) o3 stays in ppmv — switch `o3.unit_scale` to 1.0e3
+    # to convert to ppb so the AirNow comparison is correct.
+    variables:
+      PM2_5_DRY:
+        unit_scale: 1.0
+        units: "ug/m3"
+      o3:
+        unit_scale: 1.0  # set to 1.0e3 if running with xarray-only fallback
+        units: ppb
+      AOD2D_OUT:
+        unit_scale: 1.0
+        units: "1"
+        display_name: "WRF-Chem AOD"
+
+    plot_kwargs:
+      color: magenta
+      marker: s
+      linestyle: "-"
+
+obs:
+  airnow:
+    obs_type: pt_sfc
+    filename: /glade/work/fillmore/Data/AirNow/AirNow_${YYYY}${MM}${DD}.nc
+    drop_unused_vars: true
+    variables:
+      "PM2.5":
+        nan_value: -1.0
+        units: "ug/m3"
+        ylabel_plot: "PM2.5 (ug/m3)"
+        vmin_plot: 0.0
+        vmax_plot: 22.0
+        vdiff_plot: 15.0
+        nlevels_plot: 23
+      OZONE:
+        nan_value: -1.0
+        units: ppb
+        ylabel_plot: "Ozone (ppbv)"
+        vmin_plot: 15.0
+        vmax_plot: 55.0
+        vdiff_plot: 20.0
+        nlevels_plot: 21
+
+  aeronet:
+    obs_type: pt_sfc
+    filename: /glade/work/fillmore/Data/AeroNet/AeroNet_${YYYY}${MM}${DD}.nc
+    variables:
+      aod_500nm:
+        obs_min: 0.0
+        obs_max: 5.0
+        units: "1"
+        ylabel_plot: "AOD (500 nm)"
+        display_name: "AOD"
+        vmin_plot: 0.0
+        vmax_plot: 1.0
+        vdiff_plot: 0.5
+        nlevels_plot: 21
+
+pairs:
+  wrfchem_airnow_pm25:
+    model: WRF-Chem
+    obs: airnow
+    variable:
+      model_var: PM2_5_DRY
+      obs_var: "PM2.5"
+
+  wrfchem_airnow_o3:
+    model: WRF-Chem
+    obs: airnow
+    variable:
+      model_var: o3
+      obs_var: OZONE
+
+  wrfchem_aeronet_aod:
+    model: WRF-Chem
+    obs: aeronet
+    variable:
+      model_var: AOD2D_OUT
+      obs_var: aod_500nm
+
+plots:
+
+  airnow_pm25_scatter:
+    type: scatter
+    pairs: [wrfchem_airnow_pm25]
+    title: "PM2.5: WRF-Chem vs AirNow"
+    domain_type: [conus]
+    domain_name: [CONUS]
+
+  airnow_pm25_timeseries:
+    type: timeseries
+    pairs: [wrfchem_airnow_pm25]
+    title: "PM2.5 Time Series"
+    domain_type: [conus]
+    domain_name: [CONUS]
+
+  airnow_pm25_spatial_bias:
+    type: spatial_bias
+    pairs: [wrfchem_airnow_pm25]
+    title: "PM2.5 Spatial Bias"
+    domain_type: [conus]
+    domain_name: [CONUS]
+
+  airnow_o3_scatter:
+    type: scatter
+    pairs: [wrfchem_airnow_o3]
+    title: "Ozone: WRF-Chem vs AirNow"
+    domain_type: [conus]
+    domain_name: [CONUS]
+
+  airnow_o3_timeseries:
+    type: timeseries
+    pairs: [wrfchem_airnow_o3]
+    title: "Ozone Time Series"
+    domain_type: [conus]
+    domain_name: [CONUS]
+
+  airnow_o3_spatial_bias:
+    type: spatial_bias
+    pairs: [wrfchem_airnow_o3]
+    title: "Ozone Spatial Bias"
+    domain_type: [conus]
+    domain_name: [CONUS]
+
+  aeronet_aod_scatter:
+    type: scatter
+    pairs: [wrfchem_aeronet_aod]
+    title: "AOD: WRF-Chem vs AERONET (500 nm)"
+    domain_type: [conus]
+    domain_name: [CONUS]
+
+  aeronet_aod_timeseries:
+    type: timeseries
+    pairs: [wrfchem_aeronet_aod]
+    title: "AOD Time Series"
+    domain_type: [conus]
+    domain_name: [CONUS]
+
+  aeronet_aod_spatial_bias:
+    type: spatial_bias
+    pairs: [wrfchem_aeronet_aod]
+    title: "AOD Spatial Bias"
+    domain_type: [conus]
+    domain_name: [CONUS]
+
+pairing:
+  # The WRF-Chem AQ_WATCH wrfout snapshots are 6-hourly; AirNow obs are
+  # hourly. Nearest-time interp would produce a step-function model line
+  # with discontinuities at 03 and 15 UTC. 'linear' interpolates smoothly
+  # between snapshots.
+  time_method: linear
+
+stats:
+  metrics: [N, MB, RMSE, R, NMB, NME, IOA]

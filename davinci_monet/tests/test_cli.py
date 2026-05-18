@@ -329,6 +329,58 @@ class TestGetDataCommands:
         assert result.exit_code == 0
         assert "start-date" in result.stdout or "AirNow" in result.stdout
 
+    def test_airnow_dataframe_to_xarray_produces_legacy_shape(self) -> None:
+        """`_dataframe_to_xarray` must produce the legacy (time, y=1, x) layout
+        with units attrs and `time_local`, so AirNow files written by
+        `davinci-monet get airnow` remain readable by existing pipelines."""
+        import numpy as np
+        import pandas as pd
+
+        from davinci_monet.observations.surface.airnow import _dataframe_to_xarray
+
+        times = pd.date_range("2025-08-01 00:00", periods=3, freq="h")
+        rows = []
+        for t in times:
+            for siteid, site, lat, lon, uo in (
+                ("A1", "Site A", 40.0, -105.0, -7),
+                ("B2", "Site B", 39.0, -104.0, -7),
+            ):
+                rows.append(
+                    {
+                        "time": t,
+                        "siteid": siteid,
+                        "site": site,
+                        "utcoffset": uo,
+                        "latitude": lat,
+                        "longitude": lon,
+                        "cmsa_name": "",
+                        "msa_code": "",
+                        "msa_name": "",
+                        "state_name": "CO",
+                        "epa_region": "R8",
+                        "OZONE": 30.0 + lat / 10,
+                        "OZONE_unit": "ppb",
+                        "PM2.5": 5.0,
+                        "PM2.5_unit": "ug/m3",
+                    }
+                )
+        df = pd.DataFrame(rows)
+
+        ds = _dataframe_to_xarray(df, daily=False)
+
+        assert tuple(ds.sizes.keys()) == ("time", "y", "x")
+        assert ds.sizes["time"] == 3
+        assert ds.sizes["y"] == 1
+        assert ds.sizes["x"] == 2
+        assert "OZONE" in ds.data_vars
+        assert "PM2.5" in ds.data_vars
+        assert ds["OZONE"].attrs.get("units") == "ppb"
+        assert ds["PM2.5"].attrs.get("units") == "ug/m3"
+        assert "latitude" in ds.coords
+        assert "longitude" in ds.coords
+        assert "time_local" in ds.data_vars
+        assert ds["time_local"].dtype == np.dtype("datetime64[ns]")
+
     def test_get_aqs_help(self) -> None:
         """Test get aqs help."""
         from typer.testing import CliRunner

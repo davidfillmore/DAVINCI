@@ -1,11 +1,25 @@
 """Swath-to-grid pairing strategy.
 
 This module implements pairing for satellite swath observations (L2 products)
-with gridded model output.
+with gridded model output via per-pixel nearest-neighbor matching.
+
+Note
+----
+For production satellite analyses prefer :class:`SwathGridStrategy` (or the
+external `bin_swath_to_grid` helper in ``pairing/grid_binning.py``). Real L2
+swaths have 10^5-10^6 pixels and per-pixel nearest-neighbor matching is too
+slow; the binning path collapses pixels onto a target grid once and then
+pairs grid-to-grid. MODIS L2 obs (``observations/satellite/modis_l2.py``)
+follow that pattern and emit ``geometry = "GRID"``.
+
+This class is preserved for possible future use cases that genuinely need
+direct per-pixel pairing (e.g. small swaths, sparse retrievals, debugging).
+It is not on the current production path.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Hashable
 
 import numpy as np
@@ -15,6 +29,8 @@ from davinci_monet.core.exceptions import PairingError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.types import TimeDelta
 from davinci_monet.pairing.strategies.base import BasePairingStrategy
+
+_logger = logging.getLogger(__name__)
 
 
 class SwathStrategy(BasePairingStrategy):
@@ -28,6 +44,13 @@ class SwathStrategy(BasePairingStrategy):
     2. Optionally matches model to satellite overpass time
     3. Optionally applies averaging kernels to model profiles
     4. Creates paired dataset with collocated values
+
+    .. note::
+        Production satellite analyses use :class:`SwathGridStrategy` or the
+        external ``bin_swath_to_grid`` helper, which collapse pixels onto a
+        target grid before pairing. This direct per-pixel class is preserved
+        for possible future use and is not on the current production path —
+        see the module docstring.
 
     Examples
     --------
@@ -98,6 +121,31 @@ class SwathStrategy(BasePairingStrategy):
             xr.DataArray(obs_lon_flat),
             radius_of_influence=radius_of_influence,
         )
+
+        # Mask obs values at pixels outside radius_of_influence so the paired
+        # output has obs and model NaN at the same locations. Swath data is
+        # inherently 2D (scanline x pixel), so we mask rather than drop —
+        # preserving the swath geometry for downstream spatial plotting.
+        # Without this, _extract_at_pixels NaNs the model side but the obs
+        # side retains valid values, polluting cross-pixel aggregates.
+        valid_flat = (lat_idx.values >= 0) & (lon_idx.values >= 0)
+        if not valid_flat.all():
+            spatial_dims = obs_lat.dims
+            valid_2d = valid_flat.reshape(obs_lat.shape)
+            valid_da = xr.DataArray(valid_2d, dims=spatial_dims)
+            _logger.info(
+                "SwathStrategy: masking %d swath pixel(s) outside %.0f m "
+                "radius of influence (kept %d/%d).",
+                int((~valid_flat).sum()),
+                radius_of_influence,
+                int(valid_flat.sum()),
+                len(valid_flat),
+            )
+            masked = obs.copy()
+            for var in obs.data_vars:
+                if all(d in obs[var].dims for d in spatial_dims):
+                    masked[var] = obs[var].where(valid_da)
+            obs = masked
 
         # Handle time matching
         if match_overpass and "time" in obs.coords:

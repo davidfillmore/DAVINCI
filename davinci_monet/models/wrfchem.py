@@ -54,6 +54,12 @@ WRFCHEM_VARIABLE_MAPPING: dict[str, str] = {
 # Reverse mapping
 WRFCHEM_STANDARD_NAMES: dict[str, str] = {v: k for k, v in WRFCHEM_VARIABLE_MAPPING.items()}
 
+# monetio's WRF-Chem reader accepts these kwargs but xarray.open_dataset does
+# not. When the monetio path fails (e.g. wrf-python / netCDF4 version
+# incompatibility) and the reader falls back to xarray, these are stripped to
+# avoid TypeError from xarray's backend.
+_MONETIO_ONLY_KWARGS = ("mech", "convert_to_ppb", "surf_only", "surf_only_nc")
+
 
 @model_registry.register("wrfchem")
 class WRFChemReader:
@@ -107,19 +113,38 @@ class WRFChemReader:
         if missing:
             raise DataNotFoundError(f"WRF-Chem files not found: {missing}")
 
-        # Try monetio first
+        # Try monetio first; fall back to plain xarray if monetio's wrf-python
+        # path isn't usable (e.g. wrf-python ↔ netCDF4 incompatibility raising
+        # NotImplementedError("Dataset is not picklable") from wrf-python's
+        # internal copy.copy on a netCDF4.Dataset).
         try:
             ds = self._open_with_monetio(file_list, variables, **kwargs)
-        except ImportError:
+        except (ImportError, NotImplementedError) as e:
+            xarray_kwargs = {k: v for k, v in kwargs.items() if k not in _MONETIO_ONLY_KWARGS}
+            dropped = [k for k in kwargs if k in _MONETIO_ONLY_KWARGS]
             warnings.warn(
-                "monetio not available, using basic xarray reader. "
-                "Some WRF-Chem specific features may not work.",
+                "monetio WRF-Chem reader unavailable "
+                f"({type(e).__name__}: {e}); falling back to xarray. "
+                f"Dropped monetio-only kwargs: {dropped}. "
+                "Raw WRF-Chem variables are returned without mech-aware "
+                "decoding — e.g. `o3` will be in ppmv (not ppb) and derived "
+                "diagnostics will not be added. Use `unit_scale` in the "
+                "config to compensate.",
                 UserWarning,
+                stacklevel=2,
             )
-            ds = self._open_with_xarray(file_list, variables, **kwargs)
+            ds = self._open_with_xarray(file_list, variables, **xarray_kwargs)
 
         # Standardize dimensions
         ds = self._standardize_dataset(ds)
+
+        # Drop timesteps where chemistry diagnostics are identically zero.
+        # In the operational AQ_WATCH cycle the hour-0 wrfout is an IC dump
+        # written before any chemistry tendency step, so PM2_5_DRY/PM10 are
+        # exactly zero across the entire grid. Pairing such steps against
+        # surface obs silently biases stats negative and produces a 0-to-real
+        # discontinuity in timeseries plots.
+        ds = self._drop_uninitialized_chem_steps(ds)
 
         return ds
 
@@ -187,9 +212,14 @@ class WRFChemReader:
         for attempt in range(max_retries):
             try:
                 if len(file_paths) > 1:
+                    # WRF files store time as the `Times` char-array (not a
+                    # coord variable on `Time`), so combine="by_coords" cannot
+                    # infer a concat dim. Use nested concat along Time, with
+                    # file paths sorted to provide chronological order.
                     ds = xr.open_mfdataset(
-                        [str(f) for f in file_paths],
-                        combine="by_coords",
+                        [str(f) for f in sorted(file_paths, key=str)],
+                        combine="nested",
+                        concat_dim="Time",
                         parallel=True,
                         **kwargs,
                     )
@@ -199,7 +229,15 @@ class WRFChemReader:
                 if variables is not None:
                     available = [v for v in variables if v in ds.data_vars]
                     if available:
-                        ds = ds[available]
+                        # Preserve WRF housekeeping variables that
+                        # _standardize_dataset relies on (Times is the
+                        # char-array time encoding; XLAT/XLONG are the lat/
+                        # lon coords). These get dropped or set as coords by
+                        # standardize_dataset after the user's selection.
+                        keep_aux = [
+                            v for v in ("Times", "XLAT", "XLONG") if v in ds.variables
+                        ]
+                        ds = ds[available + [v for v in keep_aux if v not in available]]
 
                 return ds
 
@@ -257,18 +295,48 @@ class WRFChemReader:
         if dim_renames:
             ds = ds.rename(dim_renames)
 
-        # Handle WRF lat/lon (XLAT, XLONG)
+        # Decode WRF's `Times` char-array variable into a datetime coord on
+        # the `time` dim. monetio's path normally handles this; in the xarray
+        # fallback we have to do it ourselves so downstream pairing can align
+        # model times with observation times.
+        if "Times" in ds.variables and "time" in ds.dims and "time" not in ds.coords:
+            times_bytes = ds["Times"].values
+            try:
+                time_strs = [
+                    t.decode("ascii") if isinstance(t, bytes) else str(t)
+                    for t in times_bytes.tolist()
+                ]
+                # WRF format: 'YYYY-MM-DD_HH:MM:SS' — replace '_' for parsing
+                import numpy as _np
+
+                times_np = _np.array(
+                    [_np.datetime64(s.replace("_", "T")) for s in time_strs]
+                )
+                ds = ds.assign_coords(time=("time", times_np))
+                ds = ds.drop_vars("Times")
+            except (ValueError, TypeError, AttributeError):
+                # If decoding fails, leave Times alone — better than crashing
+                pass
+
+        # Handle WRF lat/lon (XLAT, XLONG). WRF replicates these across the
+        # Time dim even though they are static; squeeze that out so downstream
+        # pairing strategies see 2D (y, x) lat/lon as expected.
+        def _squeeze_time(da: xr.DataArray) -> xr.DataArray:
+            if "time" in da.dims and da.sizes["time"] > 0:
+                return da.isel(time=0, drop=True)
+            return da
+
         if "XLAT" in ds.data_vars or "XLAT" in ds.coords:
             if "XLAT" in ds.data_vars:
                 ds = ds.set_coords("XLAT")
             if "lat" not in ds.coords:
-                ds = ds.assign_coords(lat=ds["XLAT"])
+                ds = ds.assign_coords(lat=_squeeze_time(ds["XLAT"]))
 
         if "XLONG" in ds.data_vars or "XLONG" in ds.coords:
             if "XLONG" in ds.data_vars:
                 ds = ds.set_coords("XLONG")
             if "lon" not in ds.coords:
-                ds = ds.assign_coords(lon=ds["XLONG"])
+                ds = ds.assign_coords(lon=_squeeze_time(ds["XLONG"]))
 
         # Handle latitude/longitude if present
         if "latitude" in ds.data_vars and "latitude" not in ds.coords:
@@ -277,6 +345,74 @@ class WRFChemReader:
             ds = ds.set_coords("longitude")
 
         return ds
+
+    # Chemistry diagnostics computed during the chemistry tendency step.
+    # These are exactly zero in the hour-0 IC dump and become populated only
+    # after the first chemistry step. Used by _drop_uninitialized_chem_steps.
+    _CHEM_DIAGNOSTICS: tuple[str, ...] = ("PM2_5_DRY", "PM10")
+
+    def _drop_uninitialized_chem_steps(self, ds: xr.Dataset) -> xr.Dataset:
+        """Drop timesteps where chemistry diagnostics are identically zero.
+
+        WRF-Chem diagnostics like ``PM2_5_DRY`` and ``PM10`` are computed
+        inside the chemistry tendency routine. The hour-0 wrfout file is
+        written from initial conditions before any chemistry step has run,
+        so these diagnostics are exactly zero across the entire grid. Other
+        timesteps in the cycle are populated normally.
+
+        Parameters
+        ----------
+        ds
+            Standardized dataset (post :meth:`_standardize_dataset`).
+
+        Returns
+        -------
+        xr.Dataset
+            Dataset with all-zero diagnostic timesteps removed. Returns the
+            input unchanged when no chemistry diagnostic is present or all
+            timesteps look populated.
+        """
+        if "time" not in ds.dims:
+            return ds
+
+        # Find timesteps where ANY tracked diagnostic is all-zero across its
+        # non-time dimensions.
+        import numpy as np
+
+        bad_steps: set[int] = set()
+        triggering_var: str | None = None
+        for diag in self._CHEM_DIAGNOSTICS:
+            if diag not in ds.data_vars:
+                continue
+            da = ds[diag]
+            other_dims = [d for d in da.dims if d != "time"]
+            if not other_dims:
+                continue
+            max_per_t = da.max(dim=other_dims).values
+            zero_t = np.where(max_per_t == 0)[0]
+            if zero_t.size:
+                bad_steps.update(int(i) for i in zero_t)
+                if triggering_var is None:
+                    triggering_var = diag
+
+        if not bad_steps:
+            return ds
+
+        keep = np.array(
+            [i for i in range(ds.sizes["time"]) if i not in bad_steps], dtype=int
+        )
+        bad_times = ds["time"].values[sorted(bad_steps)]
+        warnings.warn(
+            f"WRF-Chem: dropping {len(bad_steps)} timestep(s) where "
+            f"{triggering_var} is identically zero across the grid. This is "
+            f"the hour-0 IC dump before any chemistry tendency step has run; "
+            f"the diagnostic is not populated. Dropped times: "
+            f"{[str(t) for t in bad_times]}. For analysis that needs these "
+            f"hours, supply the previous cycle's +24h forecast file instead.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return ds.isel(time=keep)
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return WRF-Chem variable name mapping.

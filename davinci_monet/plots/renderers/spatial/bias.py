@@ -170,8 +170,32 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         elif lons.ndim > 1 and np.any(lons > 180):
             lons = np.where(lons > 180, lons - 360, lons)
 
-        bias_values = bias.values.flatten()
-        if lats.ndim == 1 and lons.ndim == 1 and bias.ndim >= 2:
+        # Detect data geometry from the *DataArray* dims (not just the numpy
+        # arrays), since for point/site observations lats and lons share a
+        # single dim and must not be meshgridded as if they were grid axes.
+        lat_da = paired_data[resolved_lat]
+        lon_da = paired_data[resolved_lon]
+        is_point_data = (
+            lat_da.ndim == 1
+            and lon_da.ndim == 1
+            and lat_da.dims == lon_da.dims
+            and lat_da.dims[0] in bias.dims
+        )
+
+        if is_point_data:
+            # Point/site data: drop singleton dims (e.g. legacy AirNow y=1
+            # residual) and broadcast lat/lon along any remaining non-site
+            # dims (e.g. if time_average wasn't applied).
+            bias = bias.squeeze(drop=True)
+            site_dim = lat_da.dims[0]
+            if bias.ndim > 1 and site_dim in bias.dims:
+                lats_flat = lat_da.broadcast_like(bias).values.flatten()
+                lons_flat = lon_da.broadcast_like(bias).values.flatten()
+            else:
+                lats_flat = lat_da.values.flatten()
+                lons_flat = lon_da.values.flatten()
+            bias_values = bias.values.flatten()
+        elif lats.ndim == 1 and lons.ndim == 1 and bias.ndim >= 2:
             # Regular grid: meshgrid to match bias shape (lon, lat) or (lat, lon)
             lon_grid, lat_grid = np.meshgrid(lons, lats, indexing="ij")
             # Match bias shape — if dims are (lon, lat), indexing="ij" is correct
@@ -179,12 +203,15 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
                 lon_grid, lat_grid = np.meshgrid(lons, lats)
             lats_flat = lat_grid.flatten()
             lons_flat = lon_grid.flatten()
+            bias_values = bias.values.flatten()
         elif lats.ndim < bias.ndim:
             lats_flat = np.broadcast_to(lats, bias.shape).flatten()
             lons_flat = np.broadcast_to(lons, bias.shape).flatten()
+            bias_values = bias.values.flatten()
         else:
             lats_flat = lats.flatten()
             lons_flat = lons.flatten()
+            bias_values = bias.values.flatten()
 
         # Remove NaN values
         mask = np.isfinite(bias_values) & np.isfinite(lats_flat) & np.isfinite(lons_flat)

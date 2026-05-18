@@ -291,6 +291,7 @@ class LoadModelsStage(BaseStage):
                     )
                 mod_type = config.get("mod_type", "generic")
                 variables = config.get("variables")
+                mod_kwargs = config.get("mod_kwargs") or {}
 
                 # Count files for progress message
                 t0 = time.time()
@@ -316,6 +317,7 @@ class LoadModelsStage(BaseStage):
                     mod_type=mod_type,
                     variables=var_list,
                     label=label,
+                    **mod_kwargs,
                 )
                 if debug:
                     context.log_progress(
@@ -1125,6 +1127,7 @@ class PairingStage(BaseStage):
                 pairing_cfg = PairingConfig(
                     radius_of_influence=radius,
                     time_tolerance=pairing_config_dict.get("time_tolerance", "1h"),
+                    time_method=pairing_config_dict.get("time_method", "nearest"),
                 )
 
                 engine = PairingEngine()
@@ -1306,6 +1309,16 @@ class StatisticsStage(BaseStage):
 
                 # Handle PairedData objects
                 paired_data = paired_obj.data if hasattr(paired_obj, "data") else paired_obj
+
+                # Apply global stats-config domain filter if requested.
+                from davinci_monet.util.domain import filter_paired_by_domain
+
+                paired_data = filter_paired_by_domain(
+                    paired_data,
+                    stats_config.get("domain_type"),
+                    stats_config.get("domain_name"),
+                )
+
                 # Calculate basic statistics
                 pair_stats = self._calculate_stats(paired_data, stats_config)
                 stats_results[pair_key] = pair_stats
@@ -1533,6 +1546,19 @@ class PlottingStage(BaseStage):
 
                     paired_obj = context.paired[pair_key]
                     paired_data = paired_obj.data if hasattr(paired_obj, "data") else paired_obj
+
+                    # Apply per-plot domain filter if requested. domain_type/
+                    # domain_name in the plot spec restrict paired_data to a
+                    # named lat/lon extent (e.g. 'conus', or 'epa_region' + R5).
+                    # When the type is None / "all" or unrecognised, the helper
+                    # returns the dataset unchanged.
+                    from davinci_monet.util.domain import filter_paired_by_domain
+
+                    paired_data = filter_paired_by_domain(
+                        paired_data,
+                        plot_spec.get("domain_type"),
+                        plot_spec.get("domain_name"),
+                    )
 
                     # Variable names in paired dataset use obs_var with prefixes
                     obs_var_name = f"obs_{obs_var}"
