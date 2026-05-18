@@ -277,6 +277,7 @@ class ModelConfig(FlexibleModel):
     projection: Any = None
     plot_kwargs: PlotKwargs | dict[str, Any] | None = None
     apply_ak: bool = False
+    display_name: str | None = None
 
     @field_validator("files", mode="before")
     @classmethod
@@ -386,6 +387,7 @@ class ObservationConfig(FlexibleModel):
     obs_type: str | None = None
     sat_type: str | None = None
     variables: dict[str, VariableConfig] = Field(default_factory=dict)
+    display_name: str | None = None
     use_airnow: bool | None = None
     resample: str | None = None
     min_obs_count: int | None = None
