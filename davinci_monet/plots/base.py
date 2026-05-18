@@ -611,6 +611,25 @@ TITLE_FORMULA_REPLACEMENTS: list[tuple[str, str]] = [
 ]
 
 
+# Unit string replacements for plot labels. Longer/more-specific patterns
+# first so e.g. "ug/m3" doesn't get partially rewritten by a bare "m3" rule.
+UNIT_REPLACEMENTS: list[tuple[str, str]] = [
+    ("ug/m3", r"$\mu$g/m$^3$"),
+    ("ug m-3", r"$\mu$g m$^{-3}$"),
+    ("ug m^-3", r"$\mu$g m$^{-3}$"),
+    ("mg/m3", r"mg/m$^3$"),
+    ("mg m-3", r"mg m$^{-3}$"),
+    ("kg/m3", r"kg/m$^3$"),
+    ("kg m-3", r"kg m$^{-3}$"),
+    ("g/m3", r"g/m$^3$"),
+    ("m/s2", r"m/s$^2$"),
+    ("m s-2", r"m s$^{-2}$"),
+    ("m/s", "m/s"),
+    ("W/m2", r"W/m$^2$"),
+    ("W m-2", r"W m$^{-2}$"),
+]
+
+
 def format_plot_title(title: str) -> str:
     """Format a plot title with proper chemical formula subscripts.
 
@@ -757,6 +776,20 @@ def get_variable_units(
     return None
 
 
+def format_units(units: str) -> str:
+    """Rewrite raw unit strings to LaTeX-rendered form.
+
+    Applies UNIT_REPLACEMENTS so e.g. ``"ug/m3"`` becomes the proper
+    ``"$\\mu$g/m$^3$"`` with greek mu and superscripted exponent.
+    """
+    result = units
+    for pattern, replacement in UNIT_REPLACEMENTS:
+        if pattern in result:
+            result = result.replace(pattern, replacement)
+            break
+    return result
+
+
 def format_label_with_units(label: str, units: str | None) -> str:
     """Format a label with units.
 
@@ -770,10 +803,12 @@ def format_label_with_units(label: str, units: str | None) -> str:
     Returns
     -------
     str
-        Formatted label with units in parentheses if provided.
+        Formatted label with units in parentheses if provided. The units
+        string is passed through :func:`format_units` so common bare-ASCII
+        forms (``ug/m3``, ``W m-2``, ...) render with proper LaTeX symbols.
     """
     if units and units != "1":
-        return f"{label} ({units})"
+        return f"{label} ({format_units(units)})"
     return label
 
 
