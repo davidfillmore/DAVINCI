@@ -254,10 +254,12 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
             zorder=5,
         )
 
-        # Add colorbar
+        # Add colorbar. The contour (model) and scatter (obs) share this scale,
+        # so the label is the chemistry variable itself — no "Observed"/"Modeled"
+        # prefix (which would mislabel half the layer).
         units = get_variable_units(paired_data, obs_var)
         label = format_label_with_units(
-            get_variable_label(paired_data, obs_var) or obs_var,
+            get_variable_label(paired_data, obs_var, include_prefix=False) or obs_var,
             units,
         )
         self.add_colorbar(fig, contour, ax, label=label)

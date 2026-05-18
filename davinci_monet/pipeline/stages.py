@@ -1575,6 +1575,7 @@ class PlottingStage(BaseStage):
                     vmin = var_config.get("vmin_plot")
                     vmax = var_config.get("vmax_plot")
                     vdiff = var_config.get("vdiff_plot")
+                    nlevels = var_config.get("nlevels_plot")
 
                     # Build plotter config
                     plotter_config: dict[str, Any] = {"title": title}
@@ -1607,6 +1608,10 @@ class PlottingStage(BaseStage):
                         "show_density",
                         "density_cmap",
                         "alpha",
+                        # spatial_overlay obs marker sizing
+                        "marker_size",
+                        "obs_edgecolor",
+                        "obs_linewidth",
                         # spatial plotter rendering mode
                         "plot_type",
                         "cmap",
@@ -1633,6 +1638,84 @@ class PlottingStage(BaseStage):
                         city_labels = analysis_config.get("city_labels")
                         if city_labels:
                             plot_options["city_labels"] = city_labels
+
+                    # Forward nlevels_plot to spatial plotters as n_levels so
+                    # configs can pick contour counts that produce nice round
+                    # tick values (e.g. 21 levels over 0-1 -> step 0.05).
+                    if plot_type.startswith("spatial") and nlevels is not None:
+                        plot_options.setdefault("n_levels", nlevels)
+
+                    # spatial_overlay needs the raw gridded model field for the
+                    # contour layer; the paired dataset only carries model values
+                    # interpolated to obs sites.
+                    if plot_type == "spatial_overlay":
+                        if "model_field" not in plot_options:
+                            model_obj = context.models.get(model_label)
+                            if model_obj is not None:
+                                model_ds = (
+                                    model_obj.data if hasattr(model_obj, "data") else model_obj
+                                )
+                                if (
+                                    model_ds is not None
+                                    and model_var in getattr(model_ds, "data_vars", {})
+                                ):
+                                    plot_options["model_field"] = model_ds[model_var]
+                        # Observation readers differ on coord naming
+                        # (`latitude`/`longitude` vs `lat`/`lon`). Pick whichever
+                        # the paired dataset actually carries.
+                        if "lat_var" not in plot_options:
+                            for cand in ("latitude", "lat"):
+                                if cand in paired_data.coords or cand in paired_data:
+                                    plot_options["lat_var"] = cand
+                                    break
+                        if "lon_var" not in plot_options:
+                            for cand in ("longitude", "lon"):
+                                if cand in paired_data.coords or cand in paired_data:
+                                    plot_options["lon_var"] = cand
+                                    break
+
+                    # Build subtitle: "<Model> vs <Obs> · <date>"; for
+                    # snapshot-style plots (spatial_overlay) also show the
+                    # specific timestamp being rendered.
+                    start_time = analysis_config.get("start_time", "")
+                    end_time = analysis_config.get("end_time", "")
+                    date_str = ""
+                    if start_time:
+                        start_date = str(start_time).split(" ")[0]
+                        end_date = str(end_time).split(" ")[0] if end_time else start_date
+                        date_str = start_date if start_date == end_date else f"{start_date} → {end_date}"
+                    snapshot_str = ""
+                    if plot_type == "spatial_overlay" and "model_field" in plot_options:
+                        mf = plot_options["model_field"]
+                        time_idx = plot_options.get("time_index", 0)
+                        if "time" in mf.dims and len(mf["time"]) > time_idx:
+                            ts = mf["time"].values[time_idx]
+                            try:
+                                import pandas as pd
+                                snapshot_str = pd.Timestamp(ts).strftime("%Y-%m-%d %H:%M UTC")
+                            except Exception:
+                                snapshot_str = str(ts)[:16] + " UTC"
+                    when = snapshot_str or date_str
+                    # Prefer explicit display_name on the model/obs config (e.g.
+                    # "AirNow", "AERONET"); fall back to the YAML key when not
+                    # set so plot text reads cleanly regardless of casing.
+                    obs_config = context.config.get("obs", {})
+                    model_display = (
+                        model_config.get(model_label, {}).get("display_name") or model_label
+                    )
+                    obs_display = (
+                        obs_config.get(obs_label, {}).get("display_name") or obs_label
+                    )
+                    parts = [p for p in (model_display, obs_display) if p]
+                    subtitle = ""
+                    if parts:
+                        subtitle = " vs ".join(parts)
+                        if when:
+                            subtitle = f"{subtitle} · {when}"
+                    elif when:
+                        subtitle = when
+                    if subtitle:
+                        plotter_config["title"] = f"{title}\n{subtitle}"
 
                     # Get plotter
                     plotter = get_plotter(plot_type, config=plotter_config)
