@@ -57,6 +57,25 @@ Specific actionable items
 
 ---
 
+## Execution Environment & Output Conventions
+
+These are standing directives for any agent or contributor running this project:
+
+- **Run tests/regression in the `davinci-monet` conda env.** The full suite depends on cartopy, monet, monetio, netCDF4, and other geo packages that are only present in this environment. Do not run the suite in a generic/sandbox Python that lacks these deps.
+  ```bash
+  source ~/miniconda3/etc/profile.d/conda.sh
+  conda activate davinci-monet
+  HDF5_USE_FILE_LOCKING=FALSE python -m pytest
+  ```
+
+- **Send generated plots to the iCloud Claude folder.** All generated plots should land in:
+  ```
+  ~/Library/Mobile Documents/com~apple~CloudDocs/Claude
+  ```
+  Either point a run's output directory there, or copy the plot files there after generation. (Example plots are produced by `examples/run_all_examples.py` into `examples/output/plots`; copy the resulting `*.png`/`*.pdf` to the iCloud folder.)
+
+---
+
 ## ⚠️ CRITICAL: CESM Vertical Coordinate Convention
 
 **This issue has been rediscovered 4+ times. READ THIS FIRST when working with CESM/CAM-chem data.**
