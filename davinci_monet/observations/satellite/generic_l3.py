@@ -18,11 +18,11 @@ import xarray as xr
 
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
 
-@observation_registry.register("satellite_l3")
+@source_registry.register("satellite_l3")
 class GenericL3Reader:
     """Generic reader for Level 3 satellite gridded observations.
 

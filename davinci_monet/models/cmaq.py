@@ -19,7 +19,8 @@ from davinci_monet.core.exceptions import (
     is_transient_error,
     write_error_log,
 )
-from davinci_monet.core.registry import model_registry
+from davinci_monet.core.protocols import DataGeometry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
 # Standard variable name mappings for CMAQ
@@ -45,7 +46,7 @@ CMAQ_VARIABLE_MAPPING: dict[str, str] = {
 CMAQ_STANDARD_NAMES: dict[str, str] = {v: k for k, v in CMAQ_VARIABLE_MAPPING.items()}
 
 
-@model_registry.register("cmaq")
+@source_registry.register("cmaq")
 class CMAQReader:
     """Reader for CMAQ model output.
 
@@ -64,6 +65,11 @@ class CMAQReader:
     def name(self) -> str:
         """Return reader name."""
         return "cmaq"
+
+    @property
+    def geometry(self) -> DataGeometry:
+        """Model output is gridded."""
+        return DataGeometry.GRID
 
     def open(
         self,

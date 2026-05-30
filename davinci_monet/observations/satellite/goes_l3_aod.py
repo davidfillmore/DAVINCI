@@ -20,7 +20,7 @@ import xarray as xr
 
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for GOES AOD
@@ -35,7 +35,7 @@ GOES_AOD_VARIABLE_MAPPING: dict[str, str] = {
 GOES_VARIABLE_MAPPING = GOES_AOD_VARIABLE_MAPPING
 
 
-@observation_registry.register("goes_l3_aod")
+@source_registry.register("goes_l3_aod")
 class GOESL3AODReader:
     """Reader for GOES-ABI L3 AOD satellite observations.
 

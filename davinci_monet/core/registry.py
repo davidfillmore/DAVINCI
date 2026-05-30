@@ -263,18 +263,23 @@ class Registry(Generic[T]):
 # Using Any here to avoid circular imports - actual type checking
 # happens at registration time via runtime_checkable protocols
 
-model_registry: Registry[type] = Registry("model")
-"""Registry for model reader classes (CMAQ, WRF-Chem, etc.)."""
-
-observation_registry: Registry[type] = Registry("observation")
-"""Registry for observation reader classes (surface, aircraft, satellite)."""
-
 source_registry: Registry[type] = Registry("source")
 """Unified registry for data source reader classes.
 
 Models and observations both register here, keyed by a single ``type`` id and
-distinguished only by the geometry their reader declares. Replaces the separate
-model_registry and observation_registry in later phases of the unification."""
+distinguished only by the geometry their reader declares. This is the single
+source of truth for reader registration as of Phase 2 of the unification."""
+
+# Deprecated aliases (Phase 2): the former model/observation registries now
+# point at the unified source_registry. All readers register on source_registry;
+# these names are retained for backward-compatible lookups and will be removed in
+# Phase 6. They are plain aliases (no runtime warning) so the test suite — which
+# escalates UserWarning to errors — stays green.
+model_registry: Registry[type] = source_registry
+"""Deprecated alias of :data:`source_registry` (removed in Phase 6)."""
+
+observation_registry: Registry[type] = source_registry
+"""Deprecated alias of :data:`source_registry` (removed in Phase 6)."""
 
 pairing_registry: Registry[type] = Registry("pairing")
 """Registry for pairing strategy classes (point, track, profile, swath, grid)."""
