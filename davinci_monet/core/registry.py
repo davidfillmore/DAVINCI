@@ -269,6 +269,13 @@ model_registry: Registry[type] = Registry("model")
 observation_registry: Registry[type] = Registry("observation")
 """Registry for observation reader classes (surface, aircraft, satellite)."""
 
+source_registry: Registry[type] = Registry("source")
+"""Unified registry for data source reader classes.
+
+Models and observations both register here, keyed by a single ``type`` id and
+distinguished only by the geometry their reader declares. Replaces the separate
+model_registry and observation_registry in later phases of the unification."""
+
 pairing_registry: Registry[type] = Registry("pairing")
 """Registry for pairing strategy classes (point, track, profile, swath, grid)."""
 

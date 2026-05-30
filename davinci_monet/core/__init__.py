@@ -51,6 +51,8 @@ from davinci_monet.core.protocols import (
     Pipeline,
     PipelineStage,
     Plotter,
+    SourceProcessor,
+    SourceReader,
     SpatialPlotter,
     StatisticMetric,
     StatisticsCalculator,
@@ -65,6 +67,7 @@ from davinci_monet.core.registry import (
     pairing_registry,
     plotter_registry,
     reader_registry,
+    source_registry,
     statistic_registry,
     writer_registry,
 )
@@ -92,6 +95,9 @@ __all__ = [
     # Observation protocols
     "ObservationReader",
     "ObservationProcessor",
+    # Unified source protocols
+    "SourceReader",
+    "SourceProcessor",
     # Pairing protocols
     "PairingStrategy",
     "PairingEngine",
@@ -117,6 +123,7 @@ __all__ = [
     # Pre-configured registries
     "model_registry",
     "observation_registry",
+    "source_registry",
     "pairing_registry",
     "plotter_registry",
     "statistic_registry",
