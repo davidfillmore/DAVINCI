@@ -23,7 +23,7 @@ import xarray as xr
 
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for TROPOMI
@@ -38,7 +38,7 @@ TROPOMI_VARIABLE_MAPPING: dict[str, str] = {
 }
 
 
-@observation_registry.register("tropomi")
+@source_registry.register("tropomi")
 class TROPOMIReader:
     """Reader for TROPOMI L2 satellite observations.
 

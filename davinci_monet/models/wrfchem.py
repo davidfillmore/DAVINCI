@@ -19,7 +19,8 @@ from davinci_monet.core.exceptions import (
     is_transient_error,
     write_error_log,
 )
-from davinci_monet.core.registry import model_registry
+from davinci_monet.core.protocols import DataGeometry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
 # Standard variable name mappings for WRF-Chem
@@ -61,7 +62,7 @@ WRFCHEM_STANDARD_NAMES: dict[str, str] = {v: k for k, v in WRFCHEM_VARIABLE_MAPP
 _MONETIO_ONLY_KWARGS = ("mech", "convert_to_ppb", "surf_only", "surf_only_nc")
 
 
-@model_registry.register("wrfchem")
+@source_registry.register("wrfchem")
 class WRFChemReader:
     """Reader for WRF-Chem model output.
 
@@ -80,6 +81,11 @@ class WRFChemReader:
     def name(self) -> str:
         """Return reader name."""
         return "wrfchem"
+
+    @property
+    def geometry(self) -> DataGeometry:
+        """Model output is gridded."""
+        return DataGeometry.GRID
 
     def open(
         self,

@@ -17,7 +17,7 @@ import xarray as xr
 
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for AirNow
@@ -32,7 +32,7 @@ AIRNOW_VARIABLE_MAPPING: dict[str, str] = {
 }
 
 
-@observation_registry.register("airnow")
+@source_registry.register("airnow")
 class AirNowReader:
     """Reader for AirNow real-time air quality data.
 

@@ -23,7 +23,7 @@ import xarray as xr
 
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for TEMPO NO2
@@ -36,7 +36,7 @@ TEMPO_NO2_VARIABLE_MAPPING: dict[str, str] = {
 }
 
 
-@observation_registry.register("tempo_l2_no2")
+@source_registry.register("tempo_l2_no2")
 class TEMPOL2NO2Reader:
     """Reader for TEMPO L2 NO2 satellite observations.
 

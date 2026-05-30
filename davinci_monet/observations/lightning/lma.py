@@ -23,7 +23,7 @@ import xarray as xr
 
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for LMA data
@@ -55,7 +55,7 @@ LMA_NETWORKS: dict[str, dict[str, Any]] = {
 }
 
 
-@observation_registry.register("lma")
+@source_registry.register("lma")
 class LMAReader:
     """Reader for Lightning Mapping Array (LMA) gridded observations.
 
