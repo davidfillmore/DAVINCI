@@ -753,6 +753,38 @@ def get_variable_label(
     return format_variable_display_name(var_name, include_prefix=include_prefix)
 
 
+def resolve_source_variable(
+    dataset: xr.Dataset,
+    canonical_var: str,
+    source_label: str,
+) -> str | None:
+    """Resolve a variable name by source label (Phase 5, additive).
+
+    Supports the unified source-label naming (``<source_label>_<canonical>``,
+    e.g. ``cam_o3``) while falling back to the bare canonical name. Returns the
+    matching variable name present in the dataset, or ``None`` if neither is
+    found. Does not alter the existing ``model_``/``obs_`` prefix handling.
+
+    Parameters
+    ----------
+    dataset
+        Dataset to search.
+    canonical_var
+        Canonical (unprefixed) variable name, e.g. ``"o3"``.
+    source_label
+        Source label used as a prefix, e.g. ``"cam"`` or ``"airnow"``.
+
+    Returns
+    -------
+    str | None
+        The resolved variable name, or ``None`` if absent.
+    """
+    for candidate in (f"{source_label}_{canonical_var}", canonical_var):
+        if candidate in dataset.data_vars or candidate in dataset.coords:
+            return candidate
+    return None
+
+
 def get_variable_units(
     dataset: xr.Dataset,
     var_name: str,
