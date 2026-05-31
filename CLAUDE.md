@@ -57,6 +57,25 @@ Specific actionable items
 
 ---
 
+## Execution Environment & Output Conventions
+
+These are standing directives for any agent or contributor running this project:
+
+- **Run tests/regression in the `davinci` conda env.** The full suite depends on cartopy, monet, monetio, netCDF4, and other geo packages that are only present in this environment. Do not run the suite in a generic/sandbox Python that lacks these deps.
+  ```bash
+  source ~/miniconda3/etc/profile.d/conda.sh
+  conda activate davinci
+  HDF5_USE_FILE_LOCKING=FALSE python -m pytest
+  ```
+
+- **Send generated plots to the iCloud Claude folder.** All generated plots should land in:
+  ```
+  ~/Library/Mobile Documents/com~apple~CloudDocs/Claude
+  ```
+  Either point a run's output directory there, or copy the plot files there after generation. (Example plots are produced by `examples/run_all_examples.py` into `examples/output/plots`; copy the resulting `*.png`/`*.pdf` to the iCloud folder.)
+
+---
+
 ## ⚠️ CRITICAL: CESM Vertical Coordinate Convention
 
 **This issue has been rediscovered 4+ times. READ THIS FIRST when working with CESM/CAM-chem data.**
@@ -111,7 +130,7 @@ else:
 
 ```bash
 # Activate conda environment
-conda activate davinci-monet
+conda activate davinci
 
 # Install in development mode
 pip install -e ".[dev]"
@@ -128,12 +147,12 @@ black davinci_monet && isort davinci_monet
 
 ## Conda Environment
 
-**Name**: `davinci-monet`
+**Name**: `davinci`
 
 **Create from environment.yml**:
 ```bash
 conda env create -f environment.yml
-conda activate davinci-monet
+conda activate davinci
 ```
 
 **Key packages** (inherited from melodies-monet):
@@ -293,11 +312,26 @@ export MY_ANALYSIS=/path/to/analysis
 
 ### Variable Naming Convention
 
-Paired datasets use **prefix** format:
-- `model_pm25` - Model values
-- `obs_pm25` - Observation values
+Paired datasets produced by the pipeline use **source-label prefix** format —
+`<source_label>_<var>`, where `<source_label>` is the source's key in the
+`sources:`/`pairs:` config:
+- `cam_pm25` - the `cam` source's values (comparand, `role: model`)
+- `airnow_pm25` - the `airnow` source's values (reference, `role: obs`)
 
-NOT suffix format (`pm25_model`, `pm25_obs`).
+Each paired variable carries `role` (`model`/`obs`) and `source_label` attrs, so
+consumers select series by role/source rather than by a name prefix. This is the
+going-forward naming after the renderer rewire clean break (R-5).
+
+The legacy `model_<var>`/`obs_<var>` prefix is still produced by the low-level
+`PairingEngine.pair()`/`strategy.pair()` API when no source labels are supplied
+(e.g. in unit tests); `tag_paired_roles` renames to source labels in the pipeline
+and tags the `role` attr in both cases. Variable resolution and styling helpers
+(`resolve_source_variable`, `canonical_variable_name`, `get_role_color`,
+`get_series_label`, `paired_variable_role`/`iter_paired_variable_pairs`) handle
+both names, inferring role from the `model_`/`obs_` prefix when no `role` attr is
+present.
+
+Either way it is **prefix** format, NOT suffix (`pm25_cam`, `pm25_model`).
 
 ## Key Design Patterns
 
@@ -327,8 +361,47 @@ Paired:  xr.Dataset with aligned model + obs variables
 
 ## Backward Compatibility
 
-- Full compatibility with existing MELODIES-MONET YAML configuration files
 - Continues using monet/monetio libraries for data I/O
+- Legacy MELODIES-MONET `model:`/`obs:` YAML configs are still accepted but
+  **deprecated** (a `LegacyConfigWarning` is emitted). They are auto-converted
+  internally to the unified `sources:` schema at run time.
+
+## Unified Data-Source Config (`sources:`)
+
+As of the model/obs unification, the going-forward config format is a single
+`sources:` block plus binary `pairs:`. Models and observations are both data
+sources distinguished only by geometry; a `role: model|obs` tag is optional
+metadata for plot styling/legends and never drives pairing.
+
+```yaml
+sources:
+  cam:
+    type: cesm_fv
+    role: model            # optional — styling/legend only
+    files: ${DATA}/cam/*.nc
+    variables: { O3: { unit_scale: 1.0e9 } }
+  airnow:
+    type: pt_sfc
+    role: obs
+    filename: ${DATA}/airnow.nc
+    variables: { o3: { obs_min: 0, obs_max: 500 } }
+
+pairs:
+  cam_vs_airnow_o3:
+    sources: [cam, airnow]   # order does not imply direction
+    reference: airnow        # optional; default by geometry precedence
+    variables: { cam: O3, airnow: o3 }
+```
+
+**Migrate a legacy control file**:
+```bash
+davinci-monet migrate-config old.yaml -o new.yaml
+```
+
+Direction precedence: irregular geometries (point/track/profile/swath) outrank
+GRID as the pairing reference, so a gridded source is sampled onto them. When two
+same-geometry sources are paired with no explicit `reference:`, the first-listed
+source is the reference (with a warning).
 
 ## Working Example: ASIA-AQ Analysis
 

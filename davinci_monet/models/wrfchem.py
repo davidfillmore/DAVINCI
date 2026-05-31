@@ -19,7 +19,8 @@ from davinci_monet.core.exceptions import (
     is_transient_error,
     write_error_log,
 )
-from davinci_monet.core.registry import model_registry
+from davinci_monet.core.protocols import DataGeometry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
 # Standard variable name mappings for WRF-Chem
@@ -61,7 +62,7 @@ WRFCHEM_STANDARD_NAMES: dict[str, str] = {v: k for k, v in WRFCHEM_VARIABLE_MAPP
 _MONETIO_ONLY_KWARGS = ("mech", "convert_to_ppb", "surf_only", "surf_only_nc")
 
 
-@model_registry.register("wrfchem")
+@source_registry.register("wrfchem")
 class WRFChemReader:
     """Reader for WRF-Chem model output.
 
@@ -80,6 +81,11 @@ class WRFChemReader:
     def name(self) -> str:
         """Return reader name."""
         return "wrfchem"
+
+    @property
+    def geometry(self) -> DataGeometry:
+        """Model output is gridded."""
+        return DataGeometry.GRID
 
     def open(
         self,
@@ -234,9 +240,7 @@ class WRFChemReader:
                         # char-array time encoding; XLAT/XLONG are the lat/
                         # lon coords). These get dropped or set as coords by
                         # standardize_dataset after the user's selection.
-                        keep_aux = [
-                            v for v in ("Times", "XLAT", "XLONG") if v in ds.variables
-                        ]
+                        keep_aux = [v for v in ("Times", "XLAT", "XLONG") if v in ds.variables]
                         ds = ds[available + [v for v in keep_aux if v not in available]]
 
                 return ds
@@ -309,9 +313,7 @@ class WRFChemReader:
                 # WRF format: 'YYYY-MM-DD_HH:MM:SS' — replace '_' for parsing
                 import numpy as _np
 
-                times_np = _np.array(
-                    [_np.datetime64(s.replace("_", "T")) for s in time_strs]
-                )
+                times_np = _np.array([_np.datetime64(s.replace("_", "T")) for s in time_strs])
                 ds = ds.assign_coords(time=("time", times_np))
                 ds = ds.drop_vars("Times")
             except (ValueError, TypeError, AttributeError):
@@ -398,9 +400,7 @@ class WRFChemReader:
         if not bad_steps:
             return ds
 
-        keep = np.array(
-            [i for i in range(ds.sizes["time"]) if i not in bad_steps], dtype=int
-        )
+        keep = np.array([i for i in range(ds.sizes["time"]) if i not in bad_steps], dtype=int)
         bad_times = ds["time"].values[sorted(bad_steps)]
         warnings.warn(
             f"WRF-Chem: dropping {len(bad_steps)} timestep(s) where "

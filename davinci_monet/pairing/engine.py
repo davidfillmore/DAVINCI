@@ -13,11 +13,7 @@ from typing import Any, Mapping, Sequence
 import xarray as xr
 
 from davinci_monet.core.base import PairedData
-from davinci_monet.core.exceptions import (
-    GeometryMismatchError,
-    NoOverlapError,
-    PairingError,
-)
+from davinci_monet.core.exceptions import GeometryMismatchError, NoOverlapError, PairingError
 from davinci_monet.core.protocols import DataGeometry, PairingStrategy
 from davinci_monet.core.types import TimeDelta
 
@@ -133,6 +129,45 @@ class PairingEngine:
             )
         return self._strategies[geometry]
 
+    def get_strategy_for(
+        self,
+        reference_geometry: DataGeometry,
+        comparand_geometry: DataGeometry,
+    ) -> PairingStrategy:
+        """Get the strategy for a ``(reference, comparand)`` geometry pair.
+
+        Role-neutral dispatch (Phase 4). The comparand is resampled onto the
+        reference's geometry. The seeded combinations mirror today's behavior:
+        a GRID comparand sampled onto any irregular reference (POINT/TRACK/
+        PROFILE/SWATH), and GRID onto GRID. The reference geometry selects the
+        strategy, exactly as the legacy obs-geometry dispatch did.
+
+        Parameters
+        ----------
+        reference_geometry
+            Geometry of the reference source (sampled *onto*).
+        comparand_geometry
+            Geometry of the comparand source (sampled *from*).
+
+        Returns
+        -------
+        PairingStrategy
+            The strategy handling this combination.
+
+        Raises
+        ------
+        PairingError
+            If the combination is not supported.
+        """
+        if comparand_geometry is not DataGeometry.GRID:
+            raise PairingError(
+                f"Unsupported pairing combination "
+                f"(reference={reference_geometry.name}, comparand={comparand_geometry.name}). "
+                f"Supported combinations sample a GRID comparand onto a "
+                f"{[g.name for g in self._strategies.keys()]} reference."
+            )
+        return self.get_strategy(reference_geometry)
+
     def pair(
         self,
         model: xr.Dataset,
@@ -186,13 +221,16 @@ class PairingEngine:
         if config.require_overlap:
             self._check_temporal_overlap(model, obs)
 
-        # Get appropriate strategy
-        strategy = self.get_strategy(geometry)
+        # Get appropriate strategy via the role-neutral (reference, comparand)
+        # dispatch. The model→obs path maps to: reference = obs (the detected
+        # geometry), comparand = model (GRID). This preserves today's behavior
+        # while routing through the unified dispatch + pair_sources entrypoint.
+        strategy = self.get_strategy_for(geometry, DataGeometry.GRID)
 
-        # Perform pairing
-        paired_ds = strategy.pair(
-            model=model,
-            obs=obs,
+        # Perform pairing (reference = obs, comparand = model).
+        paired_ds = strategy.pair_sources(
+            reference=obs,
+            comparand=model,
             radius_of_influence=config.radius_of_influence,
             time_tolerance=config.time_tolerance,
             vertical_method=config.vertical_method,
@@ -216,6 +254,69 @@ class PairingEngine:
             obs_label=obs_label,
             geometry=geometry,
             pairing_info={
+                "radius_of_influence": config.radius_of_influence,
+                "time_tolerance": config.time_tolerance,
+                "vertical_method": config.vertical_method,
+                "horizontal_method": config.horizontal_method,
+                "strategy": strategy.__class__.__name__,
+            },
+        )
+
+    def pair_sources(
+        self,
+        reference: xr.Dataset,
+        comparand: xr.Dataset,
+        reference_vars: Sequence[str],
+        comparand_vars: Sequence[str],
+        reference_geometry: DataGeometry | None = None,
+        comparand_geometry: DataGeometry | None = None,
+        config: PairingConfig | None = None,
+        reference_label: str = "reference",
+        comparand_label: str = "comparand",
+        **kwargs: Any,
+    ) -> PairedData:
+        """Pair two role-neutral sources.
+
+        ``comparand`` is sampled onto ``reference``. The paired output still
+        uses the internal ``obs_``/``model_`` assembly prefixes before the
+        pipeline tags them with source labels.
+        """
+        if config is None:
+            config = PairingConfig()
+        if reference_geometry is None:
+            reference_geometry = self._detect_geometry(reference)
+        if comparand_geometry is None:
+            comparand_geometry = self._detect_geometry(comparand)
+
+        if config.require_overlap:
+            self._check_temporal_overlap(comparand, reference)
+
+        strategy = self.get_strategy_for(reference_geometry, comparand_geometry)
+        paired_ds = strategy.pair_sources(
+            reference=reference,
+            comparand=comparand,
+            radius_of_influence=config.radius_of_influence,
+            time_tolerance=config.time_tolerance,
+            vertical_method=config.vertical_method,
+            horizontal_method=config.horizontal_method,
+            time_method=config.time_method,
+            **kwargs,
+        )
+        result_ds = self._assemble_paired_dataset(
+            paired_ds,
+            obs_vars=reference_vars,
+            model_vars=comparand_vars,
+        )
+        return PairedData(
+            data=result_ds,
+            model_label=comparand_label,
+            obs_label=reference_label,
+            geometry=reference_geometry,
+            pairing_info={
+                "reference_label": reference_label,
+                "comparand_label": comparand_label,
+                "reference_geometry": reference_geometry.name,
+                "comparand_geometry": comparand_geometry.name,
                 "radius_of_influence": config.radius_of_influence,
                 "time_tolerance": config.time_tolerance,
                 "vertical_method": config.vertical_method,

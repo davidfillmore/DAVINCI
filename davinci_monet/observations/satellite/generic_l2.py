@@ -19,11 +19,11 @@ import xarray as xr
 
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
 
-@observation_registry.register("satellite_l2")
+@source_registry.register("satellite_l2")
 class GenericL2Reader:
     """Generic reader for Level 2 satellite swath observations.
 

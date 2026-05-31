@@ -270,7 +270,9 @@ def configure_logging(
     root_logger.setLevel(level_int)
     root_logger.propagate = propagate
 
-    # Remove existing handlers to avoid duplicates
+    # Remove existing handlers to avoid duplicates and close file descriptors.
+    for handler in root_logger.handlers:
+        handler.close()
     root_logger.handlers.clear()
 
     # Console handler

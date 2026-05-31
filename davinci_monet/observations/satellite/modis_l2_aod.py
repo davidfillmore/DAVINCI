@@ -23,7 +23,7 @@ import xarray as xr
 
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for MODIS AOD
@@ -37,7 +37,7 @@ MODIS_AOD_VARIABLE_MAPPING: dict[str, str] = {
 }
 
 
-@observation_registry.register("modis_l2_aod")
+@source_registry.register("modis_l2_aod")
 class MODISL2AODReader:
     """Reader for MODIS L2 AOD satellite observations.
 

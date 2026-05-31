@@ -10,13 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    field_validator,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # =============================================================================
 # Base Configuration
@@ -441,6 +435,69 @@ PlotType = Literal[
 ]
 
 
+SourceRole = Literal["model", "obs"]
+
+
+class SourceConfig(FlexibleModel):
+    """Unified configuration for a single data source (Phase 6).
+
+    A data source is just data of a given geometry; ``role`` is optional
+    metadata used for plot styling/legends only, never for pairing logic. This
+    is the additive replacement for ``ModelConfig`` + ``ObservationConfig``;
+    both remain supported (deprecated) and are converted to sources internally.
+    Extra reader-specific keys are accepted (FlexibleModel) and passed through.
+    """
+
+    type: str | None = None
+    role: SourceRole | None = None
+    files: str | Path | list[str | Path] | None = None
+    filename: str | Path | None = None
+    variables: dict[str, VariableConfig] = Field(default_factory=dict)
+    radius_of_influence: float = 12000.0
+    mapping: dict[str, dict[str, str]] = Field(default_factory=dict)
+    display_name: str | None = None
+
+    @field_validator("files", mode="before")
+    @classmethod
+    def _convert_files(cls, v: Any) -> str | list[str] | None:
+        if v is None:
+            return None
+        if isinstance(v, (list, tuple)):
+            return [str(item) for item in v]
+        return str(v)
+
+    @field_validator("filename", mode="before")
+    @classmethod
+    def _convert_filename(cls, v: Any) -> str | None:
+        return None if v is None else str(v)
+
+    @field_validator("variables", mode="before")
+    @classmethod
+    def _parse_variables(cls, v: Any) -> dict[str, VariableConfig]:
+        if v is None:
+            return {}
+        if isinstance(v, dict):
+            return {
+                str(name): VariableConfig(**cfg) if isinstance(cfg, dict) else cfg
+                for name, cfg in v.items()
+            }
+        return dict(v)
+
+
+class SourcePairConfig(FlexibleModel):
+    """Binary pair definition for the unified sources schema (Phase 6).
+
+    ``sources`` lists exactly two source labels; ``reference`` optionally names
+    which one is the reference (otherwise geometry precedence decides);
+    ``variables`` maps each source label to its variable name. Order does not
+    imply direction.
+    """
+
+    sources: list[str] = Field(default_factory=list)
+    reference: str | None = None
+    variables: dict[str, str] = Field(default_factory=dict)
+
+
 class DataProcConfig(FlexibleModel):
     """Data processing configuration for plots.
 
@@ -650,6 +707,8 @@ class MonetConfig(FlexibleModel):
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
     model: dict[str, ModelConfig] = Field(default_factory=dict)
     obs: dict[str, ObservationConfig] = Field(default_factory=dict)
+    # Unified data-source block (Phase 6), additive alongside model:/obs:.
+    sources: dict[str, SourceConfig] = Field(default_factory=dict)
     plots: dict[str, PlotGroupConfig] = Field(default_factory=dict)
     stats: StatsConfig | None = None
 
@@ -682,6 +741,19 @@ class MonetConfig(FlexibleModel):
             return result
         result = dict(v)
         return result
+
+    @field_validator("sources", mode="before")
+    @classmethod
+    def parse_sources(cls, v: Any) -> dict[str, SourceConfig]:
+        """Parse unified data-source configurations."""
+        if v is None:
+            return {}
+        if isinstance(v, dict):
+            return {
+                str(name): SourceConfig(**cfg) if isinstance(cfg, dict) else cfg
+                for name, cfg in v.items()
+            }
+        return dict(v)
 
     @field_validator("plots", mode="before")
     @classmethod

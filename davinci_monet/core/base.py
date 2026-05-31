@@ -18,17 +18,9 @@ from typing import Any, Mapping, Sequence
 
 import xarray as xr
 
-from davinci_monet.core.exceptions import (
-    DataValidationError,
-    VariableNotFoundError,
-)
+from davinci_monet.core.exceptions import DataValidationError, VariableNotFoundError
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.types import (
-    BoundingBox,
-    PathLike,
-    TimeRange,
-    VariableMapping,
-)
+from davinci_monet.core.types import BoundingBox, PathLike, TimeRange, VariableMapping
 
 
 @dataclass
@@ -134,7 +126,7 @@ class DataContainer(ABC):
         """List of available data variables."""
         if self.data is None:
             return []
-        return list(self.data.data_vars)  # type: ignore[arg-type]
+        return list(self.data.data_vars)
 
     @property
     def time_range(self) -> TimeRange | None:
@@ -379,6 +371,83 @@ class DataContainer(ABC):
         self.data[variable] = arr
 
 
+def paired_variable_role(dataset: xr.Dataset, var_name: str) -> str | None:
+    """Source role of a paired variable (renderer rewire R-5).
+
+    Returns the variable's ``role`` attr (``"obs"``/``"model"``) when present,
+    otherwise infers it from the legacy ``obs_``/``model_`` prefix. Returns
+    ``None`` for variables that are neither (coordinates, unrelated vars).
+    """
+    role = dataset[var_name].attrs.get("role") if var_name in dataset.data_vars else None
+    if role is None:
+        lname = str(var_name).lower()
+        if lname.startswith("obs_"):
+            role = "obs"
+        elif lname.startswith("model_"):
+            role = "model"
+    return role
+
+
+def paired_variable_pair_role(dataset: xr.Dataset, var_name: str) -> str | None:
+    """Reference/comparand role of a paired variable.
+
+    ``pair_role`` is the role-neutral pairing position introduced for unified
+    source pairs. Legacy paired data falls back to source role/prefix:
+    ``obs`` -> reference and ``model`` -> comparand.
+    """
+    if var_name in dataset.data_vars:
+        pair_role = dataset[var_name].attrs.get("pair_role")
+        if pair_role in ("reference", "comparand"):
+            return str(pair_role)
+    role = paired_variable_role(dataset, var_name)
+    if role == "obs":
+        return "reference"
+    if role == "model":
+        return "comparand"
+    return None
+
+
+def paired_canonical_name(dataset: xr.Dataset, var_name: str) -> str:
+    """Canonical (unprefixed) name of a paired variable (renderer rewire R-5).
+
+    Strips the source-label prefix (from the variable's ``source_label`` attr,
+    e.g. ``cam_o3`` -> ``o3``) or the legacy ``obs_``/``model_`` prefix. Names
+    with no recognised prefix are returned unchanged.
+    """
+    if var_name in dataset.data_vars:
+        source_label = dataset[var_name].attrs.get("source_label")
+        if source_label and var_name.startswith(f"{source_label}_"):
+            return var_name[len(source_label) + 1 :]
+    # Case-insensitive prefix match, consistent with ``paired_variable_role``.
+    lname = str(var_name).lower()
+    for prefix in ("obs_", "model_"):
+        if lname.startswith(prefix):
+            return var_name[len(prefix) :]
+    return var_name
+
+
+def iter_paired_variable_pairs(dataset: xr.Dataset) -> list[tuple[str, str, str]]:
+    """Pair reference variables with their comparand counterparts.
+    counterparts by canonical name (renderer rewire R-5).
+
+    Returns ``(reference_var, comparand_var, canonical)`` triples. Pair roles
+    come from ``pair_role`` with a fallback to the legacy ``obs``/``model``
+    source role and prefixes, so this works for source-label-named paired output
+    as well as legacy or untagged paired data. One variable per position is used, so
+    dual-named data never double-counts.
+    """
+    refs: dict[str, str] = {}
+    comps: dict[str, str] = {}
+    for v in dataset.data_vars:
+        name = str(v)
+        role = paired_variable_pair_role(dataset, name)
+        if role not in ("reference", "comparand"):
+            continue
+        canonical = paired_canonical_name(dataset, name)
+        (refs if role == "reference" else comps).setdefault(canonical, name)
+    return [(refs[c], comps[c], c) for c in comps if c in refs]
+
+
 @dataclass
 class PairedData:
     """Container for paired model-observation data.
@@ -413,24 +482,55 @@ class PairedData:
 
     @property
     def model_variables(self) -> list[str]:
-        """List of model variables in the paired data."""
-        return [str(v) for v in self.data.data_vars if str(v).startswith("model_")]
+        """List of model (comparand-role) variables in the paired data."""
+        return [
+            str(v)
+            for v in self.data.data_vars
+            if paired_variable_pair_role(self.data, str(v)) == "comparand"
+        ]
 
     @property
     def obs_variables(self) -> list[str]:
-        """List of observation variables in the paired data."""
-        return [str(v) for v in self.data.data_vars if str(v).startswith("obs_")]
+        """List of observation (reference-role) variables in the paired data."""
+        return [
+            str(v)
+            for v in self.data.data_vars
+            if paired_variable_pair_role(self.data, str(v)) == "reference"
+        ]
 
     @property
     def paired_variable_names(self) -> list[tuple[str, str]]:
-        """List of (obs_var, model_var) pairs."""
-        pairs: list[tuple[str, str]] = []
-        for obs_var in self.obs_variables:
-            base_name = obs_var.replace("obs_", "")
-            model_var = f"model_{base_name}"
-            if model_var in self.model_variables:
-                pairs.append((obs_var, model_var))
-        return pairs
+        """List of (obs_var, model_var) pairs, matched by canonical name."""
+        return [
+            (obs_var, model_var) for obs_var, model_var, _ in iter_paired_variable_pairs(self.data)
+        ]
+
+    def _resolve_role_var(self, variable: str, role: str) -> str | None:
+        """Resolve a paired variable for ``role`` ('obs'/'model').
+
+        Accepts an exact name, a legacy-prefixed name, a bare canonical name, or
+        a source-label name, so callers work against both legacy ``model_``/``obs_``
+        and source-label paired output (renderer rewire R-5).
+        """
+        wanted = "reference" if role == "obs" else "comparand"
+        if (
+            variable in self.data.data_vars
+            and paired_variable_pair_role(self.data, variable) == wanted
+        ):
+            return variable
+        prefix = "obs_" if role == "obs" else "model_"
+        legacy = variable if variable.startswith(prefix) else f"{prefix}{variable}"
+        if legacy in self.data.data_vars and paired_variable_pair_role(self.data, legacy) == wanted:
+            return legacy
+        target = paired_canonical_name(self.data, variable)
+        for v in self.data.data_vars:
+            name = str(v)
+            if (
+                paired_variable_pair_role(self.data, name) == wanted
+                and paired_canonical_name(self.data, name) == target
+            ):
+                return name
+        return None
 
     def get_obs(self, variable: str) -> xr.DataArray:
         """Get observation variable.
@@ -438,20 +538,20 @@ class PairedData:
         Parameters
         ----------
         variable
-            Variable name (with or without 'obs_' prefix).
+            Variable name: exact, legacy ``obs_``-prefixed, bare canonical, or
+            source-label form.
 
         Returns
         -------
         xr.DataArray
             Observation data.
         """
-        if not variable.startswith("obs_"):
-            variable = f"obs_{variable}"
-        if variable not in self.data:
+        name = self._resolve_role_var(variable, "obs")
+        if name is None:
             raise VariableNotFoundError(
                 f"Observation variable '{variable}' not found. " f"Available: {self.obs_variables}"
             )
-        result: xr.DataArray = self.data[variable]
+        result: xr.DataArray = self.data[name]
         return result
 
     def get_model(self, variable: str) -> xr.DataArray:
@@ -460,20 +560,20 @@ class PairedData:
         Parameters
         ----------
         variable
-            Variable name (with or without 'model_' prefix).
+            Variable name: exact, legacy ``model_``-prefixed, bare canonical, or
+            source-label form.
 
         Returns
         -------
         xr.DataArray
             Model data.
         """
-        if not variable.startswith("model_"):
-            variable = f"model_{variable}"
-        if variable not in self.data:
+        name = self._resolve_role_var(variable, "model")
+        if name is None:
             raise VariableNotFoundError(
                 f"Model variable '{variable}' not found. " f"Available: {self.model_variables}"
             )
-        result: xr.DataArray = self.data[variable]
+        result: xr.DataArray = self.data[name]
         return result
 
     def get_pair(self, variable: str) -> tuple[xr.DataArray, xr.DataArray]:

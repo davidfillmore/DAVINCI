@@ -16,12 +16,7 @@ Usage:
     logger.info("Processing started", extra={"model": "CMAQ", "obs": "AQS"})
 """
 
-from davinci_monet.logging.config import (
-    LogLevel,
-    configure_logging,
-    get_logger,
-    set_log_level,
-)
+from davinci_monet.logging.config import LogLevel, configure_logging, get_logger, set_log_level
 
 __all__ = [
     "configure_logging",

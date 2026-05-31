@@ -424,9 +424,7 @@ class TestPointStrategy:
         )
 
         strategy = PointStrategy()
-        paired = strategy.pair(
-            model, obs, radius_of_influence=200000.0, time_method="linear"
-        )
+        paired = strategy.pair(model, obs, radius_of_influence=200000.0, time_method="linear")
 
         m = paired["model_pm25"].values.squeeze()  # shape (13,)
         # Endpoints exact
@@ -436,12 +434,10 @@ class TestPointStrategy:
         assert abs(m[6] - 15.0) < 1e-6, f"Expected 15.0 at midpoint, got {m[6]}"
         # No step function: every hour should be strictly between neighbors
         diffs = np.diff(m)
-        assert np.all(diffs > 0), (
-            "Linear interp must produce monotonic increase between 10 and 20"
-        )
-        assert np.allclose(diffs, diffs[0]), (
-            "Linear interp must produce equal increments, got " + str(diffs)
-        )
+        assert np.all(diffs > 0), "Linear interp must produce monotonic increase between 10 and 20"
+        assert np.allclose(
+            diffs, diffs[0]
+        ), "Linear interp must produce equal increments, got " + str(diffs)
 
     def test_pair_time_method_nearest_still_steps(self) -> None:
         """Default time_method='nearest' must still produce step function.
@@ -492,9 +488,7 @@ class TestPointStrategy:
         site_lats = np.array([35.0, 40.0, 45.0, 28.6, 13.1])  # last two: Delhi, Chennai
         site_lons = np.array([-100.0, -105.0, -95.0, 77.2, 80.3])
         # Make the out-of-domain obs values dramatically different so any leak shows up
-        temp = np.array(
-            [[285.0, 285.0, 285.0, 1000.0, 1000.0]] * 24
-        )
+        temp = np.array([[285.0, 285.0, 285.0, 1000.0, 1000.0]] * 24)
         obs = xr.Dataset(
             {"temperature": (["time", "site"], temp)},
             coords={
@@ -517,14 +511,14 @@ class TestPointStrategy:
         )
 
         # No NaN on the model side — every retained site has a valid model match
-        assert not np.isnan(paired["model_temperature"].values).any(), (
-            "Model values must be finite at all paired sites."
-        )
+        assert not np.isnan(
+            paired["model_temperature"].values
+        ).any(), "Model values must be finite at all paired sites."
 
         # No leak of the 1000.0 sentinel values from the dropped Delhi/Chennai sites
-        assert (paired["temperature"].values < 999.0).all(), (
-            "Obs values from out-of-domain sites leaked into the paired dataset."
-        )
+        assert (
+            paired["temperature"].values < 999.0
+        ).all(), "Obs values from out-of-domain sites leaked into the paired dataset."
 
         # Retained sites must be exactly the in-domain ones
         np.testing.assert_array_equal(
@@ -568,8 +562,8 @@ class TestTrackStrategy:
         # model_3d covers lat 30-50, lon -120 to -80. Build a 10-point track
         # with 6 points inside the domain and 4 points far out over the Atlantic.
         times = pd.date_range("2024-01-01 06:00", periods=10, freq="h")
-        in_lats  = [35.0, 38.0, 42.0, 45.0, 40.0, 38.0]
-        in_lons  = [-110.0, -105.0, -95.0, -90.0, -100.0, -115.0]
+        in_lats = [35.0, 38.0, 42.0, 45.0, 40.0, 38.0]
+        in_lons = [-110.0, -105.0, -95.0, -90.0, -100.0, -115.0]
         out_lats = [35.0, 35.0, 35.0, 35.0]
         out_lons = [0.0, 30.0, 60.0, 90.0]
         lats = np.array(in_lats + out_lats)
@@ -598,14 +592,14 @@ class TestTrackStrategy:
         )
 
         # No NaN on the model side at retained points
-        assert not np.isnan(paired["model_ozone"].values).any(), (
-            "Model values must be finite at all paired track points."
-        )
+        assert not np.isnan(
+            paired["model_ozone"].values
+        ).any(), "Model values must be finite at all paired track points."
 
         # No leak of sentinel values from dropped points
-        assert (paired["ozone"].values < 9000.0).all(), (
-            "Obs values from out-of-domain track points leaked into the paired dataset."
-        )
+        assert (
+            paired["ozone"].values < 9000.0
+        ).all(), "Obs values from out-of-domain track points leaked into the paired dataset."
 
         # Retained lat/lon coords match the in-domain track segment
         np.testing.assert_array_equal(paired["latitude"].values, np.array(in_lats))
@@ -771,20 +765,17 @@ class TestSwathStrategy:
         out_obs = paired["temperature"].values[:, 3:]
         out_model = paired["model_temperature"].values[:, 3:]
         assert np.isnan(out_obs).all(), (
-            "Obs values at out-of-radius swath pixels must be NaN; "
-            f"got {out_obs}"
+            "Obs values at out-of-radius swath pixels must be NaN; " f"got {out_obs}"
         )
-        assert np.isnan(out_model).all(), (
-            "Model values at out-of-radius swath pixels must be NaN."
-        )
+        assert np.isnan(out_model).all(), "Model values at out-of-radius swath pixels must be NaN."
 
         # In-domain pixels: obs must retain its 300.0 value, model must be finite
         in_obs = paired["temperature"].values[:, :3]
         in_model = paired["model_temperature"].values[:, :3]
         np.testing.assert_array_equal(in_obs, np.full_like(in_obs, 300.0))
-        assert not np.isnan(in_model).any(), (
-            "Model values must be finite at in-domain swath pixels."
-        )
+        assert not np.isnan(
+            in_model
+        ).any(), "Model values must be finite at in-domain swath pixels."
 
 
 # =============================================================================

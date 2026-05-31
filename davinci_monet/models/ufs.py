@@ -19,7 +19,8 @@ from davinci_monet.core.exceptions import (
     is_transient_error,
     write_error_log,
 )
-from davinci_monet.core.registry import model_registry
+from davinci_monet.core.protocols import DataGeometry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
 # Standard variable name mappings for UFS-AQM
@@ -46,7 +47,7 @@ UFS_VARIABLE_MAPPING: dict[str, str] = {
 UFS_STANDARD_NAMES: dict[str, str] = {v: k for k, v in UFS_VARIABLE_MAPPING.items()}
 
 
-@model_registry.register("ufs")
+@source_registry.register("ufs")
 class UFSReader:
     """Reader for UFS-AQM model output.
 
@@ -65,6 +66,11 @@ class UFSReader:
     def name(self) -> str:
         """Return reader name."""
         return "ufs"
+
+    @property
+    def geometry(self) -> DataGeometry:
+        """Model output is gridded."""
+        return DataGeometry.GRID
 
     def open(
         self,
@@ -301,7 +307,7 @@ class UFSReader:
 
 
 # Alias for backward compatibility
-@model_registry.register("rrfs")
+@source_registry.register("rrfs")
 class RRFSReader(UFSReader):
     """Alias for UFSReader for backward compatibility with RRFS."""
 

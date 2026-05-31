@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from davinci_monet.plots.base import format_plot_title, get_variable_label
+from davinci_monet.plots.base import dataset_source_label, format_plot_title, get_variable_label
 from davinci_monet.plots.obs_base import ObsPlotter
 from davinci_monet.plots.registry import register_plotter
 from davinci_monet.plots.style import NCAR_PALETTE, NCAR_PRIMARY
@@ -28,7 +28,8 @@ class ObsTimeSeriesPlotter(ObsPlotter):
 
     If the dataset contains a ``flight`` coordinate, each flight is plotted
     in a different color from ``NCAR_PALETTE``. Otherwise a single line
-    in ``OBS_COLOR`` is drawn.
+    in ``NCAR_PRIMARY`` (the obs-only brand blue) is drawn, labelled by the
+    dataset's source label when present.
 
     Optionally overlays altitude on a secondary y-axis.
 
@@ -55,6 +56,8 @@ class ObsTimeSeriesPlotter(ObsPlotter):
         alt_coord: str = "altitude",
         title: str | None = None,
         color: str | None = None,
+        aggregate: bool = False,
+        show_uncertainty: bool = False,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Generate an observation time series plot.
@@ -74,7 +77,7 @@ class ObsTimeSeriesPlotter(ObsPlotter):
         title
             Plot title. Defaults to "{variable} Time Series".
         color
-            Line color for single-flight data. Defaults to OBS_COLOR.
+            Line color for single-flight data. Defaults to NCAR_PRIMARY.
         **kwargs
             Additional arguments passed to the underlying plot call.
 
@@ -89,12 +92,34 @@ class ObsTimeSeriesPlotter(ObsPlotter):
             fig = ax.get_figure()  # type: ignore[assignment]
 
         color = color or NCAR_PRIMARY
+        # Obs-only plots self-identify by their source label (R-4); colors stay
+        # the obs-only brand blue.
+        source_label = dataset_source_label(obs_data)
         time_values = pd.to_datetime(obs_data["time"].values)
         values = obs_data[variable].values
 
+        da = obs_data[variable]
+        non_time_dims = [d for d in da.dims if d != "time"]
         has_flights = "flight" in obs_data.coords and len(np.unique(obs_data["flight"].values)) > 1
 
-        if has_flights:
+        if aggregate and non_time_dims:
+            # Collapse non-time dimensions (e.g. site) to a single mean series,
+            # optionally with a +/- 1 sigma uncertainty band. Avoids the
+            # "spaghetti" of one line per station for surface networks.
+            mean = da.mean(dim=non_time_dims)
+            ax.plot(time_values, mean.values, color=color, linewidth=1.5, label="mean", **kwargs)
+            if show_uncertainty:
+                std = da.std(dim=non_time_dims)
+                ax.fill_between(
+                    time_values,
+                    (mean - std).values,
+                    (mean + std).values,
+                    color=color,
+                    alpha=0.25,
+                    linewidth=0,
+                    label="±1σ",
+                )
+        elif has_flights:
             flight_ids = np.unique(obs_data["flight"].values)
             for i, fid in enumerate(flight_ids):
                 c = NCAR_PALETTE[i % len(NCAR_PALETTE)]
@@ -114,6 +139,7 @@ class ObsTimeSeriesPlotter(ObsPlotter):
                 values,
                 color=color,
                 linewidth=1.2,
+                label=source_label,
                 **kwargs,
             )
 

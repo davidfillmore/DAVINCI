@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from davinci_monet.plots.base import format_plot_title, get_variable_label
+from davinci_monet.plots.base import dataset_source_label, format_plot_title, get_variable_label
 from davinci_monet.plots.obs_base import ObsPlotter
 from davinci_monet.plots.registry import register_plotter
 from davinci_monet.plots.style import NCAR_PRIMARY
@@ -70,7 +70,7 @@ class ObsHistogramPlotter(ObsPlotter):
         title
             Plot title. Defaults to "{variable} Distribution".
         color
-            Histogram bar color. Defaults to OBS_COLOR.
+            Histogram bar color. Defaults to NCAR_PRIMARY.
         **kwargs
             Additional arguments passed to ax.hist.
 
@@ -90,13 +90,14 @@ class ObsHistogramPlotter(ObsPlotter):
         values = obs_data[variable].values.ravel()
         values = values[np.isfinite(values)]
 
-        # Histogram
+        # Histogram (labelled by the obs source for legend-readiness; R-4)
         ax.hist(
             values,
             bins=n_bins,
             color=color,
             edgecolor="white",
             alpha=0.8,
+            label=dataset_source_label(obs_data),
             **kwargs,
         )
 

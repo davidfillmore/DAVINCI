@@ -17,7 +17,7 @@ import xarray as xr
 
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for OpenAQ
@@ -33,7 +33,7 @@ OPENAQ_VARIABLE_MAPPING: dict[str, str] = {
 }
 
 
-@observation_registry.register("openaq")
+@source_registry.register("openaq")
 class OpenAQReader:
     """Reader for OpenAQ global air quality data.
 

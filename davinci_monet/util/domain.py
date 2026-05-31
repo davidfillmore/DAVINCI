@@ -91,12 +91,7 @@ def filter_paired_by_domain(
     if lats.dims != lons.dims or len(lats.dims) != 1:
         return paired_data
 
-    mask = (
-        (lats >= lat_min)
-        & (lats <= lat_max)
-        & (lons >= lon_min)
-        & (lons <= lon_max)
-    )
+    mask = (lats >= lat_min) & (lats <= lat_max) & (lons >= lon_min) & (lons <= lon_max)
 
     dim = mask.dims[0]
     keep = np.where(mask.values)[0]

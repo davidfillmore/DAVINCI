@@ -10,10 +10,7 @@ import xarray as xr
 
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.observations.base import ObservationData
-from davinci_monet.pipeline.stages import (
-    PipelineContext,
-    StageStatus,
-)
+from davinci_monet.pipeline.stages import PipelineContext, StageStatus
 
 # =============================================================================
 # Fixtures
@@ -195,13 +192,14 @@ class TestObsOnlyPipelineDetection:
         stages = create_obs_pipeline()
         stage_names = [s.name for s in stages]
 
-        # Must include obs-specific stages
-        assert "load_observations" in stage_names
+        # Unified loading stage replaces LoadObservationsStage.
+        assert "load_sources" in stage_names
         assert "obs_statistics" in stage_names
         assert "obs_plotting" in stage_names
 
-        # Must NOT include model/pairing stages
+        # Must NOT include the legacy model/pairing stages.
         assert "load_models" not in stage_names
+        assert "load_observations" not in stage_names
         assert "pairing" not in stage_names
 
     def test_run_from_config_detects_obs_only(
@@ -211,9 +209,10 @@ class TestObsOnlyPipelineDetection:
         from davinci_monet.pipeline.runner import PipelineRunner
 
         config: dict[str, Any] = {
-            "obs": {
+            "sources": {
                 "dc8": {
-                    "obs_type": "aircraft",
+                    "role": "obs",
+                    "type": "aircraft",
                     "filename": "/fake/path.nc",
                 }
             },
@@ -224,13 +223,15 @@ class TestObsOnlyPipelineDetection:
 
         runner = PipelineRunner(show_progress=False)
         # run_from_config should detect obs-only and swap in obs pipeline.
-        # The LoadObservationsStage will fail because the file doesn't exist,
-        # but the important thing is that it attempts load_observations
-        # (not load_models), proving the auto-detection worked.
+        # The load_sources stage will fail because the file doesn't exist, but
+        # the stage list still proves the obs-only path was selected.
         result = runner.run_from_config(config)
 
-        # Check that the runner used obs-only stages (no load_models)
+        # The unified pipeline handles obs-only runs: load_sources loads, the
+        # pairing/statistics/plotting stages skip (no pairs), and the obs-only
+        # stages run. (Legacy load_models stage is gone entirely.)
         stage_names = [s.name for s in runner.stages]
         assert "load_models" not in stage_names
-        assert "load_observations" in stage_names
+        assert "load_sources" in stage_names
         assert "obs_statistics" in stage_names
+        assert "obs_plotting" in stage_names

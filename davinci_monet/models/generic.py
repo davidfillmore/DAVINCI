@@ -21,7 +21,8 @@ from davinci_monet.core.exceptions import (
     cleanup_netcdf_state,
     is_transient_error,
 )
-from davinci_monet.core.registry import model_registry
+from davinci_monet.core.protocols import DataGeometry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.models.base import ModelData, create_model_data
 
 # Common coordinate name aliases for standardization
@@ -85,7 +86,7 @@ def _cleanup_with_suppressed_errors() -> None:
         sys.stderr = old_stderr
 
 
-@model_registry.register("generic")
+@source_registry.register("generic")
 class GenericReader:
     """Generic model reader for arbitrary NetCDF/grib files.
 
@@ -103,6 +104,11 @@ class GenericReader:
     def name(self) -> str:
         """Return reader name."""
         return "generic"
+
+    @property
+    def geometry(self) -> DataGeometry:
+        """Model output is gridded."""
+        return DataGeometry.GRID
 
     def open(
         self,
@@ -312,7 +318,7 @@ def open_model(
     >>> data = open_model("wrfout_d01_*", mod_type="wrfchem")
     >>> data = open_model("generic_output.nc")  # Uses generic reader
     """
-    from davinci_monet.core.registry import model_registry
+    from davinci_monet.core.registry import source_registry
 
     # Handle glob pattern
     if isinstance(files, (str, Path)):
@@ -333,7 +339,7 @@ def open_model(
     if mod_type is not None:
         mod_type_lower = mod_type.lower()
         try:
-            reader_cls = model_registry.get(mod_type_lower)
+            reader_cls = source_registry.get(mod_type_lower)
             reader = reader_cls()
         except (KeyError, Exception):
             warnings.warn(

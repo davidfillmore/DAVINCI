@@ -146,6 +146,14 @@ class TestPairingStrategyProtocol:
             ) -> Any:
                 return None
 
+            def pair_sources(
+                self,
+                reference: Any,
+                comparand: Any,
+                **kwargs: Any,
+            ) -> Any:
+                return None
+
         strategy = MockPointStrategy()
         assert isinstance(strategy, PairingStrategy)
 

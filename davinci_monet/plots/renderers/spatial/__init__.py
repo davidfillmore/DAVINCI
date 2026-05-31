@@ -12,10 +12,7 @@ from davinci_monet.plots.renderers.spatial.base import (
     get_domain_extent,
     get_projection,
 )
-from davinci_monet.plots.renderers.spatial.bias import (
-    SpatialBiasPlotter,
-    plot_spatial_bias,
-)
+from davinci_monet.plots.renderers.spatial.bias import SpatialBiasPlotter, plot_spatial_bias
 from davinci_monet.plots.renderers.spatial.distribution import (
     SpatialDistributionPlotter,
     plot_spatial_distribution,

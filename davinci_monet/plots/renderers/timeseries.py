@@ -17,6 +17,8 @@ from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
     format_label_with_units,
+    get_role_color,
+    get_series_label,
     get_variable_label,
     get_variable_units,
 )
@@ -159,23 +161,27 @@ class TimeSeriesPlotter(BasePlotter):
         # Get style configuration
         style = self.config.style
 
-        # Get labels
-        obs_label = (
-            obs_label
-            or get_variable_label(paired_data, obs_var, self.config.obs_label)
-            or "Observations"
+        # Series legend labels: prefer the source label (e.g. airnow/cam) over
+        # the generic Observed/Modeled text (R-3).
+        obs_label = obs_label or get_series_label(paired_data, obs_var, self.config.obs_label)
+        model_label = model_label or get_series_label(
+            paired_data, model_var, self.config.model_label
         )
-        model_label = (
-            model_label
-            or get_variable_label(paired_data, model_var, self.config.model_label)
-            or "Model"
+
+        # Series colors by source role (obs gray, model blue, else palette); a
+        # customised StyleConfig still wins for the obs/model roles (R-3).
+        obs_color = get_role_color(
+            paired_data, obs_var, 0, obs_color=style.obs_color, model_color=style.model_color
+        )
+        model_color = get_role_color(
+            paired_data, model_var, 1, obs_color=style.obs_color, model_color=style.model_color
         )
 
         # Plot observations
         ax.plot(
             time_values,
             obs_values,
-            color=style.obs_color,
+            color=obs_color,
             linestyle=style.obs_linestyle,
             marker=style.obs_marker if len(time_values) < 50 else None,
             linewidth=style.linewidth,
@@ -188,7 +194,7 @@ class TimeSeriesPlotter(BasePlotter):
         ax.plot(
             time_values,
             model_values,
-            color=style.model_color,
+            color=model_color,
             linestyle=style.model_linestyle,
             marker=style.model_marker if len(time_values) < 50 else None,
             linewidth=style.linewidth,
@@ -436,19 +442,23 @@ class TimeSeriesPlotter(BasePlotter):
             model_lower = model_data.min(dim=aggregate_dim)
             model_upper = model_data.max(dim=aggregate_dim)
 
-        # Plot bands
+        # Plot bands (role-based colors, matching the series; R-3)
         ax.fill_between(
             time_values,
             obs_lower.values,
             obs_upper.values,
-            color=style.obs_color,
+            color=get_role_color(
+                paired_data, obs_var, 0, obs_color=style.obs_color, model_color=style.model_color
+            ),
             alpha=0.2,
         )
         ax.fill_between(
             time_values,
             model_lower.values,
             model_upper.values,
-            color=style.model_color,
+            color=get_role_color(
+                paired_data, model_var, 1, obs_color=style.obs_color, model_color=style.model_color
+            ),
             alpha=0.2,
         )
 

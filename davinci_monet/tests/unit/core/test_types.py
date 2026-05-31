@@ -36,13 +36,7 @@ class TestTypeAliasesImport:
 
     def test_import_numeric_types(self) -> None:
         """Test importing numeric type aliases."""
-        from davinci_monet.core.types import (
-            ArrayLike,
-            BoolArray,
-            FloatArray,
-            IntArray,
-            Number,
-        )
+        from davinci_monet.core.types import ArrayLike, BoolArray, FloatArray, IntArray, Number
 
         assert Number is not None
         assert ArrayLike is not None

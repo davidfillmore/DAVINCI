@@ -748,9 +748,137 @@ def get_variable_label(
             return str(attrs["long_name"])
         if attrs.get("standard_name"):
             return str(attrs["standard_name"])
+        # Source-label-named paired vars (e.g. ``cam_o3``) carry role/source_label
+        # attrs; translate to the legacy ``obs_``/``model_`` form so the prefix-
+        # based Observed/Modeled formatting + canonical lookup is preserved (R-2).
+        role = attrs.get("role")
+        if role in ("obs", "model"):
+            canonical = canonical_variable_name(dataset, var_name)
+            var_name = f"obs_{canonical}" if role == "obs" else f"model_{canonical}"
 
     # Fall back to automatic formatting
     return format_variable_display_name(var_name, include_prefix=include_prefix)
+
+
+def canonical_variable_name(dataset: xr.Dataset, var_name: str) -> str:
+    """Strip a paired variable's prefix to its canonical (unprefixed) name.
+
+    Handles both the source-label naming (``<source_label>_<canonical>``, e.g.
+    ``cam_o3`` -> ``o3``, derived from the variable's ``source_label`` attr) and
+    the legacy ``obs_``/``model_`` prefixes (``obs_o3`` -> ``o3``). Names with no
+    recognised prefix are returned unchanged.
+    """
+    if var_name in dataset:
+        source_label = dataset[var_name].attrs.get("source_label")
+        if source_label and var_name.startswith(f"{source_label}_"):
+            return var_name[len(source_label) + 1 :]
+    for prefix in ("obs_", "model_"):
+        if var_name.startswith(prefix):
+            return var_name[len(prefix) :]
+    return var_name
+
+
+def get_role_color(
+    dataset: xr.Dataset,
+    var_name: str,
+    index: int = 0,
+    *,
+    obs_color: str | None = None,
+    model_color: str | None = None,
+) -> str:
+    """Plot color for a paired series, by its source role (renderer rewire R-3).
+
+    Reads the variable's ``role`` attr (set by ``tag_paired_roles``): ``obs``
+    renders in the neutral observation gray, ``model`` in NCAR blue (preserving
+    the model-vs-obs convention), and same-role / role-less series cycle the
+    NCAR palette by ``index`` (their order in the plot).
+
+    ``obs_color``/``model_color`` let a caller supply the active ``StyleConfig``
+    colors so a customised style is honoured for the obs/model roles; when
+    omitted the module's :func:`get_color_for_role` defaults are used.
+    """
+    from davinci_monet.plots.style import get_color_for_role
+
+    role = dataset[var_name].attrs.get("role") if var_name in dataset else None
+    # Fall back to the legacy prefix when no role attr is present, so renderers
+    # called directly with model_/obs_ names (tests, examples, user scripts)
+    # still get the obs gray / model blue convention rather than palette colors.
+    if role is None:
+        lname = str(var_name).lower()
+        if lname.startswith("obs_"):
+            role = "obs"
+        elif lname.startswith("model_"):
+            role = "model"
+    if role == "obs" and obs_color is not None:
+        return obs_color
+    if role == "model" and model_color is not None:
+        return model_color
+    return get_color_for_role(role, index)
+
+
+def dataset_source_label(dataset: xr.Dataset, default: str | None = None) -> str | None:
+    """Source label for a single-source (obs-only) dataset (renderer rewire R-4).
+
+    Obs-only datasets carry their source label in the dataset-level ``attrs``
+    (set by the loading stage), not per-variable. Returns it so an obs-only plot
+    can self-identify its source, or ``default`` when absent.
+    """
+    label = dataset.attrs.get("source_label")
+    return str(label) if label else default
+
+
+def get_series_label(
+    dataset: xr.Dataset,
+    var_name: str,
+    custom_label: str | None = None,
+) -> str:
+    """Legend label for a paired series (renderer rewire R-3).
+
+    Prefers an explicit ``custom_label``, then the variable's ``source_label``
+    attr (the source's identity in a unified pair, e.g. ``airnow`` / ``cam``),
+    and finally falls back to the standard variable label (the role-aware
+    Observed/Modeled formatting). Use this for the *series* legend; axis labels
+    that name the variable should keep using :func:`get_variable_label`.
+    """
+    if custom_label:
+        return custom_label
+    if var_name in dataset:
+        source_label = dataset[var_name].attrs.get("source_label")
+        if source_label:
+            return str(source_label)
+    return get_variable_label(dataset, var_name)
+
+
+def resolve_source_variable(
+    dataset: xr.Dataset,
+    canonical_var: str,
+    source_label: str,
+) -> str | None:
+    """Resolve a variable name by source label (Phase 5, additive).
+
+    Supports the unified source-label naming (``<source_label>_<canonical>``,
+    e.g. ``cam_o3``) while falling back to the bare canonical name. Returns the
+    matching variable name present in the dataset, or ``None`` if neither is
+    found. Does not alter the existing ``model_``/``obs_`` prefix handling.
+
+    Parameters
+    ----------
+    dataset
+        Dataset to search.
+    canonical_var
+        Canonical (unprefixed) variable name, e.g. ``"o3"``.
+    source_label
+        Source label used as a prefix, e.g. ``"cam"`` or ``"airnow"``.
+
+    Returns
+    -------
+    str | None
+        The resolved variable name, or ``None`` if absent.
+    """
+    for candidate in (f"{source_label}_{canonical_var}", canonical_var):
+        if candidate in dataset.data_vars or candidate in dataset.coords:
+            return candidate
+    return None
 
 
 def get_variable_units(

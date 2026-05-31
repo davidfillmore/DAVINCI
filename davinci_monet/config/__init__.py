@@ -7,8 +7,11 @@ YAML parsing, and migration utilities for MELODIES-MONET configs.
 from davinci_monet.config.migration import (
     CURRENT_VERSION,
     ConfigMigration,
+    LegacyConfigWarning,
     detect_config_version,
+    expand_sources_to_legacy,
     migrate_config,
+    migrate_to_sources,
 )
 from davinci_monet.config.parser import (
     ConfigBuilder,
@@ -28,6 +31,8 @@ from davinci_monet.config.schema import (
     ObservationConfig,
     PlotGroupConfig,
     PlotStyleConfig,
+    SourceConfig,
+    SourcePairConfig,
     StatsConfig,
     VariableConfig,
 )
@@ -39,6 +44,8 @@ __all__ = [
     "AnalysisConfig",
     "ModelConfig",
     "ObservationConfig",
+    "SourceConfig",
+    "SourcePairConfig",
     "PlotGroupConfig",
     "PlotStyleConfig",
     "StatsConfig",
@@ -54,6 +61,9 @@ __all__ = [
     "ConfigBuilder",
     # Migration
     "migrate_config",
+    "migrate_to_sources",
+    "expand_sources_to_legacy",
+    "LegacyConfigWarning",
     "detect_config_version",
     "ConfigMigration",
     "CURRENT_VERSION",

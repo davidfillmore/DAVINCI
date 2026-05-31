@@ -11,12 +11,7 @@ from typing import Any, List, Tuple
 
 import typer
 
-from davinci_monet.cli.app import (
-    ERROR_COLOR,
-    INFO_COLOR,
-    SUCCESS_COLOR,
-    timer,
-)
+from davinci_monet.cli.app import ERROR_COLOR, INFO_COLOR, SUCCESS_COLOR, timer
 
 # Create sub-application for data commands
 app = typer.Typer(
@@ -300,7 +295,7 @@ def get_airnow(
             )
 
     with timer("Forming xarray Dataset"):
-        from davinci_monet.observations.surface.airnow import (  # type: ignore[attr-defined]
+        from davinci_monet.observations.surface.airnow import (
             _dataframe_to_xarray,
         )
 

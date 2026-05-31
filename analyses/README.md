@@ -33,7 +33,7 @@ analyses/
 
 ```bash
 # Activate environment
-conda activate davinci-monet
+conda activate davinci
 
 # Explore model data
 python analyses/asia-aq/scripts/explore_model.py

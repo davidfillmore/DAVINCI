@@ -209,6 +209,89 @@ class ObservationProcessor(Protocol):
 
 
 # =============================================================================
+# Unified Source Protocols
+# =============================================================================
+#
+# A data source is just data of a given geometry (point, track, profile,
+# swath, grid). Models and observations are both data sources; the only thing
+# that distinguishes them is topology, not origin. These protocols unify the
+# legacy ModelReader/ModelProcessor and ObservationReader/ObservationProcessor
+# pairs. A model/obs "role" may travel as metadata for labeling and styling,
+# but it never appears in these contracts.
+
+
+@runtime_checkable
+class SourceReader(Protocol):
+    """Protocol for data source readers (models and observations alike).
+
+    Every source reader declares the geometry it produces and loads files into
+    a standardized xarray Dataset whose ``attrs['geometry']`` is set. This is
+    the unified replacement for ``ModelReader`` and ``ObservationReader``.
+    """
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Unique identifier for this source type (e.g. 'cesm_fv', 'pt_sfc')."""
+        ...
+
+    @property
+    @abstractmethod
+    def geometry(self) -> DataGeometry:
+        """The data geometry this reader produces."""
+        ...
+
+    @abstractmethod
+    def open(
+        self,
+        file_paths: Sequence[str | Path],
+        variables: Sequence[str] | None = None,
+        time_range: tuple[Any, Any] | None = None,
+        **kwargs: Any,
+    ) -> xr.Dataset:
+        """Open source files and return a standardized Dataset.
+
+        Parameters
+        ----------
+        file_paths
+            Paths to source files (can include glob patterns).
+        variables
+            Optional list of variables to load. If None, load all.
+        time_range
+            Optional (start, end) time range to subset.
+        **kwargs
+            Additional reader-specific options.
+
+        Returns
+        -------
+        xr.Dataset
+            Source data with geometry-appropriate dimensions and the
+            ``geometry`` attribute set.
+        """
+        ...
+
+    @abstractmethod
+    def get_variable_mapping(self) -> Mapping[str, str]:
+        """Return mapping from standard variable names to source-specific names."""
+        ...
+
+
+@runtime_checkable
+class SourceProcessor(Protocol):
+    """Protocol for data source post-processing operations.
+
+    Unifies ``ModelProcessor`` and ``ObservationProcessor``. Processors handle
+    unit conversion, vertical-coordinate handling, resampling, QA/QC,
+    subsetting, and aggregation, composed into one chain regardless of origin.
+    """
+
+    @abstractmethod
+    def process(self, dataset: xr.Dataset, **kwargs: Any) -> xr.Dataset:
+        """Apply processing to a source Dataset and return the result."""
+        ...
+
+
+# =============================================================================
 # Pairing Protocols
 # =============================================================================
 
@@ -262,6 +345,20 @@ class PairingStrategy(Protocol):
         xr.Dataset
             Paired Dataset with aligned model and observation variables.
             Contains both 'model_<var>' and 'obs_<var>' data variables.
+        """
+        ...
+
+    @abstractmethod
+    def pair_sources(
+        self,
+        reference: xr.Dataset,
+        comparand: xr.Dataset,
+        **kwargs: Any,
+    ) -> xr.Dataset:
+        """Pair two role-neutral sources.
+
+        The comparand is sampled onto the reference geometry. Legacy
+        implementations can map this to ``pair(model=comparand, obs=reference)``.
         """
         ...
 

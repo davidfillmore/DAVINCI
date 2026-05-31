@@ -181,4 +181,4 @@ davinci-monet run configs/asia-aq.yaml
 5. **Pandora correlation**: NO2 column has good correlation (R=0.57) among all species
 6. **Per-flight variability**: Statistics vary significantly by flight date (see `statistics_per_flight.csv`)
 
-See the [wiki](https://github.com/NCAR/DAVINCI-MONET/wiki/ASIA-AQ-Analysis) for detailed analysis and interpretation.
+See the [wiki](https://github.com/NCAR/DAVINCI/wiki/ASIA-AQ-Analysis) for detailed analysis and interpretation.

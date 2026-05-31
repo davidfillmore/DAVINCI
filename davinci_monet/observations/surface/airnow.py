@@ -17,7 +17,7 @@ import xarray as xr
 
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for AirNow
@@ -32,7 +32,7 @@ AIRNOW_VARIABLE_MAPPING: dict[str, str] = {
 }
 
 
-@observation_registry.register("airnow")
+@source_registry.register("airnow")
 class AirNowReader:
     """Reader for AirNow real-time air quality data.
 
@@ -238,13 +238,7 @@ def _dataframe_to_xarray(df: pd.DataFrame, daily: bool = False) -> xr.Dataset:
 
     site_vns = [c for c in site_vns if c in df.columns]
 
-    ds_site = (
-        df[site_vns]
-        .groupby("siteid")
-        .first()
-        .to_xarray()
-        .swap_dims(siteid="x")
-    )
+    ds_site = df[site_vns].groupby("siteid").first().to_xarray().swap_dims(siteid="x")
 
     unit_suff = "_unit"
     unit_cols = [n for n in df.columns if n.endswith(unit_suff)]

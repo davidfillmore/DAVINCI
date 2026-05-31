@@ -249,9 +249,10 @@ class LogCollector:
                 for dim in ds.sizes:
                     total_points *= ds.sizes[dim]
                 details["paired_points"] = total_points
-                # Count variables
-                model_vars = [v for v in ds.data_vars if v.startswith("model_")]
-                details["variables"] = len(model_vars)
+                # Count paired (obs, model) variable pairs (role-based; R-5)
+                from davinci_monet.core.base import iter_paired_variable_pairs
+
+                details["variables"] = len(iter_paired_variable_pairs(ds))
             self.pair_details[pair_key] = details
 
         # Extract statistics
@@ -1717,21 +1718,38 @@ class PipelineRunner:
 
             config = load_config(config).model_dump()
 
+        used_sources = bool(config.get("sources"))
+
         # Validate that config has something to process
         model_config = config.get("model") or {}
         obs_config = config.get("obs") or {}
+        sources_config = config.get("sources") or {}
 
-        if not model_config and not obs_config:
-            raise ConfigurationError(
-                "Configuration is empty or incomplete. "
-                "At least one model or observation must be defined."
+        # Deprecation: a legacy model:/obs: config still works (auto-converted),
+        # but the unified `sources:` schema is the going-forward format.
+        if not used_sources and (model_config or obs_config):
+            import warnings
+
+            from davinci_monet.config.migration import LegacyConfigWarning
+
+            warnings.warn(
+                "The 'model:'/'obs:' config schema is deprecated; use the unified "
+                "'sources:' schema. Convert with: davinci-monet migrate-config "
+                "<config.yaml> -o <new.yaml>.",
+                LegacyConfigWarning,
+                stacklevel=2,
             )
 
-        # Auto-detect obs-only mode
-        if not model_config and obs_config:
-            from davinci_monet.pipeline.stages import create_obs_pipeline
+        if not model_config and not obs_config and not sources_config:
+            raise ConfigurationError(
+                "Configuration is empty or incomplete. "
+                "At least one source, model, or observation must be defined."
+            )
 
-            self._stages = create_obs_pipeline()
+        # The unified standard pipeline handles both model-vs-obs and obs-only
+        # runs: the pairing/statistics/plotting stages skip when there are no
+        # pairs, and the obs-only stages skip when pairs exist. No special-case
+        # pipeline swap is needed.
 
         context = PipelineContext(config=config)
         if config_path:

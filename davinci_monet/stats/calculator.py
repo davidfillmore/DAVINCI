@@ -12,11 +12,7 @@ from typing import TYPE_CHECKING, Any, Sequence
 import numpy as np
 import pandas as pd
 
-from davinci_monet.stats.metrics import (
-    STANDARD_METRICS,
-    get_metric,
-    list_metrics,
-)
+from davinci_monet.stats.metrics import STANDARD_METRICS, get_metric, list_metrics
 
 if TYPE_CHECKING:
     import xarray as xr
@@ -264,11 +260,11 @@ class StatisticsCalculator:
 
         # Group the data
         if isinstance(coord, str):
-            obs_grouped = obs_data.groupby(coord)
-            model_grouped = model_data.groupby(coord)
+            obs_grouped = obs_data.groupby(coord, squeeze=False)
+            model_grouped = model_data.groupby(coord, squeeze=False)
         else:
-            obs_grouped = obs_data.groupby(coord)
-            model_grouped = model_data.groupby(coord)
+            obs_grouped = obs_data.groupby(coord, squeeze=False)
+            model_grouped = model_data.groupby(coord, squeeze=False)
 
         results = []
         for (obs_key, obs_group), (_, model_group) in zip(obs_grouped, model_grouped):

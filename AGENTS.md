@@ -36,7 +36,7 @@ Do NOT track handoff files in git — they are ephemeral working artifacts. Dele
 ## Quick Validation
 
 ```bash
-conda activate davinci-monet
+conda activate davinci
 pytest
 mypy davinci_monet
 black --check davinci_monet && isort --check davinci_monet

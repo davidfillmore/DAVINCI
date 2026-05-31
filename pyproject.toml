@@ -93,7 +93,6 @@ warn_no_return = true
 
 [[tool.mypy.overrides]]
 module = [
-    "monet.*",
     "monetio.*",
     "cartopy.*",
     "xarray.*",
@@ -102,8 +101,19 @@ module = [
     "matplotlib.*",
     "netCDF4.*",
     "rich.*",
-    "pyhdf.*",
     "numba.*",
+    "h5py",
+    "mpl_toolkits.mplot3d",
+    "mpl_toolkits.*",
+    "scipy",
+    "scipy.ndimage",
+    "scipy.*",
+    "seaborn",
+    "shapely",
+    "shapely.geometry",
+    "shapely.*",
+    "tqdm",
+    "tqdm.*",
     "yaml.*",
 ]
 ignore_missing_imports = true

@@ -23,6 +23,8 @@ from davinci_monet.plots.base import (
     PlotConfig,
     format_label_with_units,
     format_plot_title,
+    get_role_color,
+    get_series_label,
     get_variable_label,
     get_variable_units,
 )
@@ -184,6 +186,16 @@ class FlightTimeSeriesPlotter(BasePlotter):
         """
         style = self.config.style
 
+        # Series colors/labels by source role (R-3): obs gray, model blue, else
+        # palette; legends use the source label.
+        sc_obs, sc_model = style.obs_color, style.model_color
+        obs_color = get_role_color(paired_data, obs_var, 0, obs_color=sc_obs, model_color=sc_model)
+        model_color = get_role_color(
+            paired_data, model_var, 1, obs_color=sc_obs, model_color=sc_model
+        )
+        obs_label = get_series_label(paired_data, obs_var)
+        model_label = get_series_label(paired_data, model_var)
+
         # Get unique flights and filter by data availability
         if flight_coord not in paired_data.coords:
             raise ValueError(f"Flight coordinate '{flight_coord}' not found in dataset")
@@ -251,8 +263,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     obs_vals[valid_obs],
                     s=12,
                     alpha=0.7,
-                    color="black",
-                    label="Obs",
+                    color=obs_color,
+                    label=obs_label,
                     zorder=3,
                 )
             else:
@@ -260,11 +272,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     times[valid_obs],
                     obs_vals[valid_obs],
                     "o-",
-                    color="black",
+                    color=obs_color,
                     markersize=3,
                     linewidth=0.5,
                     alpha=0.7,
-                    label="Obs",
+                    label=obs_label,
                     zorder=3,
                 )
 
@@ -273,10 +285,10 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 ax.plot(
                     times,
                     mod_vals,
-                    color=style.model_color,
+                    color=model_color,
                     linewidth=1.5,
                     alpha=0.8,
-                    label="Model",
+                    label=model_label,
                     zorder=2,
                 )
             else:
@@ -285,8 +297,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     mod_vals[valid_both],
                     s=12,
                     alpha=0.7,
-                    color=style.model_color,
-                    label="Model",
+                    color=model_color,
+                    label=model_label,
                     zorder=2,
                 )
 
@@ -443,6 +455,16 @@ class FlightTimeSeriesPlotter(BasePlotter):
         """
         style = self.config.style
 
+        # Series colors/labels by source role (R-3): obs gray, model blue, else
+        # palette; legends use the source label.
+        sc_obs, sc_model = style.obs_color, style.model_color
+        obs_color = get_role_color(paired_data, obs_var, 0, obs_color=sc_obs, model_color=sc_model)
+        model_color = get_role_color(
+            paired_data, model_var, 1, obs_color=sc_obs, model_color=sc_model
+        )
+        obs_label = get_series_label(paired_data, obs_var)
+        model_label = get_series_label(paired_data, model_var)
+
         # Check for flight coordinate
         if flight_coord not in paired_data.coords:
             raise ValueError(
@@ -499,8 +521,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     obs_vals[valid_obs],
                     s=20,
                     alpha=0.7,
-                    color="black",
-                    label="Obs",
+                    color=obs_color,
+                    label=obs_label,
                     zorder=3,
                 )
             else:
@@ -508,11 +530,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     times[valid_obs],
                     obs_vals[valid_obs],
                     "o-",
-                    color="black",
+                    color=obs_color,
                     markersize=4,
                     linewidth=0.8,
                     alpha=0.7,
-                    label="Obs",
+                    label=obs_label,
                     zorder=3,
                 )
 
@@ -521,10 +543,10 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 ax.plot(
                     times,
                     mod_vals,
-                    color=style.model_color,
+                    color=model_color,
                     linewidth=2,
                     alpha=0.8,
-                    label="Model",
+                    label=model_label,
                     zorder=2,
                 )
             else:
@@ -533,8 +555,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     mod_vals[valid_both],
                     s=20,
                     alpha=0.7,
-                    color=style.model_color,
-                    label="Model",
+                    color=model_color,
+                    label=model_label,
                     zorder=2,
                 )
 

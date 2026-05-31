@@ -379,6 +379,25 @@ def validate(
     validate_config_command(control, strict=strict, show_config=show_config)
 
 
+@app.command("migrate-config")
+def migrate_config(
+    control: str = typer.Argument(
+        ...,
+        help="Path to the legacy control file (model:/obs: form) to migrate.",
+    ),
+    output: str = typer.Option(
+        ...,
+        "--output",
+        "-o",
+        help="Path to write the migrated control file (unified sources: form).",
+    ),
+) -> None:
+    """Migrate a legacy model/obs control file to the unified sources schema."""
+    from davinci_monet.cli.commands.migrate import migrate_config_command
+
+    migrate_config_command(control, output)
+
+
 # CLI entry point
 cli = app
 

@@ -28,11 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 
-from davinci_monet.plots.base import (
-    FigureConfig,
-    PlotConfig,
-    TextConfig,
-)
+from davinci_monet.plots.base import FigureConfig, PlotConfig, TextConfig
 from davinci_monet.plots.style import OBS_COLOR
 
 if TYPE_CHECKING:

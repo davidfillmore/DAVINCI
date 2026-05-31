@@ -78,7 +78,7 @@ A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air 
 git clone https://github.com/NCAR/DAVINCI.git
 cd DAVINCI
 conda env create -f environment.yml
-conda activate davinci-monet
+conda activate davinci
 
 # Run analysis
 davinci-monet run config.yaml

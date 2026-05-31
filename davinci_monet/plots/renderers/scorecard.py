@@ -11,7 +11,12 @@ from typing import TYPE_CHECKING, Any, Literal, Sequence
 import matplotlib.pyplot as plt
 import numpy as np
 
-from davinci_monet.plots.base import BasePlotter, PlotConfig, format_plot_title
+from davinci_monet.plots.base import (
+    BasePlotter,
+    PlotConfig,
+    canonical_variable_name,
+    format_plot_title,
+)
 from davinci_monet.plots.registry import register_plotter
 
 if TYPE_CHECKING:
@@ -99,7 +104,7 @@ class ScorecardPlotter(BasePlotter):
         import pandas as pd
 
         stats_df = pd.DataFrame([stats])
-        stats_df.index = [obs_var.replace("obs_", "")]
+        stats_df.index = [canonical_variable_name(paired_data, obs_var)]
 
         return self.plot_from_dataframe(stats_df, ax=ax, **kwargs)
 
@@ -167,7 +172,7 @@ class ScorecardPlotter(BasePlotter):
             fig = ax.get_figure()  # type: ignore[assignment]
 
         # Convert to numpy for plotting
-        data = stats_df.values.astype(float)
+        data = stats_df.to_numpy(dtype=float, copy=False)
         row_labels = list(stats_df.index)
         col_labels = list(stats_df.columns)
 

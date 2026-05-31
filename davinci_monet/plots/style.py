@@ -291,6 +291,34 @@ def get_color_for_variable(variable: str) -> str:
         return NCAR_COLORS["ncar_blue"]
 
 
+def get_color_for_role(role: str | None, index: int = 0) -> str:
+    """Get a plot color for a data source based on its role (Phase 5).
+
+    Role-based styling for the unified data-source model: a source tagged
+    ``role == "obs"`` renders in the neutral observation gray and
+    ``role == "model"`` in NCAR blue, preserving today's model-vs-obs
+    convention. Same-role or role-less sources cycle the NCAR palette by
+    ``index`` (their order in the pair/plot).
+
+    Parameters
+    ----------
+    role
+        Source role: ``"obs"``, ``"model"``, or ``None``/other.
+    index
+        Position used to cycle the palette for role-less/same-role sources.
+
+    Returns
+    -------
+    str
+        Hex color code.
+    """
+    if role == "obs":
+        return OBS_COLOR
+    if role == "model":
+        return MODEL_COLOR
+    return NCAR_PALETTE[index % len(NCAR_PALETTE)]
+
+
 def get_palette(n_colors: int | None = None) -> list[str]:
     """Get a list of colors from the NCAR palette.
 
