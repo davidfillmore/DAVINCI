@@ -359,6 +359,84 @@ def validate_version_compatibility(
         )
 
 
+def migrate_to_sources(config: dict[str, Any]) -> dict[str, Any]:
+    """Migrate a legacy ``model:``/``obs:``/``pairs:`` config to the unified
+    ``sources:``/``pairs:`` form (Phase 6).
+
+    - Each ``model`` entry becomes a source with ``role: model`` and its
+      ``mod_type`` renamed to ``type``.
+    - Each ``obs`` entry becomes a source with ``role: obs`` and its
+      ``obs_type`` renamed to ``type``.
+    - Each legacy pair (``model``/``obs``/``variable: {model_var, obs_var}``)
+      becomes a binary pair: ``sources: [model, obs]``, ``reference: <obs>``
+      (preserving model→obs sampling), and a per-source ``variables`` map.
+      Other pair keys (e.g. ``title``) are preserved.
+
+    Operates on raw dicts so it round-trips cleanly through YAML. Idempotent:
+    a config already in unified form is returned essentially unchanged.
+
+    Parameters
+    ----------
+    config
+        Legacy (or already-unified) configuration dictionary.
+
+    Returns
+    -------
+    dict
+        Configuration in the unified ``sources:`` form.
+    """
+    cfg = copy.deepcopy(config)
+    sources: dict[str, Any] = dict(cfg.pop("sources", None) or {})
+
+    for label, raw in (cfg.pop("model", None) or {}).items():
+        entry = dict(raw) if isinstance(raw, dict) else {}
+        new_entry: dict[str, Any] = {"role": "model"}
+        if "mod_type" in entry:
+            new_entry["type"] = entry.pop("mod_type")
+        new_entry.update(entry)
+        sources[label] = new_entry
+
+    for label, raw in (cfg.pop("obs", None) or {}).items():
+        entry = dict(raw) if isinstance(raw, dict) else {}
+        new_entry = {"role": "obs"}
+        if "obs_type" in entry:
+            new_entry["type"] = entry.pop("obs_type")
+        new_entry.update(entry)
+        sources[label] = new_entry
+
+    if sources:
+        cfg["sources"] = sources
+
+    pairs = cfg.get("pairs")
+    if isinstance(pairs, dict):
+        migrated_pairs: dict[str, Any] = {}
+        for pname, p in pairs.items():
+            if not isinstance(p, dict) or "model" not in p or "obs" not in p:
+                migrated_pairs[pname] = p
+                continue
+            model_label = p["model"]
+            obs_label = p["obs"]
+            var = p.get("variable") or {}
+            new_pair: dict[str, Any] = {
+                "sources": [model_label, obs_label],
+                "reference": obs_label,
+            }
+            vmap: dict[str, str] = {}
+            if var.get("model_var"):
+                vmap[model_label] = var["model_var"]
+            if var.get("obs_var"):
+                vmap[obs_label] = var["obs_var"]
+            if vmap:
+                new_pair["variables"] = vmap
+            for k, v in p.items():
+                if k not in ("model", "obs", "variable"):
+                    new_pair[k] = v
+            migrated_pairs[pname] = new_pair
+        cfg["pairs"] = migrated_pairs
+
+    return cfg
+
+
 # Singleton instance for convenient access
 _default_migration = ConfigMigration()
 

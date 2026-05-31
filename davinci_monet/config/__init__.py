@@ -9,6 +9,7 @@ from davinci_monet.config.migration import (
     ConfigMigration,
     detect_config_version,
     migrate_config,
+    migrate_to_sources,
 )
 from davinci_monet.config.parser import (
     ConfigBuilder,
@@ -58,6 +59,7 @@ __all__ = [
     "ConfigBuilder",
     # Migration
     "migrate_config",
+    "migrate_to_sources",
     "detect_config_version",
     "ConfigMigration",
     "CURRENT_VERSION",
