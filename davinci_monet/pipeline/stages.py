@@ -148,16 +148,28 @@ class PipelineContext:
             self.progress_callback(message)
 
     def get_model(self, label: str) -> Any:
-        """Get a model by label."""
-        if label not in self.models:
-            raise KeyError(f"Model '{label}' not found in context")
-        return self.models[label]
+        """Get a model by label.
+
+        Deprecated shim over the unified ``sources`` store: resolves from
+        ``models`` first (back-compat), then falls back to ``sources``.
+        """
+        if label in self.models:
+            return self.models[label]
+        if label in self.sources:
+            return self.sources[label]
+        raise KeyError(f"Model '{label}' not found in context")
 
     def get_observation(self, label: str) -> Any:
-        """Get an observation by label."""
-        if label not in self.observations:
-            raise KeyError(f"Observation '{label}' not found in context")
-        return self.observations[label]
+        """Get an observation by label.
+
+        Deprecated shim over the unified ``sources`` store: resolves from
+        ``observations`` first (back-compat), then falls back to ``sources``.
+        """
+        if label in self.observations:
+            return self.observations[label]
+        if label in self.sources:
+            return self.sources[label]
+        raise KeyError(f"Observation '{label}' not found in context")
 
     def get_source(self, label: str) -> Any:
         """Get a data source (model or observation) by label.
@@ -2237,8 +2249,7 @@ def create_standard_pipeline() -> list[BaseStage]:
         List of stages for a complete analysis.
     """
     return [
-        LoadModelsStage(),
-        LoadObservationsStage(),
+        LoadSourcesStage(),
         PairingStage(),
         StatisticsStage(),
         PlottingStage(),
@@ -2255,7 +2266,7 @@ def create_obs_pipeline() -> list[BaseStage]:
         List of stages for obs-only analysis.
     """
     return [
-        LoadObservationsStage(),
+        LoadSourcesStage(),
         ObsStatisticsStage(),
         ObsPlottingStage(),
         SaveResultsStage(),

@@ -195,13 +195,14 @@ class TestObsOnlyPipelineDetection:
         stages = create_obs_pipeline()
         stage_names = [s.name for s in stages]
 
-        # Must include obs-specific stages
-        assert "load_observations" in stage_names
+        # Unified loading stage replaces LoadObservationsStage.
+        assert "load_sources" in stage_names
         assert "obs_statistics" in stage_names
         assert "obs_plotting" in stage_names
 
-        # Must NOT include model/pairing stages
+        # Must NOT include the legacy model/pairing stages.
         assert "load_models" not in stage_names
+        assert "load_observations" not in stage_names
         assert "pairing" not in stage_names
 
     def test_run_from_config_detects_obs_only(
@@ -229,8 +230,9 @@ class TestObsOnlyPipelineDetection:
         # (not load_models), proving the auto-detection worked.
         result = runner.run_from_config(config)
 
-        # Check that the runner used obs-only stages (no load_models)
+        # Check that the runner used obs-only stages (no model/pairing stages).
         stage_names = [s.name for s in runner.stages]
         assert "load_models" not in stage_names
-        assert "load_observations" in stage_names
+        assert "pairing" not in stage_names
+        assert "load_sources" in stage_names
         assert "obs_statistics" in stage_names
