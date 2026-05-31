@@ -230,9 +230,11 @@ class TestObsOnlyPipelineDetection:
         # (not load_models), proving the auto-detection worked.
         result = runner.run_from_config(config)
 
-        # Check that the runner used obs-only stages (no model/pairing stages).
+        # The unified pipeline handles obs-only runs: load_sources loads, the
+        # pairing/statistics/plotting stages skip (no pairs), and the obs-only
+        # stages run. (Legacy load_models stage is gone entirely.)
         stage_names = [s.name for s in runner.stages]
         assert "load_models" not in stage_names
-        assert "pairing" not in stage_names
         assert "load_sources" in stage_names
         assert "obs_statistics" in stage_names
+        assert "obs_plotting" in stage_names

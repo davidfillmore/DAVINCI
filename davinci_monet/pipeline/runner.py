@@ -1727,11 +1727,10 @@ class PipelineRunner:
                 "At least one model or observation must be defined."
             )
 
-        # Auto-detect obs-only mode
-        if not model_config and obs_config:
-            from davinci_monet.pipeline.stages import create_obs_pipeline
-
-            self._stages = create_obs_pipeline()
+        # The unified standard pipeline handles both model-vs-obs and obs-only
+        # runs: the pairing/statistics/plotting stages skip when there are no
+        # pairs, and the obs-only stages skip when pairs exist. No special-case
+        # pipeline swap is needed.
 
         context = PipelineContext(config=config)
         if config_path:
