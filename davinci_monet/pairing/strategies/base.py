@@ -66,6 +66,21 @@ class BasePairingStrategy(ABC):
         """
         ...
 
+    def pair_sources(
+        self,
+        reference: xr.Dataset,
+        comparand: xr.Dataset,
+        **kwargs: Any,
+    ) -> xr.Dataset:
+        """Role-neutral pairing entrypoint (Phase 4).
+
+        Resamples ``comparand`` onto ``reference``'s geometry. This is a thin,
+        additive wrapper over :meth:`pair` that preserves today's semantics: the
+        reference takes the former observation role and the comparand the former
+        model role (a GRID comparand sampled onto an irregular reference).
+        """
+        return self.pair(model=comparand, obs=reference, **kwargs)
+
     def _get_model_coords(self, model: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
         """Extract latitude and longitude coordinates from model.
 
@@ -150,6 +165,20 @@ class BasePairingStrategy(ABC):
             )
 
         return lat, lon
+
+    def _get_reference_coords(self, reference: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
+        """Extract (lat, lon) from the reference source.
+
+        Role-neutral alias of :meth:`_get_obs_coords` (Phase 4).
+        """
+        return self._get_obs_coords(reference)
+
+    def _get_comparand_coords(self, comparand: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
+        """Extract (lat, lon) from the comparand source.
+
+        Role-neutral alias of :meth:`_get_model_coords` (Phase 4).
+        """
+        return self._get_model_coords(comparand)
 
     def _find_nearest_indices(
         self,

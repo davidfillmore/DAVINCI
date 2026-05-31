@@ -133,6 +133,45 @@ class PairingEngine:
             )
         return self._strategies[geometry]
 
+    def get_strategy_for(
+        self,
+        reference_geometry: DataGeometry,
+        comparand_geometry: DataGeometry,
+    ) -> PairingStrategy:
+        """Get the strategy for a ``(reference, comparand)`` geometry pair.
+
+        Role-neutral dispatch (Phase 4). The comparand is resampled onto the
+        reference's geometry. The seeded combinations mirror today's behavior:
+        a GRID comparand sampled onto any irregular reference (POINT/TRACK/
+        PROFILE/SWATH), and GRID onto GRID. The reference geometry selects the
+        strategy, exactly as the legacy obs-geometry dispatch did.
+
+        Parameters
+        ----------
+        reference_geometry
+            Geometry of the reference source (sampled *onto*).
+        comparand_geometry
+            Geometry of the comparand source (sampled *from*).
+
+        Returns
+        -------
+        PairingStrategy
+            The strategy handling this combination.
+
+        Raises
+        ------
+        PairingError
+            If the combination is not supported.
+        """
+        if comparand_geometry is not DataGeometry.GRID:
+            raise PairingError(
+                f"Unsupported pairing combination "
+                f"(reference={reference_geometry.name}, comparand={comparand_geometry.name}). "
+                f"Supported combinations sample a GRID comparand onto a "
+                f"{[g.name for g in self._strategies.keys()]} reference."
+            )
+        return self.get_strategy(reference_geometry)
+
     def pair(
         self,
         model: xr.Dataset,
