@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 import matplotlib.pyplot as plt
 import numpy as np
 
-from davinci_monet.plots.base import BasePlotter, PlotConfig
+from davinci_monet.plots.base import BasePlotter, PlotConfig, get_role_color, get_series_label
 from davinci_monet.plots.registry import register_plotter
 
 if TYPE_CHECKING:
@@ -54,7 +54,7 @@ class TaylorPlotter(BasePlotter):
         ax: matplotlib.axes.Axes | None = None,
         normalize: bool = True,
         show_reference: bool = True,
-        reference_label: str = "Reference",
+        reference_label: str | None = None,
         model_label: str | None = None,
         marker: str | None = None,
         color: str | None = None,
@@ -77,7 +77,7 @@ class TaylorPlotter(BasePlotter):
         show_reference
             If True, show reference (observation) point.
         reference_label
-            Label for reference point.
+            Label for reference point. Defaults to the obs source label.
         model_label
             Label for model point.
         marker
@@ -123,8 +123,10 @@ class TaylorPlotter(BasePlotter):
         # Get style
         style = self.config.style
         m = marker or style.model_marker
-        c = color or style.model_color
-        label = model_label or self.config.model_label or "Model"
+        c = color or get_role_color(
+            paired_data, model_var, 1, obs_color=style.obs_color, model_color=style.model_color
+        )
+        label = model_label or self.config.model_label or get_series_label(paired_data, model_var)
 
         # Plot model point
         # Taylor diagram uses polar coordinates: theta=arccos(correlation), r=std
@@ -139,7 +141,9 @@ class TaylorPlotter(BasePlotter):
             linestyle="none",
         )
 
-        # Plot reference (observation) point
+        # Plot reference (observation) point. The reference is the obs source;
+        # label it with the obs source label by default (R-3), keeping the
+        # conventional black star marker.
         if show_reference:
             ax.plot(
                 0,  # Perfect correlation
@@ -147,7 +151,9 @@ class TaylorPlotter(BasePlotter):
                 marker="*",
                 color="k",
                 markersize=style.markersize * 2,
-                label=reference_label,
+                label=reference_label
+                or self.config.obs_label
+                or get_series_label(paired_data, obs_var),
                 linestyle="none",
             )
 
