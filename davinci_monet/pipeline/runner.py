@@ -1717,9 +1717,11 @@ class PipelineRunner:
 
             config = load_config(config).model_dump()
 
+        used_sources = bool(config.get("sources"))
+
         # Expand a unified `sources:` config to the legacy model:/obs: form so
         # it runs through the existing load/pair path (Phase 6, CFG-3).
-        if config.get("sources"):
+        if used_sources:
             from davinci_monet.config.migration import expand_sources_to_legacy
 
             config = expand_sources_to_legacy(config)
@@ -1727,6 +1729,21 @@ class PipelineRunner:
         # Validate that config has something to process
         model_config = config.get("model") or {}
         obs_config = config.get("obs") or {}
+
+        # Deprecation: a legacy model:/obs: config still works (auto-converted),
+        # but the unified `sources:` schema is the going-forward format.
+        if not used_sources and (model_config or obs_config):
+            import warnings
+
+            from davinci_monet.config.migration import LegacyConfigWarning
+
+            warnings.warn(
+                "The 'model:'/'obs:' config schema is deprecated; use the unified "
+                "'sources:' schema. Convert with: davinci-monet migrate-config "
+                "<config.yaml> -o <new.yaml>.",
+                LegacyConfigWarning,
+                stacklevel=2,
+            )
 
         if not model_config and not obs_config:
             raise ConfigurationError(

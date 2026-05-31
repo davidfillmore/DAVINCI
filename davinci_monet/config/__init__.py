@@ -7,6 +7,7 @@ YAML parsing, and migration utilities for MELODIES-MONET configs.
 from davinci_monet.config.migration import (
     CURRENT_VERSION,
     ConfigMigration,
+    LegacyConfigWarning,
     detect_config_version,
     expand_sources_to_legacy,
     migrate_config,
@@ -62,6 +63,7 @@ __all__ = [
     "migrate_config",
     "migrate_to_sources",
     "expand_sources_to_legacy",
+    "LegacyConfigWarning",
     "detect_config_version",
     "ConfigMigration",
     "CURRENT_VERSION",

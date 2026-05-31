@@ -346,8 +346,47 @@ Paired:  xr.Dataset with aligned model + obs variables
 
 ## Backward Compatibility
 
-- Full compatibility with existing MELODIES-MONET YAML configuration files
 - Continues using monet/monetio libraries for data I/O
+- Legacy MELODIES-MONET `model:`/`obs:` YAML configs are still accepted but
+  **deprecated** (a `LegacyConfigWarning` is emitted). They are auto-converted
+  internally to the unified `sources:` schema at run time.
+
+## Unified Data-Source Config (`sources:`)
+
+As of the model/obs unification, the going-forward config format is a single
+`sources:` block plus binary `pairs:`. Models and observations are both data
+sources distinguished only by geometry; a `role: model|obs` tag is optional
+metadata for plot styling/legends and never drives pairing.
+
+```yaml
+sources:
+  cam:
+    type: cesm_fv
+    role: model            # optional — styling/legend only
+    files: ${DATA}/cam/*.nc
+    variables: { O3: { unit_scale: 1.0e9 } }
+  airnow:
+    type: pt_sfc
+    role: obs
+    filename: ${DATA}/airnow.nc
+    variables: { o3: { obs_min: 0, obs_max: 500 } }
+
+pairs:
+  cam_vs_airnow_o3:
+    sources: [cam, airnow]   # order does not imply direction
+    reference: airnow        # optional; default by geometry precedence
+    variables: { cam: O3, airnow: o3 }
+```
+
+**Migrate a legacy control file**:
+```bash
+davinci-monet migrate-config old.yaml -o new.yaml
+```
+
+Direction precedence: irregular geometries (point/track/profile/swath) outrank
+GRID as the pairing reference, so a gridded source is sampled onto them. When two
+same-geometry sources are paired with no explicit `reference:`, the first-listed
+source is the reference (with a warning).
 
 ## Working Example: ASIA-AQ Analysis
 
