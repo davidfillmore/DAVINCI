@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
-from davinci_monet.plots.base import format_plot_title, get_variable_label
+from davinci_monet.plots.base import dataset_source_label, format_plot_title, get_variable_label
 from davinci_monet.plots.obs_base import ObsPlotter
 from davinci_monet.plots.registry import register_plotter
 from davinci_monet.plots.style import NCAR_PALETTE, NCAR_PRIMARY
@@ -75,7 +75,7 @@ class VerticalProfilePlotter(ObsPlotter):
         title
             Plot title. Defaults to "{variable} Vertical Profile".
         color
-            Line/point color. Defaults to OBS_COLOR.
+            Line/point color. Defaults to NCAR_PRIMARY (the obs-only brand blue).
         **kwargs
             Additional arguments passed to the underlying plot call.
 
@@ -90,6 +90,9 @@ class VerticalProfilePlotter(ObsPlotter):
             fig = ax.get_figure()  # type: ignore[assignment]
 
         color = color or NCAR_PRIMARY
+        # Obs-only plots self-identify by their source label (R-4); color stays
+        # the obs-only brand blue.
+        source_label = dataset_source_label(obs_data)
 
         # Check for multi-flight data (>1 unique flight)
         has_flights = "flight" in obs_data.coords and len(np.unique(obs_data["flight"].values)) > 1
@@ -97,9 +100,13 @@ class VerticalProfilePlotter(ObsPlotter):
         if has_flights:
             self._plot_multi_flight(ax, obs_data, variable, alt_coord, mode, n_bins, **kwargs)
         elif mode == "binned":
-            self._plot_binned(ax, obs_data, variable, alt_coord, n_bins, color, **kwargs)
+            self._plot_binned(
+                ax, obs_data, variable, alt_coord, n_bins, color, label=source_label, **kwargs
+            )
         else:
-            self._plot_scatter(ax, obs_data, variable, alt_coord, color, **kwargs)
+            self._plot_scatter(
+                ax, obs_data, variable, alt_coord, color, label=source_label, **kwargs
+            )
 
         # Labels
         var_label = get_variable_label(obs_data, variable, include_prefix=False)
@@ -136,6 +143,7 @@ class VerticalProfilePlotter(ObsPlotter):
         variable: str,
         alt_coord: str,
         color: str,
+        label: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Plot raw scatter points."""
@@ -150,6 +158,7 @@ class VerticalProfilePlotter(ObsPlotter):
             s=8,
             alpha=0.5,
             edgecolors="none",
+            label=label,
             **kwargs,
         )
 
@@ -161,6 +170,7 @@ class VerticalProfilePlotter(ObsPlotter):
         alt_coord: str,
         n_bins: int,
         color: str,
+        label: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Plot altitude-binned means with std envelope."""
@@ -188,7 +198,7 @@ class VerticalProfilePlotter(ObsPlotter):
 
         # Plot mean line and std envelope
         valid_bins = np.isfinite(means)
-        ax.plot(means[valid_bins], bin_centers[valid_bins], color=color, linewidth=1.5)
+        ax.plot(means[valid_bins], bin_centers[valid_bins], color=color, linewidth=1.5, label=label)
         ax.fill_betweenx(
             bin_centers[valid_bins],
             (means - stds)[valid_bins],

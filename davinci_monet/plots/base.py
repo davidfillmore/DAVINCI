@@ -816,6 +816,17 @@ def get_role_color(
     return get_color_for_role(role, index)
 
 
+def dataset_source_label(dataset: xr.Dataset, default: str | None = None) -> str | None:
+    """Source label for a single-source (obs-only) dataset (renderer rewire R-4).
+
+    Obs-only datasets carry their source label in the dataset-level ``attrs``
+    (set by the loading stage), not per-variable. Returns it so an obs-only plot
+    can self-identify its source, or ``default`` when absent.
+    """
+    label = dataset.attrs.get("source_label")
+    return str(label) if label else default
+
+
 def get_series_label(
     dataset: xr.Dataset,
     var_name: str,

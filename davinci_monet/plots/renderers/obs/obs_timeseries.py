@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from davinci_monet.plots.base import format_plot_title, get_variable_label
+from davinci_monet.plots.base import dataset_source_label, format_plot_title, get_variable_label
 from davinci_monet.plots.obs_base import ObsPlotter
 from davinci_monet.plots.registry import register_plotter
 from davinci_monet.plots.style import NCAR_PALETTE, NCAR_PRIMARY
@@ -28,7 +28,8 @@ class ObsTimeSeriesPlotter(ObsPlotter):
 
     If the dataset contains a ``flight`` coordinate, each flight is plotted
     in a different color from ``NCAR_PALETTE``. Otherwise a single line
-    in ``OBS_COLOR`` is drawn.
+    in ``NCAR_PRIMARY`` (the obs-only brand blue) is drawn, labelled by the
+    dataset's source label when present.
 
     Optionally overlays altitude on a secondary y-axis.
 
@@ -76,7 +77,7 @@ class ObsTimeSeriesPlotter(ObsPlotter):
         title
             Plot title. Defaults to "{variable} Time Series".
         color
-            Line color for single-flight data. Defaults to OBS_COLOR.
+            Line color for single-flight data. Defaults to NCAR_PRIMARY.
         **kwargs
             Additional arguments passed to the underlying plot call.
 
@@ -91,6 +92,9 @@ class ObsTimeSeriesPlotter(ObsPlotter):
             fig = ax.get_figure()  # type: ignore[assignment]
 
         color = color or NCAR_PRIMARY
+        # Obs-only plots self-identify by their source label (R-4); colors stay
+        # the obs-only brand blue.
+        source_label = dataset_source_label(obs_data)
         time_values = pd.to_datetime(obs_data["time"].values)
         values = obs_data[variable].values
 
@@ -135,6 +139,7 @@ class ObsTimeSeriesPlotter(ObsPlotter):
                 values,
                 color=color,
                 linewidth=1.2,
+                label=source_label,
                 **kwargs,
             )
 
