@@ -263,21 +263,65 @@ def _format_duration(seconds: float) -> str:
         return f"{mins}m{secs:.0f}s"
 
 
-def tag_paired_roles(data: Any) -> None:
-    """Tag each paired variable with its ``role`` based on the model_/obs_ prefix.
+def tag_paired_roles(
+    data: Any,
+    *,
+    reference_label: str | None = None,
+    comparand_label: str | None = None,
+) -> None:
+    """Tag each paired variable with its ``role`` and add source-label aliases.
 
-    Additive metadata (Phase 6): lets the paired output self-describe source roles
-    so plot styling can resolve colors by role. Does not rename variables and does
-    not overwrite a pre-existing ``role`` attr.
+    Additive metadata (Phase 6 / renderer rewire R-1): each paired variable gets a
+    ``role`` attr (``model``/``obs``) derived from its prefix so the paired output
+    self-describes source roles for plot styling.
+
+    When the source labels are supplied, the paired dataset additionally exposes
+    ``<comparand_label>_<v>`` / ``<reference_label>_<v>`` aliases that point at the
+    same data, each carrying matching ``role`` and ``source_label`` attrs. This is
+    the dual-naming bridge the renderers (R-2/R-3) consume to resolve series by
+    source label and color by role. Pairing maps ``obs`` -> reference and
+    ``model`` -> comparand, so a ``model_`` variable aliases to ``comparand_label``
+    and an ``obs_`` variable to ``reference_label``.
+
+    Nothing is renamed, a pre-existing ``role`` attr is never overwritten, and an
+    alias is only added when it would not collide with an existing variable nor
+    re-enter the reserved ``model_``/``obs_`` namespace (so the legacy names
+    always remain available and prefix-based consumers never see an alias).
     """
     if data is None or not hasattr(data, "data_vars"):
         return
-    for name in data.data_vars:
+    # Snapshot the names first: aliases are added to data_vars while iterating.
+    for name in list(data.data_vars):
         lname = str(name).lower()
         if lname.startswith("model_"):
-            data[name].attrs.setdefault("role", "model")
+            role, label, canonical = "model", comparand_label, str(name)[len("model_") :]
         elif lname.startswith("obs_"):
-            data[name].attrs.setdefault("role", "obs")
+            role, label, canonical = "obs", reference_label, str(name)[len("obs_") :]
+        else:
+            continue
+
+        var = data[name]
+        var.attrs.setdefault("role", role)
+        if not label:
+            continue
+        var.attrs.setdefault("source_label", label)
+
+        # Add the source-label alias, but never let it re-enter the reserved
+        # ``model_``/``obs_`` namespace: a pathological label like ``model_foo``
+        # would otherwise produce ``model_foo_<v>``, which prefix-based consumers
+        # (statistics, per-flight stats, var counts) would mistake for a legacy
+        # variable. Such a label keeps its legacy var; it just gets no alias.
+        alias = f"{label}_{canonical}"
+        alias_l = alias.lower()
+        if (
+            alias != name
+            and alias not in data.data_vars
+            and not alias_l.startswith("model_")
+            and not alias_l.startswith("obs_")
+        ):
+            data[alias] = var
+            data[alias].attrs["role"] = var.attrs["role"]
+            data[alias].attrs["source_label"] = var.attrs["source_label"]
 
 
 class LoadModelsStage(BaseStage):
@@ -1316,14 +1360,23 @@ class PairingStage(BaseStage):
                         context.paired[pair_key] = paired_ds
                         paired_count += 1
 
-                        # Tag role metadata on the paired variables (additive).
+                        # Recover the source labels for this pair (model -> comparand,
+                        # obs -> reference) to drive additive source-label aliasing.
+                        _, src_model_label, _, src_obs_label, _, _, _, _ = futures[future]
+
+                        # Tag role metadata + source-label aliases on the paired
+                        # variables (additive; legacy model_/obs_ names retained).
+                        paired_data = paired_ds.data if hasattr(paired_ds, "data") else paired_ds
                         tag_paired_roles(
-                            paired_ds.data if hasattr(paired_ds, "data") else paired_ds
+                            paired_data,
+                            reference_label=src_obs_label,
+                            comparand_label=src_model_label,
                         )
 
-                        # Summary message
-                        paired_data = paired_ds.data if hasattr(paired_ds, "data") else paired_ds
-                        n_vars = len(paired_data.data_vars) // 2  # model_ and obs_ vars
+                        # Summary message: count logical model_ vars (aliases excluded).
+                        n_vars = sum(
+                            1 for v in paired_data.data_vars if str(v).startswith("model_")
+                        )
                         n_points = paired_data.sizes.get("time", paired_data.sizes.get("x", 0))
                         timing_str = f" [{_format_duration(pair_duration)}]" if debug else ""
                         context.log_progress(
