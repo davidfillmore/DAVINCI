@@ -134,6 +134,9 @@ class PipelineContext:
     config: dict[str, Any] = field(default_factory=dict)
     models: dict[str, Any] = field(default_factory=dict)
     observations: dict[str, Any] = field(default_factory=dict)
+    # Unified data-source view (Phase 3). Models and observations both register
+    # here keyed by label; distinguished only by the dataset's ``role`` attr.
+    sources: dict[str, Any] = field(default_factory=dict)
     paired: dict[str, Any] = field(default_factory=dict)
     results: dict[str, StageResult] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -155,6 +158,16 @@ class PipelineContext:
         if label not in self.observations:
             raise KeyError(f"Observation '{label}' not found in context")
         return self.observations[label]
+
+    def get_source(self, label: str) -> Any:
+        """Get a data source (model or observation) by label.
+
+        Part of the unified data-source abstraction (Phase 3). Sources are
+        populated by :class:`LoadSourcesStage`.
+        """
+        if label not in self.sources:
+            raise KeyError(f"Source '{label}' not found in context")
+        return self.sources[label]
 
     def get_paired(self, key: str) -> Any:
         """Get paired data by key."""
@@ -956,6 +969,84 @@ class LoadObservationsStage(BaseStage):
 
         # Use sel with slice for efficient time filtering
         return data.sel(time=slice(t_start, t_end))
+
+
+class LoadSourcesStage(BaseStage):
+    """Unified data-source loading stage (Phase 3, additive).
+
+    Loads model and observation configuration via the existing
+    :class:`LoadModelsStage` / :class:`LoadObservationsStage` loaders, then
+    exposes everything through ``context.sources`` keyed by label, tagging each
+    dataset's ``attrs`` with ``role`` (``"model"``/``"obs"``), ``source_label``,
+    and ``geometry``. Results are mirrored in ``context.models`` /
+    ``context.observations`` so existing accessors keep working.
+
+    This is purely additive: it does not yet replace the legacy load stages in
+    the default pipelines (that happens in a later phase). It can be used in a
+    custom stage list, and it tolerates a context whose ``models`` /
+    ``observations`` are already populated (in which case it simply unifies and
+    tags them).
+    """
+
+    def __init__(self) -> None:
+        super().__init__("load_sources")
+
+    def validate(self, context: PipelineContext) -> bool:
+        """Validate that at least one source (model or obs) is configured."""
+        cfg = context.config
+        has_config = any(k in cfg for k in ("model", "models", "obs", "observations"))
+        # Already-populated containers are also a valid starting point.
+        return has_config or bool(context.models) or bool(context.observations)
+
+    def execute(self, context: PipelineContext) -> StageResult:
+        """Load and unify all data sources into ``context.sources``."""
+        import time
+
+        start = time.time()
+
+        # Delegate to the existing loaders when their config is present. They
+        # populate context.models / context.observations as usual.
+        if "model" in context.config or "models" in context.config:
+            sub = LoadModelsStage().execute(context)
+            if sub.status is StageStatus.FAILED:
+                return self._create_result(
+                    StageStatus.FAILED, error=sub.error, duration=time.time() - start
+                )
+        if "obs" in context.config or "observations" in context.config:
+            sub = LoadObservationsStage().execute(context)
+            if sub.status is StageStatus.FAILED:
+                return self._create_result(
+                    StageStatus.FAILED, error=sub.error, duration=time.time() - start
+                )
+
+        # Unify into the single source view, tagging role / source_label / geometry.
+        for label, obj in context.models.items():
+            self._register(context, label, obj, role="model")
+        for label, obj in context.observations.items():
+            self._register(context, label, obj, role="obs")
+
+        return self._create_result(
+            StageStatus.COMPLETED,
+            data={"loaded_sources": list(context.sources.keys())},
+            duration=time.time() - start,
+            count=len(context.sources),
+        )
+
+    @staticmethod
+    def _register(context: PipelineContext, label: str, obj: Any, role: str) -> None:
+        """Register a loaded container in context.sources and tag its dataset."""
+        context.sources[label] = obj
+        data = getattr(obj, "data", None)
+        if data is None:
+            return
+        try:
+            geometry = obj.geometry
+            geometry_name = geometry.name.lower() if hasattr(geometry, "name") else str(geometry)
+        except Exception:
+            geometry_name = "unknown"
+        data.attrs["role"] = role
+        data.attrs["source_label"] = label
+        data.attrs["geometry"] = geometry_name
 
 
 class PairingStage(BaseStage):
