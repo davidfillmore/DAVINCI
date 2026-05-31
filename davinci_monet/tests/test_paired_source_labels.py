@@ -18,6 +18,8 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
+from davinci_monet.core.base import PairedData, iter_paired_variable_pairs
+from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.pipeline.stages import tag_paired_roles
 
 
@@ -191,3 +193,42 @@ class TestPairedSourceLabelPipeline:
         # Statistics still computed for the canonical variable (role-based).
         stats_files = list((tmp_path / "output").rglob("*.csv"))
         assert stats_files, "no statistics CSV produced"
+
+
+class TestPairedHelperRobustness:
+    """Hardening from the R-5 review: role/canonical helpers must be internally
+    consistent and respect roles."""
+
+    def test_iter_pairs_handles_mixed_case_prefixes(self) -> None:
+        # paired_variable_role matches prefixes case-insensitively; the canonical
+        # helper must too, so mixed-case legacy names still pair.
+        ds = xr.Dataset(
+            {"Model_O3": ("time", np.zeros(3)), "obs_O3": ("time", np.ones(3))},
+            coords={"time": np.arange(3)},
+        )
+        ds["Model_O3"].attrs["role"] = "model"
+        ds["obs_O3"].attrs["role"] = "obs"
+        assert iter_paired_variable_pairs(ds) == [("obs_O3", "Model_O3", "O3")]
+
+    def test_get_obs_get_model_resolve_canonical(self) -> None:
+        ds = xr.Dataset(
+            {"airnow_o3": ("time", np.ones(3)), "cam_o3": ("time", np.zeros(3))},
+            coords={"time": np.arange(3)},
+        )
+        ds["airnow_o3"].attrs.update({"role": "obs", "source_label": "airnow"})
+        ds["cam_o3"].attrs.update({"role": "model", "source_label": "cam"})
+        pd = PairedData(data=ds, model_label="cam", obs_label="airnow", geometry=DataGeometry.POINT)
+        np.testing.assert_array_equal(pd.get_obs("o3").values, np.ones(3))
+        np.testing.assert_array_equal(pd.get_model("o3").values, np.zeros(3))
+
+    def test_legacy_fallback_respects_role(self) -> None:
+        # get_model must not return a legacy-named var whose role attr is 'obs'.
+        ds = xr.Dataset(
+            {"model_o3": ("time", np.zeros(3)), "obs_o3": ("time", np.ones(3))},
+            coords={"time": np.arange(3)},
+        )
+        ds["model_o3"].attrs["role"] = "model"
+        ds["obs_o3"].attrs["role"] = "obs"
+        pd = PairedData(data=ds, model_label="cam", obs_label="airnow", geometry=DataGeometry.POINT)
+        np.testing.assert_array_equal(pd.get_model("o3").values, np.zeros(3))
+        np.testing.assert_array_equal(pd.get_obs("o3").values, np.ones(3))

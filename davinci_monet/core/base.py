@@ -399,8 +399,10 @@ def paired_canonical_name(dataset: xr.Dataset, var_name: str) -> str:
         source_label = dataset[var_name].attrs.get("source_label")
         if source_label and var_name.startswith(f"{source_label}_"):
             return var_name[len(source_label) + 1 :]
+    # Case-insensitive prefix match, consistent with ``paired_variable_role``.
+    lname = str(var_name).lower()
     for prefix in ("obs_", "model_"):
-        if var_name.startswith(prefix):
+        if lname.startswith(prefix):
             return var_name[len(prefix) :]
     return var_name
 
@@ -493,7 +495,7 @@ class PairedData:
             return variable
         prefix = "obs_" if role == "obs" else "model_"
         legacy = variable if variable.startswith(prefix) else f"{prefix}{variable}"
-        if legacy in self.data.data_vars:
+        if legacy in self.data.data_vars and paired_variable_role(self.data, legacy) == role:
             return legacy
         target = paired_canonical_name(self.data, variable)
         for v in self.data.data_vars:
