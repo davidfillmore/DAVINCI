@@ -437,6 +437,17 @@ def migrate_to_sources(config: dict[str, Any]) -> dict[str, Any]:
     return cfg
 
 
+class LegacyConfigWarning(DeprecationWarning):
+    """Emitted when a legacy ``model:``/``obs:`` config is used.
+
+    The unified ``sources:`` schema is the going-forward format; ``model:``/
+    ``obs:`` are deprecated and auto-converted internally. Subclasses
+    ``DeprecationWarning`` (not ``UserWarning``) so it is informational and not
+    escalated by strict warning filters. Run ``davinci-monet migrate-config`` to
+    convert a control file.
+    """
+
+
 #: Reader ``type`` ids that produce gridded model data (used to infer the
 #: model/obs side of a source when no explicit ``role`` is given).
 MODEL_SOURCE_TYPES = frozenset(
