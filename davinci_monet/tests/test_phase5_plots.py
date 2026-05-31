@@ -17,12 +17,7 @@ import xarray as xr
 
 from davinci_monet.plots.base import resolve_source_variable
 from davinci_monet.plots.renderers.obs.obs_timeseries import ObsTimeSeriesPlotter
-from davinci_monet.plots.style import (
-    MODEL_COLOR,
-    NCAR_PALETTE,
-    OBS_COLOR,
-    get_color_for_role,
-)
+from davinci_monet.plots.style import MODEL_COLOR, NCAR_PALETTE, OBS_COLOR, get_color_for_role
 
 
 class TestGetColorForRole:

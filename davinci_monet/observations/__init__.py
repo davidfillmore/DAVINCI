@@ -20,14 +20,8 @@ from davinci_monet.observations.base import (
 from davinci_monet.observations.lightning.lma import LMAReader, open_lma
 
 # Generic satellite readers
-from davinci_monet.observations.satellite.generic_l2 import (
-    GenericL2Reader,
-    open_satellite_l2,
-)
-from davinci_monet.observations.satellite.generic_l3 import (
-    GenericL3Reader,
-    open_satellite_l3,
-)
+from davinci_monet.observations.satellite.generic_l2 import GenericL2Reader, open_satellite_l2
+from davinci_monet.observations.satellite.generic_l3 import GenericL3Reader, open_satellite_l3
 
 # Satellite observation readers - L3 gridded
 from davinci_monet.observations.satellite.goes_l3_aod import (
@@ -36,26 +30,11 @@ from davinci_monet.observations.satellite.goes_l3_aod import (
 from davinci_monet.observations.satellite.goes_l3_aod import (
     open_goes,  # Backward compatibility alias (deprecated)
 )
-from davinci_monet.observations.satellite.goes_l3_aod import (
-    GOESL3AODReader,
-    open_goes_l3_aod,
-)
-from davinci_monet.observations.satellite.modis_l2_aod import (
-    MODISL2AODReader,
-    open_modis_l2_aod,
-)
-from davinci_monet.observations.satellite.mopitt_l3_co import (
-    MOPITTL3COReader,
-    open_mopitt_l3_co,
-)
-from davinci_monet.observations.satellite.omps_l3_o3 import (
-    OMPSL3O3Reader,
-    open_omps_l3_o3,
-)
-from davinci_monet.observations.satellite.tempo_l2_no2 import (
-    TEMPOL2NO2Reader,
-    open_tempo_l2_no2,
-)
+from davinci_monet.observations.satellite.goes_l3_aod import GOESL3AODReader, open_goes_l3_aod
+from davinci_monet.observations.satellite.modis_l2_aod import MODISL2AODReader, open_modis_l2_aod
+from davinci_monet.observations.satellite.mopitt_l3_co import MOPITTL3COReader, open_mopitt_l3_co
+from davinci_monet.observations.satellite.omps_l3_o3 import OMPSL3O3Reader, open_omps_l3_o3
+from davinci_monet.observations.satellite.tempo_l2_no2 import TEMPOL2NO2Reader, open_tempo_l2_no2
 
 # Satellite observation readers - L2 swath
 from davinci_monet.observations.satellite.tropomi import TROPOMIReader, open_tropomi

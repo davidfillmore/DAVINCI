@@ -22,11 +22,7 @@ class TestNCARColors:
 
     def test_ncar_primary_colors_exist(self):
         """Primary color aliases should exist."""
-        from davinci_monet.plots.style import (
-            NCAR_ACCENT,
-            NCAR_PRIMARY,
-            NCAR_SECONDARY,
-        )
+        from davinci_monet.plots.style import NCAR_ACCENT, NCAR_PRIMARY, NCAR_SECONDARY
 
         assert NCAR_PRIMARY.startswith("#")
         assert NCAR_SECONDARY.startswith("#")
@@ -78,10 +74,7 @@ class TestFontSizes:
 
     def test_presentation_sizes_larger_than_publication(self):
         """Presentation sizes should be larger than publication sizes."""
-        from davinci_monet.plots.style import (
-            FONT_SIZES_PRESENTATION,
-            FONT_SIZES_PUBLICATION,
-        )
+        from davinci_monet.plots.style import FONT_SIZES_PRESENTATION, FONT_SIZES_PUBLICATION
 
         assert FONT_SIZES_PRESENTATION.axes_label > FONT_SIZES_PUBLICATION.axes_label
         assert FONT_SIZES_PRESENTATION.axes_title > FONT_SIZES_PUBLICATION.axes_title
@@ -115,10 +108,7 @@ class TestApplyNCARStyle:
 
     def test_apply_ncar_style_presentation_context(self):
         """apply_ncar_style with presentation context should use larger sizes."""
-        from davinci_monet.plots.style import (
-            FONT_SIZES_PRESENTATION,
-            apply_ncar_style,
-        )
+        from davinci_monet.plots.style import FONT_SIZES_PRESENTATION, apply_ncar_style
 
         apply_ncar_style(context="presentation", use_seaborn=False)
 
@@ -126,10 +116,7 @@ class TestApplyNCARStyle:
 
     def test_apply_ncar_style_publication_context(self):
         """apply_ncar_style with publication context should use smaller sizes."""
-        from davinci_monet.plots.style import (
-            FONT_SIZES_PUBLICATION,
-            apply_ncar_style,
-        )
+        from davinci_monet.plots.style import FONT_SIZES_PUBLICATION, apply_ncar_style
 
         apply_ncar_style(context="publication", use_seaborn=False)
 

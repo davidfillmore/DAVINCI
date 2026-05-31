@@ -41,14 +41,8 @@ work correctly without monetio.
 """
 
 # Generic readers (pure xarray, no monetio dependency)
-from davinci_monet.observations.satellite.generic_l2 import (
-    GenericL2Reader,
-    open_satellite_l2,
-)
-from davinci_monet.observations.satellite.generic_l3 import (
-    GenericL3Reader,
-    open_satellite_l3,
-)
+from davinci_monet.observations.satellite.generic_l2 import GenericL2Reader, open_satellite_l2
+from davinci_monet.observations.satellite.generic_l3 import GenericL3Reader, open_satellite_l3
 
 # Satellite-specific L3 readers (require monetio for full functionality)
 from davinci_monet.observations.satellite.goes_l3_aod import (

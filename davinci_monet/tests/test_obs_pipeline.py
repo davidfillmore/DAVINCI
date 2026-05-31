@@ -10,10 +10,7 @@ import xarray as xr
 
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.observations.base import ObservationData
-from davinci_monet.pipeline.stages import (
-    PipelineContext,
-    StageStatus,
-)
+from davinci_monet.pipeline.stages import PipelineContext, StageStatus
 
 # =============================================================================
 # Fixtures

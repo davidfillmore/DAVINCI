@@ -12,11 +12,7 @@ from typing import Any, Mapping, Sequence
 
 import xarray as xr
 
-from davinci_monet.core.protocols import (
-    DataGeometry,
-    SourceProcessor,
-    SourceReader,
-)
+from davinci_monet.core.protocols import DataGeometry, SourceProcessor, SourceReader
 
 
 class _FullSourceReader:

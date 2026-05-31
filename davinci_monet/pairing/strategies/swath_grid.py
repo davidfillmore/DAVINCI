@@ -19,11 +19,7 @@ import xarray as xr
 from davinci_monet.core.exceptions import PairingError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.types import TimeDelta
-from davinci_monet.pairing.grid_binning import (
-    bin_swath_to_grid,
-    edges_from_centers,
-    normalize_grid,
-)
+from davinci_monet.pairing.grid_binning import bin_swath_to_grid, edges_from_centers, normalize_grid
 from davinci_monet.pairing.strategies.base import BasePairingStrategy
 
 

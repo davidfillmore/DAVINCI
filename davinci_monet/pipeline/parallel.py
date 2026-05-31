@@ -7,12 +7,7 @@ using either threading or multiprocessing depending on the workload.
 from __future__ import annotations
 
 import logging
-from concurrent.futures import (
-    Future,
-    ProcessPoolExecutor,
-    ThreadPoolExecutor,
-    as_completed,
-)
+from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Any, Callable, Generic, Sequence, TypeVar
 

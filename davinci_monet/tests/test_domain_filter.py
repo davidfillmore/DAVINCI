@@ -65,9 +65,7 @@ class TestFilterPairedByDomain:
         # (35, -100) → no, lat < 36.
         # Expect 2 sites kept.
         assert out.sizes["site"] == 2
-        np.testing.assert_array_equal(
-            np.sort(out["latitude"].values), np.array([43.0, 45.0])
-        )
+        np.testing.assert_array_equal(np.sort(out["latitude"].values), np.array([43.0, 45.0]))
 
     def test_list_form_of_domain_type(self) -> None:
         """YAML schema declares domain_type as list[str]; helper must accept that."""

@@ -10,10 +10,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from davinci_monet.core.exceptions import (
-    DataNotFoundError,
-    DataValidationError,
-)
+from davinci_monet.core.exceptions import DataNotFoundError, DataValidationError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.observations.base import (
     GriddedObservation,

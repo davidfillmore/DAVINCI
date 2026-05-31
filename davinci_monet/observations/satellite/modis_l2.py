@@ -20,11 +20,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from davinci_monet.pairing.grid_binning import (
-    bin_swath_to_grid,
-    edges_from_centers,
-    normalize_grid,
-)
+from davinci_monet.pairing.grid_binning import bin_swath_to_grid, edges_from_centers, normalize_grid
 
 logger = logging.getLogger(__name__)
 

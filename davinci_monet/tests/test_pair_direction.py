@@ -17,10 +17,7 @@ import xarray as xr
 
 from davinci_monet.core.exceptions import PairingError
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.pairing.direction import (
-    PairDirectionWarning,
-    resolve_pair_direction,
-)
+from davinci_monet.pairing.direction import PairDirectionWarning, resolve_pair_direction
 from davinci_monet.pairing.engine import PairingEngine
 from davinci_monet.pairing.strategies.base import BasePairingStrategy
 

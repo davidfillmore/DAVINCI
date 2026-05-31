@@ -45,10 +45,7 @@ def validate_config_command(
 
     try:
         from davinci_monet.config import load_config, load_yaml
-        from davinci_monet.config.migration import (
-            check_deprecated_fields,
-            detect_config_version,
-        )
+        from davinci_monet.config.migration import check_deprecated_fields, detect_config_version
 
         # First, load raw YAML
         raw_config = load_yaml(p)

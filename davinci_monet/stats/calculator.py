@@ -12,11 +12,7 @@ from typing import TYPE_CHECKING, Any, Sequence
 import numpy as np
 import pandas as pd
 
-from davinci_monet.stats.metrics import (
-    STANDARD_METRICS,
-    get_metric,
-    list_metrics,
-)
+from davinci_monet.stats.metrics import STANDARD_METRICS, get_metric, list_metrics
 
 if TYPE_CHECKING:
     import xarray as xr

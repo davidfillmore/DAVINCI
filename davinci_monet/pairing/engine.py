@@ -13,11 +13,7 @@ from typing import Any, Mapping, Sequence
 import xarray as xr
 
 from davinci_monet.core.base import PairedData
-from davinci_monet.core.exceptions import (
-    GeometryMismatchError,
-    NoOverlapError,
-    PairingError,
-)
+from davinci_monet.core.exceptions import GeometryMismatchError, NoOverlapError, PairingError
 from davinci_monet.core.protocols import DataGeometry, PairingStrategy
 from davinci_monet.core.types import TimeDelta
 
