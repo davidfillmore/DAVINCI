@@ -1717,6 +1717,13 @@ class PipelineRunner:
 
             config = load_config(config).model_dump()
 
+        # Expand a unified `sources:` config to the legacy model:/obs: form so
+        # it runs through the existing load/pair path (Phase 6, CFG-3).
+        if config.get("sources"):
+            from davinci_monet.config.migration import expand_sources_to_legacy
+
+            config = expand_sources_to_legacy(config)
+
         # Validate that config has something to process
         model_config = config.get("model") or {}
         obs_config = config.get("obs") or {}
