@@ -1,15 +1,14 @@
-"""Tests for source-label aliasing on paired output (renderer rewire R-1).
+"""Tests for source-label paired naming (renderer rewire R-5, the clean break).
 
-R-1 adds an additive *dual-naming bridge*: alongside the legacy ``model_<v>`` /
-``obs_<v>`` paired variables, the paired dataset also exposes
-``<comparand_label>_<v>`` / ``<reference_label>_<v>`` aliases pointing at the same
-data, each tagged with ``role`` and ``source_label`` attrs. This lets the
-renderers (R-2/R-3) resolve series by source label and color by role while the
-legacy prefixes keep working. The step is purely additive.
+R-5 drops the legacy dual-naming bridge: when source labels are supplied,
+``tag_paired_roles`` now *renames* the paired variables to ``<comparand_label>_<v>``
+(model/comparand side) and ``<reference_label>_<v>`` (obs/reference side),
+dropping the legacy ``model_<v>`` / ``obs_<v>`` names, and tags each with ``role``
+and ``source_label`` attrs.
 
-Pairing maps ``obs`` -> reference and ``model`` -> comparand, so a ``model_<v>``
-variable aliases to ``<comparand_label>_<v>`` and ``obs_<v>`` to
-``<reference_label>_<v>``.
+Without labels (the low-level engine API path, and untagged/legacy data), the
+legacy names are kept and only the ``role`` attr is set — so direct
+``engine.pair`` / ``strategy.pair`` callers are unaffected.
 """
 
 from __future__ import annotations
@@ -34,42 +33,39 @@ def _paired() -> xr.Dataset:
     )
 
 
-class TestSourceLabelAliases:
-    """Unit tests of ``tag_paired_roles`` additive source-label aliasing."""
+class TestSourceLabelRename:
+    """Unit tests of ``tag_paired_roles`` source-label renaming (R-5)."""
 
-    def test_adds_source_label_aliases(self) -> None:
+    def test_renames_to_source_labels(self) -> None:
         ds = _paired()
         tag_paired_roles(ds, reference_label="airnow", comparand_label="cam")
-        # Legacy prefixes are retained.
-        assert "model_o3" in ds.data_vars
-        assert "obs_o3" in ds.data_vars
-        # Source-label aliases are added (model -> comparand, obs -> reference).
+        # Renamed to source-label names (model -> comparand, obs -> reference).
         assert "cam_o3" in ds.data_vars
         assert "airnow_o3" in ds.data_vars
+        # Legacy prefixes are dropped.
+        assert "model_o3" not in ds.data_vars
+        assert "obs_o3" not in ds.data_vars
+        assert set(ds.data_vars) == {"cam_o3", "airnow_o3"}
 
-    def test_aliases_have_identical_values(self) -> None:
+    def test_renamed_vars_preserve_values(self) -> None:
         ds = _paired()
+        model_before = ds["model_o3"].values.copy()
+        obs_before = ds["obs_o3"].values.copy()
         tag_paired_roles(ds, reference_label="airnow", comparand_label="cam")
-        np.testing.assert_array_equal(ds["cam_o3"].values, ds["model_o3"].values)
-        np.testing.assert_array_equal(ds["airnow_o3"].values, ds["obs_o3"].values)
+        np.testing.assert_array_equal(ds["cam_o3"].values, model_before)
+        np.testing.assert_array_equal(ds["airnow_o3"].values, obs_before)
 
     def test_role_and_source_label_attrs(self) -> None:
         ds = _paired()
         tag_paired_roles(ds, reference_label="airnow", comparand_label="cam")
-        # Legacy vars carry both role and source_label.
-        assert ds["model_o3"].attrs["role"] == "model"
-        assert ds["model_o3"].attrs["source_label"] == "cam"
-        assert ds["obs_o3"].attrs["role"] == "obs"
-        assert ds["obs_o3"].attrs["source_label"] == "airnow"
-        # Alias vars carry the same role and source_label.
         assert ds["cam_o3"].attrs["role"] == "model"
         assert ds["cam_o3"].attrs["source_label"] == "cam"
         assert ds["airnow_o3"].attrs["role"] == "obs"
         assert ds["airnow_o3"].attrs["source_label"] == "airnow"
 
-    def test_no_labels_is_backward_compatible(self) -> None:
-        # The existing call signature (no labels) must still tag roles only:
-        # no aliases, no source_label. Guards the Phase 6 behavior.
+    def test_no_labels_keeps_legacy_names(self) -> None:
+        # The low-level path (no labels) keeps the legacy names and only tags
+        # role, so direct engine.pair / strategy.pair callers are unaffected.
         ds = _paired()
         tag_paired_roles(ds)
         assert set(ds.data_vars) == {"model_o3", "obs_o3"}
@@ -78,39 +74,26 @@ class TestSourceLabelAliases:
         assert "source_label" not in ds["model_o3"].attrs
         assert "source_label" not in ds["obs_o3"].attrs
 
-    def test_alias_equal_to_legacy_name_is_noop(self) -> None:
-        # Labels that collide with the reserved prefixes must not duplicate vars.
+    def test_reserved_prefix_labels_keep_legacy_names(self) -> None:
+        # A label whose rename would re-enter the reserved model_/obs_ namespace
+        # (e.g. "model"/"obs" or "model_foo") must NOT rename — the legacy name is
+        # kept (and source_label still recorded).
         ds = _paired()
         tag_paired_roles(ds, reference_label="obs", comparand_label="model")
         assert set(ds.data_vars) == {"model_o3", "obs_o3"}
-        # source_label is still recorded on the legacy vars.
         assert ds["model_o3"].attrs["source_label"] == "model"
         assert ds["obs_o3"].attrs["source_label"] == "obs"
 
-    def test_reserved_prefix_labels_do_not_pollute_namespace(self) -> None:
-        # A pathological source label that starts with a reserved prefix
-        # (e.g. "model_foo") must NOT create an alias that re-enters the
-        # model_/obs_ namespace; downstream prefix-based selection (statistics,
-        # per-flight stats, var counts) keys off those prefixes and would
-        # otherwise mistake the alias for a legacy variable.
-        ds = _paired()
-        tag_paired_roles(ds, reference_label="obs_x", comparand_label="model_foo")
-        assert set(ds.data_vars) == {"model_o3", "obs_o3"}
-        # source_label is still recorded on the legacy vars.
-        assert ds["model_o3"].attrs["source_label"] == "model_foo"
-        assert ds["obs_o3"].attrs["source_label"] == "obs_x"
-
 
 class TestPairedSourceLabelPipeline:
-    """Integration test: paired output from the pipeline carries source-label aliases.
+    """Integration test: the pipeline emits source-label paired names only.
 
     Runs the real user path (``PipelineRunner.run_from_config``) with a model
-    labelled ``cam`` and obs labelled ``airnow`` and a ``stats`` block (so the
-    statistics stage runs and proves the additive aliases do not break
-    downstream prefix-based variable selection).
+    labelled ``cam`` and obs labelled ``airnow`` plus a ``stats`` block, proving
+    the statistics stage works with role-based selection (no model_/obs_ prefix).
     """
 
-    def test_pipeline_emits_source_label_aliases(self, tmp_path: Path) -> None:
+    def test_pipeline_emits_source_label_names(self, tmp_path: Path) -> None:
         from davinci_monet.core.protocols import DataGeometry
         from davinci_monet.pipeline.runner import PipelineRunner
         from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
@@ -193,18 +176,18 @@ class TestPairedSourceLabelPipeline:
         paired_obj = next(iter(paired.values()))
         ds = paired_obj.data if hasattr(paired_obj, "data") else paired_obj
 
-        # Both legacy prefixes and source-label aliases are present.
-        assert "model_O3" in ds.data_vars
-        assert "obs_O3" in ds.data_vars
+        # Source-label names only — the legacy prefixes are gone.
         assert "cam_O3" in ds.data_vars
         assert "airnow_O3" in ds.data_vars
+        assert "model_O3" not in ds.data_vars
+        assert "obs_O3" not in ds.data_vars
 
-        # Aliases share the legacy data exactly.
-        np.testing.assert_array_equal(ds["cam_O3"].values, ds["model_O3"].values)
-        np.testing.assert_array_equal(ds["airnow_O3"].values, ds["obs_O3"].values)
-
-        # Aliases self-describe role and source label.
+        # Vars self-describe role and source label.
         assert ds["cam_O3"].attrs["role"] == "model"
         assert ds["cam_O3"].attrs["source_label"] == "cam"
         assert ds["airnow_O3"].attrs["role"] == "obs"
         assert ds["airnow_O3"].attrs["source_label"] == "airnow"
+
+        # Statistics still computed for the canonical variable (role-based).
+        stats_files = list((tmp_path / "output").rglob("*.csv"))
+        assert stats_files, "no statistics CSV produced"

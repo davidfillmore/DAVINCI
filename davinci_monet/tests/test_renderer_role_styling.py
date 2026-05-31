@@ -84,9 +84,8 @@ class TestGetSeriesLabel:
         assert get_series_label(ds, "obs_o3", custom_label="My Obs") == "My Obs"
 
     def test_source_label_used_when_no_custom(self) -> None:
+        # After R-5 the paired vars are renamed to their source labels.
         ds = _paired_with_aliases()
-        assert get_series_label(ds, "obs_o3") == "airnow"
-        assert get_series_label(ds, "model_o3") == "cam"
         assert get_series_label(ds, "airnow_o3") == "airnow"
         assert get_series_label(ds, "cam_o3") == "cam"
 
@@ -123,7 +122,7 @@ class TestTimeseriesRoleStyling:
     def test_obs_gray_model_blue_unchanged(self) -> None:
         from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 
-        fig = TimeSeriesPlotter().plot(_ts_paired(), "obs_o3", "model_o3")
+        fig = TimeSeriesPlotter().plot(_ts_paired(), "airnow_o3", "cam_o3")
         colors = self._line_colors_by_label(fig)
         assert colors["airnow"] == OBS_COLOR
         assert colors["cam"] == MODEL_COLOR
@@ -131,7 +130,7 @@ class TestTimeseriesRoleStyling:
     def test_legend_uses_source_labels(self) -> None:
         from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 
-        fig = TimeSeriesPlotter().plot(_ts_paired(), "obs_o3", "model_o3")
+        fig = TimeSeriesPlotter().plot(_ts_paired(), "airnow_o3", "cam_o3")
         labels = {ln.get_label() for ln in fig.axes[0].get_lines()}
         assert "airnow" in labels
         assert "cam" in labels
@@ -167,8 +166,10 @@ class TestTaylorRoleStyling:
         from davinci_monet.plots.base import PlotConfig
         from davinci_monet.plots.renderers.taylor import TaylorPlotter
 
-        ds = _paired_with_aliases()  # obs carries source_label "airnow"
-        fig = TaylorPlotter(config=PlotConfig(obs_label="CustomRef")).plot(ds, "obs_o3", "model_o3")
+        ds = _paired_with_aliases()  # obs renamed to airnow_o3 (source_label "airnow")
+        fig = TaylorPlotter(config=PlotConfig(obs_label="CustomRef")).plot(
+            ds, "airnow_o3", "cam_o3"
+        )
         labels = {ln.get_label() for ln in fig.axes[0].get_lines()}
         assert "CustomRef" in labels
         assert "airnow" not in labels

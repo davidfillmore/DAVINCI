@@ -14,6 +14,7 @@ from typing import Any, Callable, Protocol, Sequence, runtime_checkable
 
 import xarray as xr
 
+from davinci_monet.core.base import iter_paired_variable_pairs
 from davinci_monet.core.exceptions import DataFormatError, PipelineError, write_error_log
 from davinci_monet.core.protocols import DataGeometry
 
@@ -269,28 +270,29 @@ def tag_paired_roles(
     reference_label: str | None = None,
     comparand_label: str | None = None,
 ) -> None:
-    """Tag each paired variable with its ``role`` and add source-label aliases.
+    """Tag each paired variable with its ``role`` and rename it by source label.
 
-    Additive metadata (Phase 6 / renderer rewire R-1): each paired variable gets a
-    ``role`` attr (``model``/``obs``) derived from its prefix so the paired output
-    self-describes source roles for plot styling.
+    Each paired variable gets a ``role`` attr (``model``/``obs``) derived from its
+    legacy ``model_``/``obs_`` prefix so the paired output self-describes source
+    roles.
 
-    When the source labels are supplied, the paired dataset additionally exposes
-    ``<comparand_label>_<v>`` / ``<reference_label>_<v>`` aliases that point at the
-    same data, each carrying matching ``role`` and ``source_label`` attrs. This is
-    the dual-naming bridge the renderers (R-2/R-3) consume to resolve series by
-    source label and color by role. Pairing maps ``obs`` -> reference and
-    ``model`` -> comparand, so a ``model_`` variable aliases to ``comparand_label``
-    and an ``obs_`` variable to ``reference_label``.
+    When the source labels are supplied (the pipeline path), the variable is
+    *renamed* to ``<comparand_label>_<v>`` (model/comparand side) or
+    ``<reference_label>_<v>`` (obs/reference side), the legacy prefix is dropped,
+    and both ``role`` and ``source_label`` attrs are set — the renderer rewire R-5
+    clean break to source-label-only naming. Pairing maps ``obs`` -> reference and
+    ``model`` -> comparand.
 
-    Nothing is renamed, a pre-existing ``role`` attr is never overwritten, and an
-    alias is only added when it would not collide with an existing variable nor
-    re-enter the reserved ``model_``/``obs_`` namespace (so the legacy names
-    always remain available and prefix-based consumers never see an alias).
+    Without labels (the low-level engine/strategy API and untagged data) the
+    legacy names are kept and only the ``role`` attr is set. A rename is also
+    skipped when it would collide with an existing variable or re-enter the
+    reserved ``model_``/``obs_`` namespace (e.g. a label like ``model_foo``), so
+    such variables keep their legacy name. A pre-existing ``role`` attr is never
+    overwritten.
     """
     if data is None or not hasattr(data, "data_vars"):
         return
-    # Snapshot the names first: aliases are added to data_vars while iterating.
+    # Snapshot the names first: variables are renamed while iterating.
     for name in list(data.data_vars):
         lname = str(name).lower()
         if lname.startswith("model_"):
@@ -306,22 +308,22 @@ def tag_paired_roles(
             continue
         var.attrs.setdefault("source_label", label)
 
-        # Add the source-label alias, but never let it re-enter the reserved
-        # ``model_``/``obs_`` namespace: a pathological label like ``model_foo``
-        # would otherwise produce ``model_foo_<v>``, which prefix-based consumers
-        # (statistics, per-flight stats, var counts) would mistake for a legacy
-        # variable. Such a label keeps its legacy var; it just gets no alias.
-        alias = f"{label}_{canonical}"
-        alias_l = alias.lower()
+        # Rename to the source-label name, dropping the legacy prefix. Skip when
+        # the new name would collide or re-enter the reserved model_/obs_
+        # namespace (a pathological label like ``model_foo``); such a variable
+        # keeps its legacy name (and its source_label attr).
+        new_name = f"{label}_{canonical}"
+        new_l = new_name.lower()
         if (
-            alias != name
-            and alias not in data.data_vars
-            and not alias_l.startswith("model_")
-            and not alias_l.startswith("obs_")
+            new_name != name
+            and new_name not in data.data_vars
+            and not new_l.startswith("model_")
+            and not new_l.startswith("obs_")
         ):
-            data[alias] = var
-            data[alias].attrs["role"] = var.attrs["role"]
-            data[alias].attrs["source_label"] = var.attrs["source_label"]
+            data[new_name] = var
+            data[new_name].attrs["role"] = var.attrs["role"]
+            data[new_name].attrs["source_label"] = var.attrs["source_label"]
+            del data[name]
 
 
 def resolve_paired_var_names(
@@ -1388,11 +1390,11 @@ class PairingStage(BaseStage):
                         paired_count += 1
 
                         # Recover the source labels for this pair (model -> comparand,
-                        # obs -> reference) to drive additive source-label aliasing.
+                        # obs -> reference) to drive source-label renaming.
                         _, src_model_label, _, src_obs_label, _, _, _, _ = futures[future]
 
-                        # Tag role metadata + source-label aliases on the paired
-                        # variables (additive; legacy model_/obs_ names retained).
+                        # Tag role metadata and rename the paired variables to
+                        # source-label names (R-5 clean break; drops model_/obs_).
                         paired_data = paired_ds.data if hasattr(paired_ds, "data") else paired_ds
                         tag_paired_roles(
                             paired_data,
@@ -1400,10 +1402,8 @@ class PairingStage(BaseStage):
                             comparand_label=src_model_label,
                         )
 
-                        # Summary message: count logical model_ vars (aliases excluded).
-                        n_vars = sum(
-                            1 for v in paired_data.data_vars if str(v).startswith("model_")
-                        )
+                        # Summary message: count paired (obs, model) variable pairs.
+                        n_vars = len(iter_paired_variable_pairs(paired_data))
                         n_points = paired_data.sizes.get("time", paired_data.sizes.get("x", 0))
                         timing_str = f" [{_format_duration(pair_duration)}]" if debug else ""
                         context.log_progress(
@@ -1569,20 +1569,13 @@ class StatisticsStage(BaseStage):
         )
         calculator = StatisticsCalculator(calc_config)
 
-        # Find model and obs variable pairs (prefix format: model_*, obs_*)
-        model_vars = [v for v in paired_data.data_vars if str(v).startswith("model_")]
-
-        for model_var in model_vars:
-            base_name = str(model_var).replace("model_", "", 1)
-            obs_var = f"obs_{base_name}"
-
-            if obs_var not in paired_data:
-                continue
-
+        # Pair (obs, model) variables by role/source-label, matched on canonical
+        # name; stats are keyed by the canonical name (R-5).
+        for obs_var, model_var, base_name in iter_paired_variable_pairs(paired_data):
             df = calculator.compute(
                 paired_data,
                 obs_var=obs_var,
-                model_var=str(model_var),
+                model_var=model_var,
                 metrics=list(metrics) if metrics else None,
             )
 
@@ -1623,7 +1616,7 @@ class StatisticsStage(BaseStage):
         Parameters
         ----------
         paired_data : xr.Dataset
-            Paired dataset with model_* and obs_* variables and flight coordinate.
+            Paired dataset with role-tagged source-label variables and a flight coordinate.
 
         Returns
         -------
@@ -1635,16 +1628,14 @@ class StatisticsStage(BaseStage):
         flights = np.unique(paired_data["flight"].values)
         flight_stats: list[dict[str, Any]] = []
 
-        model_vars = [v for v in paired_data.data_vars if str(v).startswith("model_")]
+        var_pairs = iter_paired_variable_pairs(paired_data)
 
         for flight in flights:
             mask = paired_data["flight"].values == flight
             flight_data = paired_data.isel(time=mask)
 
-            for model_var in model_vars:
-                base_name = str(model_var).replace("model_", "", 1)
-                obs_var = f"obs_{base_name}"
-                if obs_var not in flight_data:
+            for obs_var, model_var, base_name in var_pairs:
+                if obs_var not in flight_data or model_var not in flight_data:
                     continue
 
                 model_vals = flight_data[model_var].values.flatten()

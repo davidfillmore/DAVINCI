@@ -249,9 +249,10 @@ class LogCollector:
                 for dim in ds.sizes:
                     total_points *= ds.sizes[dim]
                 details["paired_points"] = total_points
-                # Count variables
-                model_vars = [v for v in ds.data_vars if v.startswith("model_")]
-                details["variables"] = len(model_vars)
+                # Count paired (obs, model) variable pairs (role-based; R-5)
+                from davinci_monet.core.base import iter_paired_variable_pairs
+
+                details["variables"] = len(iter_paired_variable_pairs(ds))
             self.pair_details[pair_key] = details
 
         # Extract statistics

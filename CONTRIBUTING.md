@@ -47,8 +47,11 @@ black davinci_monet && isort davinci_monet  # Formatting
   that, split it.
 - **Data model**: Use xarray throughout pairing and analysis. Pandas is
   acceptable for I/O adapters and statistics output tables only.
-- **Variable naming**: Paired datasets use prefix format (`model_pm25`,
-  `obs_pm25`), not suffix.
+- **Variable naming**: Paired datasets from the pipeline use source-label prefix
+  format (`<source_label>_<var>`, e.g. `cam_pm25`/`airnow_pm25`), with `role` and
+  `source_label` attrs on each variable; the low-level pairing API still emits
+  `model_<var>`/`obs_<var>` when no source labels are supplied. Either way it is
+  prefix, not suffix. See the Variable Naming Convention section in CLAUDE.md.
 
 ## Project Conventions
 

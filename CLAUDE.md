@@ -312,11 +312,26 @@ export MY_ANALYSIS=/path/to/analysis
 
 ### Variable Naming Convention
 
-Paired datasets use **prefix** format:
-- `model_pm25` - Model values
-- `obs_pm25` - Observation values
+Paired datasets produced by the pipeline use **source-label prefix** format —
+`<source_label>_<var>`, where `<source_label>` is the source's key in the
+`sources:`/`pairs:` config:
+- `cam_pm25` - the `cam` source's values (comparand, `role: model`)
+- `airnow_pm25` - the `airnow` source's values (reference, `role: obs`)
 
-NOT suffix format (`pm25_model`, `pm25_obs`).
+Each paired variable carries `role` (`model`/`obs`) and `source_label` attrs, so
+consumers select series by role/source rather than by a name prefix. This is the
+going-forward naming after the renderer rewire clean break (R-5).
+
+The legacy `model_<var>`/`obs_<var>` prefix is still produced by the low-level
+`PairingEngine.pair()`/`strategy.pair()` API when no source labels are supplied
+(e.g. in unit tests); `tag_paired_roles` renames to source labels in the pipeline
+and tags the `role` attr in both cases. Variable resolution and styling helpers
+(`resolve_source_variable`, `canonical_variable_name`, `get_role_color`,
+`get_series_label`, `paired_variable_role`/`iter_paired_variable_pairs`) handle
+both names, inferring role from the `model_`/`obs_` prefix when no `role` attr is
+present.
+
+Either way it is **prefix** format, NOT suffix (`pm25_cam`, `pm25_model`).
 
 ## Key Design Patterns
 
