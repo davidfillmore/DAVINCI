@@ -49,6 +49,7 @@ from davinci_monet.plots.base import (
     get_variable_label,
     get_variable_units,
     merge_config_dicts,
+    resolve_source_variable,
 )
 from davinci_monet.plots.obs_base import ObsPlotter
 
@@ -127,6 +128,7 @@ from davinci_monet.plots.style import (
     FontSizes,
     apply_ncar_style,
     get_bias_cmap,
+    get_color_for_role,
     get_color_for_variable,
     get_density_cmap,
     get_palette,
@@ -145,6 +147,7 @@ __all__ = [
     # Utilities
     "merge_config_dicts",
     "get_variable_label",
+    "resolve_source_variable",
     "get_variable_units",
     "format_label_with_units",
     "calculate_symmetric_limits",
@@ -159,6 +162,7 @@ __all__ = [
     "MODEL_COLOR",
     "apply_ncar_style",
     "reset_style",
+    "get_color_for_role",
     "get_color_for_variable",
     "get_palette",
     "get_bias_cmap",
