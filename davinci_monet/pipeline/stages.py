@@ -263,6 +263,23 @@ def _format_duration(seconds: float) -> str:
         return f"{mins}m{secs:.0f}s"
 
 
+def tag_paired_roles(data: Any) -> None:
+    """Tag each paired variable with its ``role`` based on the model_/obs_ prefix.
+
+    Additive metadata (Phase 6): lets the paired output self-describe source roles
+    so plot styling can resolve colors by role. Does not rename variables and does
+    not overwrite a pre-existing ``role`` attr.
+    """
+    if data is None or not hasattr(data, "data_vars"):
+        return
+    for name in data.data_vars:
+        lname = str(name).lower()
+        if lname.startswith("model_"):
+            data[name].attrs.setdefault("role", "model")
+        elif lname.startswith("obs_"):
+            data[name].attrs.setdefault("role", "obs")
+
+
 class LoadModelsStage(BaseStage):
     """Stage for loading model data.
 
@@ -1298,6 +1315,11 @@ class PairingStage(BaseStage):
                     elif paired_ds is not None:
                         context.paired[pair_key] = paired_ds
                         paired_count += 1
+
+                        # Tag role metadata on the paired variables (additive).
+                        tag_paired_roles(
+                            paired_ds.data if hasattr(paired_ds, "data") else paired_ds
+                        )
 
                         # Summary message
                         paired_data = paired_ds.data if hasattr(paired_ds, "data") else paired_ds
