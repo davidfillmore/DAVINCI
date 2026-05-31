@@ -150,3 +150,251 @@ def test_plot_data_reference_without_pair_spec_uses_paired_dataset(
 
     assert result.status is StageStatus.COMPLETED
     assert len(result.data["plots_generated"]) == 2
+
+
+def test_plot_sources_pair_spec_uses_reference_and_comparand(
+    tmp_path: Path,
+) -> None:
+    from davinci_monet.pipeline.stages import PipelineContext, PlottingStage, StageStatus
+
+    times = np.array(["2024-01-01T00:00", "2024-01-01T01:00"], dtype="datetime64[m]")
+    paired = xr.Dataset(
+        {
+            "airnow_o3": ("time", np.array([1.0, 2.0])),
+            "cam_o3": ("time", np.array([1.1, 2.2])),
+        },
+        coords={"time": times},
+    )
+    paired["airnow_o3"].attrs.update(
+        {"role": "obs", "pair_role": "reference", "source_label": "airnow"}
+    )
+    paired["cam_o3"].attrs.update(
+        {"role": "model", "pair_role": "comparand", "source_label": "cam"}
+    )
+    ctx = PipelineContext(
+        config={
+            "analysis": {"output_dir": str(tmp_path)},
+            "pairs": {
+                "cam_airnow_o3": {
+                    "sources": ["cam", "airnow"],
+                    "reference": "airnow",
+                    "variables": {"cam": "O3", "airnow": "o3"},
+                }
+            },
+            "plots": {"scatter_o3": {"type": "scatter", "data": ["cam_airnow_o3"]}},
+        }
+    )
+    ctx.paired["cam_airnow_o3"] = paired
+
+    result = PlottingStage().execute(ctx)
+
+    assert result.status is StageStatus.COMPLETED
+    assert len(result.data["plots_generated"]) == 2
+
+
+def test_plot_legacy_pair_spec_falls_back_to_configured_pair_name(
+    tmp_path: Path,
+) -> None:
+    from davinci_monet.pipeline.stages import PipelineContext, PlottingStage, StageStatus
+
+    times = np.array(["2024-01-01T00:00", "2024-01-01T01:00"], dtype="datetime64[m]")
+    paired = xr.Dataset(
+        {
+            "airnow_o3": ("time", np.array([1.0, 2.0])),
+            "cam_o3": ("time", np.array([1.1, 2.2])),
+        },
+        coords={"time": times},
+    )
+    paired["airnow_o3"].attrs.update(
+        {"role": "obs", "pair_role": "reference", "source_label": "airnow"}
+    )
+    paired["cam_o3"].attrs.update(
+        {"role": "model", "pair_role": "comparand", "source_label": "cam"}
+    )
+    ctx = PipelineContext(
+        config={
+            "analysis": {"output_dir": str(tmp_path)},
+            "pairs": {
+                "cam_airnow_o3": {
+                    "model": "cam",
+                    "obs": "airnow",
+                    "variable": {"model_var": "O3", "obs_var": "o3"},
+                }
+            },
+            "plots": {"scatter_o3": {"type": "scatter", "data": ["cam_airnow_o3"]}},
+        }
+    )
+    ctx.paired["cam_airnow_o3"] = paired
+
+    result = PlottingStage().execute(ctx)
+
+    assert result.status is StageStatus.COMPLETED
+    assert len(result.data["plots_generated"]) == 2
+
+
+def test_invalid_sources_pair_missing_variable_fails() -> None:
+    from davinci_monet.core.protocols import DataGeometry
+    from davinci_monet.pipeline.stages import (
+        PairingStage,
+        PipelineContext,
+        SourceData,
+        StageStatus,
+    )
+
+    ctx = PipelineContext(
+        config={
+            "pairs": {
+                "cam_airnow_o3": {
+                    "sources": ["cam", "airnow"],
+                    "reference": "airnow",
+                    "variables": {"cam": "O3"},
+                }
+            }
+        },
+        sources={
+            "cam": SourceData(
+                data=xr.Dataset({"O3": ("time", np.array([1.0]))}),
+                label="cam",
+                source_type="generic",
+                geometry=DataGeometry.GRID,
+                role="model",
+            ),
+            "airnow": SourceData(
+                data=xr.Dataset({"o3": ("time", np.array([1.0]))}),
+                label="airnow",
+                source_type="pt_sfc",
+                geometry=DataGeometry.POINT,
+                role="obs",
+            ),
+        },
+    )
+
+    result = PairingStage().execute(ctx)
+
+    assert result.status is StageStatus.FAILED
+    assert "cam_airnow_o3" in str(result.error)
+    assert "missing variable mapping" in str(result.error)
+    assert ctx.paired == {}
+
+
+def test_invalid_sources_pair_unknown_source_fails() -> None:
+    from davinci_monet.core.protocols import DataGeometry
+    from davinci_monet.pipeline.stages import (
+        PairingStage,
+        PipelineContext,
+        SourceData,
+        StageStatus,
+    )
+
+    ctx = PipelineContext(
+        config={
+            "pairs": {
+                "cam_missing_o3": {
+                    "sources": ["cam", "missing_obs"],
+                    "reference": "missing_obs",
+                    "variables": {"cam": "O3", "missing_obs": "o3"},
+                }
+            }
+        },
+        sources={
+            "cam": SourceData(
+                data=xr.Dataset({"O3": ("time", np.array([1.0]))}),
+                label="cam",
+                source_type="generic",
+                geometry=DataGeometry.GRID,
+                role="model",
+            )
+        },
+    )
+
+    stage = PairingStage()
+    assert stage.validate(ctx)
+    result = stage.execute(ctx)
+
+    assert result.status is StageStatus.FAILED
+    assert "cam_missing_o3" in str(result.error)
+    assert "unknown source" in str(result.error)
+    assert ctx.paired == {}
+
+
+def test_invalid_legacy_pair_missing_source_fails_when_sources_loaded() -> None:
+    from davinci_monet.core.protocols import DataGeometry
+    from davinci_monet.pipeline.stages import (
+        PairingStage,
+        PipelineContext,
+        SourceData,
+        StageStatus,
+    )
+
+    ctx = PipelineContext(
+        config={
+            "pairs": {
+                "cam_airnow_o3": {
+                    "model": "cam",
+                    "obs": "airnow",
+                    "variable": {"model_var": "O3", "obs_var": "o3"},
+                }
+            }
+        },
+        sources={
+            "cam": SourceData(
+                data=xr.Dataset({"O3": ("time", np.array([1.0]))}),
+                label="cam",
+                source_type="generic",
+                geometry=DataGeometry.GRID,
+                role="model",
+            )
+        },
+    )
+
+    result = PairingStage().execute(ctx)
+
+    assert result.status is StageStatus.FAILED
+    assert "cam_airnow_o3" in str(result.error)
+    assert "unknown source" in str(result.error)
+    assert ctx.paired == {}
+
+
+def test_invalid_legacy_pair_missing_variable_fails_when_sources_loaded() -> None:
+    from davinci_monet.core.protocols import DataGeometry
+    from davinci_monet.pipeline.stages import (
+        PairingStage,
+        PipelineContext,
+        SourceData,
+        StageStatus,
+    )
+
+    ctx = PipelineContext(
+        config={
+            "pairs": {
+                "cam_airnow_o3": {
+                    "model": "cam",
+                    "obs": "airnow",
+                    "variable": {"model_var": "O3"},
+                }
+            }
+        },
+        sources={
+            "cam": SourceData(
+                data=xr.Dataset({"O3": ("time", np.array([1.0]))}),
+                label="cam",
+                source_type="generic",
+                geometry=DataGeometry.GRID,
+                role="model",
+            ),
+            "airnow": SourceData(
+                data=xr.Dataset({"o3": ("time", np.array([1.0]))}),
+                label="airnow",
+                source_type="pt_sfc",
+                geometry=DataGeometry.POINT,
+                role="obs",
+            ),
+        },
+    )
+
+    result = PairingStage().execute(ctx)
+
+    assert result.status is StageStatus.FAILED
+    assert "cam_airnow_o3" in str(result.error)
+    assert "missing variable mapping" in str(result.error)
+    assert ctx.paired == {}

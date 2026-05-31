@@ -5,10 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 
 from davinci_monet.config.migration import migrate_to_sources
 from davinci_monet.config.schema import MonetConfig
+from davinci_monet.core.exceptions import ConfigurationError
 
 
 def _legacy() -> dict[str, Any]:
@@ -78,6 +80,64 @@ class TestMigrateToSources:
         again = migrate_to_sources(unified)
         assert again["sources"].keys() == unified["sources"].keys()
         assert "model" not in again and "obs" not in again
+
+    def test_satellite_swath_obs_type_becomes_satellite_l2_source_type(self) -> None:
+        legacy = _legacy()
+        legacy["obs"] = {
+            "tempo": {
+                "obs_type": "sat_swath_clm",
+                "sat_type": "tempo_l2_no2",
+                "filename": "/data/tempo/*.nc",
+                "variables": {"NO2": {"obs_min": 0}},
+            }
+        }
+        legacy["pairs"]["cam_airnow_o3"]["obs"] = "tempo"
+        legacy["pairs"]["cam_airnow_o3"]["variable"]["obs_var"] = "NO2"
+
+        out = migrate_to_sources(legacy)
+
+        assert out["sources"]["tempo"]["type"] == "satellite_l2"
+        assert out["sources"]["tempo"]["role"] == "obs"
+        assert out["sources"]["tempo"]["sat_type"] == "tempo_l2_no2"
+
+    def test_satellite_gridded_obs_type_becomes_satellite_l3_source_type(self) -> None:
+        legacy = _legacy()
+        legacy["obs"] = {
+            "goes": {
+                "obs_type": "sat_grid_clm",
+                "sat_type": "goes_l3_aod",
+                "filename": "/data/goes/*.nc",
+                "variables": {"AOD": {"obs_min": 0}},
+            }
+        }
+        legacy["pairs"]["cam_airnow_o3"]["obs"] = "goes"
+        legacy["pairs"]["cam_airnow_o3"]["variable"]["obs_var"] = "AOD"
+
+        out = migrate_to_sources(legacy)
+
+        assert out["sources"]["goes"]["type"] == "satellite_l3"
+        assert out["sources"]["goes"]["role"] == "obs"
+        assert out["sources"]["goes"]["sat_type"] == "goes_l3_aod"
+
+    def test_modis_l2_gridding_migration_requires_manual_conversion(self) -> None:
+        legacy = _legacy()
+        legacy["obs"] = {
+            "modis": {
+                "obs_type": "sat_swath_clm",
+                "sat_type": "modis_l2",
+                "filename": "/data/modis/*.hdf",
+                "grid_source": "cam",
+                "variables": {"AOD": {"rename": "aod"}},
+            }
+        }
+        legacy["pairs"]["cam_airnow_o3"]["obs"] = "modis"
+        legacy["pairs"]["cam_airnow_o3"]["variable"]["obs_var"] = "AOD"
+
+        with pytest.raises(
+            ConfigurationError,
+            match="MODIS L2 gridding.*manual conversion",
+        ):
+            migrate_to_sources(legacy)
 
 
 class TestMigrateCLI:

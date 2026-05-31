@@ -135,8 +135,8 @@ class PipelineContext:
     config: dict[str, Any] = field(default_factory=dict)
     models: dict[str, Any] = field(default_factory=dict)
     observations: dict[str, Any] = field(default_factory=dict)
-    # Unified data-source view (Phase 3). Models and observations both register
-    # here keyed by label; distinguished only by the dataset's ``role`` attr.
+    # Unified data-source view. Models and observations both register here
+    # keyed by label; legacy role-specific dicts are kept in sync where known.
     sources: dict[str, Any] = field(default_factory=dict)
     paired: dict[str, Any] = field(default_factory=dict)
     results: dict[str, StageResult] = field(default_factory=dict)
@@ -1116,20 +1116,15 @@ class LoadObservationsStage(BaseStage):
 
 
 class LoadSourcesStage(BaseStage):
-    """Unified data-source loading stage (Phase 3, additive).
+    """Standard data-source loading stage.
 
-    Loads model and observation configuration via the existing
-    :class:`LoadModelsStage` / :class:`LoadObservationsStage` loaders, then
-    exposes everything through ``context.sources`` keyed by label, tagging each
-    dataset's ``attrs`` with ``role`` (``"model"``/``"obs"``), ``source_label``,
-    and ``geometry``. Results are mirrored in ``context.models`` /
-    ``context.observations`` so existing accessors keep working.
-
-    This is purely additive: it does not yet replace the legacy load stages in
-    the default pipelines (that happens in a later phase). It can be used in a
-    custom stage list, and it tolerates a context whose ``models`` /
-    ``observations`` are already populated (in which case it simply unifies and
-    tags them).
+    Loads the unified ``sources:`` config directly through ``source_registry``.
+    Legacy ``model:`` / ``obs:`` configs are still delegated to the existing
+    loaders, then exposed through ``context.sources`` keyed by label. Loaded
+    datasets are tagged with ``role`` (``"model"``/``"obs"`` when known),
+    ``source_label``, and ``geometry``. Results are mirrored in
+    ``context.models`` / ``context.observations`` so existing accessors keep
+    working.
     """
 
     def __init__(self) -> None:
@@ -1286,6 +1281,7 @@ class LoadSourcesStage(BaseStage):
                 f"Available source types: {available}"
             ) from e
 
+        role = self._infer_source_role(role, reader_cls)
         reader = reader_cls()
         passthrough_keys = {
             "type",
@@ -1321,6 +1317,17 @@ class LoadSourcesStage(BaseStage):
             config=cfg,
         )
         return source
+
+    @staticmethod
+    def _infer_source_role(explicit_role: Any, reader_cls: type[Any]) -> str | None:
+        if explicit_role:
+            return str(explicit_role)
+        module = getattr(reader_cls, "__module__", "")
+        if module.startswith("davinci_monet.observations"):
+            return "obs"
+        if module.startswith("davinci_monet.models"):
+            return "model"
+        return None
 
     @staticmethod
     def _apply_variable_config(
@@ -1407,7 +1414,12 @@ class PairingStage(BaseStage):
 
     def validate(self, context: PipelineContext) -> bool:
         """Validate that models and observations are loaded."""
-        if context.config.get("pairs") and len(context.sources) >= 2:
+        pairs_config = context.config.get("pairs")
+        if isinstance(pairs_config, dict) and any(
+            isinstance(pair, dict) and "sources" in pair for pair in pairs_config.values()
+        ):
+            return True
+        if pairs_config and len(context.sources) >= 2:
             return True
         return bool(context.models) and bool(context.observations)
 
@@ -1430,7 +1442,16 @@ class PairingStage(BaseStage):
         # Get pairing configuration
         pairing_config_dict = context.config.get("pairing", {})
 
-        source_jobs = self._build_source_pair_jobs(context)
+        source_jobs, source_pair_errors = self._build_source_pair_jobs(context)
+        if source_pair_errors:
+            context.metadata.setdefault("pairing_errors", []).extend(source_pair_errors)
+            return self._create_result(
+                StageStatus.FAILED,
+                data={"paired_keys": []},
+                error="Invalid source pair configuration: " + "; ".join(source_pair_errors),
+                duration=time.time() - start,
+                count=0,
+            )
         if source_jobs:
             return self._execute_source_pair_jobs(
                 context,
@@ -1722,26 +1743,37 @@ class PairingStage(BaseStage):
             count=paired_count,
         )
 
-    def _build_source_pair_jobs(self, context: PipelineContext) -> list[SourcePairJob]:
+    def _build_source_pair_jobs(
+        self, context: PipelineContext
+    ) -> tuple[list[SourcePairJob], list[str]]:
         """Build role-neutral pair jobs from ``pairs:`` or legacy mappings."""
         from davinci_monet.pairing.direction import resolve_pair_direction
 
         jobs: list[SourcePairJob] = []
+        errors: list[str] = []
         pair_index = 0
         pairs_config = context.config.get("pairs")
 
         if not isinstance(pairs_config, dict):
-            return []
+            return [], errors
 
         for pair_name, raw_pair in pairs_config.items():
             if not isinstance(raw_pair, dict):
+                errors.append(f"Pair '{pair_name}' must be a mapping")
                 continue
             if "sources" in raw_pair:
                 srcs = raw_pair.get("sources") or []
                 if len(srcs) != 2:
+                    errors.append(f"Pair '{pair_name}' must list exactly two sources; got {srcs!r}")
                     continue
                 a_label, b_label = str(srcs[0]), str(srcs[1])
                 if a_label not in context.sources or b_label not in context.sources:
+                    missing = [
+                        label for label in (a_label, b_label) if label not in context.sources
+                    ]
+                    errors.append(
+                        f"Pair '{pair_name}' references unknown source(s): " f"{', '.join(missing)}"
+                    )
                     continue
                 a_obj = context.sources[a_label]
                 b_obj = context.sources[b_label]
@@ -1755,10 +1787,11 @@ class PairingStage(BaseStage):
                     elif explicit_ref == b_label:
                         explicit_pos = "b"
                     else:
-                        raise PipelineError(
+                        errors.append(
                             f"Pair '{pair_name}' references unknown source "
                             f"'{explicit_ref}'. Expected one of {srcs}."
                         )
+                        continue
                 ref_geom, comp_geom = resolve_pair_direction(
                     a_geom, b_geom, explicit_reference=explicit_pos
                 )
@@ -1774,6 +1807,18 @@ class PairingStage(BaseStage):
                 reference_var = vmap.get(reference_label)
                 comparand_var = vmap.get(comparand_label)
                 if not reference_var or not comparand_var:
+                    missing = [
+                        label
+                        for label, value in (
+                            (reference_label, reference_var),
+                            (comparand_label, comparand_var),
+                        )
+                        if not value
+                    ]
+                    errors.append(
+                        f"Pair '{pair_name}' missing variable mapping for source(s): "
+                        f"{', '.join(missing)}"
+                    )
                     continue
                 pair_index += 1
                 jobs.append(
@@ -1795,11 +1840,33 @@ class PairingStage(BaseStage):
                 model_label = str(raw_pair["model"])
                 obs_label = str(raw_pair["obs"])
                 if model_label not in context.sources or obs_label not in context.sources:
+                    if context.sources:
+                        missing = [
+                            label
+                            for label in (model_label, obs_label)
+                            if label not in context.sources
+                        ]
+                        errors.append(
+                            f"Pair '{pair_name}' references unknown source(s): "
+                            f"{', '.join(missing)}"
+                        )
                     continue
                 var_spec = raw_pair.get("variable") or {}
                 model_var = var_spec.get("model_var")
                 obs_var = var_spec.get("obs_var")
                 if not model_var or not obs_var:
+                    missing = [
+                        label
+                        for label, value in (
+                            (model_label, model_var),
+                            (obs_label, obs_var),
+                        )
+                        if not value
+                    ]
+                    errors.append(
+                        f"Pair '{pair_name}' missing variable mapping for source(s): "
+                        f"{', '.join(missing)}"
+                    )
                     continue
                 pair_index += 1
                 model_obj = context.sources[model_label]
@@ -1819,7 +1886,7 @@ class PairingStage(BaseStage):
                         radius_of_influence=self._pair_radius(raw_pair, model_obj),
                     )
                 )
-        return jobs
+        return jobs, errors
 
     @staticmethod
     def _source_dataset(obj: Any) -> xr.Dataset | None:
@@ -2200,14 +2267,28 @@ class PlottingStage(BaseStage):
                 for pair_name in plot_pairs:
                     # Get pair configuration
                     pair_spec = pairs_config.get(pair_name, {})
-                    model_label = pair_spec.get("model", "")
-                    obs_label = pair_spec.get("obs", "")
+                    if not isinstance(pair_spec, dict):
+                        pair_spec = {}
+
+                    sources = [str(src) for src in pair_spec.get("sources", [])]
+                    model_label = str(pair_spec.get("model", ""))
+                    obs_label = str(pair_spec.get("obs", ""))
                     var_spec = pair_spec.get("variable", {})
-                    obs_var = var_spec.get("obs_var", "")
 
                     # Find paired data
                     pair_key = f"{model_label}_{obs_label}"
-                    if not pair_spec and pair_name in context.paired:
+                    if "sources" in pair_spec:
+                        pair_key = pair_name
+                        reference_label = pair_spec.get("reference")
+                        if reference_label is not None and str(reference_label) in sources:
+                            obs_label = str(reference_label)
+                            model_label = next(
+                                (src for src in sources if src != obs_label),
+                                "",
+                            )
+                    elif not pair_spec and pair_name in context.paired:
+                        pair_key = pair_name
+                    elif pair_key not in context.paired and pair_name in context.paired:
                         pair_key = pair_name
                     if pair_key not in context.paired:
                         continue
@@ -2227,10 +2308,35 @@ class PlottingStage(BaseStage):
                             paired_data[model_var_name].attrs.get("source_label", "comparand")
                         )
                         var_spec = {"obs_var": obs_var, "model_var": obs_var}
+                    elif "sources" in pair_spec:
+                        pair_vars = iter_paired_variable_pairs(paired_data)
+                        if not pair_vars:
+                            continue
+                        fallback_obs_name, fallback_model_name, fallback_var = pair_vars[0]
+                        if not obs_label:
+                            obs_label = str(
+                                paired_data[fallback_obs_name].attrs.get(
+                                    "source_label", "reference"
+                                )
+                            )
+                        if not model_label:
+                            model_label = str(
+                                paired_data[fallback_model_name].attrs.get(
+                                    "source_label", "comparand"
+                                )
+                            )
+                        source_vars = pair_spec.get("variables") or {}
+                        obs_var = str(source_vars.get(obs_label) or fallback_var)
+                        model_var = str(source_vars.get(model_label) or obs_var)
+                        var_spec = {"obs_var": obs_var, "model_var": model_var}
+                        obs_var_name, model_var_name = resolve_paired_var_names(
+                            paired_data, obs_var, obs_label, model_label
+                        )
                     else:
                         # Resolve the paired variable names: prefer the source-label
                         # aliases (e.g. cam_o3 / airnow_o3) added by tag_paired_roles,
                         # falling back to the legacy obs_/model_ prefixes (R-2).
+                        obs_var = var_spec.get("obs_var", "")
                         obs_var_name, model_var_name = resolve_paired_var_names(
                             paired_data, obs_var, obs_label, model_label
                         )
@@ -2256,6 +2362,13 @@ class PlottingStage(BaseStage):
                     var_config = (
                         model_config.get(model_label, {}).get("variables", {}).get(model_var, {})
                     )
+                    if not var_config:
+                        var_config = (
+                            context.config.get("sources", {})
+                            .get(model_label, {})
+                            .get("variables", {})
+                            .get(model_var, {})
+                        )
                     vmin = var_config.get("vmin_plot")
                     vmax = var_config.get("vmax_plot")
                     vdiff = var_config.get("vdiff_plot")
