@@ -28,6 +28,8 @@ from davinci_monet.config.schema import (
     ObservationConfig,
     PlotGroupConfig,
     PlotStyleConfig,
+    SourceConfig,
+    SourcePairConfig,
     StatsConfig,
     VariableConfig,
 )
@@ -39,6 +41,8 @@ __all__ = [
     "AnalysisConfig",
     "ModelConfig",
     "ObservationConfig",
+    "SourceConfig",
+    "SourcePairConfig",
     "PlotGroupConfig",
     "PlotStyleConfig",
     "StatsConfig",
