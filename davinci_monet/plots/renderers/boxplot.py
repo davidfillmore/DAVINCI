@@ -15,6 +15,8 @@ from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
     format_label_with_units,
+    get_role_color,
+    get_series_label,
     get_variable_label,
     get_variable_units,
 )
@@ -110,14 +112,10 @@ class BoxPlotter(BasePlotter):
         # Get style configuration
         style = self.config.style
 
-        # Get labels
-        obs_label = (
-            obs_label or get_variable_label(paired_data, obs_var, self.config.obs_label) or "Obs"
-        )
-        model_label = (
-            model_label
-            or get_variable_label(paired_data, model_var, self.config.model_label)
-            or "Model"
+        # Series legend labels prefer the source label over Obs/Model (R-3).
+        obs_label = obs_label or get_series_label(paired_data, obs_var, self.config.obs_label)
+        model_label = model_label or get_series_label(
+            paired_data, model_var, self.config.model_label
         )
 
         vert = orientation == "vertical"
@@ -213,7 +211,14 @@ class BoxPlotter(BasePlotter):
 
         data = [obs_values, model_values]
         labels = [obs_label, model_label]
-        colors = [style.obs_color, style.model_color]
+        colors = [
+            get_role_color(
+                paired_data, obs_var, 0, obs_color=style.obs_color, model_color=style.model_color
+            ),
+            get_role_color(
+                paired_data, model_var, 1, obs_color=style.obs_color, model_color=style.model_color
+            ),
+        ]
 
         bp = ax.boxplot(
             data,
@@ -313,12 +318,18 @@ class BoxPlotter(BasePlotter):
             patch_artist=True,
         )
 
-        # Color the boxes
+        # Color the boxes by source role (R-3)
+        obs_color = get_role_color(
+            paired_data, obs_var, 0, obs_color=style.obs_color, model_color=style.model_color
+        )
+        model_color = get_role_color(
+            paired_data, model_var, 1, obs_color=style.obs_color, model_color=style.model_color
+        )
         for patch in bp_obs["boxes"]:
-            patch.set_facecolor(style.obs_color)
+            patch.set_facecolor(obs_color)
             patch.set_alpha(0.5)
         for patch in bp_model["boxes"]:
-            patch.set_facecolor(style.model_color)
+            patch.set_facecolor(model_color)
             patch.set_alpha(0.5)
 
         # Set tick labels
@@ -333,8 +344,8 @@ class BoxPlotter(BasePlotter):
         from matplotlib.patches import Patch
 
         legend_elements = [
-            Patch(facecolor=style.obs_color, alpha=0.5, label=obs_label),
-            Patch(facecolor=style.model_color, alpha=0.5, label=model_label),
+            Patch(facecolor=obs_color, alpha=0.5, label=obs_label),
+            Patch(facecolor=model_color, alpha=0.5, label=model_label),
         ]
         ax.legend(handles=legend_elements, loc="best")
 

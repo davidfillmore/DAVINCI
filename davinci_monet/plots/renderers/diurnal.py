@@ -16,6 +16,8 @@ from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
     format_label_with_units,
+    get_role_color,
+    get_series_label,
     get_variable_label,
     get_variable_units,
 )
@@ -140,27 +142,31 @@ class DiurnalPlotter(BasePlotter):
         # Get style configuration
         style = self.config.style
 
-        # Get labels
-        obs_label = (
-            obs_label
-            or get_variable_label(paired_data, obs_var, self.config.obs_label)
-            or "Observations"
+        # Series legend labels prefer the source label over Observed/Modeled (R-3).
+        obs_label = obs_label or get_series_label(paired_data, obs_var, self.config.obs_label)
+        model_label = model_label or get_series_label(
+            paired_data, model_var, self.config.model_label
         )
-        model_label = (
-            model_label
-            or get_variable_label(paired_data, model_var, self.config.model_label)
-            or "Model"
+
+        # Series colors by source role (obs gray, model blue, else palette) (R-3).
+        obs_color = get_role_color(
+            paired_data, obs_var, 0, obs_color=style.obs_color, model_color=style.model_color
+        )
+        model_color = get_role_color(
+            paired_data, model_var, 1, obs_color=style.obs_color, model_color=style.model_color
         )
 
         # Plot spread if requested
         if show_spread != "none":
-            self._add_spread_bands(ax, obs_hourly, model_hourly, hours_arr, style, show_spread)
+            self._add_spread_bands(
+                ax, obs_hourly, model_hourly, hours_arr, show_spread, obs_color, model_color
+            )
 
         # Plot means
         ax.plot(
             hours_arr,
             obs_mean_vals,
-            color=style.obs_color,
+            color=obs_color,
             linestyle=style.obs_linestyle,
             marker=style.obs_marker,
             linewidth=style.linewidth,
@@ -171,7 +177,7 @@ class DiurnalPlotter(BasePlotter):
         ax.plot(
             hours_arr,
             model_mean_vals,
-            color=style.model_color,
+            color=model_color,
             linestyle=style.model_linestyle,
             marker=style.model_marker,
             linewidth=style.linewidth,
@@ -210,8 +216,9 @@ class DiurnalPlotter(BasePlotter):
         obs_hourly: Any,
         model_hourly: Any,
         hours: np.ndarray,
-        style: Any,
         spread_type: str,
+        obs_color: str,
+        model_color: str,
     ) -> None:
         """Add spread bands to the plot.
 
@@ -223,10 +230,10 @@ class DiurnalPlotter(BasePlotter):
             Grouped data by hour.
         hours
             Hour values for x-axis.
-        style
-            Style configuration.
         spread_type
             Type of spread ('std', 'iqr', 'range').
+        obs_color, model_color
+            Series colors (role-based) so the bands match the plotted lines.
         """
         if spread_type == "std":
             obs_mean = obs_hourly.mean()
@@ -272,19 +279,19 @@ class DiurnalPlotter(BasePlotter):
                 model_upper_vals, axis=tuple(range(1, model_upper_vals.ndim))
             )
 
-        # Plot bands
+        # Plot bands (role-based colors, matching the series; R-3)
         ax.fill_between(
             hours,
             obs_lower_vals,
             obs_upper_vals,
-            color=style.obs_color,
+            color=obs_color,
             alpha=0.2,
         )
         ax.fill_between(
             hours,
             model_lower_vals,
             model_upper_vals,
-            color=style.model_color,
+            color=model_color,
             alpha=0.2,
         )
 

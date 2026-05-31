@@ -19,6 +19,8 @@ from davinci_monet.plots.base import (
     PlotConfig,
     format_label_with_units,
     format_plot_title,
+    get_role_color,
+    get_series_label,
     get_variable_label,
     get_variable_units,
 )
@@ -160,6 +162,17 @@ class SiteTimeSeriesPlotter(BasePlotter):
             valid_obs = ~np.isnan(obs_vals)
             valid_both = valid_obs & ~np.isnan(mod_vals)
 
+            # Series colors/labels by source role (R-3): obs gray, model blue,
+            # else palette; legends use the source label.
+            obs_color = get_role_color(
+                site_data, obs_var, 0, obs_color=style.obs_color, model_color=style.model_color
+            )
+            model_color = get_role_color(
+                site_data, model_var, 1, obs_color=style.obs_color, model_color=style.model_color
+            )
+            obs_label = get_series_label(site_data, obs_var)
+            model_label = get_series_label(site_data, model_var)
+
             # Plot observations
             if obs_style == "scatter":
                 ax.scatter(
@@ -167,8 +180,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
                     obs_vals[valid_obs],
                     s=8,
                     alpha=0.6,
-                    color="black",
-                    label="Obs",
+                    color=obs_color,
+                    label=obs_label,
                     zorder=3,
                 )
             else:
@@ -176,11 +189,11 @@ class SiteTimeSeriesPlotter(BasePlotter):
                     times[valid_obs],
                     obs_vals[valid_obs],
                     "o-",
-                    color="black",
+                    color=obs_color,
                     markersize=3,
                     linewidth=0.5,
                     alpha=0.7,
-                    label="Obs",
+                    label=obs_label,
                     zorder=3,
                 )
 
@@ -189,10 +202,10 @@ class SiteTimeSeriesPlotter(BasePlotter):
                 ax.plot(
                     times,
                     mod_vals,
-                    color=style.model_color,
+                    color=model_color,
                     linewidth=1.5,
                     alpha=0.8,
-                    label="Model",
+                    label=model_label,
                     zorder=2,
                 )
             else:
@@ -201,8 +214,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
                     mod_vals[valid_both],
                     s=8,
                     alpha=0.6,
-                    color=style.model_color,
-                    label="Model",
+                    color=model_color,
+                    label=model_label,
                     zorder=2,
                 )
 
