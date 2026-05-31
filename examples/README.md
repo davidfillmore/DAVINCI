@@ -96,6 +96,6 @@ fig = plotter.plot(my_paired_data, "obs_pm25", "model_pm25")
 DAVINCI must be installed:
 
 ```bash
-conda activate davinci-monet
+conda activate davinci
 pip install -e ..
 ```

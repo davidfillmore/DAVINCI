@@ -9,7 +9,7 @@ for getting started.
 
    ```bash
    conda env create -f environment.yml
-   conda activate davinci-monet
+   conda activate davinci
    pip install -e ".[dev]"
    ```
 

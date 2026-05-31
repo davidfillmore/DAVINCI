@@ -7,7 +7,7 @@ Dec 21-23 2019. For each day, generates:
   - Pixel count map
 
 Usage:
-    conda activate davinci-monet
+    conda activate davinci
     python analyses/modis-aod/scripts/smoke_test.py
 """
 

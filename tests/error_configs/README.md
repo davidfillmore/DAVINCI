@@ -5,8 +5,8 @@ These YAML files intentionally contain errors to test the pipeline's error handl
 ## Usage
 
 ```bash
-cd /Users/fillmore/EarthSystem/DAVINCI-MONET
-conda activate davinci-monet
+cd /Users/fillmore/EarthSystem/DAVINCI
+conda activate davinci
 
 # Test individual configs
 davinci-monet run tests/error_configs/01_malformed_yaml.yaml

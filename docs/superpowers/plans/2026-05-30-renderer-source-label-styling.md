@@ -2,7 +2,7 @@
 
 > Final piece of the model/obs unification (the "CFG-4 proper" renderer rewire).
 > Sequenced as green sub-increments, each landed on `develop` with the full
-> `davinci-monet` conda-env suite passing (only the 2 pre-existing `test_stats.py`
+> `davinci` conda-env suite passing (only the 2 pre-existing `test_stats.py`
 > xarray-squeeze failures allowed).
 
 ## Context
@@ -115,7 +115,7 @@ CLAUDE.md (variable-naming section).
   prefixes; audit `stats/` before R-5 (out of scope for R-1).
 - **Backward-compat:** keep the dual-naming bridge until R-5 so older paired
   datasets and any external consumers keep working.
-- **Verification:** after each R-step, run the full suite in `davinci-monet`
+- **Verification:** after each R-step, run the full suite in `davinci`
   (`HDF5_USE_FILE_LOCKING=FALSE python -m pytest`) and regenerate the ASIA-AQ
   obs plots to the iCloud folder to eyeball styling.
 

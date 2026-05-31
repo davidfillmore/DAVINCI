@@ -61,10 +61,10 @@ Specific actionable items
 
 These are standing directives for any agent or contributor running this project:
 
-- **Run tests/regression in the `davinci-monet` conda env.** The full suite depends on cartopy, monet, monetio, netCDF4, and other geo packages that are only present in this environment. Do not run the suite in a generic/sandbox Python that lacks these deps.
+- **Run tests/regression in the `davinci` conda env.** The full suite depends on cartopy, monet, monetio, netCDF4, and other geo packages that are only present in this environment. Do not run the suite in a generic/sandbox Python that lacks these deps.
   ```bash
   source ~/miniconda3/etc/profile.d/conda.sh
-  conda activate davinci-monet
+  conda activate davinci
   HDF5_USE_FILE_LOCKING=FALSE python -m pytest
   ```
 
@@ -130,7 +130,7 @@ else:
 
 ```bash
 # Activate conda environment
-conda activate davinci-monet
+conda activate davinci
 
 # Install in development mode
 pip install -e ".[dev]"
@@ -147,12 +147,12 @@ black davinci_monet && isort davinci_monet
 
 ## Conda Environment
 
-**Name**: `davinci-monet`
+**Name**: `davinci`
 
 **Create from environment.yml**:
 ```bash
 conda env create -f environment.yml
-conda activate davinci-monet
+conda activate davinci
 ```
 
 **Key packages** (inherited from melodies-monet):

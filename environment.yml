@@ -1,4 +1,4 @@
-name: davinci-monet
+name: davinci
 channels:
   - conda-forge
   - defaults
