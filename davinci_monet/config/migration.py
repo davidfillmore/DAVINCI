@@ -359,6 +359,27 @@ def validate_version_compatibility(
         )
 
 
+LEGACY_SATELLITE_SOURCE_TYPES = {
+    "satellite": "satellite_l2",
+    "sat_swath_clm": "satellite_l2",
+    "sat_grid_clm": "satellite_l3",
+}
+
+
+def _migrated_obs_source_type(label: str, entry: dict[str, Any]) -> Any:
+    """Return the unified source type for a legacy observation entry."""
+    obs_type = entry.pop("obs_type")
+    sat_type = entry.get("sat_type")
+    if sat_type is not None and str(sat_type).lower() == "modis_l2":
+        raise ConfigurationError(
+            f"Cannot migrate legacy MODIS L2 gridding source {label!r}. "
+            "MODIS L2 gridding migration is unsupported and requires manual conversion."
+        )
+    if isinstance(obs_type, str):
+        return LEGACY_SATELLITE_SOURCE_TYPES.get(obs_type.lower(), obs_type)
+    return obs_type
+
+
 def migrate_to_sources(config: dict[str, Any]) -> dict[str, Any]:
     """Migrate a legacy ``model:``/``obs:``/``pairs:`` config to the unified
     ``sources:``/``pairs:`` form (Phase 6).
@@ -400,7 +421,7 @@ def migrate_to_sources(config: dict[str, Any]) -> dict[str, Any]:
         entry = dict(raw) if isinstance(raw, dict) else {}
         new_entry = {"role": "obs"}
         if "obs_type" in entry:
-            new_entry["type"] = entry.pop("obs_type")
+            new_entry["type"] = _migrated_obs_source_type(label, entry)
         new_entry.update(entry)
         sources[label] = new_entry
 

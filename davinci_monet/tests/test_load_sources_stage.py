@@ -1,10 +1,9 @@
-"""Tests for the unified data-source pipeline plumbing (Phase 3).
+"""Tests for the unified data-source pipeline plumbing.
 
-Phase 3 is additive: it introduces ``PipelineContext.sources`` + ``get_source``
-and a ``LoadSourcesStage`` that unifies model/observation loading into a single
-``context.sources`` view (tagging each dataset with role/source_label/geometry),
-while leaving the legacy ``LoadModelsStage``/``LoadObservationsStage`` and the
-``models``/``observations`` context dicts untouched.
+``LoadSourcesStage`` unifies model/observation loading into a single
+``context.sources`` view (tagging each dataset with role/source_label/geometry)
+while keeping the legacy ``models``/``observations`` context dicts available for
+existing accessors.
 
 These are unit tests: they construct data containers directly and exercise the
 context API and stage logic, per the repo's existing pipeline-stage test pattern
@@ -124,6 +123,30 @@ class TestLoadSourcesStage:
         # Backward-compatible accessors still work unchanged.
         assert ctx.get_model("cam") is model_data
         assert ctx.get_observation("airnow") is obs_data
+
+    def test_unified_observation_source_infers_role_from_reader(self, tmp_path) -> None:
+        obs_path = tmp_path / "airnow.nc"
+        _point_obs_dataset().to_netcdf(obs_path)
+        ctx = PipelineContext(
+            config={
+                "sources": {
+                    "airnow": {
+                        "type": "pt_sfc",
+                        "filename": str(obs_path),
+                        "variables": {"o3": {"units": "ppb"}},
+                    }
+                }
+            }
+        )
+
+        result = LoadSourcesStage().execute(ctx)
+
+        assert result.status is StageStatus.COMPLETED
+        assert set(ctx.sources) == {"airnow"}
+        assert set(ctx.observations) == {"airnow"}
+        assert ctx.models == {}
+        assert ctx.sources["airnow"].role == "obs"
+        assert ctx.sources["airnow"].data.attrs["role"] == "obs"
 
     def test_stage_name(self) -> None:
         assert LoadSourcesStage().name == "load_sources"

@@ -267,19 +267,18 @@ source_registry: Registry[type] = Registry("source")
 """Unified registry for data source reader classes.
 
 Models and observations both register here, keyed by a single ``type`` id and
-distinguished only by the geometry their reader declares. This is the single
-source of truth for reader registration as of Phase 2 of the unification."""
+distinguished by reader module, declared geometry, and source role metadata.
+This is the single source of truth for reader registration."""
 
-# Deprecated aliases (Phase 2): the former model/observation registries now
-# point at the unified source_registry. All readers register on source_registry;
-# these names are retained for backward-compatible lookups and will be removed in
-# Phase 6. They are plain aliases (no runtime warning) so the test suite — which
-# escalates UserWarning to errors — stays green.
+# Deprecated aliases: the former model/observation registries now point at the
+# unified source_registry. All readers register on source_registry; these names
+# are retained for backward-compatible lookups. They are plain aliases (no
+# runtime warning) so strict warning filters stay green.
 model_registry: Registry[type] = source_registry
-"""Deprecated alias of :data:`source_registry` (removed in Phase 6)."""
+"""Deprecated alias of :data:`source_registry` retained for compatibility."""
 
 observation_registry: Registry[type] = source_registry
-"""Deprecated alias of :data:`source_registry` (removed in Phase 6)."""
+"""Deprecated alias of :data:`source_registry` retained for compatibility."""
 
 pairing_registry: Registry[type] = Registry("pairing")
 """Registry for pairing strategy classes (point, track, profile, swath, grid)."""
