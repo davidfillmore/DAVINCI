@@ -12,8 +12,8 @@ from davinci_monet.config.schema import MonetConfig, SourceConfig, SourcePairCon
 
 class TestSourceConfig:
     def test_parses_sources_block(self) -> None:
-        cfg = MonetConfig(
-            **{
+        cfg = MonetConfig.model_validate(
+            {
                 "sources": {
                     "cam": {
                         "type": "cesm_fv",
@@ -42,7 +42,9 @@ class TestSourceConfig:
         assert cfg.sources["airnow"].role == "obs"
 
     def test_role_is_optional(self) -> None:
-        cfg = MonetConfig(**{"sources": {"x": {"type": "pt_sfc", "filename": "/d.nc"}}})
+        cfg = MonetConfig.model_validate(
+            {"sources": {"x": {"type": "pt_sfc", "filename": "/d.nc"}}}
+        )
         assert cfg.sources["x"].role is None
 
     def test_sources_default_empty(self) -> None:
@@ -67,8 +69,8 @@ class TestSourcePairConfig:
 
 class TestLegacyStillParses:
     def test_model_obs_blocks_unchanged(self) -> None:
-        cfg = MonetConfig(
-            **{
+        cfg = MonetConfig.model_validate(
+            {
                 "model": {"cam": {"mod_type": "cesm_fv", "files": "/d/*.nc"}},
                 "obs": {"airnow": {"obs_type": "pt_sfc", "filename": "/a.nc"}},
             }

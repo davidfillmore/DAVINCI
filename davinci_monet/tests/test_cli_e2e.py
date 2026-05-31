@@ -138,6 +138,7 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
 class TestCLIRunE2E:
     """End-to-end tests for `davinci-monet run <config.yaml>`."""
 
+    @pytest.mark.filterwarnings("ignore::davinci_monet.config.migration.LegacyConfigWarning")
     def test_cli_run_happy_path(self, synthetic_data: tuple) -> None:
         """Full pipeline through CLI with YAML config file."""
         from typer.testing import CliRunner

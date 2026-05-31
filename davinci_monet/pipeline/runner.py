@@ -1720,16 +1720,10 @@ class PipelineRunner:
 
         used_sources = bool(config.get("sources"))
 
-        # Expand a unified `sources:` config to the legacy model:/obs: form so
-        # it runs through the existing load/pair path (Phase 6, CFG-3).
-        if used_sources:
-            from davinci_monet.config.migration import expand_sources_to_legacy
-
-            config = expand_sources_to_legacy(config)
-
         # Validate that config has something to process
         model_config = config.get("model") or {}
         obs_config = config.get("obs") or {}
+        sources_config = config.get("sources") or {}
 
         # Deprecation: a legacy model:/obs: config still works (auto-converted),
         # but the unified `sources:` schema is the going-forward format.
@@ -1746,10 +1740,10 @@ class PipelineRunner:
                 stacklevel=2,
             )
 
-        if not model_config and not obs_config:
+        if not model_config and not obs_config and not sources_config:
             raise ConfigurationError(
                 "Configuration is empty or incomplete. "
-                "At least one model or observation must be defined."
+                "At least one source, model, or observation must be defined."
             )
 
         # The unified standard pipeline handles both model-vs-obs and obs-only

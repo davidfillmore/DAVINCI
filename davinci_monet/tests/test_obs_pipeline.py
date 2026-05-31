@@ -209,9 +209,10 @@ class TestObsOnlyPipelineDetection:
         from davinci_monet.pipeline.runner import PipelineRunner
 
         config: dict[str, Any] = {
-            "obs": {
+            "sources": {
                 "dc8": {
-                    "obs_type": "aircraft",
+                    "role": "obs",
+                    "type": "aircraft",
                     "filename": "/fake/path.nc",
                 }
             },
@@ -222,9 +223,8 @@ class TestObsOnlyPipelineDetection:
 
         runner = PipelineRunner(show_progress=False)
         # run_from_config should detect obs-only and swap in obs pipeline.
-        # The LoadObservationsStage will fail because the file doesn't exist,
-        # but the important thing is that it attempts load_observations
-        # (not load_models), proving the auto-detection worked.
+        # The load_sources stage will fail because the file doesn't exist, but
+        # the stage list still proves the obs-only path was selected.
         result = runner.run_from_config(config)
 
         # The unified pipeline handles obs-only runs: load_sources loads, the

@@ -52,6 +52,25 @@ OBS_TYPES = [
     "satellite_l3",
 ]
 
+OBS_READER_TYPES = [
+    "airnow",
+    "aqs",
+    "openaq",
+    "aeronet",
+    "pandora",
+    "icartt",
+    "ozonesonde",
+    "lma",
+    "goes_l3_aod",
+    "tempo_l2_no2",
+    "modis_l2_aod",
+    "omps_l3_o3",
+    "satellite_l2",
+    "tropomi",
+    "mopitt_l3_co",
+    "satellite_l3",
+]
+
 
 class TestModelReaderGeometry:
     @pytest.mark.parametrize("reader_cls", MODEL_READERS)
@@ -78,3 +97,8 @@ class TestUnifiedSourceRegistry:
         # Backward-compatible access through the deprecated aliases still works.
         assert model_registry.get("cmaq") is source_registry.get("cmaq")
         assert observation_registry.get("airnow") is source_registry.get("airnow")
+
+    @pytest.mark.parametrize("type_id", OBS_READER_TYPES)
+    def test_observation_reader_satisfies_source_reader(self, type_id: str) -> None:
+        reader_cls = source_registry.get(type_id)
+        assert isinstance(reader_cls(), SourceReader)

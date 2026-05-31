@@ -126,7 +126,7 @@ class DataContainer(ABC):
         """List of available data variables."""
         if self.data is None:
             return []
-        return list(self.data.data_vars)  # type: ignore[arg-type]
+        return list(self.data.data_vars)
 
     @property
     def time_range(self) -> TimeRange | None:
@@ -372,7 +372,7 @@ class DataContainer(ABC):
 
 
 def paired_variable_role(dataset: xr.Dataset, var_name: str) -> str | None:
-    """Role of a paired variable (renderer rewire R-5).
+    """Source role of a paired variable (renderer rewire R-5).
 
     Returns the variable's ``role`` attr (``"obs"``/``"model"``) when present,
     otherwise infers it from the legacy ``obs_``/``model_`` prefix. Returns
@@ -386,6 +386,25 @@ def paired_variable_role(dataset: xr.Dataset, var_name: str) -> str | None:
         elif lname.startswith("model_"):
             role = "model"
     return role
+
+
+def paired_variable_pair_role(dataset: xr.Dataset, var_name: str) -> str | None:
+    """Reference/comparand role of a paired variable.
+
+    ``pair_role`` is the role-neutral pairing position introduced for unified
+    source pairs. Legacy paired data falls back to source role/prefix:
+    ``obs`` -> reference and ``model`` -> comparand.
+    """
+    if var_name in dataset.data_vars:
+        pair_role = dataset[var_name].attrs.get("pair_role")
+        if pair_role in ("reference", "comparand"):
+            return str(pair_role)
+    role = paired_variable_role(dataset, var_name)
+    if role == "obs":
+        return "reference"
+    if role == "model":
+        return "comparand"
+    return None
 
 
 def paired_canonical_name(dataset: xr.Dataset, var_name: str) -> str:
@@ -408,24 +427,24 @@ def paired_canonical_name(dataset: xr.Dataset, var_name: str) -> str:
 
 
 def iter_paired_variable_pairs(dataset: xr.Dataset) -> list[tuple[str, str, str]]:
-    """Pair reference (obs-role) variables with their comparand (model-role)
+    """Pair reference variables with their comparand counterparts.
     counterparts by canonical name (renderer rewire R-5).
 
-    Returns ``(obs_var, model_var, canonical)`` triples. Roles come from the
-    ``role`` attr with a fallback to the legacy ``obs_``/``model_`` prefix, so
-    this works for source-label-named paired output as well as legacy or
-    untagged paired data. One variable per (canonical, role) is used, so
+    Returns ``(reference_var, comparand_var, canonical)`` triples. Pair roles
+    come from ``pair_role`` with a fallback to the legacy ``obs``/``model``
+    source role and prefixes, so this works for source-label-named paired output
+    as well as legacy or untagged paired data. One variable per position is used, so
     dual-named data never double-counts.
     """
     refs: dict[str, str] = {}
     comps: dict[str, str] = {}
     for v in dataset.data_vars:
         name = str(v)
-        role = paired_variable_role(dataset, name)
-        if role not in ("obs", "model"):
+        role = paired_variable_pair_role(dataset, name)
+        if role not in ("reference", "comparand"):
             continue
         canonical = paired_canonical_name(dataset, name)
-        (refs if role == "obs" else comps).setdefault(canonical, name)
+        (refs if role == "reference" else comps).setdefault(canonical, name)
     return [(refs[c], comps[c], c) for c in comps if c in refs]
 
 
@@ -467,14 +486,16 @@ class PairedData:
         return [
             str(v)
             for v in self.data.data_vars
-            if paired_variable_role(self.data, str(v)) == "model"
+            if paired_variable_pair_role(self.data, str(v)) == "comparand"
         ]
 
     @property
     def obs_variables(self) -> list[str]:
         """List of observation (reference-role) variables in the paired data."""
         return [
-            str(v) for v in self.data.data_vars if paired_variable_role(self.data, str(v)) == "obs"
+            str(v)
+            for v in self.data.data_vars
+            if paired_variable_pair_role(self.data, str(v)) == "reference"
         ]
 
     @property
@@ -491,17 +512,21 @@ class PairedData:
         a source-label name, so callers work against both legacy ``model_``/``obs_``
         and source-label paired output (renderer rewire R-5).
         """
-        if variable in self.data.data_vars and paired_variable_role(self.data, variable) == role:
+        wanted = "reference" if role == "obs" else "comparand"
+        if (
+            variable in self.data.data_vars
+            and paired_variable_pair_role(self.data, variable) == wanted
+        ):
             return variable
         prefix = "obs_" if role == "obs" else "model_"
         legacy = variable if variable.startswith(prefix) else f"{prefix}{variable}"
-        if legacy in self.data.data_vars and paired_variable_role(self.data, legacy) == role:
+        if legacy in self.data.data_vars and paired_variable_pair_role(self.data, legacy) == wanted:
             return legacy
         target = paired_canonical_name(self.data, variable)
         for v in self.data.data_vars:
             name = str(v)
             if (
-                paired_variable_role(self.data, name) == role
+                paired_variable_pair_role(self.data, name) == wanted
                 and paired_canonical_name(self.data, name) == target
             ):
                 return name

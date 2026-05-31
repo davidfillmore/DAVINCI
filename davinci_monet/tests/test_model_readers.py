@@ -303,12 +303,16 @@ class TestWRFChemReader:
 
         reader = WRFChemReader()
 
-        def fake_monetio(self_, file_paths, variables, **kw):  # type: ignore[no-untyped-def]
+        def fake_monetio(
+            self_: object, file_paths: object, variables: object, **kw: Any
+        ) -> xr.Dataset:
             raise NotImplementedError("Dataset is not picklable")
 
         captured: dict[str, Any] = {}
 
-        def fake_xarray(self_, file_paths, variables, **kw):  # type: ignore[no-untyped-def]
+        def fake_xarray(
+            self_: object, file_paths: object, variables: object, **kw: Any
+        ) -> xr.Dataset:
             captured["kwargs"] = dict(kw)
             return wrfchem_dataset
 
@@ -337,7 +341,9 @@ class TestWRFChemReader:
         reader = WRFChemReader()
         captured: dict[str, Any] = {}
 
-        def fake_monetio(self_, file_paths, variables, **kw):  # type: ignore[no-untyped-def]
+        def fake_monetio(
+            self_: object, file_paths: object, variables: object, **kw: Any
+        ) -> xr.Dataset:
             captured["kwargs"] = dict(kw)
             return wrfchem_dataset
 

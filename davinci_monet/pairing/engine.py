@@ -262,6 +262,69 @@ class PairingEngine:
             },
         )
 
+    def pair_sources(
+        self,
+        reference: xr.Dataset,
+        comparand: xr.Dataset,
+        reference_vars: Sequence[str],
+        comparand_vars: Sequence[str],
+        reference_geometry: DataGeometry | None = None,
+        comparand_geometry: DataGeometry | None = None,
+        config: PairingConfig | None = None,
+        reference_label: str = "reference",
+        comparand_label: str = "comparand",
+        **kwargs: Any,
+    ) -> PairedData:
+        """Pair two role-neutral sources.
+
+        ``comparand`` is sampled onto ``reference``. The paired output still
+        uses the internal ``obs_``/``model_`` assembly prefixes before the
+        pipeline tags them with source labels.
+        """
+        if config is None:
+            config = PairingConfig()
+        if reference_geometry is None:
+            reference_geometry = self._detect_geometry(reference)
+        if comparand_geometry is None:
+            comparand_geometry = self._detect_geometry(comparand)
+
+        if config.require_overlap:
+            self._check_temporal_overlap(comparand, reference)
+
+        strategy = self.get_strategy_for(reference_geometry, comparand_geometry)
+        paired_ds = strategy.pair_sources(
+            reference=reference,
+            comparand=comparand,
+            radius_of_influence=config.radius_of_influence,
+            time_tolerance=config.time_tolerance,
+            vertical_method=config.vertical_method,
+            horizontal_method=config.horizontal_method,
+            time_method=config.time_method,
+            **kwargs,
+        )
+        result_ds = self._assemble_paired_dataset(
+            paired_ds,
+            obs_vars=reference_vars,
+            model_vars=comparand_vars,
+        )
+        return PairedData(
+            data=result_ds,
+            model_label=comparand_label,
+            obs_label=reference_label,
+            geometry=reference_geometry,
+            pairing_info={
+                "reference_label": reference_label,
+                "comparand_label": comparand_label,
+                "reference_geometry": reference_geometry.name,
+                "comparand_geometry": comparand_geometry.name,
+                "radius_of_influence": config.radius_of_influence,
+                "time_tolerance": config.time_tolerance,
+                "vertical_method": config.vertical_method,
+                "horizontal_method": config.horizontal_method,
+                "strategy": strategy.__class__.__name__,
+            },
+        )
+
     @staticmethod
     def _select_var(ds: xr.Dataset, candidates: Sequence[str]) -> str | None:
         """Return the first matching data variable name from candidates."""

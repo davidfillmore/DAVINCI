@@ -12,6 +12,7 @@ from glob import glob
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+import numpy as np
 import xarray as xr
 
 from davinci_monet.core.base import DataContainer
@@ -349,7 +350,7 @@ class ModelData(DataContainer):
             return self
 
         interpolated = self.data.interp(
-            {level_coord: list(target_levels)},
+            {level_coord: np.asarray(target_levels, dtype=float)},
             method=method,  # type: ignore[arg-type]
         )
         return self._copy_with_data(interpolated)
@@ -395,7 +396,10 @@ class ModelData(DataContainer):
             return self
 
         regridded = self.data.interp(
-            {lat_dim: list(target_lats), lon_dim: list(target_lons)},
+            {
+                lat_dim: np.asarray(target_lats, dtype=float),
+                lon_dim: np.asarray(target_lons, dtype=float),
+            },
             method=method,  # type: ignore[arg-type]
         )
         return self._copy_with_data(regridded)

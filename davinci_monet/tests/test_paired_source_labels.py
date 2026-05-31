@@ -138,27 +138,27 @@ class TestPairedSourceLabelPipeline:
                 "output_dir": str(tmp_path / "output"),
                 "log_dir": str(tmp_path / "logs"),
             },
-            "model": {
+            "sources": {
                 "cam": {
-                    "mod_type": "generic",
+                    "role": "model",
+                    "type": "generic",
                     "files": str(model_path),
                     "radius_of_influence": 50000,
                     "mapping": {"airnow": {"O3": "O3"}},
                     "variables": {"O3": {"units": "ppb"}},
                 },
-            },
-            "obs": {
                 "airnow": {
-                    "obs_type": "pt_sfc",
+                    "role": "obs",
+                    "type": "pt_sfc",
                     "filename": str(obs_path),
                     "variables": {"O3": {"obs_min": 0, "obs_max": 200, "units": "ppb"}},
                 },
             },
             "pairs": {
                 "cam_airnow": {
-                    "model": "cam",
-                    "obs": "airnow",
-                    "variable": {"model_var": "O3", "obs_var": "O3"},
+                    "sources": ["cam", "airnow"],
+                    "reference": "airnow",
+                    "variables": {"cam": "O3", "airnow": "O3"},
                 },
             },
             "stats": {"metrics": ["N", "MB", "RMSE", "R"]},

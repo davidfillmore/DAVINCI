@@ -17,6 +17,7 @@ import xarray as xr
 
 from davinci_monet.core.exceptions import PairingError
 from davinci_monet.core.protocols import DataGeometry
+from davinci_monet.core.types import TimeDelta
 from davinci_monet.pairing.direction import PairDirectionWarning, resolve_pair_direction
 from davinci_monet.pairing.engine import PairingEngine
 from davinci_monet.pairing.strategies.base import BasePairingStrategy
@@ -78,11 +79,31 @@ class TestEngineRefCompDispatch:
 class _SpyStrategy(BasePairingStrategy):
     """Minimal concrete strategy that records what pair() received."""
 
+    def __init__(self) -> None:
+        self.captured: dict[str, Any] = {}
+
     @property
     def geometry(self) -> DataGeometry:
         return DataGeometry.POINT
 
-    def pair(self, model: xr.Dataset, obs: xr.Dataset, **kwargs: Any) -> xr.Dataset:
+    def pair(
+        self,
+        model: xr.Dataset,
+        obs: xr.Dataset,
+        radius_of_influence: float | None = None,
+        time_tolerance: TimeDelta | None = None,
+        vertical_method: str = "nearest",
+        horizontal_method: str = "nearest",
+        **kwargs: Any,
+    ) -> xr.Dataset:
+        kwargs.update(
+            {
+                "radius_of_influence": radius_of_influence,
+                "time_tolerance": time_tolerance,
+                "vertical_method": vertical_method,
+                "horizontal_method": horizontal_method,
+            }
+        )
         self.captured = {"model": model, "obs": obs, "kwargs": kwargs}
         return xr.Dataset(attrs={"ok": True})
 

@@ -21,12 +21,14 @@ from __future__ import annotations
 import csv
 import os
 import shutil
+import warnings
 from pathlib import Path
 
 import numpy as np
 import pytest
 import xarray as xr
 
+from davinci_monet.config.migration import LegacyConfigWarning
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
 from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario
@@ -221,7 +223,9 @@ class TestPointPipeline:
         }
 
         runner = PipelineRunner(show_progress=False)
-        result = runner.run_from_config(config)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", LegacyConfigWarning)
+            result = runner.run_from_config(config)
         _assert_pipeline_success(result)
 
         # Verify stats
@@ -348,7 +352,9 @@ class TestTrackPipeline:
         }
 
         runner = PipelineRunner(show_progress=False)
-        result = runner.run_from_config(config)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", LegacyConfigWarning)
+            result = runner.run_from_config(config)
         _assert_pipeline_success(result)
         _assert_plots(output_dir, min_count=3)
         assert list(log_dir.glob("pipeline_*.md")), "No pipeline log"
@@ -406,7 +412,7 @@ class TestObsOnlyPipeline:
         output_dir = tmp_path / "output"
         log_dir = tmp_path / "logs"
 
-        # No model section → triggers obs-only pipeline
+        # No model section triggers the obs-only pipeline.
         config = {
             "analysis": {
                 "start_time": "2012-05-29",
@@ -453,7 +459,9 @@ class TestObsOnlyPipeline:
         }
 
         runner = PipelineRunner(show_progress=False)
-        result = runner.run_from_config(config)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", LegacyConfigWarning)
+            result = runner.run_from_config(config)
         _assert_pipeline_success(result)
         _assert_plots(output_dir, min_count=4)
         assert list(log_dir.glob("pipeline_*.md")), "No pipeline log"
@@ -658,7 +666,9 @@ class TestSwathGridPipeline:
         }
 
         runner = PipelineRunner(show_progress=False)
-        result = runner.run_from_config(config)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", LegacyConfigWarning)
+            result = runner.run_from_config(config)
         _assert_pipeline_success(result)
         _assert_plots(output_dir, min_count=3)
         assert list(log_dir.glob("pipeline_*.md")), "No pipeline log"

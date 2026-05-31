@@ -172,7 +172,7 @@ class ScorecardPlotter(BasePlotter):
             fig = ax.get_figure()  # type: ignore[assignment]
 
         # Convert to numpy for plotting
-        data = stats_df.values.astype(float)
+        data = stats_df.to_numpy(dtype=float, copy=False)
         row_labels = list(stats_df.index)
         col_labels = list(stats_df.columns)
 

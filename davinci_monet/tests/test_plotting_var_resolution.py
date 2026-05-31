@@ -14,8 +14,11 @@ resolutions key off ``obs_var``.
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 import xarray as xr
+from matplotlib.text import Text
 
 from davinci_monet.pipeline.stages import resolve_paired_var_names, tag_paired_roles
 from davinci_monet.plots.base import canonical_variable_name, get_variable_label
@@ -116,6 +119,7 @@ class TestScorecardCanonicalRowLabel:
 
         ds = _paired_with_aliases(reference="airnow", comparand="cam")
         fig = ScorecardPlotter().plot(ds, "airnow_o3", "cam_o3")
-        texts = {t.get_text() for t in fig.findobj(match=lambda o: hasattr(o, "get_text"))}
+        text_artists = cast(list[Text], fig.findobj(match=lambda o: hasattr(o, "get_text")))
+        texts = {t.get_text() for t in text_artists}
         assert "o3" in texts
         assert "airnow_o3" not in texts

@@ -174,6 +174,7 @@ class StatisticsFormatter:
             numeric_cols = df.select_dtypes(include=["number"]).columns
             df = df[numeric_cols].T
             df.index.name = "Stat_ID"
+            df.columns = pd.Index([str(col) for col in df.columns])
             df = df.reset_index()
 
             if include_fullnames:
@@ -281,7 +282,7 @@ class StatisticsFormatter:
 
         # Create table
         table = ax.table(
-            cellText=df.values,
+            cellText=df.to_numpy(dtype=object, copy=False),
             colLabels=df.columns,
             cellLoc="center",
             loc="center",
@@ -501,6 +502,9 @@ def create_comparison_table(
 
     # Filter to requested metrics
     if metrics:
-        comparison = comparison[comparison["Stat_ID"].isin(metrics)]
+        requested_metrics = set(metrics)
+        comparison = comparison[
+            comparison["Stat_ID"].map(lambda stat_id: stat_id in requested_metrics)
+        ]
 
     return comparison

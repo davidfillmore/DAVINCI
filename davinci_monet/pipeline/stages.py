@@ -189,6 +189,36 @@ class PipelineContext:
         return self.paired[key]
 
 
+@dataclass
+class SourceData:
+    """Container for a unified data source loaded from ``sources:`` config."""
+
+    data: xr.Dataset
+    label: str
+    source_type: str
+    geometry: DataGeometry
+    role: str | None = None
+    variables: dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SourcePairJob:
+    """Concrete source pair to process."""
+
+    index: int
+    pair_key: str
+    reference_label: str
+    reference_obj: Any
+    comparand_label: str
+    comparand_obj: Any
+    reference_var: str
+    comparand_var: str
+    reference_role: str | None
+    comparand_role: str | None
+    radius_of_influence: float
+
+
 class BaseStage(ABC):
     """Abstract base class for pipeline stages.
 
@@ -269,12 +299,16 @@ def tag_paired_roles(
     *,
     reference_label: str | None = None,
     comparand_label: str | None = None,
+    reference_role: str | None = "obs",
+    comparand_role: str | None = "model",
 ) -> None:
     """Tag each paired variable with its ``role`` and rename it by source label.
 
-    Each paired variable gets a ``role`` attr (``model``/``obs``) derived from its
-    legacy ``model_``/``obs_`` prefix so the paired output self-describes source
-    roles.
+    Each paired variable gets a source ``role`` attr plus a ``pair_role`` attr
+    (``reference``/``comparand``). For legacy model-vs-obs pairings these values
+    line up with ``obs``/``model`` respectively; same-role source pairs keep
+    their source role while ``pair_role`` preserves reference/comparand semantics
+    for statistics and plotting.
 
     When the source labels are supplied (the pipeline path), the variable is
     *renamed* to ``<comparand_label>_<v>`` (model/comparand side) or
@@ -296,14 +330,21 @@ def tag_paired_roles(
     for name in list(data.data_vars):
         lname = str(name).lower()
         if lname.startswith("model_"):
-            role, label, canonical = "model", comparand_label, str(name)[len("model_") :]
+            role = comparand_role or "model"
+            pair_role = "comparand"
+            label = comparand_label
+            canonical = str(name)[len("model_") :]
         elif lname.startswith("obs_"):
-            role, label, canonical = "obs", reference_label, str(name)[len("obs_") :]
+            role = reference_role or "obs"
+            pair_role = "reference"
+            label = reference_label
+            canonical = str(name)[len("obs_") :]
         else:
             continue
 
         var = data[name]
         var.attrs.setdefault("role", role)
+        var.attrs.setdefault("pair_role", pair_role)
         if not label:
             continue
         var.attrs.setdefault("source_label", label)
@@ -322,6 +363,7 @@ def tag_paired_roles(
         ):
             data[new_name] = var
             data[new_name].attrs["role"] = var.attrs["role"]
+            data[new_name].attrs["pair_role"] = var.attrs["pair_role"]
             data[new_name].attrs["source_label"] = var.attrs["source_label"]
             del data[name]
 
@@ -1096,15 +1138,38 @@ class LoadSourcesStage(BaseStage):
     def validate(self, context: PipelineContext) -> bool:
         """Validate that at least one source (model or obs) is configured."""
         cfg = context.config
-        has_config = any(k in cfg for k in ("model", "models", "obs", "observations"))
+        has_config = any(k in cfg for k in ("sources", "model", "models", "obs", "observations"))
         # Already-populated containers are also a valid starting point.
-        return has_config or bool(context.models) or bool(context.observations)
+        return (
+            has_config
+            or bool(context.sources)
+            or bool(context.models)
+            or bool(context.observations)
+        )
 
     def execute(self, context: PipelineContext) -> StageResult:
         """Load and unify all data sources into ``context.sources``."""
         import time
 
         start = time.time()
+
+        if context.config.get("sources"):
+            try:
+                for label, raw_config in context.config.get("sources", {}).items():
+                    source = self._load_unified_source(label, raw_config, context)
+                    self._register_source(context, label, source)
+                return self._create_result(
+                    StageStatus.COMPLETED,
+                    data={"loaded_sources": list(context.sources.keys())},
+                    duration=time.time() - start,
+                    count=len(context.sources),
+                )
+            except Exception as e:
+                return self._create_result(
+                    StageStatus.FAILED,
+                    error=f"Failed to load sources: {e}",
+                    duration=time.time() - start,
+                )
 
         # Delegate to the existing loaders when their config is present. They
         # populate context.models / context.observations as usual.
@@ -1135,6 +1200,174 @@ class LoadSourcesStage(BaseStage):
         )
 
     @staticmethod
+    def _as_dict(config: Any) -> dict[str, Any]:
+        if hasattr(config, "model_dump"):
+            result = config.model_dump(exclude_none=True)
+            return dict(result)
+        if isinstance(config, dict):
+            return dict(config)
+        if hasattr(config, "__dict__"):
+            return dict(config.__dict__)
+        return {}
+
+    @staticmethod
+    def _normalize_var_configs(raw: Any) -> dict[str, dict[str, Any]]:
+        if not isinstance(raw, dict):
+            return {}
+        normalized: dict[str, dict[str, Any]] = {}
+        for name, cfg in raw.items():
+            if hasattr(cfg, "model_dump"):
+                normalized[str(name)] = dict(cfg.model_dump(exclude_none=True))
+            elif isinstance(cfg, dict):
+                normalized[str(name)] = dict(cfg)
+            elif hasattr(cfg, "__dict__"):
+                normalized[str(name)] = dict(cfg.__dict__)
+            else:
+                normalized[str(name)] = {}
+        return normalized
+
+    @staticmethod
+    def _file_list(files: Any) -> list[str]:
+        from glob import glob
+        from pathlib import Path
+
+        if files is None:
+            return []
+        if isinstance(files, (list, tuple)):
+            values = [str(Path(str(item)).expanduser()) for item in files]
+        else:
+            values = [str(Path(str(files)).expanduser())]
+
+        expanded: list[str] = []
+        for value in values:
+            if "*" in value or "?" in value:
+                expanded.extend(sorted(glob(value)))
+            else:
+                expanded.append(value)
+        return expanded
+
+    @staticmethod
+    def _data_geometry(value: Any) -> DataGeometry:
+        if isinstance(value, DataGeometry):
+            return value
+        if isinstance(value, str):
+            return DataGeometry[value.upper()]
+        raise ValueError(f"Unsupported geometry value: {value!r}")
+
+    def _load_unified_source(
+        self,
+        label: str,
+        raw_config: Any,
+        context: PipelineContext,
+    ) -> SourceData:
+        """Load one source directly through ``source_registry``."""
+        import davinci_monet.models  # noqa: F401
+        import davinci_monet.observations  # noqa: F401
+        from davinci_monet.core.registry import ComponentNotFoundError, source_registry
+
+        cfg = self._as_dict(raw_config)
+        source_type = str(cfg.get("type") or "generic")
+        role = cfg.get("role")
+        variables = self._normalize_var_configs(cfg.get("variables", {}))
+        variable_names = list(variables) or None
+        file_paths = self._file_list(cfg.get("files") or cfg.get("filename"))
+
+        analysis = context.config.get("analysis", {})
+        time_range = None
+        if analysis.get("start_time") and analysis.get("end_time"):
+            time_range = (analysis["start_time"], analysis["end_time"])
+
+        try:
+            reader_cls = source_registry.get(source_type)
+        except ComponentNotFoundError as e:
+            available = ", ".join(source_registry.list())
+            raise ValueError(
+                f"Unknown source type '{source_type}' for source '{label}'. "
+                f"Available source types: {available}"
+            ) from e
+
+        reader = reader_cls()
+        passthrough_keys = {
+            "type",
+            "role",
+            "files",
+            "filename",
+            "variables",
+            "radius_of_influence",
+            "mapping",
+            "display_name",
+        }
+        reader_kwargs = {k: v for k, v in cfg.items() if k not in passthrough_keys}
+        import inspect
+
+        open_kwargs = dict(reader_kwargs)
+        if "time_range" in inspect.signature(reader.open).parameters:
+            open_kwargs["time_range"] = time_range
+        data = reader.open(file_paths, variables=variable_names, **open_kwargs)
+        if time_range and "time" in data:
+            start_time, end_time = time_range
+            data = data.sel(time=slice(start_time, end_time))
+        if variables:
+            data = self._apply_variable_config(data, variables)
+
+        geometry = self._data_geometry(getattr(reader, "geometry"))
+        source = SourceData(
+            data=data,
+            label=label,
+            source_type=source_type,
+            geometry=geometry,
+            role=role,
+            variables=variables,
+            config=cfg,
+        )
+        return source
+
+    @staticmethod
+    def _apply_variable_config(
+        data: xr.Dataset,
+        variables: dict[str, dict[str, Any]],
+    ) -> xr.Dataset:
+        """Apply common variable scaling, masking, renaming, and metadata."""
+        ds = data
+        for var_name, cfg in list(variables.items()):
+            source = cfg.get("source_name")
+            if source and source in ds and var_name not in ds:
+                ds = ds.rename({source: var_name})
+            if var_name not in ds:
+                continue
+            arr = ds[var_name]
+            if "unit_scale" in cfg:
+                scale = cfg["unit_scale"]
+                method = cfg.get("unit_scale_method", "*")
+                if method == "*":
+                    arr = arr * scale
+                elif method == "/":
+                    arr = arr / scale
+                elif method == "+":
+                    arr = arr + scale
+                elif method == "-":
+                    arr = arr - scale
+            nan_value = cfg.get("nan_value")
+            if nan_value is not None:
+                arr = arr.where(arr != nan_value)
+            min_val = cfg.get("obs_min")
+            if min_val is not None:
+                arr = arr.where(arr >= min_val)
+            max_val = cfg.get("obs_max")
+            if max_val is not None:
+                arr = arr.where(arr <= max_val)
+            if cfg.get("units"):
+                arr.attrs["units"] = cfg["units"]
+            if cfg.get("display_name"):
+                arr.attrs["display_name"] = cfg["display_name"]
+            ds[var_name] = arr
+            rename_to = cfg.get("rename")
+            if rename_to and rename_to != var_name:
+                ds = ds.rename({var_name: rename_to})
+
+        return ds
+
+    @staticmethod
     def _register(context: PipelineContext, label: str, obj: Any, role: str) -> None:
         """Register a loaded container in context.sources and tag its dataset."""
         context.sources[label] = obj
@@ -1150,6 +1383,18 @@ class LoadSourcesStage(BaseStage):
         data.attrs["source_label"] = label
         data.attrs["geometry"] = geometry_name
 
+    @staticmethod
+    def _register_source(context: PipelineContext, label: str, obj: SourceData) -> None:
+        context.sources[label] = obj
+        if obj.role == "model":
+            context.models[label] = obj
+        elif obj.role == "obs":
+            context.observations[label] = obj
+        obj.data.attrs["source_label"] = label
+        obj.data.attrs["geometry"] = obj.geometry.name.lower()
+        if obj.role:
+            obj.data.attrs["role"] = obj.role
+
 
 class PairingStage(BaseStage):
     """Stage for pairing model and observation data.
@@ -1162,6 +1407,8 @@ class PairingStage(BaseStage):
 
     def validate(self, context: PipelineContext) -> bool:
         """Validate that models and observations are loaded."""
+        if context.config.get("pairs") and len(context.sources) >= 2:
+            return True
         return bool(context.models) and bool(context.observations)
 
     def execute(self, context: PipelineContext) -> StageResult:
@@ -1182,6 +1429,15 @@ class PairingStage(BaseStage):
 
         # Get pairing configuration
         pairing_config_dict = context.config.get("pairing", {})
+
+        source_jobs = self._build_source_pair_jobs(context)
+        if source_jobs:
+            return self._execute_source_pair_jobs(
+                context,
+                source_jobs,
+                pairing_config_dict,
+                start,
+            )
 
         # Build list of pairs to process, separating Dask-backed from eager models
         # Each tuple includes an index for consistent ordering in output messages
@@ -1466,6 +1722,220 @@ class PairingStage(BaseStage):
             count=paired_count,
         )
 
+    def _build_source_pair_jobs(self, context: PipelineContext) -> list[SourcePairJob]:
+        """Build role-neutral pair jobs from ``pairs:`` or legacy mappings."""
+        from davinci_monet.pairing.direction import resolve_pair_direction
+
+        jobs: list[SourcePairJob] = []
+        pair_index = 0
+        pairs_config = context.config.get("pairs")
+
+        if not isinstance(pairs_config, dict):
+            return []
+
+        for pair_name, raw_pair in pairs_config.items():
+            if not isinstance(raw_pair, dict):
+                continue
+            if "sources" in raw_pair:
+                srcs = raw_pair.get("sources") or []
+                if len(srcs) != 2:
+                    continue
+                a_label, b_label = str(srcs[0]), str(srcs[1])
+                if a_label not in context.sources or b_label not in context.sources:
+                    continue
+                a_obj = context.sources[a_label]
+                b_obj = context.sources[b_label]
+                a_geom = self._source_geometry(a_obj)
+                b_geom = self._source_geometry(b_obj)
+                explicit_ref = raw_pair.get("reference")
+                explicit_pos = None
+                if explicit_ref is not None:
+                    if explicit_ref == a_label:
+                        explicit_pos = "a"
+                    elif explicit_ref == b_label:
+                        explicit_pos = "b"
+                    else:
+                        raise PipelineError(
+                            f"Pair '{pair_name}' references unknown source "
+                            f"'{explicit_ref}'. Expected one of {srcs}."
+                        )
+                ref_geom, comp_geom = resolve_pair_direction(
+                    a_geom, b_geom, explicit_reference=explicit_pos
+                )
+                if explicit_pos == "b" or (
+                    explicit_pos is None and ref_geom is b_geom and comp_geom is a_geom
+                ):
+                    reference_label, reference_obj = b_label, b_obj
+                    comparand_label, comparand_obj = a_label, a_obj
+                else:
+                    reference_label, reference_obj = a_label, a_obj
+                    comparand_label, comparand_obj = b_label, b_obj
+                vmap = raw_pair.get("variables") or {}
+                reference_var = vmap.get(reference_label)
+                comparand_var = vmap.get(comparand_label)
+                if not reference_var or not comparand_var:
+                    continue
+                pair_index += 1
+                jobs.append(
+                    SourcePairJob(
+                        index=pair_index,
+                        pair_key=str(pair_name),
+                        reference_label=reference_label,
+                        reference_obj=reference_obj,
+                        comparand_label=comparand_label,
+                        comparand_obj=comparand_obj,
+                        reference_var=str(reference_var),
+                        comparand_var=str(comparand_var),
+                        reference_role=self._source_role(reference_obj),
+                        comparand_role=self._source_role(comparand_obj),
+                        radius_of_influence=self._pair_radius(raw_pair, comparand_obj),
+                    )
+                )
+            elif "model" in raw_pair and "obs" in raw_pair:
+                model_label = str(raw_pair["model"])
+                obs_label = str(raw_pair["obs"])
+                if model_label not in context.sources or obs_label not in context.sources:
+                    continue
+                var_spec = raw_pair.get("variable") or {}
+                model_var = var_spec.get("model_var")
+                obs_var = var_spec.get("obs_var")
+                if not model_var or not obs_var:
+                    continue
+                pair_index += 1
+                model_obj = context.sources[model_label]
+                obs_obj = context.sources[obs_label]
+                jobs.append(
+                    SourcePairJob(
+                        index=pair_index,
+                        pair_key=str(pair_name),
+                        reference_label=obs_label,
+                        reference_obj=obs_obj,
+                        comparand_label=model_label,
+                        comparand_obj=model_obj,
+                        reference_var=str(obs_var),
+                        comparand_var=str(model_var),
+                        reference_role=self._source_role(obs_obj) or "obs",
+                        comparand_role=self._source_role(model_obj) or "model",
+                        radius_of_influence=self._pair_radius(raw_pair, model_obj),
+                    )
+                )
+        return jobs
+
+    @staticmethod
+    def _source_dataset(obj: Any) -> xr.Dataset | None:
+        data = obj.data if hasattr(obj, "data") else obj
+        return data if isinstance(data, xr.Dataset) else None
+
+    @staticmethod
+    def _source_role(obj: Any) -> str | None:
+        role = getattr(obj, "role", None)
+        if role is None:
+            data = PairingStage._source_dataset(obj)
+            role = data.attrs.get("role") if data is not None else None
+        return str(role) if role else None
+
+    @staticmethod
+    def _source_geometry(obj: Any) -> DataGeometry:
+        geom = getattr(obj, "geometry", None)
+        if isinstance(geom, DataGeometry):
+            return geom
+        data = PairingStage._source_dataset(obj)
+        if data is not None and "geometry" in data.attrs:
+            raw = data.attrs["geometry"]
+            if isinstance(raw, DataGeometry):
+                return raw
+            if isinstance(raw, str):
+                return DataGeometry[raw.upper()]
+        from davinci_monet.pairing import PairingEngine
+
+        if data is None:
+            raise PipelineError("Cannot determine source geometry without a dataset")
+        return PairingEngine()._detect_geometry(data)
+
+    @staticmethod
+    def _pair_radius(pair_spec: dict[str, Any], comparand_obj: Any) -> float:
+        if pair_spec.get("radius_of_influence") is not None:
+            return float(pair_spec["radius_of_influence"])
+        cfg = getattr(comparand_obj, "config", None)
+        if isinstance(cfg, dict) and cfg.get("radius_of_influence") is not None:
+            return float(cfg["radius_of_influence"])
+        return float(getattr(comparand_obj, "radius_of_influence", 12000.0))
+
+    def _execute_source_pair_jobs(
+        self,
+        context: PipelineContext,
+        jobs: list[SourcePairJob],
+        pairing_config_dict: dict[str, Any],
+        start: float,
+    ) -> StageResult:
+        """Execute source-pair jobs through the role-neutral engine."""
+        import time
+
+        from davinci_monet.pairing import PairingConfig, PairingEngine
+
+        debug = context.config.get("analysis", {}).get("debug", False)
+        paired_count = 0
+        context.log_progress(f"    parallel_start: {len(jobs)}")
+
+        for job in jobs:
+            pair_start = time.time()
+            context.log_progress(f"    parallel_started: {job.pair_key}")
+            ref_ds = self._source_dataset(job.reference_obj)
+            comp_ds = self._source_dataset(job.comparand_obj)
+            if ref_ds is None or comp_ds is None:
+                context.metadata.setdefault("pairing_errors", []).append(
+                    f"{job.pair_key}: reference or comparand data is None"
+                )
+                context.log_progress(f"    parallel_completed: {job.pair_key} - FAILED")
+                continue
+
+            try:
+                pairing_cfg = PairingConfig(
+                    radius_of_influence=job.radius_of_influence,
+                    time_tolerance=pairing_config_dict.get("time_tolerance", "1h"),
+                    time_method=pairing_config_dict.get("time_method", "nearest"),
+                )
+                engine = PairingEngine()
+                paired_obj = engine.pair_sources(
+                    reference=ref_ds,
+                    comparand=comp_ds,
+                    reference_vars=[job.reference_var],
+                    comparand_vars=[job.comparand_var],
+                    reference_geometry=self._source_geometry(job.reference_obj),
+                    comparand_geometry=self._source_geometry(job.comparand_obj),
+                    config=pairing_cfg,
+                    reference_label=job.reference_label,
+                    comparand_label=job.comparand_label,
+                )
+                paired_data = paired_obj.data
+                tag_paired_roles(
+                    paired_data,
+                    reference_label=job.reference_label,
+                    comparand_label=job.comparand_label,
+                    reference_role=job.reference_role,
+                    comparand_role=job.comparand_role,
+                )
+                context.paired[job.pair_key] = paired_obj
+                paired_count += 1
+                n_vars = len(iter_paired_variable_pairs(paired_data))
+                n_points = paired_data.sizes.get("time", paired_data.sizes.get("x", 0))
+                timing_str = f" [{_format_duration(time.time() - pair_start)}]" if debug else ""
+                context.log_progress(
+                    f"    parallel_completed: {job.pair_key} - "
+                    f"{n_vars} vars, {_format_size(n_points)} points{timing_str}"
+                )
+            except Exception as e:
+                context.metadata.setdefault("pairing_errors", []).append(f"{job.pair_key}: {e}")
+                context.log_progress(f"    parallel_completed: {job.pair_key} - FAILED")
+
+        context.log_progress("    parallel_end")
+        return self._create_result(
+            StageStatus.COMPLETED,
+            data={"paired_keys": list(context.paired.keys())},
+            duration=time.time() - start,
+            count=paired_count,
+        )
+
     def _is_dask_backed(self, ds: xr.Dataset) -> bool:
         """Check if a dataset has Dask-backed arrays.
 
@@ -1737,11 +2207,33 @@ class PlottingStage(BaseStage):
 
                     # Find paired data
                     pair_key = f"{model_label}_{obs_label}"
+                    if not pair_spec and pair_name in context.paired:
+                        pair_key = pair_name
                     if pair_key not in context.paired:
                         continue
 
                     paired_obj = context.paired[pair_key]
                     paired_data = paired_obj.data if hasattr(paired_obj, "data") else paired_obj
+
+                    if not pair_spec:
+                        pair_vars = iter_paired_variable_pairs(paired_data)
+                        if not pair_vars:
+                            continue
+                        obs_var_name, model_var_name, obs_var = pair_vars[0]
+                        obs_label = str(
+                            paired_data[obs_var_name].attrs.get("source_label", "reference")
+                        )
+                        model_label = str(
+                            paired_data[model_var_name].attrs.get("source_label", "comparand")
+                        )
+                        var_spec = {"obs_var": obs_var, "model_var": obs_var}
+                    else:
+                        # Resolve the paired variable names: prefer the source-label
+                        # aliases (e.g. cam_o3 / airnow_o3) added by tag_paired_roles,
+                        # falling back to the legacy obs_/model_ prefixes (R-2).
+                        obs_var_name, model_var_name = resolve_paired_var_names(
+                            paired_data, obs_var, obs_label, model_label
+                        )
 
                     # Apply per-plot domain filter if requested. domain_type/
                     # domain_name in the plot spec restrict paired_data to a
@@ -1754,13 +2246,6 @@ class PlottingStage(BaseStage):
                         paired_data,
                         plot_spec.get("domain_type"),
                         plot_spec.get("domain_name"),
-                    )
-
-                    # Resolve the paired variable names: prefer the source-label
-                    # aliases (e.g. cam_o3 / airnow_o3) added by tag_paired_roles,
-                    # falling back to the legacy obs_/model_ prefixes (R-2).
-                    obs_var_name, model_var_name = resolve_paired_var_names(
-                        paired_data, obs_var, obs_label, model_label
                     )
 
                     if obs_var_name not in paired_data or model_var_name not in paired_data:

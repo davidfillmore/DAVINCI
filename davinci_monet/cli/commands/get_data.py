@@ -295,7 +295,7 @@ def get_airnow(
             )
 
     with timer("Forming xarray Dataset"):
-        from davinci_monet.observations.surface.airnow import (  # type: ignore[attr-defined]
+        from davinci_monet.observations.surface.airnow import (
             _dataframe_to_xarray,
         )
 

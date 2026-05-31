@@ -348,6 +348,20 @@ class PairingStrategy(Protocol):
         """
         ...
 
+    @abstractmethod
+    def pair_sources(
+        self,
+        reference: xr.Dataset,
+        comparand: xr.Dataset,
+        **kwargs: Any,
+    ) -> xr.Dataset:
+        """Pair two role-neutral sources.
+
+        The comparand is sampled onto the reference geometry. Legacy
+        implementations can map this to ``pair(model=comparand, obs=reference)``.
+        """
+        ...
+
 
 @runtime_checkable
 class PairingEngine(Protocol):

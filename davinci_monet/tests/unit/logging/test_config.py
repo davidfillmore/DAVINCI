@@ -93,6 +93,8 @@ class TestConfigureLogging:
     def teardown_method(self) -> None:
         """Clean up loggers after each test."""
         root = logging.getLogger(LOGGER_PREFIX)
+        for handler in root.handlers:
+            handler.close()
         root.handlers.clear()
         root.setLevel(logging.WARNING)  # Reset to default
 

@@ -4,6 +4,8 @@ This module provides classes for loading and processing observational
 data from various sources (surface stations, aircraft, satellites, etc.).
 """
 
+from davinci_monet.core.protocols import DataGeometry
+
 # Aircraft observation readers
 from davinci_monet.observations.aircraft.icartt import ICARTTReader, open_icartt
 from davinci_monet.observations.base import (
@@ -30,7 +32,10 @@ from davinci_monet.observations.satellite.goes_l3_aod import (
 from davinci_monet.observations.satellite.goes_l3_aod import (
     open_goes,  # Backward compatibility alias (deprecated)
 )
-from davinci_monet.observations.satellite.goes_l3_aod import GOESL3AODReader, open_goes_l3_aod
+from davinci_monet.observations.satellite.goes_l3_aod import (
+    GOESL3AODReader,
+    open_goes_l3_aod,
+)
 from davinci_monet.observations.satellite.modis_l2_aod import MODISL2AODReader, open_modis_l2_aod
 from davinci_monet.observations.satellite.mopitt_l3_co import MOPITTL3COReader, open_mopitt_l3_co
 from davinci_monet.observations.satellite.omps_l3_o3 import OMPSL3O3Reader, open_omps_l3_o3
@@ -48,6 +53,36 @@ from davinci_monet.observations.surface.airnow import AirNowReader, open_airnow
 from davinci_monet.observations.surface.aqs import AQSReader, open_aqs
 from davinci_monet.observations.surface.openaq import OpenAQReader, open_openaq
 from davinci_monet.observations.surface.pandora import PandoraReader, open_pandora
+
+
+def _geometry_property(geometry: DataGeometry) -> property:
+    """Create a SourceReader-compatible geometry property."""
+
+    return property(lambda self: geometry)
+
+
+for _reader_cls, _geometry in {
+    AQSReader: DataGeometry.POINT,
+    AirNowReader: DataGeometry.POINT,
+    AERONETReader: DataGeometry.POINT,
+    OpenAQReader: DataGeometry.POINT,
+    PandoraReader: DataGeometry.POINT,
+    ICARTTReader: DataGeometry.TRACK,
+    OzonesondeReader: DataGeometry.PROFILE,
+    LMAReader: DataGeometry.GRID,
+    GOESL3AODReader: DataGeometry.GRID,
+    MODISL2AODReader: DataGeometry.SWATH,
+    MOPITTL3COReader: DataGeometry.GRID,
+    OMPSL3O3Reader: DataGeometry.GRID,
+    TEMPOL2NO2Reader: DataGeometry.SWATH,
+    TROPOMIReader: DataGeometry.SWATH,
+    GenericL2Reader: DataGeometry.SWATH,
+    GenericL3Reader: DataGeometry.GRID,
+}.items():
+    if not hasattr(_reader_cls, "geometry"):
+        setattr(_reader_cls, "geometry", _geometry_property(_geometry))
+
+del _reader_cls, _geometry
 
 __all__ = [
     # Base classes
