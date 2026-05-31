@@ -1074,6 +1074,7 @@ class TestSpatialPlotters:
         path, producing a (sites, sites) broadcast that crashed."""
         import numpy as np
         import xarray as xr
+
         from davinci_monet.plots import plot_spatial_bias
 
         times = np.array(
@@ -1113,11 +1114,10 @@ class TestSpatialPlotters:
         lats/lons share a single dim like AirNow)."""
         import numpy as np
         import xarray as xr
+
         from davinci_monet.plots import plot_spatial_bias
 
-        times = np.array(
-            ["2025-08-01T00:00", "2025-08-01T01:00"], dtype="datetime64[ns]"
-        )
+        times = np.array(["2025-08-01T00:00", "2025-08-01T01:00"], dtype="datetime64[ns]")
         n_sites = 5
         lats = np.linspace(20.0, 50.0, n_sites)
         lons = np.linspace(-110.0, -70.0, n_sites)

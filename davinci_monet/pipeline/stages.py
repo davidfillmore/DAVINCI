@@ -1833,9 +1833,8 @@ class PlottingStage(BaseStage):
                                 model_ds = (
                                     model_obj.data if hasattr(model_obj, "data") else model_obj
                                 )
-                                if (
-                                    model_ds is not None
-                                    and model_var in getattr(model_ds, "data_vars", {})
+                                if model_ds is not None and model_var in getattr(
+                                    model_ds, "data_vars", {}
                                 ):
                                     plot_options["model_field"] = model_ds[model_var]
                         # Observation readers differ on coord naming
@@ -1861,7 +1860,9 @@ class PlottingStage(BaseStage):
                     if start_time:
                         start_date = str(start_time).split(" ")[0]
                         end_date = str(end_time).split(" ")[0] if end_time else start_date
-                        date_str = start_date if start_date == end_date else f"{start_date} → {end_date}"
+                        date_str = (
+                            start_date if start_date == end_date else f"{start_date} → {end_date}"
+                        )
                     snapshot_str = ""
                     if plot_type == "spatial_overlay" and "model_field" in plot_options:
                         mf = plot_options["model_field"]
@@ -1870,6 +1871,7 @@ class PlottingStage(BaseStage):
                             ts = mf["time"].values[time_idx]
                             try:
                                 import pandas as pd
+
                                 snapshot_str = pd.Timestamp(ts).strftime("%Y-%m-%d %H:%M UTC")
                             except Exception:
                                 snapshot_str = str(ts)[:16] + " UTC"
@@ -1881,9 +1883,7 @@ class PlottingStage(BaseStage):
                     model_display = (
                         model_config.get(model_label, {}).get("display_name") or model_label
                     )
-                    obs_display = (
-                        obs_config.get(obs_label, {}).get("display_name") or obs_label
-                    )
+                    obs_display = obs_config.get(obs_label, {}).get("display_name") or obs_label
                     parts = [p for p in (model_display, obs_display) if p]
                     subtitle = ""
                     if parts:

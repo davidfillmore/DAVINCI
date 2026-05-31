@@ -520,12 +520,7 @@ class TestCLIImports:
 
     def test_import_colors_from_cli(self) -> None:
         """Test importing colors from CLI module."""
-        from davinci_monet.cli import (
-            ERROR_COLOR,
-            INFO_COLOR,
-            SUCCESS_COLOR,
-            WARNING_COLOR,
-        )
+        from davinci_monet.cli import ERROR_COLOR, INFO_COLOR, SUCCESS_COLOR, WARNING_COLOR
 
         assert INFO_COLOR is not None
         assert ERROR_COLOR is not None

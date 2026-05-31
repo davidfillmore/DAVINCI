@@ -424,9 +424,7 @@ class TestWRFChemReader:
         # Two timesteps: t=0 has PM2_5_DRY all zero (the IC dump), t=1 has
         # realistic values.
         ny, nx, nz = 5, 8, 3
-        times = np.array(
-            ["2026-05-16T00:00:00", "2026-05-16T06:00:00"], dtype="datetime64[ns]"
-        )
+        times = np.array(["2026-05-16T00:00:00", "2026-05-16T06:00:00"], dtype="datetime64[ns]")
         pm = np.zeros((2, nz, ny, nx))
         pm[1] = 5.0  # realistic at t=1
         # Other variables stay populated at both timesteps
@@ -444,9 +442,9 @@ class TestWRFChemReader:
         with pytest.warns(UserWarning, match="identically zero"):
             out = reader._drop_uninitialized_chem_steps(ds)
 
-        assert out.sizes["time"] == 1, (
-            f"Expected 1 timestep after dropping zero-PM step, got {out.sizes['time']}"
-        )
+        assert (
+            out.sizes["time"] == 1
+        ), f"Expected 1 timestep after dropping zero-PM step, got {out.sizes['time']}"
         # Remaining timestep is the realistic one
         assert float(out["PM2_5_DRY"].max()) == 5.0
         # Other variables retained for the surviving timestep
@@ -455,9 +453,7 @@ class TestWRFChemReader:
     def test_drop_uninitialized_chem_steps_passthrough_when_clean(self) -> None:
         """No drop, no warning when all timesteps have populated diagnostics."""
         ny, nx, nz = 5, 8, 3
-        times = np.array(
-            ["2026-05-16T06:00:00", "2026-05-16T12:00:00"], dtype="datetime64[ns]"
-        )
+        times = np.array(["2026-05-16T06:00:00", "2026-05-16T12:00:00"], dtype="datetime64[ns]")
         pm = np.full((2, nz, ny, nx), 5.0)
         ds = xr.Dataset(
             {"PM2_5_DRY": (["time", "z", "y", "x"], pm)},
@@ -478,9 +474,11 @@ class TestWRFChemReader:
         ny, nx = 5, 8
         ds = xr.Dataset(
             {"T2": (["time", "y", "x"], np.full((2, ny, nx), 280.0))},
-            coords={"time": np.array(
-                ["2026-05-16T00:00:00", "2026-05-16T06:00:00"], dtype="datetime64[ns]"
-            )},
+            coords={
+                "time": np.array(
+                    ["2026-05-16T00:00:00", "2026-05-16T06:00:00"], dtype="datetime64[ns]"
+                )
+            },
         )
         out = WRFChemReader()._drop_uninitialized_chem_steps(ds)
         assert out.sizes["time"] == 2

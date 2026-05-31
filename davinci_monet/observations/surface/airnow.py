@@ -238,13 +238,7 @@ def _dataframe_to_xarray(df: pd.DataFrame, daily: bool = False) -> xr.Dataset:
 
     site_vns = [c for c in site_vns if c in df.columns]
 
-    ds_site = (
-        df[site_vns]
-        .groupby("siteid")
-        .first()
-        .to_xarray()
-        .swap_dims(siteid="x")
-    )
+    ds_site = df[site_vns].groupby("siteid").first().to_xarray().swap_dims(siteid="x")
 
     unit_suff = "_unit"
     unit_cols = [n for n in df.columns if n.endswith(unit_suff)]

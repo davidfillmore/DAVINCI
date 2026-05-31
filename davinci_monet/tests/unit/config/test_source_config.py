@@ -7,11 +7,7 @@ supported (deprecated) and is left untouched here.
 
 from __future__ import annotations
 
-from davinci_monet.config.schema import (
-    MonetConfig,
-    SourceConfig,
-    SourcePairConfig,
-)
+from davinci_monet.config.schema import MonetConfig, SourceConfig, SourcePairConfig
 
 
 class TestSourceConfig:

@@ -15,11 +15,7 @@ import pytest
 import davinci_monet.models  # noqa: F401
 import davinci_monet.observations  # noqa: F401
 from davinci_monet.core.protocols import DataGeometry, SourceReader
-from davinci_monet.core.registry import (
-    model_registry,
-    observation_registry,
-    source_registry,
-)
+from davinci_monet.core.registry import model_registry, observation_registry, source_registry
 from davinci_monet.models.cesm import CESMFVReader, CESMSEReader
 from davinci_monet.models.cmaq import CMAQReader
 from davinci_monet.models.generic import GenericReader

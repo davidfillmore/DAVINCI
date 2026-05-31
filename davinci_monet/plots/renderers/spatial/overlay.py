@@ -19,10 +19,7 @@ from davinci_monet.plots.base import (
     get_variable_units,
 )
 from davinci_monet.plots.registry import register_plotter
-from davinci_monet.plots.renderers.spatial.base import (
-    BaseSpatialPlotter,
-    MapConfig,
-)
+from davinci_monet.plots.renderers.spatial.base import BaseSpatialPlotter, MapConfig
 
 if TYPE_CHECKING:
     import matplotlib.axes

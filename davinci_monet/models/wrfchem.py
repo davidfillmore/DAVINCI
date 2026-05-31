@@ -240,9 +240,7 @@ class WRFChemReader:
                         # char-array time encoding; XLAT/XLONG are the lat/
                         # lon coords). These get dropped or set as coords by
                         # standardize_dataset after the user's selection.
-                        keep_aux = [
-                            v for v in ("Times", "XLAT", "XLONG") if v in ds.variables
-                        ]
+                        keep_aux = [v for v in ("Times", "XLAT", "XLONG") if v in ds.variables]
                         ds = ds[available + [v for v in keep_aux if v not in available]]
 
                 return ds
@@ -315,9 +313,7 @@ class WRFChemReader:
                 # WRF format: 'YYYY-MM-DD_HH:MM:SS' — replace '_' for parsing
                 import numpy as _np
 
-                times_np = _np.array(
-                    [_np.datetime64(s.replace("_", "T")) for s in time_strs]
-                )
+                times_np = _np.array([_np.datetime64(s.replace("_", "T")) for s in time_strs])
                 ds = ds.assign_coords(time=("time", times_np))
                 ds = ds.drop_vars("Times")
             except (ValueError, TypeError, AttributeError):
@@ -404,9 +400,7 @@ class WRFChemReader:
         if not bad_steps:
             return ds
 
-        keep = np.array(
-            [i for i in range(ds.sizes["time"]) if i not in bad_steps], dtype=int
-        )
+        keep = np.array([i for i in range(ds.sizes["time"]) if i not in bad_steps], dtype=int)
         bad_times = ds["time"].values[sorted(bad_steps)]
         warnings.warn(
             f"WRF-Chem: dropping {len(bad_steps)} timestep(s) where "
