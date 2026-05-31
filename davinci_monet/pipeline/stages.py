@@ -2059,7 +2059,9 @@ class ObsPlottingStage(BaseStage):
         super().__init__("obs_plotting")
 
     def validate(self, context: PipelineContext) -> bool:
-        return bool(context.observations)
+        # Obs-only plotting: active when sources are loaded but no cross-source
+        # pairs exist. In a paired run the standard PlottingStage handles output.
+        return bool(context.observations) and not bool(context.paired)
 
     def execute(self, context: PipelineContext) -> StageResult:
         """Execute observation-only plotting.
@@ -2198,7 +2200,9 @@ class ObsStatisticsStage(BaseStage):
         super().__init__("obs_statistics")
 
     def validate(self, context: PipelineContext) -> bool:
-        return bool(context.observations)
+        # Obs-only statistics: active when sources are loaded but no cross-source
+        # pairs exist. In a paired run the standard StatisticsStage handles stats.
+        return bool(context.observations) and not bool(context.paired)
 
     def execute(self, context: PipelineContext) -> StageResult:
         """Compute descriptive statistics for all observation variables."""
@@ -2253,6 +2257,8 @@ def create_standard_pipeline() -> list[BaseStage]:
         PairingStage(),
         StatisticsStage(),
         PlottingStage(),
+        ObsStatisticsStage(),
+        ObsPlottingStage(),
         SaveResultsStage(),
     ]
 
