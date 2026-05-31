@@ -225,13 +225,16 @@ class PairingEngine:
         if config.require_overlap:
             self._check_temporal_overlap(model, obs)
 
-        # Get appropriate strategy
-        strategy = self.get_strategy(geometry)
+        # Get appropriate strategy via the role-neutral (reference, comparand)
+        # dispatch. The model→obs path maps to: reference = obs (the detected
+        # geometry), comparand = model (GRID). This preserves today's behavior
+        # while routing through the unified dispatch + pair_sources entrypoint.
+        strategy = self.get_strategy_for(geometry, DataGeometry.GRID)
 
-        # Perform pairing
-        paired_ds = strategy.pair(
-            model=model,
-            obs=obs,
+        # Perform pairing (reference = obs, comparand = model).
+        paired_ds = strategy.pair_sources(
+            reference=obs,
+            comparand=model,
             radius_of_influence=config.radius_of_influence,
             time_tolerance=config.time_tolerance,
             vertical_method=config.vertical_method,
