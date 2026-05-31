@@ -8,6 +8,7 @@ from davinci_monet.config.migration import (
     CURRENT_VERSION,
     ConfigMigration,
     detect_config_version,
+    expand_sources_to_legacy,
     migrate_config,
     migrate_to_sources,
 )
@@ -60,6 +61,7 @@ __all__ = [
     # Migration
     "migrate_config",
     "migrate_to_sources",
+    "expand_sources_to_legacy",
     "detect_config_version",
     "ConfigMigration",
     "CURRENT_VERSION",

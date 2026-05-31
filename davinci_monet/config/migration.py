@@ -437,6 +437,100 @@ def migrate_to_sources(config: dict[str, Any]) -> dict[str, Any]:
     return cfg
 
 
+#: Reader ``type`` ids that produce gridded model data (used to infer the
+#: model/obs side of a source when no explicit ``role`` is given).
+MODEL_SOURCE_TYPES = frozenset(
+    {"cmaq", "wrfchem", "ufs", "rrfs", "cesm_fv", "cesm_se", "generic", "raqms"}
+)
+
+
+def expand_sources_to_legacy(config: dict[str, Any]) -> dict[str, Any]:
+    """Expand a unified ``sources:`` config back to the legacy ``model:``/``obs:``
+    form so it can run through the existing load/pair path (Phase 6, CFG-3).
+
+    This is the inverse of :func:`migrate_to_sources`. Each source is routed to
+    the model or obs block by its ``role`` (``model``/``obs``); when ``role`` is
+    absent, the side is inferred from ``type`` (see :data:`MODEL_SOURCE_TYPES`,
+    defaulting to obs). Binary ``pairs`` (``sources``/``reference``/``variables``)
+    are rewritten to the legacy ``model``/``obs``/``variable`` form. Configs with
+    no ``sources`` block are returned unchanged.
+
+    Parameters
+    ----------
+    config
+        Configuration dictionary, possibly using the unified ``sources:`` form.
+
+    Returns
+    -------
+    dict
+        Configuration in the legacy ``model:``/``obs:`` form.
+    """
+    cfg = copy.deepcopy(config)
+    sources = cfg.pop("sources", None)
+    if not sources:
+        return cfg
+
+    model: dict[str, Any] = dict(cfg.get("model") or {})
+    obs: dict[str, Any] = dict(cfg.get("obs") or {})
+    side: dict[str, str] = {}
+
+    for label, raw in sources.items():
+        entry = dict(raw) if isinstance(raw, dict) else {}
+        role = entry.pop("role", None)
+        stype = entry.pop("type", None)
+        is_model = role == "model" or (role is None and stype in MODEL_SOURCE_TYPES)
+        if is_model:
+            if stype is not None:
+                entry["mod_type"] = stype
+            model[label] = entry
+            side[label] = "model"
+        else:
+            if stype is not None:
+                entry["obs_type"] = stype
+            obs[label] = entry
+            side[label] = "obs"
+
+    if model:
+        cfg["model"] = model
+    if obs:
+        cfg["obs"] = obs
+
+    pairs = cfg.get("pairs")
+    if isinstance(pairs, dict):
+        legacy_pairs: dict[str, Any] = {}
+        for pname, p in pairs.items():
+            srcs = p.get("sources") if isinstance(p, dict) else None
+            if isinstance(srcs, list) and len(srcs) == 2:
+                a, b = srcs
+                if side.get(a) == "model" and side.get(b) == "obs":
+                    model_label, obs_label = a, b
+                elif side.get(b) == "model" and side.get(a) == "obs":
+                    model_label, obs_label = b, a
+                else:
+                    # Fall back to the explicit reference as the obs side.
+                    ref = p.get("reference")
+                    obs_label = ref if ref in (a, b) else b
+                    model_label = a if obs_label == b else b
+                vmap = p.get("variables") or {}
+                legacy_pair: dict[str, Any] = {
+                    "model": model_label,
+                    "obs": obs_label,
+                    "variable": {
+                        "model_var": vmap.get(model_label),
+                        "obs_var": vmap.get(obs_label),
+                    },
+                }
+                for k, v in p.items():
+                    if k not in ("sources", "reference", "variables"):
+                        legacy_pair[k] = v
+                legacy_pairs[pname] = legacy_pair
+            else:
+                legacy_pairs[pname] = p
+        cfg["pairs"] = legacy_pairs
+
+    return cfg
+
+
 # Singleton instance for convenient access
 _default_migration = ConfigMigration()
 
