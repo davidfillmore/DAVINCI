@@ -324,6 +324,33 @@ def tag_paired_roles(
             data[alias].attrs["source_label"] = var.attrs["source_label"]
 
 
+def resolve_paired_var_names(
+    paired_data: Any,
+    obs_var: str,
+    obs_label: str,
+    model_label: str,
+) -> tuple[str, str]:
+    """Resolve the (obs, model) variable names to plot from a paired dataset.
+
+    Renderer rewire R-2: prefer the source-label aliases (``<label>_<var>``,
+    e.g. ``airnow_o3`` / ``cam_o3``) added by :func:`tag_paired_roles`, falling
+    back to the legacy ``obs_``/``model_`` prefixes when no alias is present
+    (older paired data, or a label in the reserved namespace). obs is the
+    reference and model the comparand; the pairing engine names both paired
+    variables off the *obs* canonical name (``model_<obs_var>``), so both
+    resolutions key off ``obs_var``.
+
+    The returned names are always concrete strings (alias if present, else the
+    legacy prefix); the caller is responsible for checking membership before
+    plotting.
+    """
+    from davinci_monet.plots.base import resolve_source_variable
+
+    obs_name = resolve_source_variable(paired_data, obs_var, obs_label) or f"obs_{obs_var}"
+    model_name = resolve_source_variable(paired_data, obs_var, model_label) or f"model_{obs_var}"
+    return obs_name, model_name
+
+
 class LoadModelsStage(BaseStage):
     """Stage for loading model data.
 
@@ -1738,9 +1765,12 @@ class PlottingStage(BaseStage):
                         plot_spec.get("domain_name"),
                     )
 
-                    # Variable names in paired dataset use obs_var with prefixes
-                    obs_var_name = f"obs_{obs_var}"
-                    model_var_name = f"model_{obs_var}"
+                    # Resolve the paired variable names: prefer the source-label
+                    # aliases (e.g. cam_o3 / airnow_o3) added by tag_paired_roles,
+                    # falling back to the legacy obs_/model_ prefixes (R-2).
+                    obs_var_name, model_var_name = resolve_paired_var_names(
+                        paired_data, obs_var, obs_label, model_label
+                    )
 
                     if obs_var_name not in paired_data or model_var_name not in paired_data:
                         continue

@@ -748,9 +748,34 @@ def get_variable_label(
             return str(attrs["long_name"])
         if attrs.get("standard_name"):
             return str(attrs["standard_name"])
+        # Source-label-named paired vars (e.g. ``cam_o3``) carry role/source_label
+        # attrs; translate to the legacy ``obs_``/``model_`` form so the prefix-
+        # based Observed/Modeled formatting + canonical lookup is preserved (R-2).
+        role = attrs.get("role")
+        if role in ("obs", "model"):
+            canonical = canonical_variable_name(dataset, var_name)
+            var_name = f"obs_{canonical}" if role == "obs" else f"model_{canonical}"
 
     # Fall back to automatic formatting
     return format_variable_display_name(var_name, include_prefix=include_prefix)
+
+
+def canonical_variable_name(dataset: xr.Dataset, var_name: str) -> str:
+    """Strip a paired variable's prefix to its canonical (unprefixed) name.
+
+    Handles both the source-label naming (``<source_label>_<canonical>``, e.g.
+    ``cam_o3`` -> ``o3``, derived from the variable's ``source_label`` attr) and
+    the legacy ``obs_``/``model_`` prefixes (``obs_o3`` -> ``o3``). Names with no
+    recognised prefix are returned unchanged.
+    """
+    if var_name in dataset:
+        source_label = dataset[var_name].attrs.get("source_label")
+        if source_label and var_name.startswith(f"{source_label}_"):
+            return var_name[len(source_label) + 1 :]
+    for prefix in ("obs_", "model_"):
+        if var_name.startswith(prefix):
+            return var_name[len(prefix) :]
+    return var_name
 
 
 def resolve_source_variable(
