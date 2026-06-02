@@ -1,0 +1,16 @@
+# Output files - plots and statistics
+output/
+
+# Log files
+logs/
+
+# Data files (downloaded observations, intermediate files)
+data/
+
+# Machine-specific configs (absolute paths, not portable)
+*-gemini.yaml
+*-derecho.yaml
+
+# Python cache
+__pycache__/
+*.pyc
