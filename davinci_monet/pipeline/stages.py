@@ -1299,6 +1299,12 @@ class LoadSourcesStage(BaseStage):
         open_kwargs = dict(reader_kwargs)
         if "time_range" in inspect.signature(reader.open).parameters:
             open_kwargs["time_range"] = time_range
+        if "progress_callback" in inspect.signature(reader.open).parameters:
+
+            def _per_file_progress(i: int, total: int, name: str) -> None:
+                context.log_progress(f"step: loading {source_type} [{i}/{total}] {name}")
+
+            open_kwargs["progress_callback"] = _per_file_progress
         data = reader.open(file_paths, variables=variable_names, **open_kwargs)
         if time_range and "time" in data:
             start_time, end_time = time_range

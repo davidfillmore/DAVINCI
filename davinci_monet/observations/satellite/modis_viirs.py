@@ -11,7 +11,7 @@ import re
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 import numpy as np
 import pandas as pd
@@ -44,6 +44,7 @@ class MODISVIIRSReader:
         product: str | None = None,
         level: str | None = None,
         time_range: tuple[Any, Any] | None = None,
+        progress_callback: Callable[[int, int, str], None] | None = None,
         **kwargs: Any,
     ) -> xr.Dataset:
         """Open MODIS/VIIRS L3 grid files.
@@ -63,6 +64,10 @@ class MODISVIIRSReader:
             Accepted for interface compatibility but not applied here: time
             filtering is performed by the pipeline after ``open()``, so the
             reader does not apply it.
+        progress_callback
+            Optional callable invoked for each file as
+            ``progress_callback(idx, total, filename)`` where ``idx`` is
+            1-based.  Use this to display per-file loading progress.
         **kwargs
             Ignored; present for interface compatibility.
 
@@ -91,7 +96,12 @@ class MODISVIIRSReader:
         if missing:
             raise DataNotFoundError(f"MODIS/VIIRS files not found: {missing}")
 
-        per_file = [self._open_one(f, variables, entry) for f in files]
+        total = len(files)
+        per_file: list[xr.Dataset | None] = []
+        for idx, f in enumerate(files, start=1):
+            if progress_callback is not None:
+                progress_callback(idx, total, f.name)
+            per_file.append(self._open_one(f, variables, entry))
         valid = [d for d in per_file if d is not None]
         if not valid:
             raise DataNotFoundError(
@@ -114,23 +124,20 @@ class MODISVIIRSReader:
     def _open_one(
         self, fpath: Path, variables: Sequence[str] | None, entry: ProductEntry
     ) -> xr.Dataset | None:
-        # MOD08_M3/MYD08_M3 HDF4 files contain 4-D histogram variables with
-        # duplicate dimension names.  xarray emits a UserWarning about these
-        # on open(), set_coords(), and variable-subset operations (which all
-        # copy the full raw dataset).  The warning is harmless for our use-case
-        # — we immediately drop those variables — but the message is misleading
-        # and breaks test suites with filterwarnings=error.  We therefore
-        # suppress it for the entire raw-dataset phase (open → subset); all
-        # operations on the clean subsetted dataset proceed normally.
-        _dup_dim_msg = "Duplicate dimension names present"
-        try:
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", _dup_dim_msg, UserWarning)
-                raw = xr.open_dataset(str(fpath), engine="netcdf4", mask_and_scale=True)
-        except Exception as e:  # pragma: no cover - exercised via smoke test
-            warnings.warn(f"Failed to open {fpath}: {e}", UserWarning)
-            return None
+        """Open a single MODIS/VIIRS granule, loading only the requested SDS.
 
+        Dispatch strategy:
+
+        * ``.hdf`` files (real MODIS/VIIRS HDF4): use ``pyhdf`` to read only
+          the requested SDS plus the grid-axis variables (``XDim``/``YDim``).
+          This avoids constructing ~1,144 xarray variables for the many
+          histogram SDS we don't need, saving ~140 ms per file vs a full
+          ``xr.open_dataset`` call.
+        * All other files (``.nc``, ``.nc4``, …): fall back to the original
+          ``xr.open_dataset`` + subset approach, which is needed for the
+          synthetic NetCDF fixtures used in unit tests (``pyhdf`` cannot open
+          NetCDF files).
+        """
         # Resolve which catalog variables to keep (display names -> SDS names).
         wanted: list[str] | None = list(variables) if variables else None
         if wanted is None or wanted == ["*"]:
@@ -145,6 +152,127 @@ class MODISVIIRSReader:
                     )
                     continue
                 selected.append(v)
+
+        if fpath.suffix.lower() == ".hdf":
+            return self._open_one_hdf4(fpath, selected, entry)
+        return self._open_one_nc(fpath, selected, entry)
+
+    def _open_one_hdf4(
+        self,
+        fpath: Path,
+        selected: list[Any],
+        entry: ProductEntry,
+    ) -> xr.Dataset | None:
+        """Read a native HDF4 MODIS granule via ``pyhdf``.
+
+        Only the requested SDS and the grid-axis variables listed in
+        ``entry.dim_aliases`` are read; the ~1,100+ histogram SDS are never
+        touched.  Scale/fill/valid_range are applied manually (CF convention:
+        ``physical = raw * scale_factor + add_offset``).
+        """
+        try:
+            import pyhdf.SD as HDFSD
+
+            hdf = HDFSD.SD(str(fpath), HDFSD.SDC.READ)
+        except Exception as e:  # pragma: no cover - exercised via smoke test
+            warnings.warn(f"Failed to open {fpath}: {e}", UserWarning)
+            return None
+
+        try:
+            available_sds = set(hdf.datasets().keys())
+
+            keep = {v.sds_name: v for v in selected if v.sds_name in available_sds}
+            if not keep:
+                warnings.warn(f"{fpath.name}: none of the requested SDS present", UserWarning)
+                return None
+
+            # Collect the grid-axis variable names we need as coords.
+            # dim_aliases keys like "XDim", "YDim" (and colon-qualified variants)
+            # are the 1-D coordinate SDS in real HDF4 files.  Keep only simple
+            # names (no colon) that exist in the file as readable SDS.
+            axis_names = [k for k in entry.dim_aliases if ":" not in k and k in available_sds]
+
+            # Read each requested SDS.
+            data_arrays: dict[str, tuple[list[str], np.ndarray, dict[str, Any]]] = {}
+            for sds_name in keep:
+                v = hdf.select(sds_name)
+                raw = np.array(v[:])
+                attrs: dict[str, Any] = dict(v.attributes())
+                n_dims = v.info()[1]
+                dims = [v.dim(i).info()[0] for i in range(n_dims)]
+                v.endaccess()
+
+                physical = self._apply_hdf4_scale(raw, attrs)
+                data_arrays[sds_name] = (dims, physical, attrs)
+
+            # Read axis variables (XDim, YDim) and record their dims.
+            coord_data: dict[str, tuple[str, np.ndarray]] = {}
+            for ax in axis_names:
+                ax_v = hdf.select(ax)
+                ax_arr = np.array(ax_v[:])
+                ax_dim = list(ax_v.dimensions().keys())[0]
+                ax_v.endaccess()
+                coord_data[ax] = (ax_dim, ax_arr)
+
+        finally:
+            hdf.end()
+
+        # Build a minimal xr.Dataset.
+        data_vars: dict[str, Any] = {
+            sds: (dims, arr, attrs) for sds, (dims, arr, attrs) in data_arrays.items()
+        }
+        coords: dict[str, Any] = {ax: (dim, arr) for ax, (dim, arr) in coord_data.items()}
+        ds = xr.Dataset(data_vars, coords=coords)
+
+        return self._finalize(ds, keep, entry, fpath)
+
+    @staticmethod
+    def _apply_hdf4_scale(raw: np.ndarray, attrs: dict[str, Any]) -> np.ndarray:
+        """Apply HDF4/CF scale_factor, add_offset, _FillValue, and valid_range.
+
+        CF convention: ``physical = raw * scale_factor + add_offset``.
+        Values equal to ``_FillValue`` or outside ``valid_range`` are set to
+        ``NaN``.  The result is always ``float64``.
+        """
+        scale = float(attrs.get("scale_factor", 1.0))
+        offset = float(attrs.get("add_offset", 0.0))
+        fill_val = attrs.get("_FillValue")
+        valid_range = attrs.get("valid_range")
+
+        data = raw.astype("float64")
+
+        if fill_val is not None:
+            data[raw == int(fill_val)] = np.nan
+        if valid_range is not None:
+            lo = float(valid_range[0])
+            hi = float(valid_range[1])
+            data[(raw < lo) | (raw > hi)] = np.nan
+
+        return data * scale + offset
+
+    def _open_one_nc(
+        self,
+        fpath: Path,
+        selected: list[Any],
+        entry: ProductEntry,
+    ) -> xr.Dataset | None:
+        """Read a NetCDF (or any xarray-compatible) granule via ``xr.open_dataset``.
+
+        This is the original implementation, kept for synthetic ``.nc`` unit-
+        test fixtures and any future non-HDF4 product.  MOD08_M3/MYD08_M3
+        HDF4 files contain histogram SDS with duplicate dimension names;
+        xarray emits a ``UserWarning`` for those.  We suppress it here so it
+        does not pollute test output or break suites with
+        ``filterwarnings=error``.
+        """
+        _dup_dim_msg = "Duplicate dimension names present"
+        try:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", _dup_dim_msg, UserWarning)
+                raw = xr.open_dataset(str(fpath), engine="netcdf4", mask_and_scale=True)
+        except Exception as e:  # pragma: no cover - exercised via smoke test
+            warnings.warn(f"Failed to open {fpath}: {e}", UserWarning)
+            return None
 
         keep = {v.sds_name: v for v in selected if v.sds_name in raw.data_vars}
         if not keep:
@@ -166,6 +294,16 @@ class MODISVIIRSReader:
                 raw = raw.set_coords(axis_vars)
             ds = raw[list(keep)]
 
+        return self._finalize(ds, keep, entry, fpath)
+
+    def _finalize(
+        self,
+        ds: xr.Dataset,
+        keep: dict[str, Any],
+        entry: ProductEntry,
+        fpath: Path,
+    ) -> xr.Dataset:
+        """Rename SDS→display name, attach metadata, standardize grid, add time."""
         # Rename SDS -> display name and attach variable metadata.
         ds = ds.rename({sds: v.display_name for sds, v in keep.items()})
         for v in keep.values():

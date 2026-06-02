@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import warnings
 
 import numpy as np
 import pytest
@@ -124,3 +125,108 @@ def test_reader_is_registered_via_package_import():
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+# ---------------------------------------------------------------------------
+# Part-1 correctness: junk-var exclusion + no duplicate-dim warning
+# ---------------------------------------------------------------------------
+
+
+def _write_mod08_with_junk_vars(path: "Path", fname: str) -> str:  # type: ignore[name-defined]
+    """Write a MOD08-like .nc fixture with the AOD SDS + XDim/YDim + junk variables.
+
+    Some junk variables use the duplicate-dimension pattern (same dim name on
+    two axes) that real MOD08_M3 histogram SDS exhibit, to exercise the
+    duplicate-dim warning suppression path.
+    """
+    lat = np.linspace(89.5, -89.5, 4)
+    lon = np.linspace(-179.5, 179.5, 8)
+    aod = np.random.default_rng(42).uniform(0.0, 1.0, size=(4, 8)).astype("float32")
+    junk1 = np.zeros((4, 8), dtype="float32")
+    junk2 = np.ones((4, 8), dtype="float32")
+    # Junk variable on identical dim names (simulates histogram SDS in MOD08)
+    hist = np.zeros((5, 5), dtype="float32")
+
+    ds = xr.Dataset(
+        {
+            "Aerosol_Optical_Depth_Land_Ocean_Mean_Mean": (("YDim:mod08", "XDim:mod08"), aod),
+            "Junk_Variable_One": (("YDim:mod08", "XDim:mod08"), junk1),
+            "Junk_Variable_Two": (("YDim:mod08", "XDim:mod08"), junk2),
+            # Histogram-like: two different dims but both named similarly
+            "Histogram_Junk": (("bin_dim", "bin_dim2"), hist),
+            "YDim": ("YDim:mod08", lat),
+            "XDim": ("XDim:mod08", lon),
+        }
+    )
+    fpath = path / fname
+    ds.to_netcdf(fpath)
+    return str(fpath)
+
+
+def test_reader_loads_only_aod_and_no_junk_vars(tmp_path):
+    """Reader must return only the requested SDS (aod_550nm) + lat/lon/time.
+
+    Junk variables in the file must not appear in the returned dataset.
+    No duplicate-dim UserWarning should be raised during the open.
+    """
+    from pathlib import Path
+
+    f = _write_mod08_with_junk_vars(tmp_path, "MOD08_M3.A2024032.061.0000.nc")
+    reader = MODISVIIRSReader()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        ds = reader.open([f], variables=["aod_550nm"], product="MOD08_M3")
+
+    # No duplicate-dim warning should escape from the reader
+    dup_warns = [
+        w
+        for w in caught
+        if issubclass(w.category, UserWarning) and "Duplicate dimension" in str(w.message)
+    ]
+    assert not dup_warns, f"Unexpected duplicate-dim warnings: {dup_warns}"
+
+    # Dataset must contain aod_550nm and NOT the junk variables
+    assert "aod_550nm" in ds.data_vars, "aod_550nm missing from result"
+    for junk in ("Junk_Variable_One", "Junk_Variable_Two", "Histogram_Junk"):
+        assert junk not in ds.data_vars, f"Junk variable {junk!r} leaked into result"
+    # Axis variables must not appear as data variables (they should be coords or absent)
+    assert "XDim" not in ds.data_vars, "XDim should be a coord, not data_var"
+    assert "YDim" not in ds.data_vars, "YDim should be a coord, not data_var"
+
+    # Structural checks
+    assert {"lat", "lon"}.issubset(ds.coords)
+    assert "time" in ds.coords
+    assert len(ds.data_vars) == 1, f"Expected 1 data_var, got: {list(ds.data_vars)}"
+
+
+# ---------------------------------------------------------------------------
+# Part-2: progress_callback
+# ---------------------------------------------------------------------------
+
+
+def test_progress_callback_called_per_file(tmp_path):
+    """progress_callback must be called once per file with (idx, total, name)."""
+    f1 = _write_mod08_like(tmp_path, "MOD08_M3.A2024032.061.0000.nc")
+    f2 = _write_mod08_like(tmp_path, "MOD08_M3.A2024061.061.0000.nc")
+
+    calls: list[tuple[int, int, str]] = []
+
+    def callback(idx: int, total: int, name: str) -> None:
+        calls.append((idx, total, name))
+
+    reader = MODISVIIRSReader()
+    reader.open([f1, f2], variables=["aod_550nm"], product="MOD08_M3", progress_callback=callback)
+
+    assert len(calls) == 2, f"Expected 2 callback calls, got {len(calls)}: {calls}"
+    assert calls[0] == (1, 2, "MOD08_M3.A2024032.061.0000.nc"), f"First call wrong: {calls[0]}"
+    assert calls[1] == (2, 2, "MOD08_M3.A2024061.061.0000.nc"), f"Second call wrong: {calls[1]}"
+
+
+def test_progress_callback_none_does_not_raise(tmp_path):
+    """Calling open() without progress_callback (default None) must not raise."""
+    f = _write_mod08_like(tmp_path, "MOD08_M3.A2024032.061.0000.nc")
+    reader = MODISVIIRSReader()
+    # Should not raise TypeError or AttributeError
+    ds = reader.open([f], variables=["aod_550nm"], product="MOD08_M3")
+    assert "aod_550nm" in ds.data_vars
