@@ -84,13 +84,22 @@ plots:
     title: "AOD: MERRA2 vs MODIS Aqua"
     obs_label: "MODIS Aqua AOD"
     model_label: "MERRA-2 AOD"
-  aod_timeseries:
+  # Split per pair so each legend names its own MODIS source via obs_label
+  # (one timeseries spec covering both pairs would label both with one label).
+  # No aggregate_dim: the timeseries renderer auto-averages all non-time dims
+  # (lat, lon) -> a global-mean monthly series.
+  terra_aod_timeseries:
     type: timeseries
-    pairs: [merra2_vs_terra, merra2_vs_aqua]
-    title: "Global-Mean Monthly AOD"
-    # No aggregate_dim: the timeseries renderer auto-averages all non-time dims
-    # (lat, lon) -> a global-mean monthly series. (The renderer takes a scalar
-    # aggregate_dim, not a list, so we omit it and let auto-aggregate handle the grid.)
+    pairs: [merra2_vs_terra]
+    title: "Global-Mean Monthly AOD - Terra"
+    obs_label: "MODIS Terra"
+    model_label: "MERRA-2"
+  aqua_aod_timeseries:
+    type: timeseries
+    pairs: [merra2_vs_aqua]
+    title: "Global-Mean Monthly AOD - Aqua"
+    obs_label: "MODIS Aqua"
+    model_label: "MERRA-2"
 
 stats:
   output_table: true
