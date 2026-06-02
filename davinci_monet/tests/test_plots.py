@@ -1229,6 +1229,130 @@ class TestSpatialPlotters:
         assert fig is not None
         plt.close(fig)
 
+    @pytest.mark.skipif(
+        not pytest.importorskip("cartopy", reason="cartopy not available"),
+        reason="cartopy not available",
+    )
+    def test_spatial_distribution_grid_uses_pcolormesh_by_default(self):
+        """Gridded data must render as pcolormesh (QuadMesh) by default, not
+        scatter circles.  Before the fix, plot_type defaulted to 'scatter' so
+        a regular lat/lon grid produced scatter circles instead of a filled
+        field."""
+        from matplotlib.collections import PathCollection, QuadMesh
+
+        from davinci_monet.plots import plot_spatial_distribution
+
+        lat = np.linspace(30.0, 50.0, 10)
+        lon = np.linspace(-120.0, -100.0, 12)
+        rng = np.random.default_rng(0)
+        obs_vals = rng.uniform(20, 80, (10, 12))
+        model_vals = rng.uniform(20, 80, (10, 12))
+        ds = xr.Dataset(
+            {
+                "obs_o3": (("lat", "lon"), obs_vals, {"units": "ppbv"}),
+                "model_o3": (("lat", "lon"), model_vals, {"units": "ppbv"}),
+            },
+            coords={"lat": lat, "lon": lon},
+        )
+
+        fig = plot_spatial_distribution(
+            ds, "obs_o3", "model_o3", show_var="obs", lat_var="lat", lon_var="lon"
+        )
+        ax = fig.axes[0]
+        assert any(
+            isinstance(c, QuadMesh) for c in ax.collections
+        ), "gridded distribution must render as pcolormesh (QuadMesh), not scatter circles"
+        assert not any(
+            isinstance(c, PathCollection) for c in ax.collections
+        ), "gridded distribution must not use scatter PathCollection"
+        plt.close(fig)
+
+    @pytest.mark.skipif(
+        not pytest.importorskip("cartopy", reason="cartopy not available"),
+        reason="cartopy not available",
+    )
+    def test_spatial_distribution_point_uses_scatter_by_default(self):
+        """Point/site data (lat/lon on the site dim) must render as scatter
+        (PathCollection) when plot_type='auto' (the new default)."""
+        from matplotlib.collections import PathCollection
+
+        from davinci_monet.plots import plot_spatial_distribution
+
+        n_sites = 8
+        site = np.arange(n_sites)
+        lats = np.linspace(30.0, 50.0, n_sites)
+        lons = np.linspace(-120.0, -100.0, n_sites)
+        rng = np.random.default_rng(1)
+        obs_vals = rng.uniform(20, 80, n_sites)
+        model_vals = rng.uniform(20, 80, n_sites)
+        ds = xr.Dataset(
+            {
+                "obs_o3": (("site",), obs_vals, {"units": "ppbv"}),
+                "model_o3": (("site",), model_vals, {"units": "ppbv"}),
+            },
+            coords={
+                "site": site,
+                "latitude": (("site",), lats),
+                "longitude": (("site",), lons),
+            },
+        )
+
+        fig = plot_spatial_distribution(ds, "obs_o3", "model_o3", show_var="obs")
+        ax = fig.axes[0]
+        assert any(
+            isinstance(c, PathCollection) for c in ax.collections
+        ), "point/site distribution must render as scatter (PathCollection)"
+        plt.close(fig)
+
+    @pytest.mark.skipif(
+        not pytest.importorskip("cartopy", reason="cartopy not available"),
+        reason="cartopy not available",
+    )
+    def test_spatial_distribution_time_site_uses_scatter(self):
+        """(time, site) point data must render as scatter (PathCollection), not
+        pcolormesh.  Without DataArray-dim detection, the numpy-ndim heuristic
+        in _plot_data sees data.ndim==2 and lats.ndim==1 and wrongly takes the
+        'regular grid' pcolormesh branch."""
+        import pandas as pd
+        from matplotlib.collections import PathCollection, QuadMesh
+
+        from davinci_monet.plots import plot_spatial_distribution
+
+        n_times = 3
+        n_sites = 8
+        times = pd.date_range("2025-01-01", periods=n_times, freq="h")
+        site = np.arange(n_sites)
+        lats = np.linspace(30.0, 50.0, n_sites)
+        lons = np.linspace(-120.0, -100.0, n_sites)
+        rng = np.random.default_rng(2)
+        obs_vals = rng.uniform(20, 80, (n_times, n_sites))
+        model_vals = rng.uniform(20, 80, (n_times, n_sites))
+        ds = xr.Dataset(
+            {
+                "obs_o3": (("time", "site"), obs_vals, {"units": "ppbv"}),
+                "model_o3": (("time", "site"), model_vals, {"units": "ppbv"}),
+            },
+            coords={
+                "time": times,
+                "site": site,
+                "latitude": (("site",), lats),
+                "longitude": (("site",), lons),
+            },
+        )
+
+        # time_average=False to keep (time, site) shape reaching _plot_data
+        fig = plot_spatial_distribution(
+            ds, "obs_o3", "model_o3", show_var="obs", time_average=False
+        )
+        ax = fig.axes[0]
+        assert any(
+            isinstance(c, PathCollection) for c in ax.collections
+        ), "(time, site) distribution must render as scatter, not pcolormesh"
+        assert not any(
+            isinstance(c, QuadMesh) for c in ax.collections
+        ), "(time, site) distribution must not use pcolormesh (QuadMesh)"
+        plt.close(fig)
+
     def test_get_domain_extent(self):
         """Test domain extent lookup."""
         from davinci_monet.plots.renderers.spatial import get_domain_extent
