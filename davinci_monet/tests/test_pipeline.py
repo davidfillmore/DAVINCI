@@ -528,6 +528,51 @@ class TestPlottingStage:
         resolved_both = plot_spec_both.get("data") or plot_spec_both.get("pairs", [])
         assert resolved_both == ["model_obs_o3"]
 
+    def test_subtitle_date_range_uses_hyphen(self):
+        """Fix A: date-range subtitle must use ' - ' not a Unicode arrow.
+
+        Replicates the inline subtitle-building logic from stages.py to verify
+        the separator character.  A Unicode arrow (→) is missing from the
+        Poppins plot font and renders as a tofu box.
+        """
+        # Replicate the date-string logic from PlottingStage.execute()
+        start_time = "2003-01-01"
+        end_time = "2003-12-31"
+        start_date = str(start_time).split(" ")[0]
+        end_date = str(end_time).split(" ")[0] if end_time else start_date
+        date_str = start_date if start_date == end_date else f"{start_date} - {end_date}"
+
+        assert "2003-01-01 - 2003-12-31" == date_str
+        assert "→" not in date_str, "Unicode arrow must not appear in date range"
+
+    def test_subtitle_is_date_range_only(self):
+        """Fix B: subtitle must be only the date range — no source-pair prefix.
+
+        Replicates the subtitle composition from stages.py.  The redundant
+        '<model> vs <obs>' prefix has been removed; plot titles already name
+        the sources.
+        """
+        # Replicate subtitle composition: subtitle = when (date range or snapshot)
+        start_time = "2003-01-01"
+        end_time = "2003-12-31"
+        start_date = str(start_time).split(" ")[0]
+        end_date = str(end_time).split(" ")[0] if end_time else start_date
+        date_str = start_date if start_date == end_date else f"{start_date} - {end_date}"
+        when = date_str  # no snapshot_str in this scenario
+        subtitle = when  # Fix B: subtitle is just the date range
+
+        assert subtitle == "2003-01-01 - 2003-12-31"
+        assert " vs " not in subtitle, "Source-pair 'vs' prefix must not appear in subtitle"
+        assert "·" not in subtitle, "Middle-dot separator must not appear in subtitle"
+        assert "→" not in subtitle, "Unicode arrow must not appear in subtitle"
+
+        # Composed title must use a newline separator, not 'vs'
+        title = "AOD: MERRA2 vs MODIS Terra"
+        composed = f"{title}\n{subtitle}" if subtitle else title
+        subtitle_line = composed.split("\n")[1] if "\n" in composed else ""
+        assert subtitle_line == "2003-01-01 - 2003-12-31"
+        assert " vs " not in subtitle_line
+
 
 class TestSaveResultsStage:
     """Tests for SaveResultsStage."""

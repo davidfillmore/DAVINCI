@@ -797,6 +797,45 @@ class TestScatterPlotter:
         # No flights should pass the filter
         assert len(flight_plots) == 0
 
+    def test_source_named_axis_labels(self, simple_paired_data):
+        """Fix C: obs_label/model_label config produces source-named scatter axes.
+
+        When PlotConfig.obs_label and model_label are set, the scatter renderer
+        must use them as axis labels (no 'Observed'/'Modeled' prefix), and the
+        units suffix must not produce a bare '(1)'.
+        """
+        from davinci_monet.plots import PlotConfig, ScatterPlotter
+
+        config = PlotConfig(obs_label="MODIS Terra AOD", model_label="MERRA-2 AOD")
+        plotter = ScatterPlotter(config=config)
+        fig = plotter.plot(
+            simple_paired_data,
+            "obs_o3",
+            "model_o3",
+        )
+
+        ax = fig.axes[0]
+        xlabel = ax.get_xlabel()
+        ylabel = ax.get_ylabel()
+
+        # Labels must reflect the custom source names
+        assert "MODIS Terra AOD" in xlabel, f"Expected 'MODIS Terra AOD' in xlabel, got: {xlabel!r}"
+        assert "MERRA-2 AOD" in ylabel, f"Expected 'MERRA-2 AOD' in ylabel, got: {ylabel!r}"
+
+        # Must NOT carry an 'Observed'/'Modeled' prefix
+        assert not xlabel.startswith(
+            "Observed"
+        ), f"xlabel must not start with 'Observed', got: {xlabel!r}"
+        assert not ylabel.startswith(
+            "Modeled"
+        ), f"ylabel must not start with 'Modeled', got: {ylabel!r}"
+
+        # Bare dimensionless unit '(1)' is ugly — must not appear
+        assert "(1)" not in xlabel, f"Bare '(1)' unit in xlabel: {xlabel!r}"
+        assert "(1)" not in ylabel, f"Bare '(1)' unit in ylabel: {ylabel!r}"
+
+        plt.close(fig)
+
 
 class TestTaylorPlotter:
     """Tests for Taylor diagram plotter."""

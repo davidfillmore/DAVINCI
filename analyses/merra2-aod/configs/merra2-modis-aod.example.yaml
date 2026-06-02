@@ -75,11 +75,15 @@ plots:
     pairs: [merra2_vs_terra]
     show_density: true
     title: "AOD: MERRA2 vs MODIS Terra"
+    obs_label: "MODIS Terra AOD"
+    model_label: "MERRA-2 AOD"
   aqua_aod_scatter:
     type: scatter
     pairs: [merra2_vs_aqua]
     show_density: true
     title: "AOD: MERRA2 vs MODIS Aqua"
+    obs_label: "MODIS Aqua AOD"
+    model_label: "MERRA-2 AOD"
   aod_timeseries:
     type: timeseries
     pairs: [merra2_vs_terra, merra2_vs_aqua]
