@@ -35,10 +35,12 @@ def test_product_entry_resolves_variable_by_display_and_sds():
             )
         ],
     )
-    assert p.variable_by_display("aod_550nm").sds_name.startswith("Aerosol_Optical_Depth")
-    assert (
-        p.variable_by_sds("Aerosol_Optical_Depth_Land_Ocean_Mean_Mean").display_name == "aod_550nm"
-    )
+    by_display = p.variable_by_display("aod_550nm")
+    assert by_display is not None
+    assert by_display.sds_name.startswith("Aerosol_Optical_Depth")
+    by_sds = p.variable_by_sds("Aerosol_Optical_Depth_Land_Ocean_Mean_Mean")
+    assert by_sds is not None
+    assert by_sds.display_name == "aod_550nm"
     assert p.variable_by_display("nope") is None
 
 
@@ -48,7 +50,9 @@ def test_catalog_resolves_known_products():
     aqua = cat.resolve("MYD08_M3")
     assert terra.platform == "Terra"
     assert aqua.platform == "Aqua"
-    assert terra.variable_by_display("aod_550nm").wavelength_nm == 550
+    aod = terra.variable_by_display("aod_550nm")
+    assert aod is not None
+    assert aod.wavelength_nm == 550
 
 
 def test_catalog_unknown_product_suggests_matches():
