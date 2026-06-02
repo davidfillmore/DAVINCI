@@ -258,8 +258,13 @@ class GridStrategy(BasePairingStrategy):
 
         # Find common times (within tolerance)
         if time_tolerance is not None:
-            # Match obs times to nearest model time
+            # Match each obs time to the nearest model time, then relabel the
+            # matched model times to the obs times so the two share identical
+            # time labels. Without the relabel, _create_paired_output reindexes
+            # the model onto the obs time coordinate and the model becomes all
+            # NaN whenever model/obs times differ (e.g. MERRA2 00:30 vs MODIS 00:00).
             model_matched = model.sel(time=obs_times, method="nearest")
+            model_matched = model_matched.assign_coords(time=obs_times)
             return model_matched, obs
         else:
             # Interpolate model to obs times

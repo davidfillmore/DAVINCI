@@ -11,7 +11,7 @@ import os
 import sys
 import warnings
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import xarray as xr
 
@@ -114,6 +114,7 @@ class GenericReader:
         self,
         file_paths: Sequence[str | Path],
         variables: Sequence[str] | None = None,
+        progress_callback: Callable[[int, int, str], None] | None = None,
         **kwargs: Any,
     ) -> xr.Dataset:
         """Open model files using xarray.
@@ -124,6 +125,14 @@ class GenericReader:
             Paths to model output files.
         variables
             Variables to load. If None, loads all variables.
+        progress_callback
+            Optional callable ``(i, total, name) -> None`` invoked for each
+            file as it is opened.  ``i`` is 1-based, ``total`` is the number
+            of files, and ``name`` is the file basename.  When provided with
+            multiple files the reader switches from ``parallel=True`` to
+            ``parallel=False`` so the preprocess hook runs sequentially and
+            the counter is monotonically increasing.  The default path
+            (``progress_callback=None``, or a single file) is unchanged.
         **kwargs
             Additional options:
             - engine: xarray engine to use ('netcdf4', 'h5netcdf', 'cfgrib', etc.)
@@ -164,13 +173,34 @@ class GenericReader:
         for attempt in range(max_retries):
             try:
                 if len(file_list) > 1:
-                    ds = xr.open_mfdataset(
-                        [str(f) for f in file_list],
-                        combine=combine,
-                        data_vars="all",
-                        parallel=True,
-                        **kwargs,
-                    )
+                    if progress_callback is not None:
+                        # Sequential open so the preprocess counter is ordered.
+                        total = len(file_list)
+                        counter: list[int] = [0]
+
+                        def _progress_preprocess(ds: xr.Dataset) -> xr.Dataset:
+                            counter[0] += 1
+                            source = ds.encoding.get("source", "")
+                            name = Path(source).name if source else ""
+                            progress_callback(counter[0], total, name)
+                            return ds
+
+                        ds = xr.open_mfdataset(
+                            [str(f) for f in file_list],
+                            combine=combine,
+                            data_vars="all",
+                            parallel=False,
+                            preprocess=_progress_preprocess,
+                            **kwargs,
+                        )
+                    else:
+                        ds = xr.open_mfdataset(
+                            [str(f) for f in file_list],
+                            combine=combine,
+                            data_vars="all",
+                            parallel=True,
+                            **kwargs,
+                        )
                 else:
                     ds = xr.open_dataset(str(file_list[0]), **kwargs)
                 break  # Success - exit retry loop

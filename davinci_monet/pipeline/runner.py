@@ -498,6 +498,8 @@ class ProgressFormatter:
         self._parallel_completed: int = 0
         self._parallel_mode: bool = False
         self._parallel_loading_msg: str | None = None  # Message to show during [0/N]
+        # Transient step detail — rendered as '› detail' when no per-item display active
+        self._current_step: str | None = None
 
     def _log(self, line: str) -> None:
         """Store a line for log file."""
@@ -572,13 +574,16 @@ class ProgressFormatter:
             elif self._parallel_loading_msg and self._parallel_completed == 0:
                 # During [0/N] phase, show what's being loaded
                 result.append(self._parallel_loading_msg, style="dim italic")
-        # Sequential mode: show current item
+        # Sequential mode: show current item or step detail
         elif self._current_item:
             result.append(" › ", style="dim")
             if self._current_progress:
                 idx, total = self._current_progress
                 result.append(f"[{idx}/{total}] ", style="dim")
             result.append(self._current_item, style="white")
+        elif self._current_step:
+            result.append(" › ", style="dim")
+            result.append(self._current_step, style="dim italic")
 
         return result
 
@@ -825,6 +830,7 @@ class ProgressFormatter:
         self._stage_items = []  # Reset items for this stage
         self._current_item = None
         self._current_progress = None
+        self._current_step = None
         self._animation_frame = 0
         self._log(f"[{name}]")
 
@@ -848,6 +854,7 @@ class ProgressFormatter:
         # Clear animation state
         self._current_item = None
         self._current_progress = None
+        self._current_step = None
 
         if success:
             icon = "✓"
@@ -976,7 +983,11 @@ class ProgressFormatter:
     def step(self, message: str) -> None:
         """Print a step within an item."""
         self._log(f"      • {message}")
-        # Steps are logged but not displayed during animation
+        self._current_step = message
+        # Force an immediate display refresh so the detail appears without
+        # waiting for the next 0.15 s animation tick.
+        if self.show_output and self._live:
+            self._live.update(self._create_stage_display())
 
     def item_done(self, summary: str) -> None:
         """Print item completion with summary."""

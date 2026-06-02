@@ -1,0 +1,33 @@
+products:
+  - product_id: MOD08_M3
+    instrument: MODIS
+    platform: Terra
+    daac: LAADS
+    collection: "061"
+    level: L3
+    geometry: GRID
+    file_format: HDF4
+    time_parse: "A%Y%j"
+    dim_aliases: { XDim: lon, YDim: lat, "XDim:mod08": lon, "YDim:mod08": lat }
+    variables:
+      - display_name: aod_550nm
+        sds_name: Aerosol_Optical_Depth_Land_Ocean_Mean_Mean
+        units: "1"
+        wavelength_nm: 550
+        long_name: "AOD at 0.55um (land+ocean), monthly mean of daily mean"
+  - product_id: MYD08_M3
+    instrument: MODIS
+    platform: Aqua
+    daac: LAADS
+    collection: "061"
+    level: L3
+    geometry: GRID
+    file_format: HDF4
+    time_parse: "A%Y%j"
+    dim_aliases: { XDim: lon, YDim: lat, "XDim:mod08": lon, "YDim:mod08": lat }
+    variables:
+      - display_name: aod_550nm
+        sds_name: Aerosol_Optical_Depth_Land_Ocean_Mean_Mean
+        units: "1"
+        wavelength_nm: 550
+        long_name: "AOD at 0.55um (land+ocean), monthly mean of daily mean"

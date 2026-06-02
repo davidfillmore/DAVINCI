@@ -37,6 +37,7 @@ from davinci_monet.observations.satellite.goes_l3_aod import (
     open_goes_l3_aod,
 )
 from davinci_monet.observations.satellite.modis_l2_aod import MODISL2AODReader, open_modis_l2_aod
+from davinci_monet.observations.satellite.modis_viirs import MODISVIIRSReader
 from davinci_monet.observations.satellite.mopitt_l3_co import MOPITTL3COReader, open_mopitt_l3_co
 from davinci_monet.observations.satellite.omps_l3_o3 import OMPSL3O3Reader, open_omps_l3_o3
 from davinci_monet.observations.satellite.tempo_l2_no2 import TEMPOL2NO2Reader, open_tempo_l2_no2
@@ -115,6 +116,7 @@ __all__ = [
     "MODISL2AODReader",
     "open_modis_l2_aod",
     # Satellite L3 readers
+    "MODISVIIRSReader",
     "GOESL3AODReader",
     "GOESReader",  # Backward compatibility
     "open_goes_l3_aod",

@@ -1299,6 +1299,17 @@ class LoadSourcesStage(BaseStage):
         open_kwargs = dict(reader_kwargs)
         if "time_range" in inspect.signature(reader.open).parameters:
             open_kwargs["time_range"] = time_range
+        if "progress_callback" in inspect.signature(reader.open).parameters:
+
+            def _per_file_progress(i: int, total: int, name: str) -> None:
+                # Right-align the counter to the width of `total` so it stays a
+                # fixed width as files tick, and put the (often long) file name
+                # on its own indented line so it is never truncated off the end
+                # of the status line by the terminal width.
+                width = len(str(total))
+                context.log_progress(f"step: loading {label} [{i:>{width}}/{total}]\n      {name}")
+
+            open_kwargs["progress_callback"] = _per_file_progress
         data = reader.open(file_paths, variables=variable_names, **open_kwargs)
         if time_range and "time" in data:
             start_time, end_time = time_range
@@ -2470,9 +2481,11 @@ class PlottingStage(BaseStage):
                                     plot_options["lon_var"] = cand
                                     break
 
-                    # Build subtitle: "<Model> vs <Obs> · <date>"; for
-                    # snapshot-style plots (spatial_overlay) also show the
-                    # specific timestamp being rendered.
+                    # Build subtitle: date range (or snapshot timestamp for
+                    # spatial_overlay plots).  The source-pair prefix ("Model vs
+                    # Obs") has been removed — plot titles already name the
+                    # sources, and the separator rendered as a missing-glyph box
+                    # in the Poppins font.
                     start_time = analysis_config.get("start_time", "")
                     end_time = analysis_config.get("end_time", "")
                     date_str = ""
@@ -2480,7 +2493,7 @@ class PlottingStage(BaseStage):
                         start_date = str(start_time).split(" ")[0]
                         end_date = str(end_time).split(" ")[0] if end_time else start_date
                         date_str = (
-                            start_date if start_date == end_date else f"{start_date} → {end_date}"
+                            start_date if start_date == end_date else f"{start_date} - {end_date}"
                         )
                     snapshot_str = ""
                     if plot_type == "spatial_overlay" and "model_field" in plot_options:
@@ -2495,22 +2508,13 @@ class PlottingStage(BaseStage):
                             except Exception:
                                 snapshot_str = str(ts)[:16] + " UTC"
                     when = snapshot_str or date_str
-                    # Prefer explicit display_name on the model/obs config (e.g.
-                    # "AirNow", "AERONET"); fall back to the YAML key when not
-                    # set so plot text reads cleanly regardless of casing.
-                    obs_config = context.config.get("obs", {})
-                    model_display = (
-                        model_config.get(model_label, {}).get("display_name") or model_label
-                    )
-                    obs_display = obs_config.get(obs_label, {}).get("display_name") or obs_label
-                    parts = [p for p in (model_display, obs_display) if p]
-                    subtitle = ""
-                    if parts:
-                        subtitle = " vs ".join(parts)
-                        if when:
-                            subtitle = f"{subtitle} · {when}"
-                    elif when:
-                        subtitle = when
+                    subtitle = when
+                    # Forward per-plot axis label overrides to the plotter config
+                    # so renderers like scatter can display source-named labels
+                    # (e.g. "MODIS Terra AOD") instead of "Observed AOD (550 nm)".
+                    for label_key in ("obs_label", "model_label"):
+                        if label_key in plot_spec:
+                            plotter_config[label_key] = plot_spec[label_key]
                     if subtitle:
                         plotter_config["title"] = f"{title}\n{subtitle}"
 

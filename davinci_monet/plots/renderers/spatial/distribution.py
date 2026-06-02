@@ -68,7 +68,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         time_average: bool = True,
         cmap: str = "viridis",
         marker_size: float | None = None,
-        plot_type: Literal["scatter", "pcolormesh"] = "scatter",
+        plot_type: Literal["auto", "scatter", "pcolormesh"] = "auto",
         alpha: float | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
@@ -97,7 +97,12 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         marker_size
             Override marker size.
         plot_type
-            Type of plot ('scatter' or 'pcolormesh').
+            How to render the distribution field.  ``"auto"`` (default)
+            chooses ``"pcolormesh"`` for gridded data (1-D lat/lon axes
+            with a 2-D+ field, or 2-D curvilinear coordinates) and
+            ``"scatter"`` for point/site data (lat/lon share a single
+            observation dimension).  Pass ``"scatter"`` or
+            ``"pcolormesh"`` to override the automatic selection.
         alpha
             Override alpha.
         **kwargs
@@ -169,6 +174,31 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         elif lons.ndim > 1 and np.any(lons > 180):
             lons = np.where(lons > 180, lons - 360, lons)
 
+        # Detect data geometry from the *DataArray* dims (not just the numpy
+        # arrays), since for point/site observations lats and lons share a
+        # single dim and must not be meshgridded as if they were grid axes.
+        lat_da = paired_data[resolved_lat]
+        lon_da = paired_data[resolved_lon]
+        # Reference DataArray for geometry detection — use obs_data dims.
+        ref_da = obs_data
+        is_point_data = (
+            lat_da.ndim == 1
+            and lon_da.ndim == 1
+            and lat_da.dims == lon_da.dims
+            and lat_da.dims[0] in ref_da.dims
+        )
+
+        # Resolve "auto" to a concrete method based on data geometry: gridded
+        # data (1-D lat/lon axes with a 2-D+ field, or 2-D curvilinear coords)
+        # renders as a filled pcolormesh field; point/site data uses scatter.
+        effective_plot_type = plot_type
+        if plot_type == "auto":
+            is_regular_grid = (not is_point_data) and lats.ndim == 1 and ref_da.ndim >= 2
+            is_curvilinear_grid = lats.ndim == 2
+            effective_plot_type = (
+                "pcolormesh" if (is_regular_grid or is_curvilinear_grid) else "scatter"
+            )
+
         # Calculate common limits
         if show_var == "both":
             all_values = np.concatenate(
@@ -210,7 +240,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
                 obs_data.values,
                 lats,
                 lons,
-                plot_type,
+                effective_plot_type,
                 cmap,
                 vmin,
                 vmax,
@@ -232,7 +262,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
                 model_data.values,
                 lats,
                 lons,
-                plot_type,
+                effective_plot_type,
                 cmap,
                 vmin,
                 vmax,
@@ -300,7 +330,11 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         import cartopy.crs as ccrs
 
         data_flat = data.flatten()
-        if lats.ndim == 1 and lons.ndim == 1 and data.ndim >= 2:
+        if plot_type != "scatter" and lats.ndim == 1 and lons.ndim == 1 and data.ndim >= 2:
+            # Regular grid: lat/lon are independent axes — build a meshgrid so
+            # each grid cell gets the correct coordinate.  Only do this for
+            # pcolormesh; for scatter (point/site data) lat/lon are already
+            # per-observation and must be broadcast, not meshgridded.
             lon_grid, lat_grid = np.meshgrid(lons, lats, indexing="ij")
             if lon_grid.shape != data.shape:
                 lon_grid, lat_grid = np.meshgrid(lons, lats)
