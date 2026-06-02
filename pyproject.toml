@@ -69,7 +69,7 @@ where = ["."]
 include = ["davinci_monet*"]
 
 [tool.setuptools.package-data]
-davinci_monet = ["py.typed"]
+davinci_monet = ["py.typed", "observations/satellite/catalog/data/*.yaml"]
 
 [tool.black]
 line-length = 100

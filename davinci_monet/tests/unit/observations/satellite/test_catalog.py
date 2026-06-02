@@ -1,3 +1,10 @@
+import pytest
+
+from davinci_monet.observations.satellite.catalog.registry import (
+    Catalog,
+    UnknownProductError,
+    get_catalog,
+)
 from davinci_monet.observations.satellite.catalog.schema import ProductEntry, VariableEntry
 
 
@@ -33,3 +40,19 @@ def test_product_entry_resolves_variable_by_display_and_sds():
         p.variable_by_sds("Aerosol_Optical_Depth_Land_Ocean_Mean_Mean").display_name == "aod_550nm"
     )
     assert p.variable_by_display("nope") is None
+
+
+def test_catalog_resolves_known_products():
+    cat = get_catalog()
+    terra = cat.resolve("MOD08_M3")
+    aqua = cat.resolve("MYD08_M3")
+    assert terra.platform == "Terra"
+    assert aqua.platform == "Aqua"
+    assert terra.variable_by_display("aod_550nm").wavelength_nm == 550
+
+
+def test_catalog_unknown_product_suggests_matches():
+    cat = get_catalog()
+    with pytest.raises(UnknownProductError) as exc:
+        cat.resolve("MOD08_X3")
+    assert "MOD08_M3" in str(exc.value)  # close-match suggestion
