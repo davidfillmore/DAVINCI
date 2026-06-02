@@ -1145,6 +1145,76 @@ class TestSpatialPlotters:
         not pytest.importorskip("cartopy", reason="cartopy not available"),
         reason="cartopy not available",
     )
+    def test_spatial_bias_grid_uses_pcolormesh_by_default(self):
+        """Gridded data must render as pcolormesh (QuadMesh) by default, not
+        scatter circles.  Before the fix, plot_type defaulted to 'scatter' so
+        a MODIS-L3-style 10x12 grid produced ~120 scatter circles."""
+        import numpy as np
+        import xarray as xr
+        from matplotlib.collections import PathCollection, QuadMesh
+
+        from davinci_monet.plots import plot_spatial_bias
+
+        lat = np.linspace(-89.5, 89.5, 10)
+        lon = np.linspace(-179.5, 179.5, 12)
+        rng = np.random.default_rng(0)
+        obs = xr.DataArray(
+            rng.uniform(0, 1, (10, 12)),
+            dims=("lat", "lon"),
+            coords={"lat": lat, "lon": lon},
+        )
+        model = xr.DataArray(
+            rng.uniform(0, 1, (10, 12)),
+            dims=("lat", "lon"),
+            coords={"lat": lat, "lon": lon},
+        )
+        ds = xr.Dataset({"obs_aod": obs, "model_aod": model})
+
+        fig = plot_spatial_bias(ds, "obs_aod", "model_aod", lat_var="lat", lon_var="lon")
+        ax = fig.axes[0]
+        assert any(
+            isinstance(c, QuadMesh) for c in ax.collections
+        ), "gridded bias must render as pcolormesh (QuadMesh), not scatter circles"
+        assert not any(
+            isinstance(c, PathCollection) for c in ax.collections
+        ), "gridded bias must not use scatter PathCollection"
+        plt.close(fig)
+
+    @pytest.mark.skipif(
+        not pytest.importorskip("cartopy", reason="cartopy not available"),
+        reason="cartopy not available",
+    )
+    def test_spatial_bias_point_uses_scatter_with_auto(self):
+        """Point/site data must still render as scatter (PathCollection) when
+        plot_type='auto' (the new default), guarding against regression."""
+        import numpy as np
+        import xarray as xr
+        from matplotlib.collections import PathCollection
+
+        from davinci_monet.plots import plot_spatial_bias
+
+        site = np.arange(8)
+        lat = xr.DataArray(np.linspace(20, 50, 8), dims=("site",), coords={"site": site})
+        lon = xr.DataArray(np.linspace(100, 140, 8), dims=("site",), coords={"site": site})
+        rng = np.random.default_rng(1)
+        obs = xr.DataArray(rng.uniform(0, 1, 8), dims=("site",), coords={"site": site})
+        model = xr.DataArray(rng.uniform(0, 1, 8), dims=("site",), coords={"site": site})
+        ds = xr.Dataset(
+            {"obs_v": obs, "model_v": model},
+            coords={"lat": lat, "lon": lon},
+        )
+
+        fig = plot_spatial_bias(ds, "obs_v", "model_v", lat_var="lat", lon_var="lon")
+        ax = fig.axes[0]
+        assert any(
+            isinstance(c, PathCollection) for c in ax.collections
+        ), "point/site bias must render as scatter (PathCollection)"
+        plt.close(fig)
+
+    @pytest.mark.skipif(
+        not pytest.importorskip("cartopy", reason="cartopy not available"),
+        reason="cartopy not available",
+    )
     def test_spatial_distribution(self, simple_paired_data):
         """Test spatial distribution plot."""
         from davinci_monet.plots import plot_spatial_distribution

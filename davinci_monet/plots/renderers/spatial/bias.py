@@ -79,7 +79,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         label_sites: list[str] | None = None,
         city_labels: dict[str, tuple[float, float]] | None = None,
         label_fontsize: int | None = None,
-        plot_type: str = "scatter",
+        plot_type: str = "auto",
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Generate a spatial bias plot.
@@ -108,6 +108,13 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
             If True, make colorbar symmetric around zero.
         show_zero_line
             If True, highlight zero contour (for gridded data).
+        plot_type
+            How to render the bias field.  ``"auto"`` (default) chooses
+            ``"pcolormesh"`` for gridded data (1-D lat/lon axes with a 2-D+
+            field, or 2-D curvilinear coordinates) and ``"scatter"`` for
+            point/site data (lat/lon share a single observation dimension).
+            Pass ``"scatter"`` or ``"pcolormesh"`` to override the automatic
+            selection.
         **kwargs
             Additional plotting arguments.
 
@@ -254,8 +261,19 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         style = self.config.style
         ms = marker_size if marker_size is not None else style.markersize * 2
 
+        # Resolve "auto" to a concrete method based on data geometry: gridded
+        # data (1-D lat/lon axes with a 2-D+ field, or 2-D curvilinear coords)
+        # renders as a filled pcolormesh field; point/site data uses scatter.
+        effective_plot_type = plot_type
+        if plot_type == "auto":
+            is_regular_grid = (not is_point_data) and lats.ndim == 1 and bias.ndim >= 2
+            is_curvilinear_grid = lats.ndim == 2
+            effective_plot_type = (
+                "pcolormesh" if (is_regular_grid or is_curvilinear_grid) else "scatter"
+            )
+
         # Choose plot method based on data geometry
-        if plot_type == "pcolormesh" and lats.ndim == 1 and bias.ndim >= 2:
+        if effective_plot_type == "pcolormesh" and lats.ndim == 1 and bias.ndim >= 2:
             # Regular grid with 1D coords — use pcolormesh
             bias_2d = bias.values
             scatter = ax.pcolormesh(
@@ -269,7 +287,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
                 transform=ccrs.PlateCarree(),
                 alpha=style.alpha,
             )
-        elif plot_type == "pcolormesh" and lats.ndim == 2:
+        elif effective_plot_type == "pcolormesh" and lats.ndim == 2:
             # Curvilinear grid — use pcolormesh with 2D coords
             scatter = ax.pcolormesh(
                 lons,
