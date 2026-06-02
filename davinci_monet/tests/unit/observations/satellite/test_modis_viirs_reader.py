@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 import numpy as np
 import pytest
 import xarray as xr
@@ -51,3 +54,22 @@ def test_reader_unknown_product_raises(tmp_path):
     reader = MODISVIIRSReader()
     with pytest.raises(UnknownProductError):
         reader.open([f], variables=["aod_550nm"], product="NOPE_M3")
+
+
+def test_reader_is_registered_via_package_import():
+    """Registration must happen via the observations package, not a direct module import."""
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import davinci_monet.observations; "
+                "from davinci_monet.core.registry import source_registry; "
+                "assert 'modis_viirs' in source_registry.list(), "
+                "'modis_viirs not registered after importing davinci_monet.observations'"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr

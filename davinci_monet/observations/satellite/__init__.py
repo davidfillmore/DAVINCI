@@ -25,6 +25,8 @@ monetio for full functionality:
 - **OMPSL3O3Reader** / **open_omps_l3_o3**: OMPS L3 total ozone products
   Requires: monetio.sat._omps_l3_mm
 
+- **MODISVIIRSReader**: Catalog-driven MODIS/VIIRS L3 grid products (MOD08_M3, MYD08_M3)
+
 Generic Readers
 ---------------
 These readers work with any satellite product but lack satellite-specific
@@ -64,6 +66,9 @@ from davinci_monet.observations.satellite.modis_l2_aod import (
     MODISL2AODReader,
     open_modis_l2_aod,
 )
+from davinci_monet.observations.satellite.modis_viirs import (  # noqa: F401  (registers "modis_viirs")
+    MODISVIIRSReader,
+)
 from davinci_monet.observations.satellite.mopitt_l3_co import (
     MOPITT_CO_VARIABLE_MAPPING,
     MOPITTL3COReader,
@@ -100,6 +105,8 @@ __all__ = [
     "MODISL2AODReader",
     "open_modis_l2_aod",
     "MODIS_AOD_VARIABLE_MAPPING",
+    # MODIS/VIIRS L3 catalog reader
+    "MODISVIIRSReader",
     # GOES L3 AOD
     "GOESL3AODReader",
     "GOESReader",  # Backward compatibility
