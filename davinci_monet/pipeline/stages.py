@@ -1302,7 +1302,11 @@ class LoadSourcesStage(BaseStage):
         if "progress_callback" in inspect.signature(reader.open).parameters:
 
             def _per_file_progress(i: int, total: int, name: str) -> None:
-                context.log_progress(f"step: loading {label} [{i}/{total}] {name}")
+                # Right-align the counter to the width of `total` so the file
+                # name stays in a fixed (aligned) column as files tick by, and
+                # indent the name from the counter.
+                width = len(str(total))
+                context.log_progress(f"step: loading {label} [{i:>{width}}/{total}]    {name}")
 
             open_kwargs["progress_callback"] = _per_file_progress
         data = reader.open(file_paths, variables=variable_names, **open_kwargs)
