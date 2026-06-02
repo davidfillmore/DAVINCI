@@ -1302,11 +1302,12 @@ class LoadSourcesStage(BaseStage):
         if "progress_callback" in inspect.signature(reader.open).parameters:
 
             def _per_file_progress(i: int, total: int, name: str) -> None:
-                # Right-align the counter to the width of `total` so the file
-                # name stays in a fixed (aligned) column as files tick by, and
-                # indent the name from the counter.
+                # Right-align the counter to the width of `total` so it stays a
+                # fixed width as files tick, and put the (often long) file name
+                # on its own indented line so it is never truncated off the end
+                # of the status line by the terminal width.
                 width = len(str(total))
-                context.log_progress(f"step: loading {label} [{i:>{width}}/{total}]    {name}")
+                context.log_progress(f"step: loading {label} [{i:>{width}}/{total}]\n      {name}")
 
             open_kwargs["progress_callback"] = _per_file_progress
         data = reader.open(file_paths, variables=variable_names, **open_kwargs)
