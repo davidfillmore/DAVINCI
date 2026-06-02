@@ -1,0 +1,99 @@
+# MERRA2 vs MODIS Terra/Aqua AOD — FULL multi-year archive.
+#
+# Same evaluation as merra2-modis-aod.example.yaml but over the entire archive
+# (Terra 2000-02..2026-03, Aqua 2002-07..2026-03, MERRA2 2000-01..2026-03); each
+# pair uses its own temporal overlap. Scatter plots are omitted here: at archive
+# scale the paired set is ~13M grid cells, which makes a scatter impractical (the
+# spatial-bias maps and the global-mean monthly time series carry the result).
+#
+# Required environment variables:
+#   MERRA2_DATA          — dir containing aer_Nx/*.nc4  (e.g. /Volumes/Io/MERRA2_tavgM)
+#   MODIS_DATA           — dir containing MOD08_M3/ and MYD08_M3/  (e.g. /Volumes/Io)
+#   MERRA2_AOD_ANALYSIS  — analysis dir (parent of output/ and logs/)
+#
+# Usage:
+#   export MERRA2_DATA=/Volumes/Io/MERRA2_tavgM
+#   export MODIS_DATA=/Volumes/Io
+#   export MERRA2_AOD_ANALYSIS=$(pwd)
+#   HDF5_USE_FILE_LOCKING=FALSE davinci-monet run analyses/merra2-aod/configs/merra2-modis-aod-full.example.yaml
+#
+# Note: the readers open every globbed file before time-slicing, so the full
+# archive (~900 files, ~600 of them HDF4) takes several minutes to load.
+
+analysis:
+  start_time: "2000-01-01"
+  end_time: "2026-12-31"
+  output_dir: ${MERRA2_AOD_ANALYSIS}/output
+  log_dir: ${MERRA2_AOD_ANALYSIS}/logs
+  style:
+    theme: ncar
+    context: default
+
+sources:
+  merra2:
+    type: generic
+    role: model
+    files: ${MERRA2_DATA}/aer_Nx/*.nc4
+    variables:
+      TOTEXTTAU:
+        units: "1"
+        ylabel_plot: "AOD (550 nm)"
+        vmin_plot: 0
+        vmax_plot: 1
+        vdiff_plot: 0.3
+  modis_terra:
+    type: modis_viirs
+    role: obs
+    product: MOD08_M3
+    files: ${MODIS_DATA}/MOD08_M3/*.hdf
+    variables:
+      aod_550nm:
+        units: "1"
+  modis_aqua:
+    type: modis_viirs
+    role: obs
+    product: MYD08_M3
+    files: ${MODIS_DATA}/MYD08_M3/*.hdf
+    variables:
+      aod_550nm:
+        units: "1"
+
+pairs:
+  merra2_vs_terra:
+    sources: [merra2, modis_terra]
+    reference: modis_terra
+    variables: { merra2: TOTEXTTAU, modis_terra: aod_550nm }
+  merra2_vs_aqua:
+    sources: [merra2, modis_aqua]
+    reference: modis_aqua
+    variables: { merra2: TOTEXTTAU, modis_aqua: aod_550nm }
+
+plots:
+  # Period shown only in the subtitle (date range); titles stay date-free.
+  terra_aod_spatial_bias:
+    type: spatial_bias
+    pairs: [merra2_vs_terra]
+    title: "AOD Bias: MERRA2 - MODIS Terra"
+  aqua_aod_spatial_bias:
+    type: spatial_bias
+    pairs: [merra2_vs_aqua]
+    title: "AOD Bias: MERRA2 - MODIS Aqua"
+  # Split per pair so each legend names its own MODIS source via obs_label.
+  terra_aod_timeseries:
+    type: timeseries
+    pairs: [merra2_vs_terra]
+    title: "Global-Mean Monthly AOD - Terra"
+    obs_label: "MODIS Terra"
+    model_label: "MERRA-2"
+  aqua_aod_timeseries:
+    type: timeseries
+    pairs: [merra2_vs_aqua]
+    title: "Global-Mean Monthly AOD - Aqua"
+    obs_label: "MODIS Aqua"
+    model_label: "MERRA-2"
+
+stats:
+  output_table: true
+  output_table_kwargs:
+    precision: 3
+  metrics: [N, MO, MP, MB, RMSE, R, NMB, NME, IOA]
