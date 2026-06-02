@@ -49,6 +49,57 @@ def test_reader_concatenates_months_sorted(tmp_path):
     assert months == ["2024-02", "2024-03"]  # sorted ascending
 
 
+def _write_mod08_hdf4_like(path, fname):
+    """Fixture where XDim/YDim are plain data variables (not coords).
+
+    Real MOD08_M3 HDF4 files expose XDim/YDim as 1-D SDS data variables on
+    dims named ``XDim:mod08`` / ``YDim:mod08``.  When the reader selects only
+    the AOD SDS, those axis variables would be dropped unless explicitly
+    promoted to coords first.  This fixture reproduces that layout so the
+    coord-attachment fix can be exercised without a real HDF4 file.
+    """
+    lat = np.linspace(89.5, -89.5, 4)
+    lon = np.linspace(-179.5, 179.5, 8)
+    aod = np.random.default_rng(1).uniform(0.0, 1.0, size=(4, 8)).astype("float32")
+    # XDim and YDim are data_vars on their own dims, NOT in coords={}.
+    ds = xr.Dataset(
+        {
+            "Aerosol_Optical_Depth_Land_Ocean_Mean_Mean": (
+                ("YDim:mod08", "XDim:mod08"),
+                aod,
+            ),
+            "YDim": ("YDim:mod08", lat),
+            "XDim": ("XDim:mod08", lon),
+        }
+    )
+    fpath = path / fname
+    ds.to_netcdf(fpath)
+    return str(fpath)
+
+
+def test_reader_attaches_lat_lon_coords_when_axes_are_data_vars(tmp_path):
+    """Reader must attach lat/lon coords even when XDim/YDim are data vars.
+
+    In real MOD08_M3 HDF4 files the grid-axis arrays (XDim, YDim) are plain
+    data variables, not xarray coordinates.  Before the fix, selecting the AOD
+    SDS would drop them, leaving lon/lat as dimension names with no coordinate
+    values attached.  This test exercises the coord-promotion path.
+    """
+    f = _write_mod08_hdf4_like(tmp_path, "MOD08_M3.A2024032.061.0000.nc")
+    reader = MODISVIIRSReader()
+    ds = reader.open([f], variables=["aod_550nm"], product="MOD08_M3")
+
+    assert {"lat", "lon"}.issubset(ds.coords), (
+        "lat/lon must be coordinate arrays, not bare dimension names. "
+        "Check that XDim/YDim are promoted to coords before variable selection."
+    )
+    assert ds["lat"].shape == (4,)
+    assert ds["lon"].shape == (8,)
+    # Coordinate values should be actual degree values, not indices.
+    assert float(ds["lat"].max()) > 80.0
+    assert float(ds["lon"].min()) < -170.0
+
+
 def test_reader_unknown_product_raises(tmp_path):
     f = _write_mod08_like(tmp_path, "MOD08_M3.A2024032.061.0000.nc")
     reader = MODISVIIRSReader()

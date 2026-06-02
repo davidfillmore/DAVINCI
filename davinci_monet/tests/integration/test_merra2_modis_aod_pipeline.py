@@ -11,6 +11,7 @@ This is also the renderer audit: it confirms that ``spatial_bias``,
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -151,3 +152,29 @@ def test_merra2_modis_aod_pipeline(tmp_path: Path) -> None:
 
     csv_files = list(out_dir.rglob("*.csv"))
     assert csv_files, "Expected at least one statistics CSV in the output directory"
+
+
+@pytest.mark.skipif(
+    not (os.environ.get("MERRA2_DATA") and os.environ.get("MODIS_DATA")),
+    reason="set MERRA2_DATA and MODIS_DATA to run the real-data smoke test",
+)
+def test_real_data_one_month(tmp_path: Path) -> None:
+    """Read one real MOD08_M3 HDF4 file through the modis_viirs reader.
+
+    Confirms that HDF4 decode, scale/fill application, and lat/lon coordinate
+    attachment all work correctly on genuine MODIS Terra monthly L3 data.
+    Set env vars to activate::
+
+        export MERRA2_DATA=/Volumes/Io/MERRA2_tavgM
+        export MODIS_DATA=/Volumes/Io
+    """
+    from davinci_monet.observations.satellite.modis_viirs import MODISVIIRSReader
+
+    modis_dir = Path(os.environ["MODIS_DATA"]) / "MOD08_M3"
+    # Exclude macOS resource-fork files (._<name>.hdf) that appear on non-HFS volumes.
+    files = sorted(f for f in modis_dir.glob("*.hdf") if not f.name.startswith("."))[:1]
+    assert files, f"no MOD08_M3 files under {modis_dir}"
+    ds = MODISVIIRSReader().open([str(files[0])], variables=["aod_550nm"], product="MOD08_M3")
+    assert "aod_550nm" in ds and "time" in ds.coords
+    assert {"lat", "lon"}.issubset(ds.coords)
+    assert float(ds["aod_550nm"].max()) < 10.0  # physical AOD, scale applied

@@ -114,8 +114,19 @@ class MODISVIIRSReader:
     def _open_one(
         self, fpath: Path, variables: Sequence[str] | None, entry: ProductEntry
     ) -> xr.Dataset | None:
+        # MOD08_M3/MYD08_M3 HDF4 files contain 4-D histogram variables with
+        # duplicate dimension names.  xarray emits a UserWarning about these
+        # on open(), set_coords(), and variable-subset operations (which all
+        # copy the full raw dataset).  The warning is harmless for our use-case
+        # — we immediately drop those variables — but the message is misleading
+        # and breaks test suites with filterwarnings=error.  We therefore
+        # suppress it for the entire raw-dataset phase (open → subset); all
+        # operations on the clean subsetted dataset proceed normally.
+        _dup_dim_msg = "Duplicate dimension names present"
         try:
-            raw = xr.open_dataset(str(fpath), engine="netcdf4", mask_and_scale=True)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", _dup_dim_msg, UserWarning)
+                raw = xr.open_dataset(str(fpath), engine="netcdf4", mask_and_scale=True)
         except Exception as e:  # pragma: no cover - exercised via smoke test
             warnings.warn(f"Failed to open {fpath}: {e}", UserWarning)
             return None
@@ -139,7 +150,21 @@ class MODISVIIRSReader:
         if not keep:
             warnings.warn(f"{fpath.name}: none of the requested SDS present", UserWarning)
             return None
-        ds = raw[list(keep)]
+
+        # Promote grid-axis variables (e.g. XDim, YDim) to coordinates before
+        # selecting, so they survive the variable-subset and can be renamed to
+        # lon/lat by _standardize_grid.  In real HDF4 files these are plain
+        # data variables (not coords), so raw[list(keep)] would otherwise drop
+        # them; the synthetic unit-test fixture creates them as coords, so this
+        # is a no-op there.
+        # set_coords() and variable selection both copy the full raw dataset,
+        # triggering the duplicate-dim warning again — keep the filter active.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", _dup_dim_msg, UserWarning)
+            axis_vars = [k for k in entry.dim_aliases if k in raw.data_vars and k not in raw.coords]
+            if axis_vars:
+                raw = raw.set_coords(axis_vars)
+            ds = raw[list(keep)]
 
         # Rename SDS -> display name and attach variable metadata.
         ds = ds.rename({sds: v.display_name for sds, v in keep.items()})
