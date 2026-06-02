@@ -885,3 +885,70 @@ class TestPairingIntegration:
         assert paired is not None
         assert "obs_temperature" in paired.data.data_vars
         assert "model_temperature" in paired.data.data_vars
+
+
+# =============================================================================
+# Regression test: grid-to-grid pairing with offset time coordinates
+# =============================================================================
+
+
+def _grid_ds_offset(varname: str, hour: int, minute: int, seed: int) -> xr.Dataset:
+    """Synthetic GRID dataset with monthly times at a given hour:minute.
+
+    Mirrors the MERRA2 vs MODIS pattern where MERRA2 monthly AOD is stamped at
+    YYYY-MM-01T00:30:00 and MODIS L3 is stamped at YYYY-MM-01T00:00:00.
+    """
+    rng = np.random.default_rng(seed)
+    times = np.array(
+        [f"2003-{m:02d}-01T{hour:02d}:{minute:02d}:00" for m in (1, 2, 3)],
+        dtype="datetime64[ns]",
+    )
+    lat = np.linspace(89.5, -89.5, 6)  # descending, MODIS-like
+    lon = np.linspace(-179.5, 179.5, 8)
+    data = rng.uniform(0.05, 0.8, size=(3, 6, 8))
+    ds = xr.Dataset(
+        {varname: (("time", "lat", "lon"), data)},
+        coords={"time": times, "lat": lat, "lon": lon},
+    )
+    ds.attrs["geometry"] = DataGeometry.GRID.value
+    return ds
+
+
+def test_grid_pairing_preserves_model_when_times_offset() -> None:
+    """Regression: nearest-matched model must NOT become all-NaN.
+
+    Root cause: ``GridStrategy._align_times`` used ``model.sel(time=obs_times,
+    method="nearest")`` which keeps the *model's* original time labels.
+    ``_create_paired_output`` then reindexes the model onto the obs time
+    coordinate, zeroing all model values when model/obs timestamps differ by
+    any amount (e.g. MERRA2 monthly 00:30 vs MODIS L3 00:00).
+
+    Fix: relabel the matched model's time coordinate to obs_times immediately
+    after the nearest-sel so the two datasets share identical time labels.
+    """
+    # Model stamped at 00:30, obs at 00:00 (MERRA2 vs MODIS pattern).
+    model = _grid_ds_offset("TOTEXTTAU", hour=0, minute=30, seed=1)
+    obs = _grid_ds_offset("aod_550nm", hour=0, minute=0, seed=2)
+
+    paired = (
+        PairingEngine()
+        .pair(
+            model,
+            obs,
+            obs_vars=["aod_550nm"],
+            model_vars=["TOTEXTTAU"],
+            config=PairingConfig(time_tolerance=timedelta(hours=1), time_method="nearest"),
+        )
+        .data
+    )
+
+    model_var = next(v for v in paired.data_vars if str(v).startswith("model_"))
+    obs_var = next(v for v in paired.data_vars if str(v).startswith("obs_"))
+    model_finite = int(np.isfinite(paired[model_var]).sum())
+    covalid = int((np.isfinite(paired[model_var]) & np.isfinite(paired[obs_var])).sum())
+    assert model_finite > 0, (
+        f"regridded model is all-NaN (time-label reindex bug); " f"model_finite={model_finite}"
+    )
+    assert covalid > 0, (
+        f"no co-valid model/obs cells -> stats would be all-NaN; " f"covalid={covalid}"
+    )
