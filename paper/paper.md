@@ -1,5 +1,5 @@
 ---
-title: 'DAVINCI: A Type-Safe, Geometry-Aware Toolkit for Atmospheric Chemistry Model Evaluation'
+title: 'DAVINCI: A Type-Safe, Geometry-Aware Toolkit for Climate Dataset Evaluation'
 tags:
   - Python
   - atmospheric chemistry
@@ -21,8 +21,8 @@ nocite: '@fillmore_davinci'
 
 # Summary
 
-DAVINCI (Data Analysis and Validation Infrastructure for Chemistry) is a
-Python package for evaluating atmospheric chemistry and air quality model
+DAVINCI (Data Analysis and Visual Intelligence for Climate) is a
+Python package for evaluating climate and atmospheric composition model
 output against observations. It combines validated YAML configuration,
 geometry-aware pairing, evaluation statistics, and plotting in a stage-based
 workflow built around xarray datasets. DAVINCI supports paired

@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 type: software
-title: "DAVINCI: Data Analysis and Validation Infrastructure for Chemistry"
+title: "DAVINCI: Data Analysis and Visual Intelligence for Climate"
 version: 26.03
 date-released: 2026-03-23
 url: "https://github.com/NCAR/DAVINCI"
@@ -21,7 +21,7 @@ keywords:
   - xarray
 preferred-citation:
   type: article
-  title: "DAVINCI: A Type-Safe, Geometry-Aware Toolkit for Atmospheric Chemistry Model Evaluation"
+  title: "DAVINCI: A Type-Safe, Geometry-Aware Toolkit for Climate Dataset Evaluation"
   authors:
     - family-names: Fillmore
       given-names: David

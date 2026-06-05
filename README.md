@@ -1,8 +1,8 @@
 # DAVINCI
 
-**Data Analysis and Validation Infrastructure for Chemistry**
+**Data Analysis and Visual Intelligence for Climate**
 
-A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air quality models against observations.
+A modern, type-safe Python toolkit for evaluating climate and atmospheric composition models against observations.
 
 ## Features
 
@@ -189,4 +189,4 @@ Apache 2.0
 
 ---
 
-> *Leonardo da Vinci and Claude Monet were both extraordinary observers of the natural world, and their artistic legacies resonate with the scientific mission of atmospheric model evaluation. Da Vinci, the Renaissance polymath, meticulously documented natural phenomena in his notebooks—from the mechanics of water flow to the blue haze of distant mountains, recognizing what we now call atmospheric perspective. His sfumato technique—from the Italian "to evaporate like smoke"—used subtle blending without harsh outlines to capture how the atmosphere softens and scatters light between observer and subject. Monet, the Impressionist master, devoted his career to capturing the ephemeral interplay of light and atmosphere. His serial paintings of haystacks, Rouen Cathedral, and the Thames recorded the same scenes under varying atmospheric conditions—fog, sunrise, midday sun—essentially conducting visual experiments on how the atmosphere transforms what we see. Both artists understood that the atmosphere is not empty space but an active medium that shapes our perception of the world. DAVINCI inherits this spirit of careful observation: just as da Vinci and Monet compared their perceptions against nature itself, this toolkit compares numerical model predictions against real-world observations, validating our mathematical representations of atmospheric chemistry against the truth that only measurement can provide.*
+> *Leonardo da Vinci and Claude Monet were both extraordinary observers of the natural world, and their artistic legacies resonate with the scientific mission of atmospheric model evaluation. Da Vinci, the Renaissance polymath, meticulously documented natural phenomena in his notebooks—from the mechanics of water flow to the blue haze of distant mountains, recognizing what we now call atmospheric perspective. His sfumato technique—from the Italian "to evaporate like smoke"—used subtle blending without harsh outlines to capture how the atmosphere softens and scatters light between observer and subject. Monet, the Impressionist master, devoted his career to capturing the ephemeral interplay of light and atmosphere. His serial paintings of haystacks, Rouen Cathedral, and the Thames recorded the same scenes under varying atmospheric conditions—fog, sunrise, midday sun—essentially conducting visual experiments on how the atmosphere transforms what we see. Both artists understood that the atmosphere is not empty space but an active medium that shapes our perception of the world. DAVINCI inherits this spirit of careful observation: just as da Vinci and Monet compared their perceptions against nature itself, this toolkit compares numerical model predictions against real-world observations, bringing visual intelligence to our mathematical representations of the climate system and testing them against the truth that only measurement can provide.*
