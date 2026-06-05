@@ -74,3 +74,33 @@ def test_summary_stage_error_is_nonfatal(monkeypatch, tmp_path: Path) -> None:
     result = SummaryStage().execute(_ctx(tmp_path))
     assert result.status == StageStatus.SKIPPED
     assert "no key" in str(result.data)
+
+
+def test_summary_stage_unexpected_error_is_nonfatal(monkeypatch, tmp_path: Path) -> None:
+    """A non-SummaryError failure must still degrade to SKIPPED, never FAILED."""
+
+    def _boom(cfg):
+        raise RuntimeError("kaboom")
+
+    monkeypatch.setattr(summarizer_mod, "_build_client", _boom)
+
+    result = SummaryStage().execute(_ctx(tmp_path))
+    assert result.status == StageStatus.SKIPPED
+    assert "kaboom" in str(result.data)
+
+
+def test_summary_stage_invalid_config_is_nonfatal(tmp_path: Path) -> None:
+    """A malformed summary config (validation error) must skip, not fail the run."""
+    ctx = PipelineContext(
+        config={
+            "analysis": {
+                "start_time": "2024-02-01",
+                "end_time": "2024-02-03",
+                "output_dir": str(tmp_path / "output"),
+            },
+            # max_images must be an int; this fails SummaryConfig validation
+            "summary": {"enabled": True, "max_images": "not-an-int"},
+        }
+    )
+    result = SummaryStage().execute(ctx)
+    assert result.status == StageStatus.SKIPPED
