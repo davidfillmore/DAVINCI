@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -108,3 +109,73 @@ def build_prompt(
             }
         )
     return system, content
+
+
+def _build_client(cfg: Any) -> Any:
+    """Construct a real Anthropic client (lazy import). Raises SummaryError."""
+    try:
+        import anthropic
+    except ImportError as exc:  # pragma: no cover - exercised via stage tests
+        raise SummaryError(
+            "anthropic package not installed; install with: pip install 'davinci-monet[ai]'"
+        ) from exc
+
+    key = os.environ.get(cfg.api_key_env, "")
+    if not key:
+        raise SummaryError(
+            f"API key environment variable '{cfg.api_key_env}' is not set"
+        )
+    return anthropic.Anthropic(api_key=key)
+
+
+def generate_summary(
+    payload: SummaryPayload,
+    *,
+    cfg: Any,
+    client: Any | None = None,
+) -> SummaryResult:
+    """Encode images, build the prompt, call Claude, and return the markdown.
+
+    ``client`` is injectable for testing; when ``None`` a real Anthropic client
+    is constructed from ``cfg.api_key_env``.
+    """
+    from davinci_monet.ai.images import encode_image
+
+    if client is None:
+        client = _build_client(cfg)
+
+    encoded: list[tuple[str, EncodedImage]] = []
+    for img in payload.images:
+        try:
+            encoded.append((img.caption, encode_image(img.path)))
+        except Exception as exc:  # noqa: BLE001 - bad figure must not abort summary
+            logger.warning("Skipping figure %s: %s", img.path, exc)
+
+    system, content = build_prompt(payload, encoded)
+
+    try:
+        response = client.messages.create(
+            model=cfg.model,
+            max_tokens=cfg.max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": content}],
+        )
+    except Exception as exc:  # noqa: BLE001 - any API/network failure degrades
+        raise SummaryError(f"Claude API request failed: {exc}") from exc
+
+    try:
+        markdown = response.content[0].text
+        usage = {
+            "input_tokens": response.usage.input_tokens,
+            "output_tokens": response.usage.output_tokens,
+        }
+    except (AttributeError, IndexError) as exc:
+        raise SummaryError(f"Unexpected API response shape: {exc}") from exc
+
+    return SummaryResult(
+        markdown=markdown,
+        model=getattr(response, "model", cfg.model),
+        usage=usage,
+        plots_used=[caption for caption, _ in encoded],
+        images_sent=len(encoded),
+    )
