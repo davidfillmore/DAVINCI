@@ -53,14 +53,10 @@ class _StubClient:
 
 
 def _build_config(tmp_path: Path) -> dict:
-    domain = Domain(
-        lon_min=-105.0, lon_max=-95.0, lat_min=35.0, lat_max=45.0, n_lon=12, n_lat=12
-    )
+    domain = Domain(lon_min=-105.0, lon_max=-95.0, lat_min=35.0, lat_max=45.0, n_lon=12, n_lat=12)
     time_cfg = TimeConfig(start="2024-01-15 00:00", end="2024-01-17 00:00", freq="1h")
 
-    model_ds = create_model_dataset(
-        variables=["O3"], domain=domain, time_config=time_cfg, seed=42
-    )
+    model_ds = create_model_dataset(variables=["O3"], domain=domain, time_config=time_cfg, seed=42)
     scenario = PerfectMatchScenario(
         variables=["O3"],
         domain=domain,

@@ -66,9 +66,7 @@ def test_collect_payload_caps_images_when_no_plots_list() -> None:
 def test_collect_payload_selects_named_plots() -> None:
     paths = ["00_o3_scatter.png", "01_pm25_spatial_bias.png", "02_o3_timeseries.png"]
     ctx = _context_with_results(paths)
-    payload = collect_payload(
-        ctx, SummaryConfig(enabled=True, plots=["pm25_spatial_bias"])
-    )
+    payload = collect_payload(ctx, SummaryConfig(enabled=True, plots=["pm25_spatial_bias"]))
     assert len(payload.images) == 1
     assert "pm25_spatial_bias" in payload.images[0].path
     assert payload.images[0].caption == Path(payload.images[0].path).stem

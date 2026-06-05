@@ -66,9 +66,7 @@ def _payload(path: str) -> SummaryPayload:
 
 def test_generate_summary_with_injected_client(tmp_path) -> None:
     client = _StubClient()
-    result = generate_summary(
-        _payload(_png_path(tmp_path)), cfg=SummaryConfig(), client=client
-    )
+    result = generate_summary(_payload(_png_path(tmp_path)), cfg=SummaryConfig(), client=client)
     assert isinstance(result, SummaryResult)
     assert "## Caveats" in result.markdown
     assert result.model == "claude-haiku-4-5"
@@ -99,6 +97,4 @@ def test_generate_summary_api_error_wrapped(tmp_path) -> None:
         messages = _BoomMessages()
 
     with pytest.raises(SummaryError, match="Claude API request failed"):
-        generate_summary(
-            _payload(_png_path(tmp_path)), cfg=SummaryConfig(), client=_BoomClient()
-        )
+        generate_summary(_payload(_png_path(tmp_path)), cfg=SummaryConfig(), client=_BoomClient())

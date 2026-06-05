@@ -67,9 +67,7 @@ def render_text(payload: SummaryPayload) -> str:
     lines.append("## Statistics")
     if payload.stats_rows:
         for row in payload.stats_rows:
-            metric_str = ", ".join(
-                f"{k}={_fmt(v)}" for k, v in row["metrics"].items()
-            )
+            metric_str = ", ".join(f"{k}={_fmt(v)}" for k, v in row["metrics"].items())
             lines.append(f"- {row['pair']} / {row['variable']}: {metric_str}")
     else:
         lines.append("(no statistics available)")
@@ -122,9 +120,7 @@ def _build_client(cfg: Any) -> Any:
 
     key = os.environ.get(cfg.api_key_env, "")
     if not key:
-        raise SummaryError(
-            f"API key environment variable '{cfg.api_key_env}' is not set"
-        )
+        raise SummaryError(f"API key environment variable '{cfg.api_key_env}' is not set")
     return anthropic.Anthropic(api_key=key)
 
 

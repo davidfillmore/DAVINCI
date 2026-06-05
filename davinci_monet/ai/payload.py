@@ -45,12 +45,7 @@ def collect_payload(context: "PipelineContext", cfg: "SummaryConfig") -> Summary
     for block in ("sources", "model", "obs"):
         for label, spec in (config.get(block) or {}).items():
             if isinstance(spec, dict):
-                stype = (
-                    spec.get("type")
-                    or spec.get("mod_type")
-                    or spec.get("obs_type")
-                    or "?"
-                )
+                stype = spec.get("type") or spec.get("mod_type") or spec.get("obs_type") or "?"
                 sources_summary.append(f"{label} ({stype})")
 
     pairs_summary = list((config.get("pairs") or {}).keys())
@@ -67,12 +62,8 @@ def collect_payload(context: "PipelineContext", cfg: "SummaryConfig") -> Summary
             for var_name, var_stats in pair_stats.items():
                 if var_name.startswith("_") or not isinstance(var_stats, dict):
                     continue
-                metrics = {
-                    k: v for k, v in var_stats.items() if not k.startswith("_")
-                }
-                stats_rows.append(
-                    {"pair": pair_key, "variable": var_name, "metrics": metrics}
-                )
+                metrics = {k: v for k, v in var_stats.items() if not k.startswith("_")}
+                stats_rows.append({"pair": pair_key, "variable": var_name, "metrics": metrics})
 
     all_plots: list[str] = []
     for stage_key in _PLOT_STAGES:
