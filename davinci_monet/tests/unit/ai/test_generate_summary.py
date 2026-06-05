@@ -120,4 +120,4 @@ def test_generate_summary_routes_to_openrouter(monkeypatch, tmp_path) -> None:
     result = generate_summary(_payload(_png_path(tmp_path)), cfg=cfg)
     assert "## Caveats" in result.markdown
     assert result.usage == {"input_tokens": 7, "output_tokens": 8}
-    assert result.model == "anthropic/claude-3.5-haiku"
+    assert result.model == "anthropic/claude-haiku-4.5"

@@ -129,7 +129,7 @@ summary:
   enabled: true
   provider: openrouter
   api_key_file: OpenRouter.api          # gitignored; falls back to api_key_env
-  model: anthropic/claude-3.5-haiku     # OpenRouter model id (default for this provider)
+  model: anthropic/claude-haiku-4.5     # OpenRouter model id (default for this provider)
 ```
 
 The stage is always non-fatal: with no key or no network it logs a warning and

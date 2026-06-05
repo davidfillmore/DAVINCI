@@ -29,7 +29,7 @@ def test_build_openrouter_messages_shape() -> None:
 
 def _canned() -> dict:
     return {
-        "model": "anthropic/claude-3.5-haiku",
+        "model": "anthropic/claude-haiku-4.5",
         "choices": [
             {"message": {"role": "assistant", "content": "## What this run is\nx\n## Caveats\n"}}
         ],
@@ -56,11 +56,11 @@ def test_call_openrouter_maps_response(monkeypatch, tmp_path: Path) -> None:
 
     assert isinstance(result, SummaryResult)
     assert "## Caveats" in result.markdown
-    assert result.model == "anthropic/claude-3.5-haiku"
+    assert result.model == "anthropic/claude-haiku-4.5"
     assert result.usage == {"input_tokens": 100, "output_tokens": 50}
     assert result.images_sent == 1
     assert captured["key"] == "sk-or-test"
-    assert captured["body"]["model"] == "anthropic/claude-3.5-haiku"
+    assert captured["body"]["model"] == "anthropic/claude-haiku-4.5"
     assert captured["body"]["max_tokens"] == 2000
 
 

@@ -703,7 +703,7 @@ class SummaryConfig(FlexibleModel):
         """
         if self.provider == "openrouter":
             if self.model == "claude-haiku-4-5":
-                self.model = "anthropic/claude-3.5-haiku"
+                self.model = "anthropic/claude-haiku-4.5"
             if self.api_key_env == "ANTHROPIC_API_KEY":
                 self.api_key_env = "OPENROUTER_API_KEY"
         return self

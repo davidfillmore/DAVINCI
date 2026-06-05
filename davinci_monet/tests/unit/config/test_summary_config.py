@@ -69,7 +69,7 @@ def test_summary_config_openrouter_flips_defaults() -> None:
     cfg = SummaryConfig.model_validate({"provider": "openrouter"})
     assert cfg.provider == "openrouter"
     # sentinels flip to OpenRouter-appropriate defaults
-    assert cfg.model == "anthropic/claude-3.5-haiku"
+    assert cfg.model == "anthropic/claude-haiku-4.5"
     assert cfg.api_key_env == "OPENROUTER_API_KEY"
 
 
