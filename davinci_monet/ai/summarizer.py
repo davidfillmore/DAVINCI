@@ -154,15 +154,13 @@ def generate_summary(
     cfg: Any,
     client: Any | None = None,
 ) -> SummaryResult:
-    """Encode images, build the prompt, call Claude, and return the markdown.
+    """Encode images, then dispatch to the configured provider.
 
-    ``client`` is injectable for testing; when ``None`` a real Anthropic client
-    is constructed from ``cfg.api_key_env``.
+    ``client`` is the injectable Anthropic client (used when
+    ``cfg.provider == "anthropic"``). The OpenRouter path's injectable seam is
+    ``openrouter._send_openrouter_request``.
     """
     from davinci_monet.ai.images import encode_image
-
-    if client is None:
-        client = _build_client(cfg)
 
     encoded: list[tuple[str, EncodedImage]] = []
     for img in payload.images:
@@ -170,6 +168,26 @@ def generate_summary(
             encoded.append((img.caption, encode_image(img.path)))
         except Exception as exc:  # noqa: BLE001 - bad figure must not abort summary
             logger.warning("Skipping figure %s: %s", img.path, exc)
+
+    provider = getattr(cfg, "provider", "anthropic")
+    if provider == "openrouter":
+        from davinci_monet.ai.openrouter import call_openrouter  # lazy: avoid cycle
+
+        return call_openrouter(SYSTEM_PROMPT, render_text(payload), encoded, cfg)
+
+    return _call_anthropic(payload, encoded, cfg, client=client)
+
+
+def _call_anthropic(
+    payload: SummaryPayload,
+    encoded: list[tuple[str, EncodedImage]],
+    cfg: Any,
+    *,
+    client: Any | None = None,
+) -> SummaryResult:
+    """Call the Anthropic Messages API and return a SummaryResult."""
+    if client is None:
+        client = _build_client(cfg)
 
     system, content = build_prompt(payload, encoded)
 
