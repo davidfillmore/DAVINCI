@@ -1,6 +1,6 @@
 # DAVINCI
 
-**Data Analysis and Validation Infrastructure for Chemistry**
+**Data Analysis and Visual Intelligence for Climate**
 
 A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air quality models against observations, based on MELODIES-MONET.
 

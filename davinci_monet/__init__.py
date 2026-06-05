@@ -1,7 +1,7 @@
-"""DAVINCI: Data Analysis and Validation Infrastructure for Chemistry.
+"""DAVINCI: Data Analysis and Visual Intelligence for Climate.
 
-A modern, type-safe toolkit for evaluating atmospheric chemistry and
-air quality models against observations.
+A modern, type-safe toolkit for evaluating climate and atmospheric
+composition models against observations.
 """
 
 from __future__ import annotations

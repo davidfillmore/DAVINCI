@@ -284,7 +284,7 @@ def _version_callback(value: bool) -> None:
 # Create the main application
 app = typer.Typer(
     name="davinci-monet",
-    help="DAVINCI: Data Analysis and Validation Infrastructure for Chemistry",
+    help="DAVINCI: Data Analysis and Visual Intelligence for Climate",
     add_completion=False,
 )
 
@@ -300,9 +300,9 @@ def main(
         is_eager=True,
     ),
 ) -> None:
-    """DAVINCI: Data Analysis and Validation Infrastructure for Chemistry.
+    """DAVINCI: Data Analysis and Visual Intelligence for Climate.
 
-    A modern tool for evaluating atmospheric chemistry and air quality
+    A modern tool for evaluating climate and atmospheric composition
     models against observations.
     """
 
