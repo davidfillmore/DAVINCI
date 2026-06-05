@@ -520,3 +520,6 @@ fig = plot_timeseries(paired_data, "obs_o3", "model_o3")
    sends stats + plot images to the Claude API (`pip install -e ".[ai]"`,
    `ANTHROPIC_API_KEY`). It is always non-fatal — missing key/network just skips
    it. Default model `claude-haiku-4-5`. Vision images are downscaled to ≤1568px.
+   The provider can be `anthropic` (default, `ANTHROPIC_API_KEY`) or `openrouter`
+   (`provider: openrouter`, key via `api_key_file:` or `OPENROUTER_API_KEY`,
+   default model `anthropic/claude-3.5-haiku`).
