@@ -54,3 +54,34 @@ def test_monetconfig_parses_summary_block() -> None:
     # model_dump round-trips to a plain dict for the pipeline
     dumped = cfg.model_dump()
     assert dumped["summary"]["enabled"] is True
+
+
+def test_summary_config_provider_defaults_to_anthropic() -> None:
+    cfg = SummaryConfig()
+    assert cfg.provider == "anthropic"
+    assert cfg.api_key_file is None
+    # anthropic defaults are untouched
+    assert cfg.model == "claude-haiku-4-5"
+    assert cfg.api_key_env == "ANTHROPIC_API_KEY"
+
+
+def test_summary_config_openrouter_flips_defaults() -> None:
+    cfg = SummaryConfig.model_validate({"provider": "openrouter"})
+    assert cfg.provider == "openrouter"
+    # sentinels flip to OpenRouter-appropriate defaults
+    assert cfg.model == "anthropic/claude-3.5-haiku"
+    assert cfg.api_key_env == "OPENROUTER_API_KEY"
+
+
+def test_summary_config_openrouter_preserves_explicit_values() -> None:
+    cfg = SummaryConfig.model_validate(
+        {
+            "provider": "openrouter",
+            "model": "anthropic/claude-sonnet-4",
+            "api_key_env": "MY_KEY",
+            "api_key_file": "OpenRouter.api",
+        }
+    )
+    assert cfg.model == "anthropic/claude-sonnet-4"
+    assert cfg.api_key_env == "MY_KEY"
+    assert cfg.api_key_file == "OpenRouter.api"

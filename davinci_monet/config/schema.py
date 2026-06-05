@@ -678,18 +678,35 @@ class SummaryConfig(FlexibleModel):
     """Configuration for the optional AI analysis summary stage.
 
     When ``enabled`` is true, a final pipeline stage sends the run's
-    statistics, config metadata, and selected plot images to the Claude API
-    and writes a markdown brief into the analysis output directory.
+    statistics, config metadata, and selected plot images to a Claude model
+    (via the Anthropic API directly, or via OpenRouter) and writes a markdown
+    brief into the analysis output directory.
     """
 
     enabled: bool = False
+    provider: Literal["anthropic", "openrouter"] = "anthropic"
     model: str = "claude-haiku-4-5"
     max_tokens: int = 2000
     api_key_env: str = "ANTHROPIC_API_KEY"
+    api_key_file: str | None = None
     plots: list[str] | None = None
     max_images: int = 8
     output_filename: str = "AI_summary.md"
     instructions: str | None = None
+
+    @model_validator(mode="after")
+    def _apply_provider_defaults(self) -> "SummaryConfig":
+        """Flip Anthropic-default sentinels to OpenRouter equivalents.
+
+        Only fields still holding the Anthropic default are changed, so an
+        explicit user value is never overridden.
+        """
+        if self.provider == "openrouter":
+            if self.model == "claude-haiku-4-5":
+                self.model = "anthropic/claude-3.5-haiku"
+            if self.api_key_env == "ANTHROPIC_API_KEY":
+                self.api_key_env = "OPENROUTER_API_KEY"
+        return self
 
 
 # =============================================================================
