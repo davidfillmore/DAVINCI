@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from davinci_monet.ai.images import EncodedImage
@@ -109,6 +110,31 @@ def build_prompt(
     return system, content
 
 
+def resolve_api_key(cfg: Any) -> str:
+    """Resolve the API key from ``api_key_file`` (if set) else ``api_key_env``.
+
+    Raises SummaryError if the file is unreadable/empty or no key is found.
+    """
+    if cfg.api_key_file:
+        path = Path(os.path.expanduser(cfg.api_key_file))
+        try:
+            key = path.read_text().strip()
+        except OSError as exc:
+            raise SummaryError(
+                f"could not read api_key_file '{cfg.api_key_file}': {exc}"
+            ) from exc
+        if not key:
+            raise SummaryError(f"api_key_file '{cfg.api_key_file}' is empty")
+        return key
+
+    key = os.environ.get(cfg.api_key_env, "")
+    if not key:
+        raise SummaryError(
+            f"API key not found: set env '{cfg.api_key_env}' or summary.api_key_file"
+        )
+    return key
+
+
 def _build_client(cfg: Any) -> Any:
     """Construct a real Anthropic client (lazy import). Raises SummaryError."""
     try:
@@ -118,9 +144,7 @@ def _build_client(cfg: Any) -> Any:
             "anthropic package not installed; install with: pip install 'davinci-monet[ai]'"
         ) from exc
 
-    key = os.environ.get(cfg.api_key_env, "")
-    if not key:
-        raise SummaryError(f"API key environment variable '{cfg.api_key_env}' is not set")
+    key = resolve_api_key(cfg)
     return anthropic.Anthropic(api_key=key)
 
 
