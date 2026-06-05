@@ -291,6 +291,11 @@ plots:
 
 stats:
   metrics: [N, MB, RMSE, R, NMB, NME, IOA]
+
+summary:
+  enabled: true
+  model: claude-haiku-4-5  # cheapest vision model
+  max_images: 8
 ```
 
 ### Config Naming Convention
@@ -510,3 +515,8 @@ fig = plot_timeseries(paired_data, "obs_o3", "model_o3")
    ```bash
    DASK_NUM_WORKERS=1 HDF5_USE_FILE_LOCKING=FALSE davinci-monet run config.yaml
    ```
+
+9. **AI summary stage**: The `summary:` block enables an opt-in final stage that
+   sends stats + plot images to the Claude API (`pip install -e ".[ai]"`,
+   `ANTHROPIC_API_KEY`). It is always non-fatal — missing key/network just skips
+   it. Default model `claude-haiku-4-5`. Vision images are downscaled to ≤1568px.
