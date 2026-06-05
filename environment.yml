@@ -27,4 +27,5 @@ dependencies:
   # Install davinci-monet in editable mode
   - pip
   - pip:
+    - anthropic>=0.40
     - -e ".[dev]"
