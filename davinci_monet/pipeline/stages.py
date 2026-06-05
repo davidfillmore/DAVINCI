@@ -2941,6 +2941,68 @@ class ObsStatisticsStage(BaseStage):
         )
 
 
+class SummaryStage(BaseStage):
+    """Optional final stage: AI summary of the analysis run via the Claude API.
+
+    Always non-fatal. When ``summary.enabled`` is false the stage is skipped.
+    Any failure (missing dependency/key, network/API error) logs a warning and
+    returns SKIPPED so an otherwise-complete run is still reported successful.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("summary")
+
+    def execute(self, context: PipelineContext) -> StageResult:
+        import logging
+        import time
+        from pathlib import Path
+
+        from davinci_monet.ai import collect_payload, generate_summary
+        from davinci_monet.ai.summarizer import SummaryError
+        from davinci_monet.config.schema import SummaryConfig
+
+        start = time.time()
+        logger = logging.getLogger(__name__)
+
+        cfg = SummaryConfig.model_validate(context.config.get("summary") or {})
+        if not cfg.enabled:
+            return self._create_result(
+                StageStatus.SKIPPED,
+                data={"skipped": "summary disabled"},
+                duration=time.time() - start,
+            )
+
+        payload = collect_payload(context, cfg)
+        try:
+            result = generate_summary(payload, cfg=cfg)
+        except SummaryError as exc:
+            logger.warning("AI summary skipped: %s", exc)
+            return self._create_result(
+                StageStatus.SKIPPED,
+                data={"skipped": str(exc)},
+                duration=time.time() - start,
+            )
+
+        output_dir = Path(context.config.get("analysis", {}).get("output_dir") or ".")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        out_path = output_dir / cfg.output_filename
+        out_path.write_text(result.markdown)
+
+        context.log_progress(f"AI summary written: {out_path}")
+        context.log_progress(result.markdown)
+
+        return self._create_result(
+            StageStatus.COMPLETED,
+            data={
+                "summary_file": str(out_path),
+                "model": result.model,
+                "usage": result.usage,
+                "images_sent": result.images_sent,
+            },
+            duration=time.time() - start,
+        )
+
+
 # Convenience function to create a standard analysis pipeline
 def create_standard_pipeline() -> list[BaseStage]:
     """Create a standard analysis pipeline with all stages.
@@ -2958,6 +3020,7 @@ def create_standard_pipeline() -> list[BaseStage]:
         ObsStatisticsStage(),
         ObsPlottingStage(),
         SaveResultsStage(),
+        SummaryStage(),
     ]
 
 
@@ -2974,4 +3037,5 @@ def create_obs_pipeline() -> list[BaseStage]:
         ObsStatisticsStage(),
         ObsPlottingStage(),
         SaveResultsStage(),
+        SummaryStage(),
     ]
