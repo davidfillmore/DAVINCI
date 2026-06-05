@@ -106,9 +106,7 @@ def test_generate_summary_routes_to_openrouter(monkeypatch, tmp_path) -> None:
 
     keyfile = tmp_path / "k.api"
     keyfile.write_text("sk-or-test")
-    cfg = SummaryConfig.model_validate(
-        {"provider": "openrouter", "api_key_file": str(keyfile)}
-    )
+    cfg = SummaryConfig.model_validate({"provider": "openrouter", "api_key_file": str(keyfile)})
 
     def _fake_send(cfg_arg, key, body):
         return {

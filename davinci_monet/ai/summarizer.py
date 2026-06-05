@@ -120,9 +120,7 @@ def resolve_api_key(cfg: Any) -> str:
         try:
             key = path.read_text().strip()
         except OSError as exc:
-            raise SummaryError(
-                f"could not read api_key_file '{cfg.api_key_file}': {exc}"
-            ) from exc
+            raise SummaryError(f"could not read api_key_file '{cfg.api_key_file}': {exc}") from exc
         if not key:
             raise SummaryError(f"api_key_file '{cfg.api_key_file}' is empty")
         return key
