@@ -45,7 +45,7 @@ def test_summary_config_openrouter_flips_defaults() -> None:
     cfg = SummaryConfig.model_validate({"provider": "openrouter"})
     assert cfg.provider == "openrouter"
     # sentinels flip to OpenRouter-appropriate defaults
-    assert cfg.model == "anthropic/claude-3.5-haiku"
+    assert cfg.model == "anthropic/claude-haiku-4.5"
     assert cfg.api_key_env == "OPENROUTER_API_KEY"
 
 
@@ -102,7 +102,7 @@ class SummaryConfig(FlexibleModel):
         """
         if self.provider == "openrouter":
             if self.model == "claude-haiku-4-5":
-                self.model = "anthropic/claude-3.5-haiku"
+                self.model = "anthropic/claude-haiku-4.5"
             if self.api_key_env == "ANTHROPIC_API_KEY":
                 self.api_key_env = "OPENROUTER_API_KEY"
         return self
@@ -290,7 +290,7 @@ def test_build_openrouter_messages_shape() -> None:
 
 def _canned() -> dict:
     return {
-        "model": "anthropic/claude-3.5-haiku",
+        "model": "anthropic/claude-haiku-4.5",
         "choices": [
             {"message": {"role": "assistant", "content": "## What this run is\nx\n## Caveats\n"}}
         ],
@@ -319,11 +319,11 @@ def test_call_openrouter_maps_response(monkeypatch, tmp_path: Path) -> None:
 
     assert isinstance(result, SummaryResult)
     assert "## Caveats" in result.markdown
-    assert result.model == "anthropic/claude-3.5-haiku"
+    assert result.model == "anthropic/claude-haiku-4.5"
     assert result.usage == {"input_tokens": 100, "output_tokens": 50}
     assert result.images_sent == 1
     assert captured["key"] == "sk-or-test"
-    assert captured["body"]["model"] == "anthropic/claude-3.5-haiku"
+    assert captured["body"]["model"] == "anthropic/claude-haiku-4.5"
     assert captured["body"]["max_tokens"] == 2000
 
 
@@ -486,7 +486,7 @@ def test_generate_summary_routes_to_openrouter(monkeypatch, tmp_path) -> None:
     result = generate_summary(_payload(_png_path(tmp_path)), cfg=cfg)
     assert "## Caveats" in result.markdown
     assert result.usage == {"input_tokens": 7, "output_tokens": 8}
-    assert result.model == "anthropic/claude-3.5-haiku"
+    assert result.model == "anthropic/claude-haiku-4.5"
 ```
 
 (`_payload` and `_png_path` already exist in this test file from the original feature.)
@@ -810,7 +810,7 @@ summary:
   enabled: true
   provider: openrouter
   api_key_file: OpenRouter.api          # gitignored; falls back to api_key_env
-  model: anthropic/claude-3.5-haiku     # OpenRouter model id (default for this provider)
+  model: anthropic/claude-haiku-4.5     # OpenRouter model id (default for this provider)
 ```
 ````
 
@@ -821,7 +821,7 @@ In `CLAUDE.md`, extend the AI summary Common Gotchas entry to mention the provid
 ```markdown
    The provider can be `anthropic` (default, `ANTHROPIC_API_KEY`) or `openrouter`
    (`provider: openrouter`, key via `api_key_file:` or `OPENROUTER_API_KEY`,
-   default model `anthropic/claude-3.5-haiku`).
+   default model `anthropic/claude-haiku-4.5`).
 ```
 
 - [ ] **Step 3: Commit**
@@ -879,4 +879,4 @@ git commit -m "style: black/isort/mypy fixes for OpenRouter provider"
 - **Anthropic path untouched in behavior:** `_call_anthropic` is the original body verbatim; all original `generate_summary`/stage/config tests remain valid.
 - **No circular import:** `openrouter.py` imports from `summarizer.py` at module top; `summarizer.py` imports `call_openrouter` lazily inside `generate_summary`.
 - **No network in tests:** every test stubs `_send_openrouter_request` or the Anthropic `client`/`_build_client`.
-- **Manual live run (after T7, not a code task):** run a real analysis with `provider: openrouter`, `api_key_file: OpenRouter.api`, `model: anthropic/claude-3.5-haiku` and confirm a real `AI_summary.md`. This is done by the controller, not the implementer subagents.
+- **Manual live run (after T7, not a code task):** run a real analysis with `provider: openrouter`, `api_key_file: OpenRouter.api`, `model: anthropic/claude-haiku-4.5` and confirm a real `AI_summary.md`. This is done by the controller, not the implementer subagents.

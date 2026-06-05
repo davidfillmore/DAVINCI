@@ -121,6 +121,17 @@ summary:
   instructions: "Focus on coastal sites."   # optional steering
 ```
 
+To use OpenRouter instead of the Anthropic API directly (e.g. with a key in a
+file), set the provider and point at the key file:
+
+```yaml
+summary:
+  enabled: true
+  provider: openrouter
+  api_key_file: OpenRouter.api          # gitignored; falls back to api_key_env
+  model: anthropic/claude-haiku-4.5     # OpenRouter model id (default for this provider)
+```
+
 The stage is always non-fatal: with no key or no network it logs a warning and
 is skipped, and the analysis run still succeeds.
 

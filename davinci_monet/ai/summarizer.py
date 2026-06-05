@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from davinci_monet.ai.images import EncodedImage
@@ -109,6 +110,29 @@ def build_prompt(
     return system, content
 
 
+def resolve_api_key(cfg: Any) -> str:
+    """Resolve the API key from ``api_key_file`` (if set) else ``api_key_env``.
+
+    Raises SummaryError if the file is unreadable/empty or no key is found.
+    """
+    if cfg.api_key_file:
+        path = Path(os.path.expanduser(cfg.api_key_file))
+        try:
+            key = path.read_text().strip()
+        except OSError as exc:
+            raise SummaryError(f"could not read api_key_file '{cfg.api_key_file}': {exc}") from exc
+        if not key:
+            raise SummaryError(f"api_key_file '{cfg.api_key_file}' is empty")
+        return key
+
+    key = os.environ.get(cfg.api_key_env, "")
+    if not key:
+        raise SummaryError(
+            f"API key not found: set env '{cfg.api_key_env}' or summary.api_key_file"
+        )
+    return key
+
+
 def _build_client(cfg: Any) -> Any:
     """Construct a real Anthropic client (lazy import). Raises SummaryError."""
     try:
@@ -118,9 +142,7 @@ def _build_client(cfg: Any) -> Any:
             "anthropic package not installed; install with: pip install 'davinci-monet[ai]'"
         ) from exc
 
-    key = os.environ.get(cfg.api_key_env, "")
-    if not key:
-        raise SummaryError(f"API key environment variable '{cfg.api_key_env}' is not set")
+    key = resolve_api_key(cfg)
     return anthropic.Anthropic(api_key=key)
 
 
@@ -130,15 +152,13 @@ def generate_summary(
     cfg: Any,
     client: Any | None = None,
 ) -> SummaryResult:
-    """Encode images, build the prompt, call Claude, and return the markdown.
+    """Encode images, then dispatch to the configured provider.
 
-    ``client`` is injectable for testing; when ``None`` a real Anthropic client
-    is constructed from ``cfg.api_key_env``.
+    ``client`` is the injectable Anthropic client (used when
+    ``cfg.provider == "anthropic"``). The OpenRouter path's injectable seam is
+    ``openrouter._send_openrouter_request``.
     """
     from davinci_monet.ai.images import encode_image
-
-    if client is None:
-        client = _build_client(cfg)
 
     encoded: list[tuple[str, EncodedImage]] = []
     for img in payload.images:
@@ -146,6 +166,26 @@ def generate_summary(
             encoded.append((img.caption, encode_image(img.path)))
         except Exception as exc:  # noqa: BLE001 - bad figure must not abort summary
             logger.warning("Skipping figure %s: %s", img.path, exc)
+
+    provider = getattr(cfg, "provider", "anthropic")
+    if provider == "openrouter":
+        from davinci_monet.ai.openrouter import call_openrouter  # lazy: avoid cycle
+
+        return call_openrouter(SYSTEM_PROMPT, render_text(payload), encoded, cfg)
+
+    return _call_anthropic(payload, encoded, cfg, client=client)
+
+
+def _call_anthropic(
+    payload: SummaryPayload,
+    encoded: list[tuple[str, EncodedImage]],
+    cfg: Any,
+    *,
+    client: Any | None = None,
+) -> SummaryResult:
+    """Call the Anthropic Messages API and return a SummaryResult."""
+    if client is None:
+        client = _build_client(cfg)
 
     system, content = build_prompt(payload, encoded)
 

@@ -26,7 +26,7 @@ Anthropic path.
 | HTTP mechanism | **httpx directly** (already a dependency via `anthropic`; no new package) |
 | Structure | **Provider dispatch**: shared prompt/encode/key-resolve in `summarizer.py`; new `ai/openrouter.py`; `generate_summary` branches on `cfg.provider` |
 | Default provider | **`anthropic`** (preserves current behavior) |
-| Default OpenRouter model | **`anthropic/claude-3.5-haiku`** (verified working in the live key test; cheapest) |
+| Default OpenRouter model | **`anthropic/claude-haiku-4.5`** (vision-capable current-gen Haiku; cheap. The original claude-3.5-haiku pick was dropped — it has no vision) |
 | Tests | All mocked (no network in the suite) + one **manual** live end-to-end run at the end |
 
 ## Goals
@@ -101,7 +101,7 @@ Existing fields unchanged: `enabled`, `model` (`"claude-haiku-4-5"`),
 **Provider-aware default validator** (`model_validator(mode="after")`): when
 `provider == "openrouter"` and the Anthropic-default sentinels are still in
 place, flip them:
-- if `model == "claude-haiku-4-5"` → `model = "anthropic/claude-3.5-haiku"`
+- if `model == "claude-haiku-4-5"` → `model = "anthropic/claude-haiku-4.5"`
 - if `api_key_env == "ANTHROPIC_API_KEY"` → `api_key_env = "OPENROUTER_API_KEY"`
 
 This keeps the existing `test_summary_config.py` default assertions
@@ -238,7 +238,7 @@ network in the suite; no shortcuts to green).
   on empty file, falls back to env var, errors when neither present.
 - `SummaryConfig`: `provider` defaults to `"anthropic"`; `SummaryConfig()`
   defaults unchanged; `provider="openrouter"` flips `model` →
-  `anthropic/claude-3.5-haiku` and `api_key_env` → `OPENROUTER_API_KEY`; explicit
+  `anthropic/claude-haiku-4.5` and `api_key_env` → `OPENROUTER_API_KEY`; explicit
   `model`/`api_key_env` are preserved.
 - `build_openrouter_messages`: system message present; user content has one text
   block then `image_url` data-URL blocks (`data:image/png;base64,…`) matching the
@@ -261,7 +261,7 @@ network in the suite; no shortcuts to green).
 
 **Manual (not in the suite):** after implementation, run a real analysis with
 `provider: openrouter`, `api_key_file: OpenRouter.api`, and `model:
-anthropic/claude-3.5-haiku` against the user's real key to confirm a real
+anthropic/claude-haiku-4.5` against the user's real key to confirm a real
 `AI_summary.md` is produced end-to-end.
 
 ## Files Touched (anticipated)

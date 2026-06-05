@@ -98,3 +98,26 @@ def test_generate_summary_api_error_wrapped(tmp_path) -> None:
 
     with pytest.raises(SummaryError, match="Claude API request failed"):
         generate_summary(_payload(_png_path(tmp_path)), cfg=SummaryConfig(), client=_BoomClient())
+
+
+def test_generate_summary_routes_to_openrouter(monkeypatch, tmp_path) -> None:
+    import davinci_monet.ai.openrouter as orouter
+    from davinci_monet.config.schema import SummaryConfig
+
+    keyfile = tmp_path / "k.api"
+    keyfile.write_text("sk-or-test")
+    cfg = SummaryConfig.model_validate({"provider": "openrouter", "api_key_file": str(keyfile)})
+
+    def _fake_send(cfg_arg, key, body):
+        return {
+            "model": body["model"],
+            "choices": [{"message": {"content": "## What this run is\nok\n## Caveats\n"}}],
+            "usage": {"prompt_tokens": 7, "completion_tokens": 8},
+        }
+
+    monkeypatch.setattr(orouter, "_send_openrouter_request", _fake_send)
+
+    result = generate_summary(_payload(_png_path(tmp_path)), cfg=cfg)
+    assert "## Caveats" in result.markdown
+    assert result.usage == {"input_tokens": 7, "output_tokens": 8}
+    assert result.model == "anthropic/claude-haiku-4.5"
