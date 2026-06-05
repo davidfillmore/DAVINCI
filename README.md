@@ -101,6 +101,29 @@ result = runner.run(PipelineContext(config=config))
 print(f"Success: {result.success}")
 ```
 
+## AI Summary (Visual Intelligence)
+
+Enable an optional final stage that asks Claude to read the run's statistics and
+plots and write a structured markdown brief (`AI_summary.md`) into the output
+directory. Requires the `[ai]` extra and an Anthropic API key.
+
+```bash
+pip install -e ".[ai]"
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+```yaml
+summary:
+  enabled: true
+  model: claude-haiku-4-5          # cheapest vision model; bump to claude-sonnet-4-6
+  plots: [scatter_o3, spatial_bias_o3]   # optional; omit to send up to max_images
+  max_images: 8
+  instructions: "Focus on coastal sites."   # optional steering
+```
+
+The stage is always non-fatal: with no key or no network it logs a warning and
+is skipped, and the analysis run still succeeds.
+
 ## Examples
 
 The `examples/` directory contains individual plot type examples using `davinci_monet.plots`:

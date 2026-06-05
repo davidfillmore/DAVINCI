@@ -670,6 +670,29 @@ class StatsConfig(FlexibleModel):
 
 
 # =============================================================================
+# AI Summary Configuration
+# =============================================================================
+
+
+class SummaryConfig(FlexibleModel):
+    """Configuration for the optional AI analysis summary stage.
+
+    When ``enabled`` is true, a final pipeline stage sends the run's
+    statistics, config metadata, and selected plot images to the Claude API
+    and writes a markdown brief into the analysis output directory.
+    """
+
+    enabled: bool = False
+    model: str = "claude-haiku-4-5"
+    max_tokens: int = 2000
+    api_key_env: str = "ANTHROPIC_API_KEY"
+    plots: list[str] | None = None
+    max_images: int = 8
+    output_filename: str = "AI_summary.md"
+    instructions: str | None = None
+
+
+# =============================================================================
 # Root Configuration
 # =============================================================================
 
@@ -711,6 +734,7 @@ class MonetConfig(FlexibleModel):
     sources: dict[str, SourceConfig] = Field(default_factory=dict)
     plots: dict[str, PlotGroupConfig] = Field(default_factory=dict)
     stats: StatsConfig | None = None
+    summary: SummaryConfig | None = None
 
     @field_validator("model", mode="before")
     @classmethod
