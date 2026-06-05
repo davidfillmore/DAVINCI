@@ -2992,13 +2992,17 @@ class SummaryStage(BaseStage):
                 duration=time.time() - start,
             )
 
-        context.log_progress(f"AI summary written: {out_path}")
-        context.log_progress(result.markdown)
+        # The brief is displayed by the runner at end of run (via
+        # ProgressFormatter.print_summary, reading data["markdown"]). A raw
+        # log_progress(markdown) here is swallowed by the prefix-matching
+        # progress callback, so it is not used for display.
+        context.log_progress(f"done: AI summary written ({result.images_sent} figures)")
 
         return self._create_result(
             StageStatus.COMPLETED,
             data={
                 "summary_file": str(out_path),
+                "markdown": result.markdown,
                 "model": result.model,
                 "usage": result.usage,
                 "images_sent": result.images_sent,

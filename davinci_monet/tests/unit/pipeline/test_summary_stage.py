@@ -63,6 +63,8 @@ def test_summary_stage_writes_file(monkeypatch, tmp_path: Path) -> None:
     assert out.name == "AI_summary.md"
     assert "## Caveats" in out.read_text()
     assert result.data["usage"] == {"input_tokens": 5, "output_tokens": 6}
+    # the brief is also carried in stage data so the runner can display it
+    assert "## Caveats" in result.data["markdown"]
 
 
 def test_summary_stage_error_is_nonfatal(monkeypatch, tmp_path: Path) -> None:

@@ -157,3 +157,31 @@ def test_summary_stage_skips_without_api_key(monkeypatch, tmp_path: Path) -> Non
     # run still succeeds; summary file is absent (stage skipped non-fatally)
     assert result.success, "pipeline run should still succeed without a key"
     assert not (tmp_path / "output" / "AI_summary.md").exists()
+
+
+def test_summary_displayed_to_terminal_at_end_of_run(monkeypatch, tmp_path: Path) -> None:
+    """Per spec, the brief must be printed to the terminal (not just the file)."""
+    import davinci_monet.pipeline.runner as runner_mod
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    stub = _StubClient()
+    monkeypatch.setattr(summarizer_mod, "_build_client", lambda cfg: stub)
+
+    displayed: list[str] = []
+    monkeypatch.setattr(
+        runner_mod.ProgressFormatter,
+        "print_summary",
+        lambda self, markdown: displayed.append(markdown),
+    )
+
+    config = _build_config(tmp_path)
+    config["summary"] = {"enabled": True, "model": "claude-haiku-4-5"}
+
+    runner = PipelineRunner(show_progress=True)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", LegacyConfigWarning)
+        result = runner.run_from_config(config)
+
+    assert result.success
+    assert displayed, "summary brief was not displayed at end of run"
+    assert "## Caveats" in displayed[0]

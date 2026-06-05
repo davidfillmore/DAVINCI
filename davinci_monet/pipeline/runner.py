@@ -510,6 +510,29 @@ class ProgressFormatter:
         if self.show_output:
             self.console.print(*args, **kwargs)
 
+    def print_summary(self, markdown: str) -> None:
+        """Render the AI summary brief to the terminal at end of run.
+
+        Displayed durably (after the per-stage Live animation has stopped),
+        unlike progress messages which are transient. No-op when output is
+        disabled (e.g. programmatic runs with show_progress=False).
+        """
+        if not self.show_output:
+            return
+        from rich.markdown import Markdown
+        from rich.panel import Panel
+
+        self._print()
+        self._print(
+            Panel(
+                Markdown(markdown.strip()),
+                title="AI Summary",
+                border_style=self.NCAR_AQUA,
+                padding=(1, 2),
+            )
+        )
+        self._print()
+
     def _create_pulsing_davinci(self) -> "Text":  # type: ignore[name-defined]
         """Create 'DAVINCI' text with left-to-right brightening effect."""
         from rich.text import Text
@@ -1669,6 +1692,18 @@ class PipelineRunner:
                 error_message=error_message,
             )
 
+            # Display the AI summary brief (if produced) to the terminal. The
+            # summary stage cannot print durably itself (its log_progress is
+            # transient), so the runner renders it here at end of run.
+            summary_result = context.results.get("summary")
+            if (
+                summary_result is not None
+                and summary_result.status == StageStatus.COMPLETED
+                and isinstance(summary_result.data, dict)
+                and summary_result.data.get("markdown")
+            ):
+                formatter.print_summary(summary_result.data["markdown"])
+
             # Write Markdown log file
             if log_collector and log_path:
                 log_collector.end_pipeline(result.success)
@@ -1789,11 +1824,14 @@ class PipelineRunner:
         try:
             # Validate stage
             if not stage.validate(context):
-                logger.warning(f"Stage '{stage.name}' validation failed, skipping")
+                # A stage that opts out of running for this configuration is a
+                # benign skip (e.g. obs-only stages in a paired run), not a
+                # failure — log at debug so it does not read as an error.
+                logger.debug(f"Stage '{stage.name}' not applicable for this run, skipping")
                 result = StageResult(
                     stage_name=stage.name,
                     status=StageStatus.SKIPPED,
-                    error="Validation failed",
+                    error="Not applicable for this run",
                     duration_seconds=time.time() - start_time,
                 )
             else:
