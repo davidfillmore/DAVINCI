@@ -11,8 +11,10 @@ from typing import TYPE_CHECKING, Any
 import matplotlib.pyplot as plt
 import numpy as np
 
+from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     PlotConfig,
+    build_series,
     format_label_with_units,
     format_plot_title,
     get_variable_label,
@@ -55,72 +57,63 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
     name: str = "spatial_overlay"
     default_figsize: tuple[float, float] = (8, 5)  # Wide for geographic extent
 
-    def plot(
+    def render(
         self,
-        paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
-        model_field: xr.DataArray | None = None,
-        lat_var: str = "latitude",
-        lon_var: str = "longitude",
-        model_lat: str = "lat",
-        model_lon: str = "lon",
-        time_index: int = 0,
-        level_index: int | None = 0,
-        cmap: str = "viridis",
-        n_levels: int = 15,
-        marker_size: float | None = None,
-        obs_edgecolor: str = "black",
-        obs_linewidth: float = 0.5,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Generate a spatial overlay plot.
+        """Render a spatial overlay from a list of two PlotSeries.
 
         Parameters
         ----------
-        paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+        series
+            Exactly 2 series: one reference (obs) and one comparand (model).
         ax
             Optional GeoAxes to plot on.
-        model_field
-            Optional separate model field for contouring.
-            If None, tries to use model_var from paired_data.
-        lat_var
-            Name of latitude coordinate for observations.
-        lon_var
-            Name of longitude coordinate for observations.
-        model_lat
-            Name of latitude dimension in model field.
-        model_lon
-            Name of longitude dimension in model field.
-        time_index
-            Time index to plot if model has time dimension.
-        level_index
-            Level index to plot if model has vertical dimension.
-            Set to None to skip level selection.
-        cmap
-            Colormap name.
-        n_levels
-            Number of contour levels.
-        marker_size
-            Override marker size.
-        obs_edgecolor
-            Edge color for observation markers.
-        obs_linewidth
-            Edge line width for observation markers.
         **kwargs
-            Additional plotting arguments.
+            Forwarded kwargs; renderer-specific ones:
+            model_field (xr.DataArray|None, default None),
+            lat_var (str, default "latitude"),
+            lon_var (str, default "longitude"),
+            model_lat (str, default "lat"),
+            model_lon (str, default "lon"),
+            time_index (int, default 0),
+            level_index (int|None, default 0),
+            cmap (str, default "viridis"),
+            n_levels (int, default 15),
+            marker_size (float|None, default None),
+            obs_edgecolor (str, default "black"),
+            obs_linewidth (float, default 0.5).
 
         Returns
         -------
         matplotlib.figure.Figure
             The generated figure.
         """
+        if len(series) != 2:
+            raise NotImplementedError(
+                f"SpatialOverlayPlotter.render requires exactly 2 series; got {len(series)}."
+            )
+        ref = next((s for s in series if s.pair_role == "reference"), series[0])
+        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
+        paired_data = ref.dataset
+        obs_var = ref.var_name
+        model_var = comp.var_name
+
+        model_field: xr.DataArray | None = kwargs.pop("model_field", None)
+        lat_var: str = kwargs.pop("lat_var", "latitude")
+        lon_var: str = kwargs.pop("lon_var", "longitude")
+        model_lat: str = kwargs.pop("model_lat", "lat")
+        model_lon: str = kwargs.pop("model_lon", "lon")
+        time_index: int = kwargs.pop("time_index", 0)
+        level_index: int | None = kwargs.pop("level_index", 0)
+        cmap: str = kwargs.pop("cmap", "viridis")
+        n_levels: int = kwargs.pop("n_levels", 15)
+        marker_size: float | None = kwargs.pop("marker_size", None)
+        obs_edgecolor: str = kwargs.pop("obs_edgecolor", "black")
+        obs_linewidth: float = kwargs.pop("obs_linewidth", 0.5)
+
         import cartopy.crs as ccrs
 
         # Create figure if needed
@@ -274,6 +267,92 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
             )
 
         return fig
+
+    def plot(
+        self,
+        paired_data: xr.Dataset,
+        obs_var: str,
+        model_var: str,
+        ax: matplotlib.axes.Axes | None = None,
+        model_field: xr.DataArray | None = None,
+        lat_var: str = "latitude",
+        lon_var: str = "longitude",
+        model_lat: str = "lat",
+        model_lon: str = "lon",
+        time_index: int = 0,
+        level_index: int | None = 0,
+        cmap: str = "viridis",
+        n_levels: int = 15,
+        marker_size: float | None = None,
+        obs_edgecolor: str = "black",
+        obs_linewidth: float = 0.5,
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Generate a spatial overlay plot.
+
+        Thin wrapper around :meth:`render`. See that method for parameter docs.
+
+        Parameters
+        ----------
+        paired_data
+            Paired dataset with model and observation variables.
+        obs_var
+            Name of observation variable.
+        model_var
+            Name of model variable.
+        ax
+            Optional GeoAxes to plot on.
+        model_field
+            Optional separate model field for contouring.
+            If None, tries to use model_var from paired_data.
+        lat_var
+            Name of latitude coordinate for observations.
+        lon_var
+            Name of longitude coordinate for observations.
+        model_lat
+            Name of latitude dimension in model field.
+        model_lon
+            Name of longitude dimension in model field.
+        time_index
+            Time index to plot if model has time dimension.
+        level_index
+            Level index to plot if model has vertical dimension.
+            Set to None to skip level selection.
+        cmap
+            Colormap name.
+        n_levels
+            Number of contour levels.
+        marker_size
+            Override marker size.
+        obs_edgecolor
+            Edge color for observation markers.
+        obs_linewidth
+            Edge line width for observation markers.
+        **kwargs
+            Additional plotting arguments.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated figure.
+        """
+        return self.render(
+            build_series(paired_data, obs_var, model_var),
+            ax=ax,
+            model_field=model_field,
+            lat_var=lat_var,
+            lon_var=lon_var,
+            model_lat=model_lat,
+            model_lon=model_lon,
+            time_index=time_index,
+            level_index=level_index,
+            cmap=cmap,
+            n_levels=n_levels,
+            marker_size=marker_size,
+            obs_edgecolor=obs_edgecolor,
+            obs_linewidth=obs_linewidth,
+            **kwargs,
+        )
 
 
 def plot_spatial_overlay(

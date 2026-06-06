@@ -14,9 +14,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (registers 3D projection)
 
+from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
+    build_series,
     calculate_symmetric_limits,
     format_label_with_units,
     format_plot_title,
@@ -354,121 +356,97 @@ class TrackMap3DPlotter(BasePlotter):
     name: str = "track_map_3d"
     default_figsize: tuple[float, float] = (7, 6)  # Near-square for 3D viewing
 
-    def plot(
+    def render(
         self,
-        paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
-        alt_var: str = "altitude",
-        lat_var: str = "latitude",
-        lon_var: str = "longitude",
-        show_var: Literal["obs", "model", "bias"] = "bias",
-        cmap: str | None = None,
-        marker_size: float = 20,
-        alpha: float = 0.7,
-        elev: float = 25,
-        azim: float = -60,
-        show_projection: bool = True,
-        projection_alpha: float = 0.3,
-        alt_scale: float = 0.001,
-        show_coastlines: bool = True,
-        coastline_color: str = "black",
-        coastline_alpha: float = 1.0,
-        coastline_linewidth: float = 0.8,
-        coastline_scale: str = "10m",
-        show_borders: bool = False,
-        border_color: str = "gray",
-        border_alpha: float = 0.5,
-        border_linewidth: float = 0.5,
-        city_labels: dict[str, list[float]] | None = None,
-        city_marker_size: float = 50,
-        city_marker_color: str = "red",
-        city_font_size: float = 10,  # City label font size
-        show_surface_map: bool = False,
-        surface_map_resolution: int = 250,
-        land_color: str = "#E8E8E8",
-        ocean_color: str = "#D4E9F7",
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Generate a 3D track map.
+        """Render a 3D track map from a list of two PlotSeries.
 
         Parameters
         ----------
-        paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+        series
+            Exactly 2 series: one reference (obs) and one comparand (model).
         ax
-            Existing axes (ignored, creates new 3D axes).
-        alt_var
-            Name of altitude coordinate.
-        lat_var
-            Name of latitude coordinate.
-        lon_var
-            Name of longitude coordinate.
-        show_var
-            Which variable to show: 'obs', 'model', or 'bias'.
-        cmap
-            Colormap name. Default depends on show_var.
-        marker_size
-            Size of scatter markers.
-        alpha
-            Transparency of markers.
-        elev
-            Elevation angle for 3D view.
-        azim
-            Azimuth angle for 3D view.
-        show_projection
-            If True, show 2D projection on the bottom (z=0) plane.
-        projection_alpha
-            Transparency of projection markers.
-        alt_scale
-            Scale factor for altitude (e.g., 0.001 to convert m to km).
-        show_coastlines
-            If True, draw continent outlines on the surface plane.
-        coastline_color
-            Color for coastline lines.
-        coastline_alpha
-            Transparency of coastlines.
-        coastline_linewidth
-            Line width for coastlines.
-        show_borders
-            If True, draw country borders on surface plane.
-        border_color
-            Color for border lines.
-        border_alpha
-            Transparency of borders.
-        border_linewidth
-            Line width for borders.
-        city_labels
-            Dictionary of city names to [lat, lon] coordinates.
-            Cities will be plotted as markers on the surface plane.
-        city_marker_size
-            Size of city markers.
-        city_marker_color
-            Color for city markers.
-        city_font_size
-            Font size for city labels.
-        show_surface_map
-            If True, render a filled map image on the z=0 plane using cartopy.
-            Shows land and ocean colors. Overrides show_coastlines when True.
-        surface_map_resolution
-            Resolution of surface map image in pixels (default: 250).
-        land_color
-            Color for land areas on surface map.
-        ocean_color
-            Color for ocean areas on surface map.
+            Ignored (creates new 3D axes).
         **kwargs
-            Additional options.
+            Forwarded kwargs; renderer-specific ones:
+            alt_var (str, default "altitude"),
+            lat_var (str, default "latitude"),
+            lon_var (str, default "longitude"),
+            show_var (str, default "bias"),
+            cmap (str|None, default None),
+            marker_size (float, default 20),
+            alpha (float, default 0.7),
+            elev (float, default 25),
+            azim (float, default -60),
+            show_projection (bool, default True),
+            projection_alpha (float, default 0.3),
+            alt_scale (float, default 0.001),
+            show_coastlines (bool, default True),
+            coastline_color (str, default "black"),
+            coastline_alpha (float, default 1.0),
+            coastline_linewidth (float, default 0.8),
+            coastline_scale (str, default "10m"),
+            show_borders (bool, default False),
+            border_color (str, default "gray"),
+            border_alpha (float, default 0.5),
+            border_linewidth (float, default 0.5),
+            city_labels (dict|None, default None),
+            city_marker_size (float, default 50),
+            city_marker_color (str, default "red"),
+            city_font_size (float, default 10),
+            show_surface_map (bool, default False),
+            surface_map_resolution (int, default 250),
+            land_color (str, default "#E8E8E8"),
+            ocean_color (str, default "#D4E9F7").
 
         Returns
         -------
         matplotlib.figure.Figure
             The generated figure.
         """
+        if len(series) != 2:
+            raise NotImplementedError(
+                f"TrackMap3DPlotter.render requires exactly 2 series; got {len(series)}."
+            )
+        ref = next((s for s in series if s.pair_role == "reference"), series[0])
+        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
+        paired_data = ref.dataset
+        obs_var = ref.var_name
+        model_var = comp.var_name
+
+        alt_var: str = kwargs.pop("alt_var", "altitude")
+        lat_var: str = kwargs.pop("lat_var", "latitude")
+        lon_var: str = kwargs.pop("lon_var", "longitude")
+        show_var: Literal["obs", "model", "bias"] = kwargs.pop("show_var", "bias")
+        cmap: str | None = kwargs.pop("cmap", None)
+        marker_size: float = kwargs.pop("marker_size", 20)
+        alpha: float = kwargs.pop("alpha", 0.7)
+        elev: float = kwargs.pop("elev", 25)
+        azim: float = kwargs.pop("azim", -60)
+        show_projection: bool = kwargs.pop("show_projection", True)
+        projection_alpha: float = kwargs.pop("projection_alpha", 0.3)
+        alt_scale: float = kwargs.pop("alt_scale", 0.001)
+        show_coastlines: bool = kwargs.pop("show_coastlines", True)
+        coastline_color: str = kwargs.pop("coastline_color", "black")
+        coastline_alpha: float = kwargs.pop("coastline_alpha", 1.0)
+        coastline_linewidth: float = kwargs.pop("coastline_linewidth", 0.8)
+        coastline_scale: str = kwargs.pop("coastline_scale", "10m")
+        show_borders: bool = kwargs.pop("show_borders", False)
+        border_color: str = kwargs.pop("border_color", "gray")
+        border_alpha: float = kwargs.pop("border_alpha", 0.5)
+        border_linewidth: float = kwargs.pop("border_linewidth", 0.5)
+        city_labels: dict[str, list[float]] | None = kwargs.pop("city_labels", None)
+        city_marker_size: float = kwargs.pop("city_marker_size", 50)
+        city_marker_color: str = kwargs.pop("city_marker_color", "red")
+        city_font_size: float = kwargs.pop("city_font_size", 10)
+        show_surface_map: bool = kwargs.pop("show_surface_map", False)
+        surface_map_resolution: int = kwargs.pop("surface_map_resolution", 250)
+        land_color: str = kwargs.pop("land_color", "#E8E8E8")
+        ocean_color: str = kwargs.pop("ocean_color", "#D4E9F7")
+
         # Get coordinates
         if lat_var in paired_data.coords:
             lats = paired_data[lat_var].values
@@ -707,6 +685,158 @@ class TrackMap3DPlotter(BasePlotter):
 
         plt.tight_layout(rect=(0, 0, 1, 0.95))  # Leave room at top for title
         return fig
+
+    def plot(
+        self,
+        paired_data: xr.Dataset,
+        obs_var: str,
+        model_var: str,
+        ax: matplotlib.axes.Axes | None = None,
+        alt_var: str = "altitude",
+        lat_var: str = "latitude",
+        lon_var: str = "longitude",
+        show_var: Literal["obs", "model", "bias"] = "bias",
+        cmap: str | None = None,
+        marker_size: float = 20,
+        alpha: float = 0.7,
+        elev: float = 25,
+        azim: float = -60,
+        show_projection: bool = True,
+        projection_alpha: float = 0.3,
+        alt_scale: float = 0.001,
+        show_coastlines: bool = True,
+        coastline_color: str = "black",
+        coastline_alpha: float = 1.0,
+        coastline_linewidth: float = 0.8,
+        coastline_scale: str = "10m",
+        show_borders: bool = False,
+        border_color: str = "gray",
+        border_alpha: float = 0.5,
+        border_linewidth: float = 0.5,
+        city_labels: dict[str, list[float]] | None = None,
+        city_marker_size: float = 50,
+        city_marker_color: str = "red",
+        city_font_size: float = 10,  # City label font size
+        show_surface_map: bool = False,
+        surface_map_resolution: int = 250,
+        land_color: str = "#E8E8E8",
+        ocean_color: str = "#D4E9F7",
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Generate a 3D track map.
+
+        Thin wrapper around :meth:`render`. See that method for parameter docs.
+
+        Parameters
+        ----------
+        paired_data
+            Paired dataset with model and observation variables.
+        obs_var
+            Name of observation variable.
+        model_var
+            Name of model variable.
+        ax
+            Existing axes (ignored, creates new 3D axes).
+        alt_var
+            Name of altitude coordinate.
+        lat_var
+            Name of latitude coordinate.
+        lon_var
+            Name of longitude coordinate.
+        show_var
+            Which variable to show: 'obs', 'model', or 'bias'.
+        cmap
+            Colormap name. Default depends on show_var.
+        marker_size
+            Size of scatter markers.
+        alpha
+            Transparency of markers.
+        elev
+            Elevation angle for 3D view.
+        azim
+            Azimuth angle for 3D view.
+        show_projection
+            If True, show 2D projection on the bottom (z=0) plane.
+        projection_alpha
+            Transparency of projection markers.
+        alt_scale
+            Scale factor for altitude (e.g., 0.001 to convert m to km).
+        show_coastlines
+            If True, draw continent outlines on the surface plane.
+        coastline_color
+            Color for coastline lines.
+        coastline_alpha
+            Transparency of coastlines.
+        coastline_linewidth
+            Line width for coastlines.
+        show_borders
+            If True, draw country borders on surface plane.
+        border_color
+            Color for border lines.
+        border_alpha
+            Transparency of borders.
+        border_linewidth
+            Line width for borders.
+        city_labels
+            Dictionary of city names to [lat, lon] coordinates.
+            Cities will be plotted as markers on the surface plane.
+        city_marker_size
+            Size of city markers.
+        city_marker_color
+            Color for city markers.
+        city_font_size
+            Font size for city labels.
+        show_surface_map
+            If True, render a filled map image on the z=0 plane using cartopy.
+            Shows land and ocean colors. Overrides show_coastlines when True.
+        surface_map_resolution
+            Resolution of surface map image in pixels (default: 250).
+        land_color
+            Color for land areas on surface map.
+        ocean_color
+            Color for ocean areas on surface map.
+        **kwargs
+            Additional options.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated figure.
+        """
+        return self.render(
+            build_series(paired_data, obs_var, model_var),
+            ax=ax,
+            alt_var=alt_var,
+            lat_var=lat_var,
+            lon_var=lon_var,
+            show_var=show_var,
+            cmap=cmap,
+            marker_size=marker_size,
+            alpha=alpha,
+            elev=elev,
+            azim=azim,
+            show_projection=show_projection,
+            projection_alpha=projection_alpha,
+            alt_scale=alt_scale,
+            show_coastlines=show_coastlines,
+            coastline_color=coastline_color,
+            coastline_alpha=coastline_alpha,
+            coastline_linewidth=coastline_linewidth,
+            coastline_scale=coastline_scale,
+            show_borders=show_borders,
+            border_color=border_color,
+            border_alpha=border_alpha,
+            border_linewidth=border_linewidth,
+            city_labels=city_labels,
+            city_marker_size=city_marker_size,
+            city_marker_color=city_marker_color,
+            city_font_size=city_font_size,
+            show_surface_map=show_surface_map,
+            surface_map_resolution=surface_map_resolution,
+            land_color=land_color,
+            ocean_color=ocean_color,
+            **kwargs,
+        )
 
     def plot_per_flight(
         self,

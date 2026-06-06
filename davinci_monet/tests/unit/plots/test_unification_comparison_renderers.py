@@ -744,3 +744,241 @@ class TestPerSiteTimeSeriesRenderParity:
         plotter = PerSiteTimeSeriesPlotter()
         with pytest.raises(NotImplementedError, match="PerSiteTimeSeriesPlotter"):
             plotter.render(build_series(ds, "obs_o3"))
+
+
+# ---------------------------------------------------------------------------
+# SpatialOverlayPlotter
+# ---------------------------------------------------------------------------
+
+
+def _overlay_ds(n_sites: int = 5, seed: int = 0) -> xr.Dataset:
+    """Minimal point-site dataset for overlay (obs points on a model contour)."""
+    rng = np.random.default_rng(seed)
+    lats = np.linspace(30.0, 50.0, n_sites)
+    lons = np.linspace(-110.0, -70.0, n_sites)
+    ds = xr.Dataset(
+        {
+            "obs_o3": (
+                "site",
+                rng.uniform(20, 60, n_sites),
+                {"role": "obs", "pair_role": "reference", "units": "ppb"},
+            ),
+            "model_o3": (
+                "site",
+                rng.uniform(20, 60, n_sites),
+                {"role": "model", "pair_role": "comparand", "units": "ppb"},
+            ),
+        },
+        coords={
+            "latitude": ("site", lats),
+            "longitude": ("site", lons),
+        },
+    )
+    return ds
+
+
+def _model_field_da() -> "xr.DataArray":
+    """Tiny 2-D (lat x lon) DataArray suitable as model_field for overlay."""
+    import xarray as xr
+
+    rng = np.random.default_rng(42)
+    lats = np.linspace(28.0, 52.0, 8)
+    lons = np.linspace(-112.0, -68.0, 10)
+    data = rng.uniform(20, 60, (len(lats), len(lons)))
+    return xr.DataArray(
+        data,
+        dims=["lat", "lon"],
+        coords={"lat": lats, "lon": lons},
+        attrs={"units": "ppb"},
+    )
+
+
+class TestSpatialOverlayRenderParity:
+    def test_plot_and_render_both_return_figure(self) -> None:
+        from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
+
+        ds = _overlay_ds()
+        model_field = _model_field_da()
+        plotter = SpatialOverlayPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3", model_field=model_field)
+        plt.close(fig_plot)
+        fig_render = plotter.render(build_series(ds, "obs_o3", "model_o3"), model_field=model_field)
+        plt.close(fig_render)
+        assert isinstance(fig_plot, matplotlib.figure.Figure)
+        assert isinstance(fig_render, matplotlib.figure.Figure)
+
+    def test_plot_and_render_same_axes_count(self) -> None:
+        from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
+
+        ds = _overlay_ds()
+        model_field = _model_field_da()
+        plotter = SpatialOverlayPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3", model_field=model_field)
+        n_plot = len(fig_plot.axes)
+        plt.close(fig_plot)
+        fig_render = plotter.render(build_series(ds, "obs_o3", "model_o3"), model_field=model_field)
+        n_render = len(fig_render.axes)
+        plt.close(fig_render)
+        assert n_plot == n_render
+
+    def test_model_field_forwarded_via_render(self) -> None:
+        """render() must accept and use the model_field kwarg (not fall back to paired_data)."""
+        from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
+
+        ds = _overlay_ds()
+        model_field = _model_field_da()
+        plotter = SpatialOverlayPlotter()
+        # Should succeed when model_field is explicitly provided
+        fig = plotter.render(build_series(ds, "obs_o3", "model_o3"), model_field=model_field)
+        assert isinstance(fig, matplotlib.figure.Figure)
+        plt.close(fig)
+
+    def test_render_wrong_series_count_raises(self) -> None:
+        from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
+
+        ds = _overlay_ds()
+        plotter = SpatialOverlayPlotter()
+        with pytest.raises(NotImplementedError, match="SpatialOverlayPlotter"):
+            plotter.render(build_series(ds, "obs_o3"))
+
+
+# ---------------------------------------------------------------------------
+# TrackMap3DPlotter
+# ---------------------------------------------------------------------------
+
+
+def _track_3d_ds(n: int = 40, seed: int = 0) -> xr.Dataset:
+    """Minimal track dataset with lat/lon/altitude coordinates for 3D map."""
+    rng = np.random.default_rng(seed)
+    times = np.datetime64("2024-02-01") + np.arange(n) * np.timedelta64(1, "m")
+    ds = xr.Dataset(
+        {
+            "obs_o3": (
+                "time",
+                rng.uniform(20, 60, n),
+                {"role": "obs", "pair_role": "reference", "units": "ppb"},
+            ),
+            "model_o3": (
+                "time",
+                rng.uniform(20, 60, n),
+                {"role": "model", "pair_role": "comparand", "units": "ppb"},
+            ),
+        },
+        coords={
+            "time": times,
+            "latitude": ("time", np.linspace(25.0, 45.0, n)),
+            "longitude": ("time", np.linspace(-120.0, -80.0, n)),
+            "altitude": ("time", rng.uniform(500, 8000, n)),
+        },
+    )
+    return ds
+
+
+def _flight_3d_ds(n_per_flight: int = 30, n_flights: int = 2, seed: int = 0) -> xr.Dataset:
+    """Track dataset with a flight coordinate for plot_per_flight tests."""
+    rng = np.random.default_rng(seed)
+    all_times = []
+    all_obs = []
+    all_mod = []
+    all_flight = []
+    all_lat = []
+    all_lon = []
+    all_alt = []
+    for day in range(n_flights):
+        base = np.datetime64(f"2024-02-0{day + 1}T10:00")
+        times = base + np.arange(n_per_flight) * np.timedelta64(1, "m")
+        obs = rng.uniform(20, 60, n_per_flight)
+        mod = obs + rng.uniform(-5, 5, n_per_flight)
+        all_times.append(times)
+        all_obs.append(obs)
+        all_mod.append(mod)
+        all_flight.extend([f"2024020{day + 1}"] * n_per_flight)
+        all_lat.append(np.linspace(25.0 + day, 40.0 + day, n_per_flight))
+        all_lon.append(np.linspace(-120.0, -80.0, n_per_flight))
+        all_alt.append(rng.uniform(500, 5000, n_per_flight))
+    ds = xr.Dataset(
+        {
+            "obs_o3": (
+                "time",
+                np.concatenate(all_obs),
+                {"role": "obs", "pair_role": "reference", "units": "ppb"},
+            ),
+            "model_o3": (
+                "time",
+                np.concatenate(all_mod),
+                {"role": "model", "pair_role": "comparand", "units": "ppb"},
+            ),
+        },
+        coords={
+            "time": np.concatenate(all_times),
+            "flight": ("time", all_flight),
+            "latitude": ("time", np.concatenate(all_lat)),
+            "longitude": ("time", np.concatenate(all_lon)),
+            "altitude": ("time", np.concatenate(all_alt)),
+        },
+    )
+    return ds
+
+
+class TestTrackMap3DRenderParity:
+    def test_plot_and_render_both_return_figure(self) -> None:
+        from davinci_monet.plots.renderers.track_map_3d import TrackMap3DPlotter
+
+        ds = _track_3d_ds()
+        plotter = TrackMap3DPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3", alt_var="altitude", show_coastlines=False)
+        plt.close(fig_plot)
+        fig_render = plotter.render(
+            build_series(ds, "obs_o3", "model_o3"),
+            alt_var="altitude",
+            show_coastlines=False,
+        )
+        plt.close(fig_render)
+        assert isinstance(fig_plot, matplotlib.figure.Figure)
+        assert isinstance(fig_render, matplotlib.figure.Figure)
+
+    def test_plot_and_render_same_axes_count(self) -> None:
+        from davinci_monet.plots.renderers.track_map_3d import TrackMap3DPlotter
+
+        ds = _track_3d_ds()
+        plotter = TrackMap3DPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3", alt_var="altitude", show_coastlines=False)
+        n_plot = len(fig_plot.axes)
+        plt.close(fig_plot)
+        fig_render = plotter.render(
+            build_series(ds, "obs_o3", "model_o3"),
+            alt_var="altitude",
+            show_coastlines=False,
+        )
+        n_render = len(fig_render.axes)
+        plt.close(fig_render)
+        assert n_plot == n_render
+
+    def test_plot_per_flight_generator_intact(self) -> None:
+        """plot_per_flight must still yield (flight_id, Figure) tuples after migration."""
+        from davinci_monet.plots.renderers.track_map_3d import TrackMap3DPlotter
+
+        ds = _flight_3d_ds()
+        plotter = TrackMap3DPlotter()
+        results = list(
+            plotter.plot_per_flight(
+                ds,
+                "obs_o3",
+                "model_o3",
+                min_points=5,
+                show_coastlines=False,
+            )
+        )
+        assert len(results) == 2
+        for flight_id, fig in results:
+            assert isinstance(flight_id, str)
+            assert isinstance(fig, matplotlib.figure.Figure)
+            plt.close(fig)
+
+    def test_render_wrong_series_count_raises(self) -> None:
+        from davinci_monet.plots.renderers.track_map_3d import TrackMap3DPlotter
+
+        ds = _track_3d_ds()
+        plotter = TrackMap3DPlotter()
+        with pytest.raises(NotImplementedError, match="TrackMap3DPlotter"):
+            plotter.render(build_series(ds, "obs_o3"))
