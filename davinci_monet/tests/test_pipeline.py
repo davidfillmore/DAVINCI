@@ -8,10 +8,10 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.pipeline import (
     BaseStage,
-    LoadModelsStage,
-    LoadObservationsStage,
+    LoadSourcesStage,
     PairingStage,
     ParallelExecutor,
     ParallelPairingExecutor,
@@ -257,65 +257,63 @@ class TestBaseStage:
 # =============================================================================
 
 
-class TestLoadModelsStage:
-    """Tests for LoadModelsStage."""
+class TestLoadSourcesStage:
+    """Tests for the unified LoadSourcesStage (replaces the legacy per-role loaders)."""
 
     def test_name(self):
         """Test stage name."""
-        stage = LoadModelsStage()
-        assert stage.name == "load_models"
+        stage = LoadSourcesStage()
+        assert stage.name == "load_sources"
 
-    def test_validation_with_model_config(self, sample_context: PipelineContext):
-        """Test validation passes with model config."""
-        stage = LoadModelsStage()
+    def test_validation_with_legacy_model_config(self, sample_context: PipelineContext):
+        """validate() passes for a legacy model:/obs: config (auto-converted)."""
+        stage = LoadSourcesStage()
         assert stage.validate(sample_context) is True
 
-    def test_validation_without_config(self):
-        """Test validation fails without model config."""
-        stage = LoadModelsStage()
-        ctx = PipelineContext()
+    def test_validation_with_sources_config(self):
+        """validate() passes for a native sources: config."""
+        stage = LoadSourcesStage()
+        ctx = PipelineContext(
+            config={"sources": {"cam": {"type": "generic", "files": "/path/to/m.nc"}}}
+        )
+        assert stage.validate(ctx) is True
 
+    def test_validation_without_config(self):
+        """validate() fails when nothing is configured or pre-loaded."""
+        stage = LoadSourcesStage()
+        ctx = PipelineContext()
         assert stage.validate(ctx) is False
 
-    def test_execute_missing_files(self):
-        """Test execute fails with clear error when files are missing."""
-        stage = LoadModelsStage()
-        ctx = PipelineContext(config={"model": {"m1": {"mod_type": "generic"}}})
+    def test_legacy_model_kwargs_flow_through_to_reader(self, monkeypatch):
+        """A legacy model: config auto-converts and its mod_kwargs reach the reader.
 
-        result = stage.execute(ctx)
-
-        assert result.status == StageStatus.FAILED
-        assert result.error is not None
-        assert "missing required 'files'" in result.error
-
-    def test_execute_passes_mod_kwargs_to_open_model(self, monkeypatch):
-        """mod_kwargs from config must flow through to the model reader."""
+        Exercises the unified loader path: legacy ``model:`` -> ``sources:`` via
+        migrate_to_sources, then ``_load_unified_source`` passes through-config
+        kwargs (e.g. ``mech``) to the registered reader's ``open()``.
+        """
         captured: dict[str, Any] = {}
 
-        def fake_open_model(**kwargs: Any) -> Any:
-            captured.update(kwargs)
+        class _StubReader:
+            geometry = DataGeometry.GRID
 
-            class _Stub:
-                data = None
-                variables: dict[str, Any] = {}
+            def open(self, file_paths, variables=None, **kwargs):
+                captured["file_paths"] = list(file_paths)
+                captured["variables"] = variables
+                captured.update(kwargs)
+                return xr.Dataset({"O3": ("time", [1.0])}, coords={"time": [0]})
 
-                def apply_variable_config(self) -> None:
-                    pass
+        from davinci_monet.core.registry import source_registry
 
-            return _Stub()
+        monkeypatch.setattr(source_registry, "get", lambda name: _StubReader)
 
-        import davinci_monet.models as models_mod
-
-        monkeypatch.setattr(models_mod, "open_model", fake_open_model)
-
-        stage = LoadModelsStage()
+        stage = LoadSourcesStage()
         ctx = PipelineContext(
             config={
                 "model": {
                     "WRF-Chem": {
                         "files": "/path/to/wrfout.nc",
                         "mod_type": "wrfchem",
-                        "mod_kwargs": {"mech": "racm_esrl_vcp"},
+                        "mech": "racm_esrl_vcp",
                     }
                 }
             }
@@ -325,29 +323,10 @@ class TestLoadModelsStage:
 
         assert result.status == StageStatus.COMPLETED, result.error
         assert captured.get("mech") == "racm_esrl_vcp"
-        assert captured.get("mod_type") == "wrfchem"
-        assert captured.get("label") == "WRF-Chem"
-
-
-class TestLoadObservationsStage:
-    """Tests for LoadObservationsStage."""
-
-    def test_name(self):
-        """Test stage name."""
-        stage = LoadObservationsStage()
-        assert stage.name == "load_observations"
-
-    def test_validation_with_obs_config(self, sample_context: PipelineContext):
-        """Test validation passes with obs config."""
-        stage = LoadObservationsStage()
-        assert stage.validate(sample_context) is True
-
-    def test_validation_without_config(self):
-        """Test validation fails without obs config."""
-        stage = LoadObservationsStage()
-        ctx = PipelineContext()
-
-        assert stage.validate(ctx) is False
+        assert "WRF-Chem" in ctx.sources
+        # The legacy config was converted to the unified sources schema in place.
+        assert "sources" in ctx.config
+        assert "model" not in ctx.config
 
 
 class TestPairingStage:
@@ -907,16 +886,13 @@ class TestPipelineBuilder:
         assert len(runner.stages) == 0
 
     def test_add_standard_stages(self):
-        """Test adding standard stages."""
-        runner = (
-            PipelineBuilder().add_models().add_observations().add_pairing().add_statistics().build()
-        )
+        """Test adding standard stages via the unified builder."""
+        runner = PipelineBuilder().add_sources().add_pairing().add_statistics().build()
 
-        assert len(runner.stages) == 4
-        assert runner.stages[0].name == "load_models"
-        assert runner.stages[1].name == "load_observations"
-        assert runner.stages[2].name == "pairing"
-        assert runner.stages[3].name == "statistics"
+        assert len(runner.stages) == 3
+        assert runner.stages[0].name == "load_sources"
+        assert runner.stages[1].name == "pairing"
+        assert runner.stages[2].name == "statistics"
 
     def test_add_custom_stage(self):
         """Test adding custom stage."""

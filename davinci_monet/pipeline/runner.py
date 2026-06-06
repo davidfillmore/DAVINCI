@@ -1954,8 +1954,7 @@ class PipelineBuilder:
     --------
     >>> pipeline = (
     ...     PipelineBuilder()
-    ...     .add_models()
-    ...     .add_observations()
+    ...     .add_sources()
     ...     .add_pairing()
     ...     .add_statistics()
     ...     .build()
@@ -1975,18 +1974,17 @@ class PipelineBuilder:
         self._stages.append(stage)
         return self
 
-    def add_models(self) -> PipelineBuilder:
-        """Add model loading stage."""
-        from davinci_monet.pipeline.stages import LoadModelsStage
+    def add_sources(self) -> PipelineBuilder:
+        """Add the unified data-source loading stage.
 
-        self._stages.append(LoadModelsStage())
-        return self
+        Loads both models and observations (native ``sources:`` configs, or
+        auto-converted legacy ``model:``/``obs:`` configs) into
+        ``context.sources``. Replaces the removed ``add_models``/
+        ``add_observations`` per-role loaders.
+        """
+        from davinci_monet.pipeline.stages import LoadSourcesStage
 
-    def add_observations(self) -> PipelineBuilder:
-        """Add observation loading stage."""
-        from davinci_monet.pipeline.stages import LoadObservationsStage
-
-        self._stages.append(LoadObservationsStage())
+        self._stages.append(LoadSourcesStage())
         return self
 
     def add_pairing(self) -> PipelineBuilder:

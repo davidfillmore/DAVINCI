@@ -484,19 +484,29 @@ class ObservationData(DataContainer):
         return df
 
 
-@source_registry.register("pt_sfc")
-class PointSurfaceReader:
-    """Generic point-surface reader for unified ``sources:`` configs."""
+class _GenericNetCDFReader:
+    """Generic NetCDF source reader keyed only by geometry.
+
+    Base for the generic readers (``pt_sfc``, ``aircraft``, ``ozonesonde``-style
+    profiles, gridded) used by unified ``sources:`` configs and by auto-converted
+    legacy ``model:``/``obs:`` controls. Opens plain NetCDF with no
+    format-specific handling and reports a fixed :class:`DataGeometry`, mirroring
+    the role the legacy loader stage filled via
+    :meth:`ObservationData.geometry_from_obs_type`.
+    """
+
+    _name: str = "generic_obs"
+    _geometry: DataGeometry = DataGeometry.POINT
 
     @property
     def name(self) -> str:
         """Return reader name."""
-        return "pt_sfc"
+        return self._name
 
     @property
     def geometry(self) -> DataGeometry:
-        """Point surface observations."""
-        return DataGeometry.POINT
+        """Geometry of data this reader returns."""
+        return self._geometry
 
     def open(
         self,
@@ -505,17 +515,17 @@ class PointSurfaceReader:
         time_range: tuple[Any, Any] | None = None,
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Open one or more generic point-surface NetCDF files."""
+        """Open one or more generic NetCDF files."""
         files = [str(Path(p).expanduser()) for p in file_paths]
         if not files:
-            raise DataNotFoundError("No point-surface observation files provided")
+            raise DataNotFoundError(f"No {self._name} observation files provided")
         try:
             if len(files) == 1:
                 ds = xr.open_dataset(files[0])
             else:
                 ds = xr.open_mfdataset(files, combine="by_coords", parallel=True)
         except OSError as e:
-            raise DataFormatError(f"Failed to open point-surface files: {e}") from e
+            raise DataFormatError(f"Failed to open {self._name} files: {e}") from e
 
         if variables:
             keep_vars = [v for v in variables if v in ds.data_vars]
@@ -529,8 +539,55 @@ class PointSurfaceReader:
         return ds
 
     def get_variable_mapping(self) -> Mapping[str, str]:
-        """Generic point-surface files use their native variable names."""
+        """Generic files use their native variable names."""
         return {}
+
+
+@source_registry.register("pt_sfc")
+class PointSurfaceReader(_GenericNetCDFReader):
+    """Generic point-surface (POINT) reader for unified ``sources:`` configs."""
+
+    _name = "pt_sfc"
+    _geometry = DataGeometry.POINT
+
+
+@source_registry.register("aircraft")
+class AircraftReader(_GenericNetCDFReader):
+    """Generic aircraft/track (TRACK) NetCDF reader.
+
+    Handles plain-NetCDF track files (the legacy ``obs_type: aircraft`` /
+    ``mobile`` / ``ship`` / ``track`` path). For ICARTT ``.ict`` campaign files
+    use the dedicated ``icartt`` reader instead.
+    """
+
+    _name = "aircraft"
+    _geometry = DataGeometry.TRACK
+
+
+@source_registry.register("profile")
+class ProfileReader(_GenericNetCDFReader):
+    """Generic vertical-profile (PROFILE) NetCDF reader.
+
+    Handles plain-NetCDF profile files (the legacy ``obs_type: profile`` /
+    ``sonde`` path). For ozonesonde campaign files use the dedicated
+    ``ozonesonde`` reader instead.
+    """
+
+    _name = "profile"
+    _geometry = DataGeometry.PROFILE
+
+
+@source_registry.register("gridded")
+class GriddedObsReader(_GenericNetCDFReader):
+    """Generic gridded (GRID) NetCDF observation reader.
+
+    Handles plain-NetCDF gridded obs files (the legacy ``obs_type: gridded`` /
+    ``grid`` / ``reanalysis`` / ``sat_grid_clm`` non-satellite path). For gridded
+    satellite L3 products use the dedicated ``satellite_l3`` reader.
+    """
+
+    _name = "gridded"
+    _geometry = DataGeometry.GRID
 
 
 def create_observation_data(

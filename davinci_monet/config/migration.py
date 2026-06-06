@@ -365,6 +365,25 @@ LEGACY_SATELLITE_SOURCE_TYPES = {
     "sat_grid_clm": "satellite_l3",
 }
 
+# Legacy geometry-only obs_type aliases -> their registered generic reader type.
+# These mirror ObservationData.geometry_from_obs_type: the legacy loader stage
+# opened a plain NetCDF and set geometry from the obs_type string. The unified
+# path loads through a registered reader, so map each alias to the generic reader
+# of the same geometry (registered in observations/base.py). Names that are
+# themselves registered reader types (e.g. ``aircraft``, ``profile``,
+# ``gridded``, ``pt_sfc``, ``ozonesonde``) pass through unchanged.
+LEGACY_GEOMETRY_SOURCE_TYPES = {
+    "surface": "pt_sfc",
+    "ground": "pt_sfc",
+    "point": "pt_sfc",
+    "mobile": "aircraft",
+    "ship": "aircraft",
+    "track": "aircraft",
+    "sonde": "profile",
+    "grid": "gridded",
+    "reanalysis": "gridded",
+}
+
 
 def _migrated_obs_source_type(label: str, entry: dict[str, Any]) -> Any:
     """Return the unified source type for a legacy observation entry."""
@@ -376,7 +395,10 @@ def _migrated_obs_source_type(label: str, entry: dict[str, Any]) -> Any:
             "MODIS L2 gridding migration is unsupported and requires manual conversion."
         )
     if isinstance(obs_type, str):
-        return LEGACY_SATELLITE_SOURCE_TYPES.get(obs_type.lower(), obs_type)
+        key = obs_type.lower()
+        if key in LEGACY_SATELLITE_SOURCE_TYPES:
+            return LEGACY_SATELLITE_SOURCE_TYPES[key]
+        return LEGACY_GEOMETRY_SOURCE_TYPES.get(key, obs_type)
     return obs_type
 
 
@@ -431,8 +453,24 @@ def migrate_to_sources(config: dict[str, Any]) -> dict[str, Any]:
     pairs = cfg.get("pairs")
     if isinstance(pairs, dict):
         migrated_pairs: dict[str, Any] = {}
+        # Keys this function derives from the legacy model/obs/variable fields.
+        # They must NOT be overwritten by schema-default values when copying
+        # through "other" pair keys (a model_dump()'d legacy pair carries empty
+        # ``sources: []`` / ``reference: None`` / ``variables: {}`` defaults
+        # alongside the legacy keys).
+        _derived = ("sources", "reference", "variables")
         for pname, p in pairs.items():
-            if not isinstance(p, dict) or "model" not in p or "obs" not in p:
+            if not isinstance(p, dict):
+                migrated_pairs[pname] = p
+                continue
+            # Already unified: a truthy ``sources`` means this pair is in the new
+            # form; pass it through (dropping any empty legacy-key defaults).
+            if p.get("sources"):
+                migrated_pairs[pname] = {
+                    k: v for k, v in p.items() if k not in ("model", "obs", "variable")
+                }
+                continue
+            if not p.get("model") or not p.get("obs"):
                 migrated_pairs[pname] = p
                 continue
             model_label = p["model"]
@@ -450,7 +488,7 @@ def migrate_to_sources(config: dict[str, Any]) -> dict[str, Any]:
             if vmap:
                 new_pair["variables"] = vmap
             for k, v in p.items():
-                if k not in ("model", "obs", "variable"):
+                if k not in ("model", "obs", "variable") and k not in _derived:
                     new_pair[k] = v
             migrated_pairs[pname] = new_pair
         cfg["pairs"] = migrated_pairs

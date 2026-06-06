@@ -476,738 +476,16 @@ def resolve_paired_var_names(
     return obs_name, model_name
 
 
-class LoadModelsStage(BaseStage):
-    """Stage for loading model data.
-
-    Reads model configuration and loads model files into the context.
-    """
-
-    def __init__(self) -> None:
-        super().__init__("load_models")
-
-    def validate(self, context: PipelineContext) -> bool:
-        """Validate that model config exists."""
-        return "model" in context.config or "models" in context.config
-
-    def execute(self, context: PipelineContext) -> StageResult:
-        """Load model data from configuration."""
-        import time
-        from glob import glob
-
-        from davinci_monet.core.exceptions import ConfigurationError
-        from davinci_monet.models import open_model
-
-        start = time.time()
-        model_config = context.config.get("model") or context.config.get("models", {})
-        total_models = len(model_config)
-        debug = context.config.get("analysis", {}).get("debug", False)
-
-        def _normalize_var_configs(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
-            normalized: dict[str, dict[str, Any]] = {}
-            for name, cfg in raw.items():
-                if hasattr(cfg, "model_dump"):
-                    normalized[name] = cfg.model_dump()
-                elif isinstance(cfg, dict):
-                    normalized[name] = dict(cfg)
-                elif hasattr(cfg, "__dict__"):
-                    normalized[name] = dict(cfg.__dict__)
-                else:
-                    normalized[name] = {}
-            return normalized
-
-        loaded_count = 0
-        for label, config in model_config.items():
-            try:
-                context.log_progress(
-                    f"    Loading model: {label} ({loaded_count + 1}/{total_models})"
-                )
-
-                files = config.get("files", config.get("filename"))
-                if files is None or (isinstance(files, str) and not files.strip()):
-                    raise ConfigurationError(
-                        f"Model '{label}' is missing required 'files' (or 'filename') setting."
-                    )
-                mod_type = config.get("mod_type", "generic")
-                variables = config.get("variables")
-                mod_kwargs = config.get("mod_kwargs") or {}
-
-                # Count files for progress message
-                t0 = time.time()
-                if isinstance(files, str) and ("*" in files or "?" in files):
-                    file_list = glob(files)
-                    n_files = len(file_list)
-                    if debug:
-                        context.log_progress(
-                            f"      [TIMING] glob: {_format_duration(time.time() - t0)}"
-                        )
-                    context.log_progress(f"step: Opening {n_files} files...")
-                else:
-                    context.log_progress(f"step: Opening dataset...")
-
-                if isinstance(variables, dict):
-                    var_list = list(variables.keys())
-                else:
-                    var_list = variables
-
-                t0 = time.time()
-                model_data = open_model(
-                    files=files,
-                    mod_type=mod_type,
-                    variables=var_list,
-                    label=label,
-                    **mod_kwargs,
-                )
-                if debug:
-                    context.log_progress(
-                        f"      [TIMING] open_model: {_format_duration(time.time() - t0)}"
-                    )
-
-                # Apply variable configuration (scaling, masking, renaming) and metadata
-                if isinstance(variables, dict):
-                    model_data.variables = _normalize_var_configs(variables)
-
-                    t0 = time.time()
-                    model_data.apply_variable_config()
-                    if debug:
-                        context.log_progress(
-                            f"      [TIMING] variable_config: {_format_duration(time.time() - t0)}"
-                        )
-
-                    for var_name, var_config in model_data.variables.items():
-                        if model_data.data is not None and var_name in model_data.data.data_vars:
-                            units = (
-                                var_config.get("units") if isinstance(var_config, dict) else None
-                            )
-                            display = (
-                                var_config.get("display_name")
-                                if isinstance(var_config, dict)
-                                else None
-                            )
-                            if units:
-                                model_data.data[var_name].attrs["units"] = units
-                            if display:
-                                model_data.data[var_name].attrs["display_name"] = display
-
-                context.models[label] = model_data
-                loaded_count += 1
-
-                # Summary message
-                ds = model_data.data
-                n_vars = len(ds.data_vars) if ds is not None else 0
-                n_times = ds.sizes.get("time", 0) if ds is not None else 0
-                context.log_progress(f"done: {n_vars} vars, {n_times} times")
-
-            except Exception as e:
-                return self._create_result(
-                    StageStatus.FAILED,
-                    error=f"Failed to load model '{label}': {e}",
-                    duration=time.time() - start,
-                )
-
-        return self._create_result(
-            StageStatus.COMPLETED,
-            data={"loaded_models": list(context.models.keys())},
-            duration=time.time() - start,
-            count=loaded_count,
-        )
-
-
-class LoadObservationsStage(BaseStage):
-    """Stage for loading observation data.
-
-    Reads observation configuration and loads observation files into the context.
-    """
-
-    def __init__(self) -> None:
-        super().__init__("load_observations")
-
-    def validate(self, context: PipelineContext) -> bool:
-        """Validate that observation config exists."""
-        return "obs" in context.config or "observations" in context.config
-
-    def execute(self, context: PipelineContext) -> StageResult:
-        """Load observation data from configuration."""
-        import time
-        from glob import glob
-        from pathlib import Path
-
-        import xarray as xr
-
-        from davinci_monet.observations import create_observation_data
-
-        start = time.time()
-        obs_config = context.config.get("obs") or context.config.get("observations", {})
-        total_obs = len(obs_config)
-        debug = context.config.get("analysis", {}).get("debug", False)
-
-        # Get analysis time range for filtering
-        analysis_config = context.config.get("analysis", {})
-        analysis_start = analysis_config.get("start_time")
-        analysis_end = analysis_config.get("end_time")
-        end_time_has_time = analysis_config.get("_end_time_has_time")
-
-        # Use current working directory for relative paths
-        base_path = Path.cwd()
-
-        def _normalize_var_configs(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
-            normalized: dict[str, dict[str, Any]] = {}
-            for name, cfg in raw.items():
-                if hasattr(cfg, "model_dump"):
-                    normalized[name] = cfg.model_dump()
-                elif isinstance(cfg, dict):
-                    normalized[name] = dict(cfg)
-                elif hasattr(cfg, "__dict__"):
-                    normalized[name] = dict(cfg.__dict__)
-                else:
-                    normalized[name] = {}
-            return normalized
-
-        loaded_count = 0
-        for label, config in obs_config.items():
-            try:
-                context.log_progress(f"    Loading obs: {label} ({loaded_count + 1}/{total_obs})")
-
-                obs_type = config.get("obs_type", "pt_sfc")
-                filename = config.get("filename")
-                variables = config.get("variables", {})
-                normalized_variables = (
-                    _normalize_var_configs(variables) if isinstance(variables, dict) else variables
-                )
-
-                # Load data from file
-                data = None
-                sat_type = config.get("sat_type")
-
-                # --- MODIS L2 satellite swath: dedicated loader ---
-                if sat_type == "modis_l2":
-                    data = self._load_modis_l2(label, config, context)
-                    if data is not None:
-                        # After gridding, this is a grid product
-                        obs_type = "sat_grid_clm"
-                        # Variable renaming: the gridded dataset uses the
-                        # source SDS names.  Apply rename from variable config.
-                        for var_name, var_cfg in (normalized_variables or {}).items():
-                            rename_to = var_cfg.get("rename") if isinstance(var_cfg, dict) else None
-                            if rename_to and var_name in data.data_vars:
-                                data = data.rename({var_name: rename_to})
-
-                if data is None and filename:
-                    file_path = Path(filename)
-                    # Expand user home directory first (before checking absolute)
-                    file_path = file_path.expanduser()
-
-                    # Handle relative paths
-                    if not file_path.is_absolute():
-                        file_path = base_path / file_path
-
-                    # Handle glob patterns
-                    if "*" in str(file_path) or "?" in str(file_path):
-                        t0 = time.time()
-                        files = sorted(glob(str(file_path)))
-                        if debug:
-                            context.log_progress(
-                                f"      [TIMING] glob: {_format_duration(time.time() - t0)}"
-                            )
-
-                        # Pre-filter files by date in filename (if analysis time range specified)
-                        if files and analysis_start and analysis_end:
-                            original_count = len(files)
-                            files = self._filter_files_by_date(files, analysis_start, analysis_end)
-                            if len(files) < original_count:
-                                context.log_progress(
-                                    f"step: Filtered {original_count} -> {len(files)} files by date"
-                                )
-                            if not files:
-                                context.log_progress(
-                                    f"done: No files in analysis date range, skipping"
-                                )
-                                loaded_count += 1
-                                continue  # Skip this observation
-
-                        if files:
-                            n_files = len(files)
-                            # Check if ICARTT files (.ict extension)
-                            if files[0].endswith(".ict"):
-                                context.log_progress(f"step: Reading {n_files} ICARTT files...")
-                                t0 = time.time()
-                                data = self._load_icartt_files(files)
-                                if debug:
-                                    context.log_progress(
-                                        f"      [TIMING] load_icartt: {_format_duration(time.time() - t0)}"
-                                    )
-                            elif obs_type == "lma":
-                                context.log_progress(f"step: Reading {n_files} LMA files...")
-                                t0 = time.time()
-                                data = self._load_lma_files(files)
-                                if debug:
-                                    context.log_progress(
-                                        f"      [TIMING] load_lma: {_format_duration(time.time() - t0)}"
-                                    )
-                            else:
-                                context.log_progress(f"step: Opening {n_files} files...")
-                                t0 = time.time()
-                                try:
-                                    data = xr.open_mfdataset(
-                                        files, combine="by_coords", parallel=True
-                                    )
-                                except Exception as e:
-                                    log_dir = context.config.get("analysis", {}).get("log_dir")
-                                    error_file = write_error_log(
-                                        e, f"Opening observation files for '{label}'", log_dir
-                                    )
-                                    msg = f"Failed to open observation files for '{label}': {e}"
-                                    if error_file:
-                                        msg += f" (details: {error_file})"
-                                    raise DataFormatError(msg) from e
-                                if debug:
-                                    context.log_progress(
-                                        f"      [TIMING] open_mfdataset: {_format_duration(time.time() - t0)}"
-                                    )
-                    elif file_path.exists():
-                        context.log_progress("step: Opening dataset...")
-                        t0 = time.time()
-                        if str(file_path).endswith(".ict"):
-                            data = self._load_icartt_files([str(file_path)])
-                        elif obs_type == "lma":
-                            data = self._load_lma_files([str(file_path)])
-                        elif label == "aeronet" or "aeronet" in str(file_path).lower():
-                            # Use AERONET reader for proper dimension handling
-                            from davinci_monet.observations.surface.aeronet import AERONETReader
-
-                            reader = AERONETReader()
-                            data = reader.open([str(file_path)])
-                        else:
-                            try:
-                                data = xr.open_dataset(str(file_path))
-                            except Exception as e:
-                                log_dir = context.config.get("analysis", {}).get("log_dir")
-                                error_file = write_error_log(
-                                    e, f"Opening observation file '{file_path}'", log_dir
-                                )
-                                msg = f"Failed to open observation file '{file_path}': {e}"
-                                if error_file:
-                                    msg += f" (details: {error_file})"
-                                raise DataFormatError(msg) from e
-                        if debug:
-                            context.log_progress(
-                                f"      [TIMING] open_dataset: {_format_duration(time.time() - t0)}"
-                            )
-
-                # Filter by analysis time range if specified
-                if data is not None and "time" in data.dims and analysis_start and analysis_end:
-                    t0 = time.time()
-                    original_size = data.sizes.get("time", 0)
-                    data = self._filter_by_time(
-                        data,
-                        analysis_start,
-                        analysis_end,
-                        end_time_has_time=end_time_has_time,
-                    )
-                    filtered_size = data.sizes.get("time", 0)
-                    if debug:
-                        context.log_progress(
-                            f"      [TIMING] time_filter: {_format_duration(time.time() - t0)} "
-                            f"({original_size} -> {filtered_size} times)"
-                        )
-                    elif filtered_size < original_size:
-                        context.log_progress(
-                            f"step: Filtered to analysis period ({filtered_size} times)"
-                        )
-
-                t0 = time.time()
-                obs_data = create_observation_data(
-                    label=label,
-                    obs_type=obs_type,
-                    data=data,
-                    filename=filename,
-                    variables=(
-                        normalized_variables
-                        if isinstance(normalized_variables, dict)
-                        else variables
-                    ),
-                )
-                if debug:
-                    context.log_progress(
-                        f"      [TIMING] create_observation_data: {_format_duration(time.time() - t0)}"
-                    )
-
-                # Apply temporal averaging if configured
-                resample_freq = config.get("resample")
-                if resample_freq:
-                    min_count = config.get("min_obs_count")
-                    track_count = config.get("track_obs_count", False)
-                    original_times = (
-                        obs_data.data.sizes.get("time", 0) if obs_data.data is not None else 0
-                    )
-
-                    t0 = time.time()
-                    obs_data.resample_data(
-                        freq=resample_freq,
-                        min_count=min_count,
-                        track_count=track_count,
-                    )
-                    new_times = (
-                        obs_data.data.sizes.get("time", 0) if obs_data.data is not None else 0
-                    )
-
-                    if debug:
-                        context.log_progress(
-                            f"      [TIMING] resample ({resample_freq}): {_format_duration(time.time() - t0)} "
-                            f"({original_times} -> {new_times} times)"
-                        )
-                    else:
-                        context.log_progress(
-                            f"step: Resampled to {resample_freq} ({original_times} -> {new_times} times)"
-                        )
-
-                # Apply variable configuration (scaling, masking, renaming) and metadata
-                if isinstance(normalized_variables, dict):
-                    obs_data.variables = normalized_variables
-                    t0 = time.time()
-                    obs_data.apply_variable_config()
-                    if debug:
-                        context.log_progress(
-                            f"      [TIMING] variable_config: {_format_duration(time.time() - t0)}"
-                        )
-
-                    for var_name, var_config in obs_data.variables.items():
-                        if obs_data.data is not None and var_name in obs_data.data.data_vars:
-                            units = (
-                                var_config.get("units") if isinstance(var_config, dict) else None
-                            )
-                            display = (
-                                var_config.get("display_name")
-                                if isinstance(var_config, dict)
-                                else None
-                            )
-                            if units:
-                                obs_data.data[var_name].attrs["units"] = units
-                            if display:
-                                obs_data.data[var_name].attrs["display_name"] = display
-
-                context.observations[label] = obs_data
-                loaded_count += 1
-
-                # Summary message
-                ds = obs_data.data
-                n_vars = len(ds.data_vars) if ds is not None else 0
-                # Get record count (sites, points, or time steps)
-                n_records = (
-                    (ds.sizes.get("site") or ds.sizes.get("x") or ds.sizes.get("time") or 0)
-                    if ds is not None
-                    else 0
-                )
-                context.log_progress(f"done: {n_vars} vars, {_format_size(n_records)} records")
-
-            except Exception as e:
-                return self._create_result(
-                    StageStatus.FAILED,
-                    error=f"Failed to load observation '{label}': {e}",
-                    duration=time.time() - start,
-                )
-
-        return self._create_result(
-            StageStatus.COMPLETED,
-            data={"loaded_observations": list(context.observations.keys())},
-            duration=time.time() - start,
-            count=loaded_count,
-        )
-
-    def _load_icartt_files(self, files: list[str]) -> "xr.Dataset":
-        """Load ICARTT format files using the specialized reader.
-
-        Parameters
-        ----------
-        files
-            List of ICARTT file paths.
-
-        Returns
-        -------
-        xr.Dataset
-            Combined dataset from all files.
-        """
-        from davinci_monet.observations.aircraft.icartt import ICARTTReader
-
-        reader = ICARTTReader()
-        return reader.open(files)
-
-    def _load_lma_files(self, files: list[str]) -> "xr.Dataset":
-        """Load LMA NetCDF files using the specialized reader.
-
-        Parameters
-        ----------
-        files
-            List of LMA file paths.
-
-        Returns
-        -------
-        xr.Dataset
-            Combined dataset with standardized coordinates.
-        """
-        from davinci_monet.observations.lightning.lma import LMAReader
-
-        reader = LMAReader()
-        return reader.open(files)
-
-    def _load_modis_l2(
-        self,
-        label: str,
-        config: dict[str, Any],
-        context: "PipelineContext",
-    ) -> "xr.Dataset | None":
-        """Load MODIS L2 swath data, bin onto model grid, return gridded dataset.
-
-        Handles binned-file caching: if ``load_binned`` is set and the
-        cached file exists, loads it directly.  Otherwise reads HDF4
-        granules via monetio, bins them, and optionally saves the result.
-
-        Parameters
-        ----------
-        label
-            Observation label (e.g. ``"terra_modis"``).
-        config
-            Observation configuration dict from YAML.
-        context
-            Pipeline context (must have models loaded for grid_source).
-
-        Returns
-        -------
-        xr.Dataset or None
-            Gridded dataset with dims ``(time, lon, lat)``, or None on
-            failure.
-        """
-        import time as time_mod
-        from pathlib import Path
-
-        import numpy as np
-        import xarray as xr
-
-        from davinci_monet.observations.satellite.modis_l2 import (
-            MODISL2Reader,
-            build_modis_variable_dict,
-            subset_modis_l2_files,
-        )
-
-        debug = context.config.get("analysis", {}).get("debug", False)
-
-        # --- Check for cached binned file ---
-        load_binned = config.get("load_binned", False)
-        binned_file = config.get("binned_file")
-        if load_binned and binned_file:
-            binned_path = Path(binned_file).expanduser()
-            if binned_path.exists():
-                context.log_progress(f"step: Loading cached binned data from {binned_path.name}")
-                t0 = time_mod.time()
-                data = xr.open_dataset(str(binned_path))
-                if debug:
-                    context.log_progress(
-                        f"      [TIMING] load_binned: {_format_duration(time_mod.time() - t0)}"
-                    )
-                context.log_progress(
-                    f"done: Loaded cached grid "
-                    f"({data.sizes.get('time', 0)} times, "
-                    f"{data.sizes.get('lon', 0)}x{data.sizes.get('lat', 0)} grid)"
-                )
-                return data
-
-        # --- Get target grid from a loaded source ---
-        grid_source = config.get("grid_source")
-        if not grid_source:
-            context.log_progress("done: No grid_source specified, skipping MODIS")
-            return None
-
-        grid_obj = (
-            context.sources.get(grid_source)
-            or context.models.get(grid_source)
-            or context.observations.get(grid_source)
-        )
-        if grid_obj is None:
-            context.log_progress(f"done: grid_source '{grid_source}' not loaded, skipping")
-            return None
-
-        grid_ds = grid_obj.data if hasattr(grid_obj, "data") else grid_obj
-        # Extract lat/lon from target grid
-        lat_centers = grid_ds["lat"].values.astype(np.float64)
-        lon_centers = grid_ds["lon"].values.astype(np.float64)
-
-        # --- Subset files by time ---
-        filename = config.get("filename", "")
-        analysis_config = context.config.get("analysis", {})
-        start_time = str(analysis_config.get("start_time", ""))
-        end_time = str(analysis_config.get("end_time", ""))
-
-        context.log_progress("step: Subsetting MODIS files by time...")
-        t0 = time_mod.time()
-        files = subset_modis_l2_files(str(filename), start_time, end_time)
-        if debug:
-            context.log_progress(
-                f"      [TIMING] subset_files: {_format_duration(time_mod.time() - t0)}"
-            )
-
-        if not files:
-            context.log_progress("done: No MODIS files in analysis window")
-            return None
-
-        context.log_progress(f"step: Found {len(files)} granule files")
-
-        # --- Build variable_dict for monetio ---
-        variables = config.get("variables", {})
-        # Normalize variable configs (may be VariableConfig objects)
-        norm_vars: dict[str, dict[str, Any]] = {}
-        for name, cfg in variables.items():
-            if hasattr(cfg, "model_dump"):
-                norm_vars[name] = cfg.model_dump()
-            elif isinstance(cfg, dict):
-                norm_vars[name] = dict(cfg)
-            else:
-                norm_vars[name] = {}
-        variable_dict = build_modis_variable_dict(norm_vars)
-
-        # --- Read and grid ---
-        time_resolution = config.get("time_resolution", "1D")
-        min_obs_count = config.get("min_obs_count", 1) or 1
-
-        reader = MODISL2Reader()
-        t0 = time_mod.time()
-        data = reader.read_and_grid(
-            files=files,
-            variable_dict=variable_dict,
-            lat_centers=lat_centers,
-            lon_centers=lon_centers,
-            start_time=start_time,
-            end_time=end_time,
-            time_resolution=time_resolution,
-            min_obs_count=min_obs_count,
-            debug=debug,
-            progress_callback=context.log_progress,
-        )
-        if debug:
-            context.log_progress(
-                f"      [TIMING] read_and_grid: {_format_duration(time_mod.time() - t0)}"
-            )
-
-        # Store grid_source in attrs for downstream reference
-        data.attrs["grid_source"] = grid_source
-
-        # --- Save binned cache ---
-        save_binned = config.get("save_binned", False)
-        if save_binned and binned_file:
-            binned_path = Path(binned_file).expanduser()
-            binned_path.parent.mkdir(parents=True, exist_ok=True)
-            context.log_progress(f"step: Saving binned data to {binned_path.name}")
-            t0 = time_mod.time()
-            data.to_netcdf(str(binned_path))
-            if debug:
-                context.log_progress(
-                    f"      [TIMING] save_binned: {_format_duration(time_mod.time() - t0)}"
-                )
-
-        return data
-
-    def _filter_files_by_date(
-        self,
-        files: list[str],
-        start_time: str,
-        end_time: str,
-    ) -> list[str]:
-        """Filter file list by dates extracted from filenames.
-
-        Looks for YYYYMMDD patterns in filenames and keeps only files
-        within the analysis date range.
-
-        Parameters
-        ----------
-        files
-            List of file paths.
-        start_time
-            Start of analysis period (ISO format string).
-        end_time
-            End of analysis period (ISO format string).
-
-        Returns
-        -------
-        list[str]
-            Filtered file list.
-        """
-        import re
-
-        import pandas as pd
-
-        t_start = pd.Timestamp(start_time).date()
-        t_end = pd.Timestamp(end_time).date()
-
-        # Pattern to match YYYYMMDD in filename
-        date_pattern = re.compile(r"(\d{4})(\d{2})(\d{2})")
-
-        filtered = []
-        for f in files:
-            # Search for date pattern in filename (not full path)
-            filename = f.split("/")[-1]
-            match = date_pattern.search(filename)
-            if match:
-                try:
-                    year, month, day = int(match.group(1)), int(match.group(2)), int(match.group(3))
-                    file_date = pd.Timestamp(year=year, month=month, day=day).date()
-                    if t_start <= file_date <= t_end:
-                        filtered.append(f)
-                except ValueError:
-                    # Invalid date, include file to be safe
-                    filtered.append(f)
-            else:
-                # No date in filename, include file
-                filtered.append(f)
-
-        return filtered
-
-    def _filter_by_time(
-        self,
-        data: "xr.Dataset",
-        start_time: str,
-        end_time: str,
-        end_time_has_time: bool | None = None,
-    ) -> "xr.Dataset":
-        """Filter dataset to analysis time range.
-
-        Parameters
-        ----------
-        data
-            Dataset with time dimension.
-        start_time
-            Start of analysis period (ISO format string).
-        end_time
-            End of analysis period (ISO format string).
-
-        Returns
-        -------
-        xr.Dataset
-            Dataset filtered to time range.
-        """
-        import pandas as pd
-
-        t_start = pd.Timestamp(start_time)
-        t_end = pd.Timestamp(end_time)
-
-        if end_time_has_time is None and isinstance(end_time, str):
-            import re
-
-            end_time_has_time = bool(re.search(r"[T ]\d{2}:\d{2}", end_time))
-
-        # If end_time is date-only, include the full day; otherwise honor exact timestamp.
-        if end_time_has_time is False:
-            t_end = t_end + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
-
-        # Use sel with slice for efficient time filtering
-        return data.sel(time=slice(t_start, t_end))
-
-
 class LoadSourcesStage(BaseStage):
     """Standard data-source loading stage.
 
     Loads the unified ``sources:`` config directly through ``source_registry``.
-    Legacy ``model:`` / ``obs:`` configs are still delegated to the existing
-    loaders, then exposed through ``context.sources`` keyed by label. Loaded
-    datasets are tagged with ``role`` (``"model"``/``"obs"`` when known),
-    ``source_label``, and ``geometry``. Results are mirrored in
+    Legacy ``model:`` / ``obs:`` (and ``models:`` / ``observations:``) configs
+    are auto-converted to the unified ``sources:`` form (via
+    :func:`~davinci_monet.config.migration.migrate_to_sources`) and loaded
+    through the same unified loop — the legacy per-role loader stages have been
+    removed. Loaded datasets are tagged with ``role`` (``"model"``/``"obs"`` when
+    known), ``source_label``, and ``geometry``. Results are mirrored in
     ``context.models`` / ``context.observations`` so existing accessors keep
     working.
     """
@@ -1228,10 +506,35 @@ class LoadSourcesStage(BaseStage):
         )
 
     def execute(self, context: PipelineContext) -> StageResult:
-        """Load and unify all data sources into ``context.sources``."""
+        """Load and unify all data sources into ``context.sources``.
+
+        Native ``sources:`` configs load directly through ``source_registry``.
+        Legacy ``model:``/``obs:`` (and ``models:``/``observations:``) configs are
+        auto-converted to the unified ``sources:`` form via
+        :func:`~davinci_monet.config.migration.migrate_to_sources` and loaded
+        through the *same* unified loop — there is no separate legacy loader path.
+        """
         import time
 
         start = time.time()
+
+        if not context.config.get("sources") and any(
+            k in context.config for k in ("model", "models", "obs", "observations")
+        ):
+            # Auto-convert a legacy control file to the unified sources schema in
+            # place, then fall through to the unified loader below. Mutating
+            # context.config keeps downstream stages (pairing/plotting) on the
+            # unified `sources:`/`pairs:` shape.
+            from davinci_monet.config.migration import migrate_to_sources
+
+            try:
+                context.config = migrate_to_sources(context.config)
+            except Exception as e:
+                return self._create_result(
+                    StageStatus.FAILED,
+                    error=f"Failed to convert legacy model/obs config to sources: {e}",
+                    duration=time.time() - start,
+                )
 
         if context.config.get("sources"):
             try:
@@ -1254,22 +557,9 @@ class LoadSourcesStage(BaseStage):
                     duration=time.time() - start,
                 )
 
-        # Delegate to the existing loaders when their config is present. They
-        # populate context.models / context.observations as usual.
-        if "model" in context.config or "models" in context.config:
-            sub = LoadModelsStage().execute(context)
-            if sub.status is StageStatus.FAILED:
-                return self._create_result(
-                    StageStatus.FAILED, error=sub.error, duration=time.time() - start
-                )
-        if "obs" in context.config or "observations" in context.config:
-            sub = LoadObservationsStage().execute(context)
-            if sub.status is StageStatus.FAILED:
-                return self._create_result(
-                    StageStatus.FAILED, error=sub.error, duration=time.time() - start
-                )
-
-        # Unify into the single source view, tagging role / source_label / geometry.
+        # No source config at all: any pre-populated containers (tests/direct
+        # stage use) are unified into the single source view, tagging role /
+        # source_label / geometry.
         for label, obj in context.models.items():
             self._register(context, label, obj, role="model")
         for label, obj in context.observations.items():
@@ -1371,7 +661,15 @@ class LoadSourcesStage(BaseStage):
 
         role = self._infer_source_role(role, reader_cls)
         reader = reader_cls()
+        # Control keys consumed by the loader / schema, NOT forwarded to the
+        # reader's open(). Covers the unified SourceConfig keys plus every legacy
+        # model:/obs: ModelConfig/ObservationConfig field, since an auto-converted
+        # legacy control file (model_dump) materializes those keys (e.g.
+        # files_vert=None, mod_kwargs={}, projection=None) at the source level —
+        # forwarding them to xr.open_dataset would raise. mod_kwargs is handled
+        # separately below (it is the reader-options channel).
         passthrough_keys = {
+            # unified + shared
             "type",
             "role",
             "files",
@@ -1383,8 +681,34 @@ class LoadSourcesStage(BaseStage):
             "resample",
             "min_obs_count",
             "track_obs_count",
+            # legacy ModelConfig control keys
+            "files_vert",
+            "files_surf",
+            "mod_type",
+            "mod_kwargs",
+            "projection",
+            "plot_kwargs",
+            "apply_ak",
+            # legacy ObservationConfig control keys
+            "obs_type",
+            "sat_type",
+            "use_airnow",
+            "data_proc",
+            "grid_source",
+            "time_resolution",
+            "save_binned",
+            "load_binned",
+            "binned_file",
         }
         reader_kwargs = {k: v for k, v in cfg.items() if k not in passthrough_keys}
+        # mod_kwargs is the legacy reader-options channel: flatten it so its
+        # entries reach the reader's open() (preserving LoadModelsStage parity).
+        mod_kwargs = cfg.get("mod_kwargs")
+        if isinstance(mod_kwargs, dict):
+            reader_kwargs.update(mod_kwargs)
+        # Drop None-valued kwargs (schema defaults) so they never leak into the
+        # reader / xarray as unexpected keyword arguments.
+        reader_kwargs = {k: v for k, v in reader_kwargs.items() if v is not None}
         import inspect
 
         open_kwargs = dict(reader_kwargs)
