@@ -2957,7 +2957,7 @@ class SummaryStage(BaseStage):
         import time
         from pathlib import Path
 
-        from davinci_monet.ai import collect_payload, generate_summary
+        from davinci_monet.ai import collect_payload, extract_bullets, generate_summary
         from davinci_monet.config.schema import SummaryConfig
 
         start = time.time()
@@ -3003,6 +3003,7 @@ class SummaryStage(BaseStage):
             data={
                 "summary_file": str(out_path),
                 "markdown": result.markdown,
+                "bullets": extract_bullets(result.markdown),
                 "model": result.model,
                 "usage": result.usage,
                 "images_sent": result.images_sent,
