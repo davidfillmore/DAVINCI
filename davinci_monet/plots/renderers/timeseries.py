@@ -292,12 +292,18 @@ class TimeSeriesPlotter(BasePlotter):
         show_altitude: bool = False,
         alt_coord: str = "altitude",
         show_uncertainty: bool = False,
+        uncertainty_type: Literal["std", "iqr", "range"] = "std",
         show_individual_sites: bool = False,
         time_dim: str = "time",
         aggregate_dim: str | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Render one source series as a single (aggregated) line."""
+        """Render one source series as a single (aggregated) line.
+
+        ``show_uncertainty`` shades a band about the mean across the aggregated
+        dimension(s); ``uncertainty_type`` selects ``std`` (mean ± 1σ), ``iqr``
+        (Q1–Q3), or ``range`` (min–max).
+        """
         if ax is None:
             fig, ax = self.create_figure()
         else:
@@ -331,13 +337,21 @@ class TimeSeriesPlotter(BasePlotter):
             mean = da.mean(dim=agg_dims) if agg_dims else da
             ax.plot(time_values, mean.values, color=color, linewidth=1.5, label=label)
             if show_uncertainty and agg_dims:
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", "Degrees of freedom", RuntimeWarning)
-                    std = da.std(dim=agg_dims)
+                if uncertainty_type == "iqr":
+                    lower = da.quantile(0.25, dim=agg_dims)
+                    upper = da.quantile(0.75, dim=agg_dims)
+                elif uncertainty_type == "range":
+                    lower = da.min(dim=agg_dims)
+                    upper = da.max(dim=agg_dims)
+                else:  # "std": ±1σ about the mean
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings("ignore", "Degrees of freedom", RuntimeWarning)
+                        std = da.std(dim=agg_dims)
+                    lower, upper = mean - std, mean + std
                 ax.fill_between(
                     time_values,
-                    (mean - std).values,
-                    (mean + std).values,
+                    lower.values,
+                    upper.values,
                     color=color,
                     alpha=0.25,
                     linewidth=0,
