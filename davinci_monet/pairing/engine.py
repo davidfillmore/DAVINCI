@@ -84,14 +84,17 @@ class PairingEngine:
             GridStrategy,
             PointStrategy,
             ProfileStrategy,
-            SwathStrategy,
+            SwathGridStrategy,
             TrackStrategy,
         )
 
         self.register_strategy(PointStrategy())
         self.register_strategy(TrackStrategy())
         self.register_strategy(ProfileStrategy())
-        self.register_strategy(SwathStrategy())
+        # SwathGridStrategy (numba binning onto a target grid) is the production
+        # SWATH handler. SwathStrategy (per-pixel nearest-neighbor) is preserved
+        # for direct use but is intentionally NOT the engine default.
+        self.register_strategy(SwathGridStrategy())
         self.register_strategy(GridStrategy())
 
     def register_strategy(self, strategy: PairingStrategy) -> None:
@@ -472,14 +475,15 @@ def create_default_engine() -> PairingEngine:
     from davinci_monet.pairing.strategies.grid import GridStrategy
     from davinci_monet.pairing.strategies.point import PointStrategy
     from davinci_monet.pairing.strategies.profile import ProfileStrategy
-    from davinci_monet.pairing.strategies.swath import SwathStrategy
+    from davinci_monet.pairing.strategies.swath_grid import SwathGridStrategy
     from davinci_monet.pairing.strategies.track import TrackStrategy
 
     engine = PairingEngine()
     engine.register_strategy(PointStrategy())
     engine.register_strategy(TrackStrategy())
     engine.register_strategy(ProfileStrategy())
-    engine.register_strategy(SwathStrategy())
+    # Production SWATH handler: bin onto a grid (see _register_default_strategies).
+    engine.register_strategy(SwathGridStrategy())
     engine.register_strategy(GridStrategy())
 
     return engine
