@@ -11,9 +11,11 @@ from typing import TYPE_CHECKING, Any, Literal, Sequence
 import matplotlib.pyplot as plt
 import numpy as np
 
+from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
+    build_series,
     canonical_variable_name,
     format_plot_title,
 )
@@ -52,37 +54,38 @@ class ScorecardPlotter(BasePlotter):
     name: str = "scorecard"
     default_figsize: tuple[float, float] = (8, 5)  # Balanced
 
-    def plot(
+    def render(
         self,
-        paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Generate a scorecard from paired data.
-
-        This method calculates statistics from paired data and creates
-        a scorecard. For pre-computed statistics, use plot_from_stats().
+        """Render a scorecard from a list of two PlotSeries.
 
         Parameters
         ----------
-        paired_data
-            Paired dataset with reference and comparand variables.
-        obs_var
-            Compatibility name for reference variable.
-        model_var
-            Compatibility name for comparand variable.
+        series
+            Exactly 2 series: one reference (obs) and one comparand (model).
         ax
-            Optional axes to plot on.
+            Optional axes to plot on. If None, creates new figure.
         **kwargs
-            Additional arguments passed to plot_from_stats.
+            Forwarded to plot_from_dataframe.
 
         Returns
         -------
         matplotlib.figure.Figure
             The generated figure.
         """
+        if len(series) != 2:
+            raise NotImplementedError(
+                f"ScorecardPlotter.render requires exactly 2 series; got {len(series)}."
+            )
+        ref = next((s for s in series if s.pair_role == "reference"), series[0])
+        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
+        paired_data = ref.dataset
+        obs_var = ref.var_name
+        model_var = comp.var_name
+
         # Calculate basic statistics
         reference = paired_data[obs_var].values.flatten()
         comparand = paired_data[model_var].values.flatten()
@@ -107,6 +110,43 @@ class ScorecardPlotter(BasePlotter):
         stats_df.index = [canonical_variable_name(paired_data, obs_var)]
 
         return self.plot_from_dataframe(stats_df, ax=ax, **kwargs)
+
+    def plot(
+        self,
+        paired_data: xr.Dataset,
+        obs_var: str,
+        model_var: str,
+        ax: matplotlib.axes.Axes | None = None,
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Generate a scorecard from paired data.
+
+        This method calculates statistics from paired data and creates
+        a scorecard. For pre-computed statistics, use plot_from_stats().
+
+        Parameters
+        ----------
+        paired_data
+            Paired dataset with reference and comparand variables.
+        obs_var
+            Compatibility name for reference variable.
+        model_var
+            Compatibility name for comparand variable.
+        ax
+            Optional axes to plot on.
+        **kwargs
+            Additional arguments passed to plot_from_dataframe.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated figure.
+        """
+        return self.render(
+            build_series(paired_data, obs_var, model_var),
+            ax=ax,
+            **kwargs,
+        )
 
     def plot_from_dataframe(
         self,

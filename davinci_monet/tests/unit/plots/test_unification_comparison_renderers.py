@@ -247,3 +247,278 @@ class TestTaylorRenderParity:
         plotter = TaylorPlotter()
         with pytest.raises(NotImplementedError, match="TaylorPlotter"):
             plotter.render(build_series(ds, "obs_o3"))
+
+
+# ---------------------------------------------------------------------------
+# ScorecardPlotter
+# ---------------------------------------------------------------------------
+
+
+class TestScorecardRenderParity:
+    def test_plot_and_render_both_return_figure(self) -> None:
+        from davinci_monet.plots.renderers.scorecard import ScorecardPlotter
+
+        ds = _paired_ds()
+        plotter = ScorecardPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3")
+        plt.close(fig_plot)
+        fig_render = plotter.render(build_series(ds, "obs_o3", "model_o3"))
+        plt.close(fig_render)
+        assert isinstance(fig_plot, matplotlib.figure.Figure)
+        assert isinstance(fig_render, matplotlib.figure.Figure)
+
+    def test_plot_and_render_same_axes_count(self) -> None:
+        from davinci_monet.plots.renderers.scorecard import ScorecardPlotter
+
+        ds = _paired_ds()
+        plotter = ScorecardPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3")
+        n_plot = len(fig_plot.axes)
+        plt.close(fig_plot)
+        fig_render = plotter.render(build_series(ds, "obs_o3", "model_o3"))
+        n_render = len(fig_render.axes)
+        plt.close(fig_render)
+        assert n_plot == n_render
+
+    def test_render_wrong_series_count_raises(self) -> None:
+        from davinci_monet.plots.renderers.scorecard import ScorecardPlotter
+
+        ds = _paired_ds()
+        plotter = ScorecardPlotter()
+        with pytest.raises(NotImplementedError, match="ScorecardPlotter"):
+            plotter.render(build_series(ds, "obs_o3"))
+
+    def test_side_entries_still_work(self) -> None:
+        """plot_from_dataframe and plot_multi_metric must remain callable."""
+        import pandas as pd
+
+        from davinci_monet.plots.renderers.scorecard import ScorecardPlotter
+
+        plotter = ScorecardPlotter()
+
+        # plot_from_dataframe
+        stats_df = pd.DataFrame(
+            {"Model A": [0.9, 2.5], "Model B": [0.85, -1.0]},
+            index=["R", "MB"],
+        )
+        fig = plotter.plot_from_dataframe(stats_df)
+        assert isinstance(fig, matplotlib.figure.Figure)
+        plt.close(fig)
+
+        # plot_multi_metric
+        stats_dict = {
+            "Model A": pd.DataFrame({"R": [0.9], "MB": [1.2]}, index=["o3"]),
+            "Model B": pd.DataFrame({"R": [0.85], "MB": [-0.5]}, index=["o3"]),
+        }
+        fig2 = plotter.plot_multi_metric(stats_dict, metrics=["R", "MB"])
+        assert isinstance(fig2, matplotlib.figure.Figure)
+        plt.close(fig2)
+
+
+# ---------------------------------------------------------------------------
+# CurtainPlotter
+# ---------------------------------------------------------------------------
+
+
+def _track_ds(n: int = 30, seed: int = 0) -> xr.Dataset:
+    """Minimal track dataset with altitude coordinate."""
+    rng = np.random.default_rng(seed)
+    times = np.datetime64("2024-02-01") + np.arange(n) * np.timedelta64(1, "h")
+    ds = xr.Dataset(
+        {
+            "obs_o3": (
+                "time",
+                rng.uniform(20, 60, n),
+                {"role": "obs", "pair_role": "reference", "units": "ppb"},
+            ),
+            "model_o3": (
+                "time",
+                rng.uniform(20, 60, n),
+                {"role": "model", "pair_role": "comparand", "units": "ppb"},
+            ),
+        },
+        coords={
+            "time": times,
+            "altitude": ("time", rng.uniform(500, 5000, n)),
+        },
+    )
+    return ds
+
+
+class TestCurtainRenderParity:
+    def test_plot_and_render_both_return_figure(self) -> None:
+        from davinci_monet.plots.renderers.curtain import CurtainPlotter
+
+        ds = _track_ds()
+        plotter = CurtainPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3", alt_var="altitude")
+        plt.close(fig_plot)
+        fig_render = plotter.render(build_series(ds, "obs_o3", "model_o3"), alt_var="altitude")
+        plt.close(fig_render)
+        assert isinstance(fig_plot, matplotlib.figure.Figure)
+        assert isinstance(fig_render, matplotlib.figure.Figure)
+
+    def test_plot_and_render_same_axes_count(self) -> None:
+        from davinci_monet.plots.renderers.curtain import CurtainPlotter
+
+        ds = _track_ds()
+        plotter = CurtainPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3", alt_var="altitude")
+        n_plot = len(fig_plot.axes)
+        plt.close(fig_plot)
+        fig_render = plotter.render(build_series(ds, "obs_o3", "model_o3"), alt_var="altitude")
+        n_render = len(fig_render.axes)
+        plt.close(fig_render)
+        assert n_plot == n_render
+
+    def test_curtain_show_var_forwarded(self) -> None:
+        """render() must accept show_var kwarg and produce the correct bias plot."""
+        from davinci_monet.plots.renderers.curtain import CurtainPlotter
+
+        ds = _track_ds()
+        plotter = CurtainPlotter()
+        for show_var in ("obs", "model", "bias"):
+            fig = plotter.render(
+                build_series(ds, "obs_o3", "model_o3"),
+                alt_var="altitude",
+                show_var=show_var,
+            )
+            assert isinstance(fig, matplotlib.figure.Figure)
+            plt.close(fig)
+
+    def test_render_wrong_series_count_raises(self) -> None:
+        from davinci_monet.plots.renderers.curtain import CurtainPlotter
+
+        ds = _track_ds()
+        plotter = CurtainPlotter()
+        with pytest.raises(NotImplementedError, match="CurtainPlotter"):
+            plotter.render(build_series(ds, "obs_o3"))
+
+
+# ---------------------------------------------------------------------------
+# SpatialBiasPlotter
+# ---------------------------------------------------------------------------
+
+
+def _spatial_point_ds(n_sites: int = 5, seed: int = 0) -> xr.Dataset:
+    """Minimal point-site spatial dataset."""
+    rng = np.random.default_rng(seed)
+    times = np.array(["2024-02-01T00:00", "2024-02-01T01:00"], dtype="datetime64[ns]")
+    lats = np.linspace(30.0, 50.0, n_sites)
+    lons = np.linspace(-110.0, -70.0, n_sites)
+    obs = rng.uniform(20, 60, size=(2, n_sites))
+    mod = obs + rng.uniform(-5, 5, size=(2, n_sites))
+    ds = xr.Dataset(
+        {
+            "obs_o3": (
+                ("time", "site"),
+                obs,
+                {"role": "obs", "pair_role": "reference"},
+            ),
+            "model_o3": (
+                ("time", "site"),
+                mod,
+                {"role": "model", "pair_role": "comparand"},
+            ),
+        },
+        coords={
+            "time": times,
+            "latitude": ("site", lats),
+            "longitude": ("site", lons),
+        },
+    )
+    return ds
+
+
+class TestSpatialBiasRenderParity:
+    def test_plot_and_render_both_return_figure(self) -> None:
+        from davinci_monet.plots.renderers.spatial.bias import SpatialBiasPlotter
+
+        ds = _spatial_point_ds()
+        plotter = SpatialBiasPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3")
+        plt.close(fig_plot)
+        fig_render = plotter.render(build_series(ds, "obs_o3", "model_o3"))
+        plt.close(fig_render)
+        assert isinstance(fig_plot, matplotlib.figure.Figure)
+        assert isinstance(fig_render, matplotlib.figure.Figure)
+
+    def test_plot_and_render_same_axes_count(self) -> None:
+        from davinci_monet.plots.renderers.spatial.bias import SpatialBiasPlotter
+
+        ds = _spatial_point_ds()
+        plotter = SpatialBiasPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3")
+        n_plot = len(fig_plot.axes)
+        plt.close(fig_plot)
+        fig_render = plotter.render(build_series(ds, "obs_o3", "model_o3"))
+        n_render = len(fig_render.axes)
+        plt.close(fig_render)
+        assert n_plot == n_render
+
+    def test_render_wrong_series_count_raises(self) -> None:
+        from davinci_monet.plots.renderers.spatial.bias import SpatialBiasPlotter
+
+        ds = _spatial_point_ds()
+        plotter = SpatialBiasPlotter()
+        with pytest.raises(NotImplementedError, match="SpatialBiasPlotter"):
+            plotter.render(build_series(ds, "obs_o3"))
+
+
+# ---------------------------------------------------------------------------
+# SpatialDistributionPlotter
+# ---------------------------------------------------------------------------
+
+
+class TestSpatialDistributionRenderParity:
+    def test_plot_and_render_both_return_figure(self) -> None:
+        from davinci_monet.plots.renderers.spatial.distribution import (
+            SpatialDistributionPlotter,
+        )
+
+        ds = _spatial_point_ds()
+        plotter = SpatialDistributionPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3")
+        plt.close(fig_plot)
+        fig_render = plotter.render(build_series(ds, "obs_o3", "model_o3"))
+        plt.close(fig_render)
+        assert isinstance(fig_plot, matplotlib.figure.Figure)
+        assert isinstance(fig_render, matplotlib.figure.Figure)
+
+    def test_plot_and_render_same_axes_count(self) -> None:
+        from davinci_monet.plots.renderers.spatial.distribution import (
+            SpatialDistributionPlotter,
+        )
+
+        ds = _spatial_point_ds()
+        plotter = SpatialDistributionPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3")
+        n_plot = len(fig_plot.axes)
+        plt.close(fig_plot)
+        fig_render = plotter.render(build_series(ds, "obs_o3", "model_o3"))
+        n_render = len(fig_render.axes)
+        plt.close(fig_render)
+        assert n_plot == n_render
+
+    def test_show_var_forwarded_via_render(self) -> None:
+        """render() must accept show_var kwarg and produce correct figure."""
+        from davinci_monet.plots.renderers.spatial.distribution import (
+            SpatialDistributionPlotter,
+        )
+
+        ds = _spatial_point_ds()
+        plotter = SpatialDistributionPlotter()
+        for show_var in ("obs", "model", "both"):
+            fig = plotter.render(build_series(ds, "obs_o3", "model_o3"), show_var=show_var)
+            assert isinstance(fig, matplotlib.figure.Figure)
+            plt.close(fig)
+
+    def test_render_wrong_series_count_raises(self) -> None:
+        from davinci_monet.plots.renderers.spatial.distribution import (
+            SpatialDistributionPlotter,
+        )
+
+        ds = _spatial_point_ds()
+        plotter = SpatialDistributionPlotter()
+        with pytest.raises(NotImplementedError, match="SpatialDistributionPlotter"):
+            plotter.render(build_series(ds, "obs_o3"))
