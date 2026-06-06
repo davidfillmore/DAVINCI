@@ -38,36 +38,39 @@ class TestDatasetSourceLabel:
 
 
 class TestObsTimeseriesSourceLabel:
+    """R-4 now flows through the unified TimeSeriesPlotter.render (single source)."""
+
     def test_single_series_labelled_by_source(self) -> None:
-        from davinci_monet.plots.renderers.obs.obs_timeseries import ObsTimeSeriesPlotter
+        from davinci_monet.plots.base import build_series
+        from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 
         ds = _obs_timeseries_ds(source_label="pandora")
-        fig = ObsTimeSeriesPlotter().plot(ds, "O3")
-        line = fig.axes[0].get_lines()[0]
-        assert line.get_label() == "pandora"
+        fig = TimeSeriesPlotter().render(build_series(ds, "O3"))
+        assert fig.axes[0].get_lines()[0].get_label() == "pandora"
 
     def test_single_series_keeps_obs_only_blue(self) -> None:
         # Obs-only convention: NCAR blue, NOT the paired-obs gray.
-        from davinci_monet.plots.renderers.obs.obs_timeseries import ObsTimeSeriesPlotter
+        from davinci_monet.plots.base import build_series
+        from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 
         ds = _obs_timeseries_ds(source_label="pandora")
-        fig = ObsTimeSeriesPlotter().plot(ds, "O3")
+        fig = TimeSeriesPlotter().render(build_series(ds, "O3"))
         assert fig.axes[0].get_lines()[0].get_color() == NCAR_PRIMARY
 
 
 class TestObsHistogramSourceLabel:
     def test_bars_labelled_by_source(self) -> None:
-        from davinci_monet.plots.renderers.obs.obs_histogram import ObsHistogramPlotter
+        from davinci_monet.plots.renderers.histogram import HistogramPlotter
 
         ds = _obs_timeseries_ds(source_label="pandora")
-        fig = ObsHistogramPlotter().plot(ds, "O3")
+        fig = HistogramPlotter().plot(ds, "O3")
         _, labels = fig.axes[0].get_legend_handles_labels()
         assert "pandora" in labels
 
 
 class TestVerticalProfileSourceLabel:
     def test_single_series_labelled_by_source(self) -> None:
-        from davinci_monet.plots.renderers.obs.vertical_profile import VerticalProfilePlotter
+        from davinci_monet.plots.renderers.vertical_profile import VerticalProfilePlotter
 
         rng = np.random.default_rng(1)
         n = 50

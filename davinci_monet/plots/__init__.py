@@ -51,7 +51,6 @@ from davinci_monet.plots.base import (
     merge_config_dicts,
     resolve_source_variable,
 )
-from davinci_monet.plots.obs_base import ObsPlotter
 
 # Registry and factory
 from davinci_monet.plots.registry import (
@@ -76,6 +75,9 @@ from davinci_monet.plots.renderers import (  # Temporal; Statistical; Specialize
     CurtainPlotter,
     DiurnalPlotter,
     FlightTimeSeriesPlotter,
+    FlightTrackPlotter,
+    HistogramPlotter,
+    LMADensityPlotter,
     MapConfig,
     PerSiteTimeSeriesPlotter,
     ScatterPlotter,
@@ -87,6 +89,7 @@ from davinci_monet.plots.renderers import (  # Temporal; Statistical; Specialize
     TaylorPlotter,
     TimeSeriesPlotter,
     TrackMap3DPlotter,
+    VerticalProfilePlotter,
     get_domain_extent,
     get_projection,
     plot_boxplot,
@@ -103,14 +106,6 @@ from davinci_monet.plots.renderers import (  # Temporal; Statistical; Specialize
     plot_taylor,
     plot_timeseries,
     plot_track_map_3d,
-)
-
-# Observation-only renderers
-from davinci_monet.plots.renderers.obs import (
-    FlightTrackMapPlotter,
-    ObsHistogramPlotter,
-    ObsTimeSeriesPlotter,
-    VerticalProfilePlotter,
 )
 
 # Style configuration (NCAR branding)
@@ -221,10 +216,9 @@ __all__ = [
     "plot_spatial_distribution",
     "get_domain_extent",
     "get_projection",
-    # Observation-only plotters
-    "ObsPlotter",
-    "FlightTrackMapPlotter",
+    # Single-source / distribution plotters (unified onto BasePlotter)
+    "HistogramPlotter",
     "VerticalProfilePlotter",
-    "ObsTimeSeriesPlotter",
-    "ObsHistogramPlotter",
+    "FlightTrackPlotter",
+    "LMADensityPlotter",
 ]

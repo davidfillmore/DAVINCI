@@ -91,6 +91,8 @@ class Registry(Generic[T]):
     def __init__(self, name: str) -> None:
         self._name = name
         self._components: dict[str, T] = {}
+        # Deprecated-name redirects: alias -> canonical target name.
+        self._aliases: dict[str, str] = {}
 
     @property
     def name(self) -> str:
@@ -106,8 +108,8 @@ class Registry(Generic[T]):
         return iter(self._components)
 
     def __contains__(self, name: str) -> bool:
-        """Check if a component name is registered."""
-        return name in self._components
+        """Check if a component name is registered (resolving aliases)."""
+        return self.resolve(name) in self._components
 
     def __repr__(self) -> str:
         components = ", ".join(sorted(self._components.keys()))
@@ -168,6 +170,37 @@ class Registry(Generic[T]):
             return decorator(component)
         return decorator
 
+    def register_alias(self, alias: str, target: str) -> None:
+        """Register a deprecated ``alias`` name that redirects to ``target``.
+
+        The target need not exist yet (it may register later). Lookups via
+        :meth:`get`/:meth:`get_or_none`/``in`` resolve the alias to the target.
+
+        Parameters
+        ----------
+        alias
+            The deprecated name.
+        target
+            The canonical name it should resolve to.
+        """
+        self._aliases[alias] = target
+
+    def is_alias(self, name: str) -> bool:
+        """Return True if ``name`` is a registered alias (not a real component)."""
+        return name in self._aliases
+
+    def resolve(self, name: str) -> str:
+        """Resolve ``name`` through any alias chain to its canonical target.
+
+        Non-alias names are returned unchanged. Alias chains are followed with a
+        visited-guard so a cyclic alias cannot loop forever.
+        """
+        seen: set[str] = set()
+        while name in self._aliases and name not in seen:
+            seen.add(name)
+            name = self._aliases[name]
+        return name
+
     def unregister(self, name: str) -> T:
         """Remove a component from the registry.
 
@@ -208,9 +241,10 @@ class Registry(Generic[T]):
         ComponentNotFoundError
             If the component is not registered.
         """
-        if name not in self._components:
+        resolved = self.resolve(name)
+        if resolved not in self._components:
             raise ComponentNotFoundError(name, self._name)
-        return self._components[name]
+        return self._components[resolved]
 
     def get_or_none(self, name: str) -> T | None:
         """Get a registered component by name, or None if not found.
@@ -225,7 +259,7 @@ class Registry(Generic[T]):
         T | None
             The registered component, or None if not found.
         """
-        return self._components.get(name)
+        return self._components.get(self.resolve(name))
 
     def list(self) -> list[str]:
         """Return a sorted list of all registered component names.

@@ -17,7 +17,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Import NCAR style colors for defaults
-from davinci_monet.plots.style import MODEL_COLOR, OBS_COLOR
+from davinci_monet.core.base import (
+    PlotSeries,
+    paired_variable_pair_role,
+    paired_variable_role,
+)
+from davinci_monet.plots.style import MODEL_COLOR, NCAR_PALETTE, NCAR_PRIMARY, OBS_COLOR
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -316,6 +321,30 @@ class BasePlotter(ABC):
             The generated figure.
         """
         ...
+
+    def render(
+        self,
+        series: list[PlotSeries],
+        ax: matplotlib.axes.Axes | None = None,
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Render a list of source series (unified renderer contract).
+
+        ``len(series) == 1`` → single line; ``== 2`` → reference-vs-comparand
+        (obs gray / model blue); ``>= 2`` → multi-source overlay. This default
+        handles only the 2-series case by delegating to the legacy
+        ``plot(paired_data, obs_var, model_var)`` hook, so unmigrated paired
+        renderers keep working unchanged. Renderers that support 1 or N series
+        override this method (unification P3).
+        """
+        if len(series) == 2:
+            ref = next((s for s in series if s.pair_role == "reference"), series[0])
+            comp = next((s for s in series if s.pair_role == "comparand"), series[1])
+            return self.plot(series[0].dataset, ref.var_name, comp.var_name, ax=ax, **kwargs)
+        raise NotImplementedError(
+            f"{type(self).__name__}.render does not support {len(series)} series; "
+            "override render() for single-/N-source support (unification P3)."
+        )
 
     def create_figure(
         self,
@@ -776,6 +805,82 @@ def canonical_variable_name(dataset: xr.Dataset, var_name: str) -> str:
         if var_name.startswith(prefix):
             return var_name[len(prefix) :]
     return var_name
+
+
+def build_series(dataset: xr.Dataset, *var_args: Any) -> list[PlotSeries]:
+    """Resolve facade var-args into an ordered list of :class:`PlotSeries`.
+
+    Accepts the three call shapes the unified facade supports:
+
+    - ``build_series(ds, obs_var, model_var)`` → 2 series
+    - ``build_series(ds, variable)`` → 1 series
+    - ``build_series(ds, [v1, ..., vN])`` → N series
+
+    A trailing positional ``matplotlib`` Axes (legacy ``plot(ds, var, ax)``) is
+    ignored for series building. ``role``/``pair_role``/``source_label``/
+    ``canonical`` are read from the dataset's attrs, with the legacy
+    ``obs_``/``model_`` prefix fallback.
+    """
+    import matplotlib.axes
+
+    args = list(var_args)
+    if args and isinstance(args[-1], matplotlib.axes.Axes):
+        args = args[:-1]
+    if len(args) == 1 and isinstance(args[0], (list, tuple)):
+        names = [str(n) for n in args[0]]
+    else:
+        names = [a for a in args if isinstance(a, str)]
+
+    series: list[PlotSeries] = []
+    for i, name in enumerate(names):
+        # Prefer the per-variable source_label (paired/tagged data); fall back to
+        # the dataset-level label that single-source obs datasets carry.
+        source_label = (
+            dataset[name].attrs.get("source_label") if name in dataset.data_vars else None
+        ) or dataset.attrs.get("source_label")
+        series.append(
+            PlotSeries(
+                dataset=dataset,
+                var_name=name,
+                canonical=canonical_variable_name(dataset, name),
+                role=paired_variable_role(dataset, name),
+                pair_role=paired_variable_pair_role(dataset, name),
+                source_label=str(source_label) if source_label else None,
+                index=i,
+            )
+        )
+    return series
+
+
+def series_colors(
+    series: list[PlotSeries],
+    *,
+    obs_color: str | None = None,
+    model_color: str | None = None,
+) -> list[str]:
+    """Per-series colors under the unified, count-aware rule.
+
+    - **1 series** → ``NCAR_PRIMARY`` (the obs-only brand blue), or ``MODEL_COLOR``
+      when the lone source is ``role == "model"``. This is what keeps a single
+      obs source blue rather than the paired-obs gray that ``get_color_for_role``
+      would assign.
+    - **2 series** → reference/obs in ``obs_color`` (gray) and comparand/model in
+      ``model_color`` (blue), preserving today's model-vs-obs contrast.
+    - **N > 2 series** → distinct ``NCAR_PALETTE`` colors cycled by ``index``.
+
+    ``obs_color``/``model_color`` let a caller pass the active ``StyleConfig``
+    colors; they default to the module ``OBS_COLOR``/``MODEL_COLOR``.
+    """
+    n = len(series)
+    if n == 1:
+        return [MODEL_COLOR if series[0].role == "model" else NCAR_PRIMARY]
+    if n == 2:
+        out: list[str] = []
+        for s in series:
+            is_model = s.role == "model" or s.pair_role == "comparand"
+            out.append((model_color or MODEL_COLOR) if is_model else (obs_color or OBS_COLOR))
+        return out
+    return [NCAR_PALETTE[s.index % len(NCAR_PALETTE)] for s in series]
 
 
 def get_role_color(

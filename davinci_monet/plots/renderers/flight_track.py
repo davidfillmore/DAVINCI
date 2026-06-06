@@ -14,13 +14,13 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (registers 3D projection)
 
 from davinci_monet.plots.base import (
+    BasePlotter,
     format_label_with_units,
     format_plot_title,
     get_variable_label,
     get_variable_units,
 )
-from davinci_monet.plots.obs_base import ObsPlotter
-from davinci_monet.plots.registry import register_plotter
+from davinci_monet.plots.registry import register_alias, register_plotter
 from davinci_monet.plots.renderers.track_map_3d import (
     _get_border_segments,
     _get_coastline_segments,
@@ -34,8 +34,8 @@ if TYPE_CHECKING:
     import xarray as xr
 
 
-@register_plotter("obs_flight_track")
-class FlightTrackMapPlotter(ObsPlotter):
+@register_plotter("flight_track")
+class FlightTrackPlotter(BasePlotter):
     """Plotter for 3D flight track maps colored by variable value.
 
     Creates a 3D plot with the flight path rendered as scatter points
@@ -48,14 +48,24 @@ class FlightTrackMapPlotter(ObsPlotter):
 
     Examples
     --------
-    >>> plotter = FlightTrackMapPlotter()
+    >>> plotter = FlightTrackPlotter()
     >>> fig = plotter.plot(obs_data, "O3", title="DC3 Flight O3")
     """
 
-    name: str = "obs_flight_track"
+    name: str = "flight_track"
     default_figsize: tuple[float, float] = (7, 6)
 
-    def plot(
+    def render(
+        self,
+        series: list[Any],
+        ax: matplotlib.axes.Axes | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Unified entry: render a single source's flight track."""
+        s = series[0]
+        return self.plot(s.dataset, s.var_name, **kwargs)
+
+    def plot(  # type: ignore[override]
         self,
         obs_data: xr.Dataset,
         variable: str,
@@ -336,3 +346,7 @@ class FlightTrackMapPlotter(ObsPlotter):
 
         plt.tight_layout(rect=(0, 0, 1, 0.95))
         return fig
+
+
+# ``obs_flight_track`` is a deprecated alias of the unified renderer.
+register_alias("obs_flight_track", "flight_track")
