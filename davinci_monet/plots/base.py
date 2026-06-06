@@ -340,7 +340,7 @@ class BasePlotter(ABC):
         if len(series) == 2:
             ref = next((s for s in series if s.pair_role == "reference"), series[0])
             comp = next((s for s in series if s.pair_role == "comparand"), series[1])
-            return self.plot(series[0].dataset, ref.var_name, comp.var_name, ax=ax, **kwargs)
+            return self.plot(ref.dataset, ref.var_name, comp.var_name, ax=ax, **kwargs)
         raise NotImplementedError(
             f"{type(self).__name__}.render does not support {len(series)} series; "
             "override render() for single-/N-source support (unification P3)."

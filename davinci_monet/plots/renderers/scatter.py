@@ -14,9 +14,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LogNorm, Normalize
 
+from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
+    build_series,
     format_label_with_units,
     get_variable_label,
     get_variable_units,
@@ -58,61 +60,48 @@ class ScatterPlotter(BasePlotter):
     name: str = "scatter"
     default_figsize: tuple[float, float] = (6, 6)  # Square for x vs y
 
-    def plot(
+    def render(
         self,
-        paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
-        show_density: bool = False,
-        density_cmap: str = "viridis",
-        density_bins: int = 50,
-        show_regression: bool = True,
-        show_one_to_one: bool = True,
-        show_stats: bool = True,
-        color_by: str | None = None,
-        marker_size: float | None = None,
-        alpha: float | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Generate a scatter plot.
+        """Render a scatter plot from a list of two PlotSeries.
 
         Parameters
         ----------
-        paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+        series
+            Exactly 2 series: one reference (obs) and one comparand (model).
         ax
             Optional axes to plot on. If None, creates new figure.
-        show_density
-            If True, color points by density.
-        density_cmap
-            Colormap for density coloring.
-        density_bins
-            Number of bins for density calculation.
-        show_regression
-            If True, show linear regression line.
-        show_one_to_one
-            If True, show 1:1 reference line.
-        show_stats
-            If True, show statistics annotation.
-        color_by
-            Optional variable name to color points by.
-        marker_size
-            Override marker size.
-        alpha
-            Override alpha.
         **kwargs
-            Additional plotting arguments.
+            Forwarded to the scatter rendering logic.
 
         Returns
         -------
         matplotlib.figure.Figure
             The generated figure.
         """
+        if len(series) != 2:
+            raise NotImplementedError(
+                f"ScatterPlotter.render requires exactly 2 series; got {len(series)}."
+            )
+        ref = next((s for s in series if s.pair_role == "reference"), series[0])
+        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
+        paired_data = ref.dataset
+        obs_var = ref.var_name
+        model_var = comp.var_name
+
+        show_density: bool = kwargs.pop("show_density", False)
+        density_cmap: str = kwargs.pop("density_cmap", "viridis")
+        density_bins: int = kwargs.pop("density_bins", 50)
+        show_regression: bool = kwargs.pop("show_regression", True)
+        show_one_to_one: bool = kwargs.pop("show_one_to_one", True)
+        show_stats: bool = kwargs.pop("show_stats", True)
+        color_by: str | None = kwargs.pop("color_by", None)
+        marker_size: float | None = kwargs.pop("marker_size", None)
+        alpha: float | None = kwargs.pop("alpha", None)
+
         # Create figure if needed
         if ax is None:
             fig, ax = self.create_figure()
@@ -225,11 +214,11 @@ class ScatterPlotter(BasePlotter):
             get_variable_label(paired_data, obs_var, self.config.obs_label) or "Observations",
             units,
         )
-        model_label = format_label_with_units(
+        model_label_str = format_label_with_units(
             get_variable_label(paired_data, model_var, self.config.model_label) or "Model",
             units,
         )
-        self.set_labels(ax, xlabel=obs_label, ylabel=model_label)
+        self.set_labels(ax, xlabel=obs_label, ylabel=model_label_str)
 
         # Grid
         ax.grid(True, alpha=0.3)
@@ -239,6 +228,76 @@ class ScatterPlotter(BasePlotter):
             self.add_legend(ax, loc="upper left")
 
         return fig
+
+    def plot(
+        self,
+        paired_data: xr.Dataset,
+        obs_var: str,
+        model_var: str,
+        ax: matplotlib.axes.Axes | None = None,
+        show_density: bool = False,
+        density_cmap: str = "viridis",
+        density_bins: int = 50,
+        show_regression: bool = True,
+        show_one_to_one: bool = True,
+        show_stats: bool = True,
+        color_by: str | None = None,
+        marker_size: float | None = None,
+        alpha: float | None = None,
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Generate a scatter plot.
+
+        Parameters
+        ----------
+        paired_data
+            Paired dataset with model and observation variables.
+        obs_var
+            Name of observation variable.
+        model_var
+            Name of model variable.
+        ax
+            Optional axes to plot on. If None, creates new figure.
+        show_density
+            If True, color points by density.
+        density_cmap
+            Colormap for density coloring.
+        density_bins
+            Number of bins for density calculation.
+        show_regression
+            If True, show linear regression line.
+        show_one_to_one
+            If True, show 1:1 reference line.
+        show_stats
+            If True, show statistics annotation.
+        color_by
+            Optional variable name to color points by.
+        marker_size
+            Override marker size.
+        alpha
+            Override alpha.
+        **kwargs
+            Additional plotting arguments.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated figure.
+        """
+        return self.render(
+            build_series(paired_data, obs_var, model_var),
+            ax=ax,
+            show_density=show_density,
+            density_cmap=density_cmap,
+            density_bins=density_bins,
+            show_regression=show_regression,
+            show_one_to_one=show_one_to_one,
+            show_stats=show_stats,
+            color_by=color_by,
+            marker_size=marker_size,
+            alpha=alpha,
+            **kwargs,
+        )
 
     def plot_per_flight(
         self,

@@ -11,7 +11,14 @@ from typing import TYPE_CHECKING, Any
 import matplotlib.pyplot as plt
 import numpy as np
 
-from davinci_monet.plots.base import BasePlotter, PlotConfig, get_role_color, get_series_label
+from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots.base import (
+    BasePlotter,
+    PlotConfig,
+    build_series,
+    get_role_color,
+    get_series_label,
+)
 from davinci_monet.plots.registry import register_plotter
 
 if TYPE_CHECKING:
@@ -46,52 +53,45 @@ class TaylorPlotter(BasePlotter):
     name: str = "taylor"
     default_figsize: tuple[float, float] = (6, 6)  # Square for polar diagram
 
-    def plot(
+    def render(
         self,
-        paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
-        normalize: bool = True,
-        show_reference: bool = True,
-        reference_label: str | None = None,
-        model_label: str | None = None,
-        marker: str | None = None,
-        color: str | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Generate a Taylor diagram.
+        """Render a Taylor diagram from a list of two PlotSeries.
 
         Parameters
         ----------
-        paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+        series
+            Exactly 2 series: one reference (obs) and one comparand (model).
         ax
             Optional axes to plot on (must be polar). If None, creates new.
-        normalize
-            If True, normalize by observation standard deviation.
-        show_reference
-            If True, show reference (observation) point.
-        reference_label
-            Label for reference point. Defaults to the obs source label.
-        model_label
-            Label for model point.
-        marker
-            Marker style for model point.
-        color
-            Color for model point.
         **kwargs
-            Additional plotting arguments.
+            Forwarded to the Taylor rendering logic.
 
         Returns
         -------
         matplotlib.figure.Figure
             The generated figure.
         """
+        if len(series) != 2:
+            raise NotImplementedError(
+                f"TaylorPlotter.render requires exactly 2 series; got {len(series)}."
+            )
+        ref = next((s for s in series if s.pair_role == "reference"), series[0])
+        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
+        paired_data = ref.dataset
+        obs_var = ref.var_name
+        model_var = comp.var_name
+
+        normalize: bool = kwargs.pop("normalize", True)
+        show_reference: bool = kwargs.pop("show_reference", True)
+        reference_label: str | None = kwargs.pop("reference_label", None)
+        model_label: str | None = kwargs.pop("model_label", None)
+        marker: str | None = kwargs.pop("marker", None)
+        color: str | None = kwargs.pop("color", None)
+
         # Get data and flatten
         obs_values = paired_data[obs_var].values.flatten()
         model_values = paired_data[model_var].values.flatten()
@@ -161,6 +161,64 @@ class TaylorPlotter(BasePlotter):
         self.add_legend(ax, loc="upper right")
 
         return fig
+
+    def plot(
+        self,
+        paired_data: xr.Dataset,
+        obs_var: str,
+        model_var: str,
+        ax: matplotlib.axes.Axes | None = None,
+        normalize: bool = True,
+        show_reference: bool = True,
+        reference_label: str | None = None,
+        model_label: str | None = None,
+        marker: str | None = None,
+        color: str | None = None,
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Generate a Taylor diagram.
+
+        Parameters
+        ----------
+        paired_data
+            Paired dataset with model and observation variables.
+        obs_var
+            Name of observation variable.
+        model_var
+            Name of model variable.
+        ax
+            Optional axes to plot on (must be polar). If None, creates new.
+        normalize
+            If True, normalize by observation standard deviation.
+        show_reference
+            If True, show reference (observation) point.
+        reference_label
+            Label for reference point. Defaults to the obs source label.
+        model_label
+            Label for model point.
+        marker
+            Marker style for model point.
+        color
+            Color for model point.
+        **kwargs
+            Additional plotting arguments.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated figure.
+        """
+        return self.render(
+            build_series(paired_data, obs_var, model_var),
+            ax=ax,
+            normalize=normalize,
+            show_reference=show_reference,
+            reference_label=reference_label,
+            model_label=model_label,
+            marker=marker,
+            color=color,
+            **kwargs,
+        )
 
     def _create_taylor_axes(
         self,

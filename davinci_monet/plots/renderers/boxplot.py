@@ -11,9 +11,11 @@ from typing import TYPE_CHECKING, Any, Literal
 import matplotlib.pyplot as plt
 import numpy as np
 
+from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
+    build_series,
     format_label_with_units,
     get_role_color,
     get_series_label,
@@ -54,55 +56,46 @@ class BoxPlotter(BasePlotter):
     name: str = "boxplot"
     default_figsize: tuple[float, float] = (8, 5)  # Balanced
 
-    def plot(
+    def render(
         self,
-        paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
-        group_by: str | None = None,
-        show_means: bool = True,
-        show_outliers: bool = True,
-        notch: bool = False,
-        orientation: Literal["vertical", "horizontal"] = "vertical",
-        obs_label: str | None = None,
-        model_label: str | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Generate a box plot.
+        """Render a box plot from a list of two PlotSeries.
 
         Parameters
         ----------
-        paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+        series
+            Exactly 2 series: one reference (obs) and one comparand (model).
         ax
             Optional axes to plot on. If None, creates new figure.
-        group_by
-            Optional dimension/coordinate to group data by.
-        show_means
-            If True, show mean markers on boxes.
-        show_outliers
-            If True, show outlier points.
-        notch
-            If True, use notched box style.
-        orientation
-            Box orientation ('vertical' or 'horizontal').
-        obs_label
-            Custom label for observations.
-        model_label
-            Custom label for model.
         **kwargs
-            Additional plotting arguments.
+            Forwarded to the box plot rendering logic.
 
         Returns
         -------
         matplotlib.figure.Figure
             The generated figure.
         """
+        if len(series) != 2:
+            raise NotImplementedError(
+                f"BoxPlotter.render requires exactly 2 series; got {len(series)}."
+            )
+        ref = next((s for s in series if s.pair_role == "reference"), series[0])
+        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
+        paired_data = ref.dataset
+        obs_var = ref.var_name
+        model_var = comp.var_name
+
+        group_by: str | None = kwargs.pop("group_by", None)
+        show_means: bool = kwargs.pop("show_means", True)
+        show_outliers: bool = kwargs.pop("show_outliers", True)
+        notch: bool = kwargs.pop("notch", False)
+        orientation: Literal["vertical", "horizontal"] = kwargs.pop("orientation", "vertical")
+        obs_label: str | None = kwargs.pop("obs_label", None)
+        model_label: str | None = kwargs.pop("model_label", None)
+
         # Create figure if needed
         if ax is None:
             fig, ax = self.create_figure()
@@ -170,6 +163,68 @@ class BoxPlotter(BasePlotter):
         self.set_limits(ax, axis="y" if vert else "x")
 
         return fig
+
+    def plot(
+        self,
+        paired_data: xr.Dataset,
+        obs_var: str,
+        model_var: str,
+        ax: matplotlib.axes.Axes | None = None,
+        group_by: str | None = None,
+        show_means: bool = True,
+        show_outliers: bool = True,
+        notch: bool = False,
+        orientation: Literal["vertical", "horizontal"] = "vertical",
+        obs_label: str | None = None,
+        model_label: str | None = None,
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Generate a box plot.
+
+        Parameters
+        ----------
+        paired_data
+            Paired dataset with model and observation variables.
+        obs_var
+            Name of observation variable.
+        model_var
+            Name of model variable.
+        ax
+            Optional axes to plot on. If None, creates new figure.
+        group_by
+            Optional dimension/coordinate to group data by.
+        show_means
+            If True, show mean markers on boxes.
+        show_outliers
+            If True, show outlier points.
+        notch
+            If True, use notched box style.
+        orientation
+            Box orientation ('vertical' or 'horizontal').
+        obs_label
+            Custom label for observations.
+        model_label
+            Custom label for model.
+        **kwargs
+            Additional plotting arguments.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated figure.
+        """
+        return self.render(
+            build_series(paired_data, obs_var, model_var),
+            ax=ax,
+            group_by=group_by,
+            show_means=show_means,
+            show_outliers=show_outliers,
+            notch=notch,
+            orientation=orientation,
+            obs_label=obs_label,
+            model_label=model_label,
+            **kwargs,
+        )
 
     def _plot_simple(
         self,
