@@ -8,6 +8,7 @@ from davinci_monet.ai.summarizer import (
     SummaryError,
     SummaryResult,
     build_prompt,
+    extract_bullets,
     generate_summary,
     resolve_api_key,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "SummaryError",
     "SummaryResult",
     "build_prompt",
+    "extract_bullets",
     "generate_summary",
     "call_openrouter",
     "resolve_api_key",
