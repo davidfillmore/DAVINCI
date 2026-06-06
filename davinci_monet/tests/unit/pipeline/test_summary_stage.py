@@ -139,3 +139,34 @@ def test_summary_stage_includes_bullets_in_data(monkeypatch, tmp_path: Path) -> 
     # full brief still carried + written
     assert "## Caveats" in result.data["markdown"]
     assert "## Caveats" in Path(result.data["summary_file"]).read_text()
+
+
+def test_summary_stage_includes_credits_key(monkeypatch, tmp_path: Path) -> None:
+    def _fake_client(cfg):
+        class _Msgs:
+            def create(self, **kwargs):
+                class _Block:
+                    text = "## Caveats\n- only\n"
+
+                class _Usage:
+                    input_tokens = 1
+                    output_tokens = 2
+
+                class _Resp:
+                    content = [_Block()]
+                    usage = _Usage()
+                    model = cfg.model
+
+                return _Resp()
+
+        class _Client:
+            messages = _Msgs()
+
+        return _Client()
+
+    monkeypatch.setattr(summarizer_mod, "_build_client", _fake_client)
+
+    result = SummaryStage().execute(_ctx(tmp_path))
+    # field is wired through; Anthropic path leaves it None
+    assert "credits_remaining" in result.data
+    assert result.data["credits_remaining"] is None
