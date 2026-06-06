@@ -366,12 +366,12 @@ LEGACY_SATELLITE_SOURCE_TYPES = {
 }
 
 # Legacy geometry-only obs_type aliases -> their registered generic reader type.
-# These mirror ObservationData.geometry_from_obs_type: the legacy loader stage
-# opened a plain NetCDF and set geometry from the obs_type string. The unified
-# path loads through a registered reader, so map each alias to the generic reader
-# of the same geometry (registered in observations/base.py). Names that are
-# themselves registered reader types (e.g. ``aircraft``, ``profile``,
-# ``gridded``, ``pt_sfc``, ``ozonesonde``) pass through unchanged.
+# These mirror the legacy obs_type->geometry mapping: the old loader stage opened
+# a plain NetCDF and set geometry from the obs_type string. The unified path loads
+# through a registered reader, so map each alias to the generic reader of the same
+# geometry (registered in observations/base.py). Names that are themselves
+# registered reader types (e.g. ``aircraft``, ``profile``, ``gridded``,
+# ``pt_sfc``, ``ozonesonde``) pass through unchanged.
 LEGACY_GEOMETRY_SOURCE_TYPES = {
     "surface": "pt_sfc",
     "ground": "pt_sfc",

@@ -21,7 +21,6 @@ from davinci_monet.core.exceptions import (
 )
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.models.base import ModelData, create_model_data
 
 # Standard variable name mappings for WRF-Chem
 # WRF-Chem variable names vary by chemical mechanism
@@ -423,54 +422,3 @@ class WRFChemReader:
             Standard name to WRF-Chem name mapping.
         """
         return WRFCHEM_VARIABLE_MAPPING
-
-
-def open_wrfchem(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "wrfchem",
-    **kwargs: Any,
-) -> ModelData:
-    """Convenience function to open WRF-Chem model data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Model label.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ModelData
-        WRF-Chem model data container.
-    """
-    reader = WRFChemReader()
-
-    # Handle glob pattern
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            from glob import glob
-
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, **kwargs)
-
-    return create_model_data(
-        label=label,
-        mod_type="wrfchem",
-        data=ds,
-        files=file_paths,
-    )

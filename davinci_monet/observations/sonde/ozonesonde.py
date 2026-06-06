@@ -18,7 +18,6 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for ozonesondes
 OZONESONDE_VARIABLE_MAPPING: dict[str, str] = {
@@ -354,59 +353,3 @@ class OzonesondeReader:
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return ozonesonde variable name mapping."""
         return OZONESONDE_VARIABLE_MAPPING
-
-
-def open_ozonesonde(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "ozonesonde",
-    format_type: str | None = None,
-    **kwargs: Any,
-) -> ObservationData:
-    """Convenience function to open ozonesonde observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    format_type
-        Data format ('woudc', 'shadoz', 'netcdf', or None for auto).
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        Ozonesonde observation data container with PROFILE geometry.
-    """
-    from glob import glob
-
-    reader = OzonesondeReader()
-
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, format_type=format_type, **kwargs)
-
-    obs = create_observation_data(
-        label=label,
-        obs_type="sonde",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )
-    obs.geometry = DataGeometry.PROFILE
-
-    return obs

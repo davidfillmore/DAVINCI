@@ -17,7 +17,6 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for Pandora
 PANDORA_VARIABLE_MAPPING: dict[str, str] = {
@@ -348,73 +347,3 @@ class PandoraReader:
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return Pandora variable name mapping."""
         return PANDORA_VARIABLE_MAPPING
-
-
-def open_pandora(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "pandora",
-    quality_flag_max: int = 1,
-    solar_zenith_max: float = 80.0,
-    start_time: datetime | str | None = None,
-    end_time: datetime | str | None = None,
-    **kwargs: Any,
-) -> ObservationData:
-    """Convenience function to open Pandora observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    quality_flag_max
-        Maximum quality flag (0=high only, 1=high+medium).
-    solar_zenith_max
-        Maximum solar zenith angle [deg].
-    start_time
-        Start time for filtering.
-    end_time
-        End time for filtering.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        Pandora observation data container.
-    """
-    from glob import glob
-
-    reader = PandoraReader()
-
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(
-        file_paths,
-        variables,
-        quality_flag_max=quality_flag_max,
-        solar_zenith_max=solar_zenith_max,
-        start_time=start_time,
-        end_time=end_time,
-        **kwargs,
-    )
-
-    return create_observation_data(
-        label=label,
-        obs_type="pt_sfc",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )

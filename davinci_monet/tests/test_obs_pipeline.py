@@ -9,8 +9,7 @@ import pytest
 import xarray as xr
 
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.observations.base import ObservationData
-from davinci_monet.pipeline.stages import PipelineContext, StageStatus
+from davinci_monet.pipeline.stages import PipelineContext, SourceData, StageStatus
 
 # =============================================================================
 # Fixtures
@@ -48,19 +47,19 @@ def obs_dataset() -> xr.Dataset:
 
 
 @pytest.fixture
-def obs_data(obs_dataset: xr.Dataset) -> ObservationData:
-    """ObservationData wrapper around synthetic data."""
-    obs = ObservationData(
+def obs_data(obs_dataset: xr.Dataset) -> SourceData:
+    """SourceData wrapper around synthetic data."""
+    return SourceData(
         data=obs_dataset,
         label="dc8",
-        obs_type="aircraft",
-        _geometry=DataGeometry.TRACK,
+        source_type="aircraft",
+        geometry=DataGeometry.TRACK,
+        role="obs",
     )
-    return obs
 
 
 @pytest.fixture
-def obs_context(obs_data: ObservationData, tmp_path: Any) -> PipelineContext:
+def obs_context(obs_data: SourceData, tmp_path: Any) -> PipelineContext:
     """PipelineContext with observation data and obs-only config."""
     return PipelineContext(
         config={
@@ -199,9 +198,7 @@ class TestObsOnlyPipelineDetection:
         assert "load_observations" not in stage_names
         assert "pairing" not in stage_names
 
-    def test_run_from_config_detects_obs_only(
-        self, obs_data: ObservationData, tmp_path: Any
-    ) -> None:
+    def test_run_from_config_detects_obs_only(self, obs_data: SourceData, tmp_path: Any) -> None:
         """PipelineRunner.run_from_config with obs-only config uses obs pipeline."""
         from davinci_monet.pipeline.runner import PipelineRunner
 

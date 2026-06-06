@@ -21,7 +21,6 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for GOES AOD
 GOES_AOD_VARIABLE_MAPPING: dict[str, str] = {
@@ -226,91 +225,3 @@ class GOESL3AODReader:
 
 # Backward compatibility alias
 GOESReader = GOESL3AODReader
-
-
-def open_goes_l3_aod(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "goes_aod",
-    product: str = "AOD",
-    dqf_filter: Sequence[int] | None = None,
-    **kwargs: Any,
-) -> ObservationData:
-    """Open GOES L3 AOD observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    product
-        Product type (default 'AOD').
-    dqf_filter
-        Data Quality Flag values to keep.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        GOES observation data container with GRID geometry.
-
-    Note
-    ----
-    Full functionality requires monetio. Without monetio, GOES projection
-    handling may be incomplete.
-    """
-    from glob import glob
-
-    reader = GOESL3AODReader()
-
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, product=product, dqf_filter=dqf_filter, **kwargs)
-
-    obs = create_observation_data(
-        label=label,
-        obs_type="gridded",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )
-    obs.geometry = DataGeometry.GRID
-
-    return obs
-
-
-# Backward compatibility alias
-def open_goes(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "goes",
-    product: str = "AOD",
-    dqf_filter: Sequence[int] | None = None,
-    **kwargs: Any,
-) -> ObservationData:
-    """Open GOES observation data (deprecated, use open_goes_l3_aod).
-
-    .. deprecated::
-        Use :func:`open_goes_l3_aod` instead.
-    """
-    warnings.warn(
-        "open_goes is deprecated, use open_goes_l3_aod instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return open_goes_l3_aod(
-        files, variables, label=label, product=product, dqf_filter=dqf_filter, **kwargs
-    )

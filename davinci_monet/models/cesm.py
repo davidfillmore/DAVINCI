@@ -25,7 +25,6 @@ from davinci_monet.core.exceptions import (
 )
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.models.base import ModelData, create_model_data
 
 # Physical constants for column integration
 _P0_DEFAULT = 100000.0  # Pa, reference pressure for CESM hybrid coords
@@ -509,62 +508,3 @@ class CESMSEReader:
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return CESM variable name mapping."""
         return CESM_VARIABLE_MAPPING
-
-
-def open_cesm(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "cesm",
-    grid_type: str = "fv",
-    **kwargs: Any,
-) -> ModelData:
-    """Convenience function to open CESM model data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Model label.
-    grid_type
-        Grid type: 'fv' for finite volume, 'se' for spectral element.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ModelData
-        CESM model data container.
-    """
-    if grid_type.lower() == "se":
-        reader: CESMFVReader | CESMSEReader = CESMSEReader()
-        mod_type = "cesm_se"
-    else:
-        reader = CESMFVReader()
-        mod_type = "cesm_fv"
-
-    # Handle glob pattern
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            from glob import glob
-
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, **kwargs)
-
-    return create_model_data(
-        label=label,
-        mod_type=mod_type,
-        data=ds,
-        files=file_paths,
-    )

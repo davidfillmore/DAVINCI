@@ -23,7 +23,6 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for MOPITT CO
 MOPITT_CO_VARIABLE_MAPPING: dict[str, str] = {
@@ -194,64 +193,3 @@ class MOPITTL3COReader:
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return MOPITT CO variable name mapping."""
         return MOPITT_CO_VARIABLE_MAPPING
-
-
-def open_mopitt_l3_co(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "mopitt_co",
-    day_night: str = "day",
-    **kwargs: Any,
-) -> ObservationData:
-    """Open MOPITT L3 CO observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    day_night
-        'day', 'night', or 'both' for day/night retrievals.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        MOPITT observation data container with GRID geometry.
-
-    Note
-    ----
-    Full functionality requires monetio. Without monetio, MOPITT-specific
-    handling may be incomplete.
-    """
-    from glob import glob
-
-    reader = MOPITTL3COReader()
-
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, day_night=day_night, **kwargs)
-
-    obs = create_observation_data(
-        label=label,
-        obs_type="gridded",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )
-    obs.geometry = DataGeometry.GRID
-
-    return obs

@@ -21,7 +21,6 @@ from davinci_monet.core.exceptions import (
 )
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.models.base import ModelData, create_model_data
 
 # Standard variable name mappings for UFS-AQM
 UFS_VARIABLE_MAPPING: dict[str, str] = {
@@ -315,54 +314,3 @@ class RRFSReader(UFSReader):
     def name(self) -> str:
         """Return reader name."""
         return "rrfs"
-
-
-def open_ufs(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "ufs",
-    **kwargs: Any,
-) -> ModelData:
-    """Convenience function to open UFS model data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Model label.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ModelData
-        UFS model data container.
-    """
-    reader = UFSReader()
-
-    # Handle glob pattern
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            from glob import glob
-
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, **kwargs)
-
-    return create_model_data(
-        label=label,
-        mod_type="ufs",
-        data=ds,
-        files=file_paths,
-    )

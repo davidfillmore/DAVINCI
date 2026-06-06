@@ -17,9 +17,12 @@ import pytest
 import xarray as xr
 
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.models.base import ModelData
-from davinci_monet.observations.base import ObservationData
-from davinci_monet.pipeline.stages import LoadSourcesStage, PipelineContext, StageStatus
+from davinci_monet.pipeline.stages import (
+    LoadSourcesStage,
+    PipelineContext,
+    SourceData,
+    StageStatus,
+)
 
 
 def _point_obs_dataset() -> xr.Dataset:
@@ -54,17 +57,24 @@ def _grid_model_dataset() -> xr.Dataset:
 
 
 @pytest.fixture
-def model_data() -> ModelData:
-    return ModelData(data=_grid_model_dataset(), label="cam", mod_type="generic")
+def model_data() -> SourceData:
+    return SourceData(
+        data=_grid_model_dataset(),
+        label="cam",
+        source_type="generic",
+        geometry=DataGeometry.GRID,
+        role="model",
+    )
 
 
 @pytest.fixture
-def obs_data() -> ObservationData:
-    return ObservationData(
+def obs_data() -> SourceData:
+    return SourceData(
         data=_point_obs_dataset(),
         label="airnow",
-        obs_type="pt_sfc",
-        _geometry=DataGeometry.POINT,
+        source_type="pt_sfc",
+        geometry=DataGeometry.POINT,
+        role="obs",
     )
 
 
@@ -73,7 +83,7 @@ class TestPipelineContextSources:
         ctx = PipelineContext()
         assert ctx.sources == {}
 
-    def test_get_source_returns_registered(self, obs_data: ObservationData) -> None:
+    def test_get_source_returns_registered(self, obs_data: SourceData) -> None:
         ctx = PipelineContext(sources={"airnow": obs_data})
         assert ctx.get_source("airnow") is obs_data
 
@@ -85,7 +95,7 @@ class TestPipelineContextSources:
 
 class TestLoadSourcesStage:
     def test_unifies_models_and_observations_with_tags(
-        self, model_data: ModelData, obs_data: ObservationData
+        self, model_data: SourceData, obs_data: SourceData
     ) -> None:
         # No model/obs config blocks -> delegate loaders are skipped; the stage
         # unifies the already-populated containers into context.sources.
@@ -113,7 +123,7 @@ class TestLoadSourcesStage:
         assert air_attrs["geometry"] == "point"
 
     def test_legacy_context_dicts_preserved(
-        self, model_data: ModelData, obs_data: ObservationData
+        self, model_data: SourceData, obs_data: SourceData
     ) -> None:
         ctx = PipelineContext(
             models={"cam": model_data},

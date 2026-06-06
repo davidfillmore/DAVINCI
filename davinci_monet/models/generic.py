@@ -23,7 +23,6 @@ from davinci_monet.core.exceptions import (
 )
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.models.base import ModelData, create_model_data
 
 # Common coordinate name aliases for standardization
 COMMON_COORDINATE_ALIASES: dict[str, list[str]] = {
@@ -310,84 +309,3 @@ class GenericReader:
             Empty mapping.
         """
         return {}
-
-
-def open_model(
-    files: str | Path | Sequence[str | Path],
-    mod_type: str | None = None,
-    variables: Sequence[str] | None = None,
-    label: str = "model",
-    **kwargs: Any,
-) -> ModelData:
-    """Universal function to open any model type.
-
-    Automatically selects the appropriate reader based on mod_type,
-    or uses the generic reader if no specific reader matches.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    mod_type
-        Model type ('cmaq', 'wrfchem', 'ufs', 'cesm_fv', 'cesm_se', or None for generic).
-    variables
-        Variables to load.
-    label
-        Model label.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ModelData
-        Model data container.
-
-    Examples
-    --------
-    >>> data = open_model("output/*.nc", mod_type="cmaq", label="CMAQ_run1")
-    >>> data = open_model("wrfout_d01_*", mod_type="wrfchem")
-    >>> data = open_model("generic_output.nc")  # Uses generic reader
-    """
-    from davinci_monet.core.registry import source_registry
-
-    # Handle glob pattern
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            from glob import glob
-
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    # Get appropriate reader
-    if mod_type is not None:
-        mod_type_lower = mod_type.lower()
-        try:
-            reader_cls = source_registry.get(mod_type_lower)
-            reader = reader_cls()
-        except (KeyError, Exception):
-            warnings.warn(
-                f"Unknown model type '{mod_type}', using generic reader.",
-                UserWarning,
-            )
-            reader = GenericReader()
-            mod_type_lower = "generic"
-    else:
-        reader = GenericReader()
-        mod_type_lower = "generic"
-
-    # Open files
-    ds = reader.open(file_paths, variables, **kwargs)
-
-    return create_model_data(
-        label=label,
-        mod_type=mod_type_lower,
-        data=ds,
-        files=file_paths,
-    )

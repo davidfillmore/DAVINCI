@@ -18,7 +18,6 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for AirNow
 AIRNOW_VARIABLE_MAPPING: dict[str, str] = {
@@ -271,58 +270,3 @@ def _dataframe_to_xarray(df: pd.DataFrame, daily: bool = False) -> xr.Dataset:
     ds = ds.expand_dims("y").transpose("time", "y", "x")
 
     return ds
-
-
-def open_airnow(
-    files: str | Path | Sequence[str | Path] | None = None,
-    variables: Sequence[str] | None = None,
-    label: str = "airnow",
-    dates: Sequence[datetime | str] | None = None,
-    **kwargs: Any,
-) -> ObservationData:
-    """Convenience function to open AirNow observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    dates
-        Date range for API query [start, end].
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        AirNow observation data container.
-    """
-    from glob import glob
-
-    reader = AirNowReader()
-
-    file_paths: Sequence[str | Path] | None = None
-    if files is not None:
-        if isinstance(files, (str, Path)):
-            file_str = str(files)
-            if "*" in file_str or "?" in file_str:
-                file_list = sorted(glob(file_str))
-                if not file_list:
-                    raise DataNotFoundError(f"No files match pattern: {files}")
-                file_paths = file_list
-            else:
-                file_paths = [files]
-        else:
-            file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, dates=dates, **kwargs)
-
-    return create_observation_data(
-        label=label,
-        obs_type="pt_sfc",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )

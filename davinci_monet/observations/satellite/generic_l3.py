@@ -19,7 +19,6 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
 
 
 @source_registry.register("satellite_l3")
@@ -208,93 +207,3 @@ class GenericL3Reader:
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return empty variable mapping (generic reader)."""
         return {}
-
-
-def open_satellite_l3(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "satellite_l3",
-    dim_mapping: Mapping[str, str] | None = None,
-    coord_mapping: Mapping[str, str] | None = None,
-    qa_variable: str | None = None,
-    qa_values: Sequence[int] | None = None,
-    **kwargs: Any,
-) -> ObservationData:
-    """Open generic L3 satellite observation data.
-
-    This is a generic reader for Level 3 satellite gridded products.
-    Use dedicated readers (e.g., open_goes_l3_aod) for satellite-specific
-    features when available.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    dim_mapping
-        Mapping of file dimension names to standard names.
-    coord_mapping
-        Mapping of file coordinate names to standard names.
-    qa_variable
-        Name of quality flag variable for filtering.
-    qa_values
-        Quality flag values to keep.
-    **kwargs
-        Additional xarray options.
-
-    Returns
-    -------
-    ObservationData
-        Satellite observation data container with GRID geometry.
-
-    Examples
-    --------
-    >>> # Basic usage
-    >>> obs = open_satellite_l3("satellite_*.nc")
-
-    >>> # With custom mappings
-    >>> obs = open_satellite_l3(
-    ...     "data.nc",
-    ...     coord_mapping={"latitude": "lat", "longitude": "lon"},
-    ...     qa_variable="quality_flag",
-    ...     qa_values=[0, 1],  # Keep high and medium quality
-    ... )
-    """
-    from glob import glob
-
-    reader = GenericL3Reader()
-
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(
-        file_paths,
-        variables,
-        dim_mapping=dim_mapping,
-        coord_mapping=coord_mapping,
-        qa_variable=qa_variable,
-        qa_values=qa_values,
-        **kwargs,
-    )
-
-    obs = create_observation_data(
-        label=label,
-        obs_type="gridded",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )
-    obs.geometry = DataGeometry.GRID
-
-    return obs

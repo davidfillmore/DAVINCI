@@ -320,64 +320,42 @@ class TestLMAReader:
 # =============================================================================
 
 
-class TestOpenLMA:
-    """Test open_lma convenience function."""
+class TestLMAReaderOpen:
+    """Test LMAReader.open() returns a plain ``xr.Dataset``.
+
+    The ``open_lma`` convenience function was removed; sources load through the
+    registered ``LMAReader`` class' ``open()``.
+    """
 
     def test_open_single_file(self):
-        """Test opening a single file with open_lma."""
-        from davinci_monet.observations.lightning.lma import open_lma
+        """Test opening a single file with LMAReader.open()."""
+        from davinci_monet.observations.lightning.lma import LMAReader
 
         ds = create_synthetic_lma_grid()
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             ds.to_netcdf(f.name)
-            obs = open_lma(f.name, label="oklma_test")
+            reader = LMAReader()
+            result = reader.open([f.name])
 
-            assert obs.label == "oklma_test"
-            assert obs.geometry == DataGeometry.GRID
-            assert obs.data is not None
-            assert "flash_extent_density" in obs.data.data_vars
+            assert isinstance(result, xr.Dataset)
+            assert result.attrs.get("geometry") == DataGeometry.GRID.value
+            assert "flash_extent_density" in result.data_vars
 
             Path(f.name).unlink()
 
-    def test_open_with_glob_pattern(self, tmp_path: Path):
-        """Test opening files with glob pattern."""
-        from davinci_monet.observations.lightning.lma import open_lma
+    def test_open_with_multiple_files(self, tmp_path: Path):
+        """Test opening multiple files concatenates along time."""
+        from davinci_monet.observations.lightning.lma import LMAReader
 
-        for i, day in enumerate([28, 29, 30]):
+        paths = []
+        for day in [28, 29, 30]:
             ds = create_synthetic_lma_grid(n_times=2)
             ds["time"] = pd.date_range(f"2012-05-{day}", periods=2, freq="10min")
-            ds.to_netcdf(tmp_path / f"oklma_201205{day:02d}_grid.nc")
+            p = tmp_path / f"oklma_201205{day:02d}_grid.nc"
+            ds.to_netcdf(p)
+            paths.append(str(p))
 
-        obs = open_lma(str(tmp_path / "oklma_*.nc"), label="oklma_multi")
-        assert obs.data is not None
-        assert obs.data.sizes["time"] == 6
-
-
-# =============================================================================
-# Geometry Mapping Tests
-# =============================================================================
-
-
-class TestLMAGeometryMapping:
-    """Test that LMA obs_type maps to GRID geometry."""
-
-    def test_geometry_from_obs_type(self):
-        """Test geometry_from_obs_type for lma."""
-        from davinci_monet.observations.base import ObservationData
-
-        geom = ObservationData.geometry_from_obs_type("lma")
-        assert geom == DataGeometry.GRID
-
-    def test_create_observation_data(self):
-        """Test factory function with lma obs_type."""
-        from davinci_monet.observations.base import create_observation_data
-
-        ds = create_synthetic_lma_grid()
-        obs = create_observation_data(
-            label="lma_test",
-            obs_type="lma",
-            data=ds,
-        )
-        assert obs.geometry == DataGeometry.GRID
-        assert obs.obs_type == "lma"
+        result = LMAReader().open(sorted(paths))
+        assert isinstance(result, xr.Dataset)
+        assert result.sizes["time"] == 6

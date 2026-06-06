@@ -9,7 +9,6 @@ This module provides the foundational components for DAVINCI:
 """
 
 from davinci_monet.core.base import (
-    DataContainer,
     PairedData,
     validate_dataset_geometry,
 )
@@ -75,7 +74,6 @@ from davinci_monet.core.types import (
 
 __all__ = [
     # Base data classes
-    "DataContainer",
     "PairedData",
     "validate_dataset_geometry",
     # Data geometry enum

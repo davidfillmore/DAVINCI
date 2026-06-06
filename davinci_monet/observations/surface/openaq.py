@@ -18,7 +18,6 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for OpenAQ
 OPENAQ_VARIABLE_MAPPING: dict[str, str] = {
@@ -241,61 +240,3 @@ class OpenAQReader:
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return OpenAQ variable name mapping."""
         return OPENAQ_VARIABLE_MAPPING
-
-
-def open_openaq(
-    files: str | Path | Sequence[str | Path] | None = None,
-    variables: Sequence[str] | None = None,
-    label: str = "openaq",
-    dates: Sequence[datetime | str] | None = None,
-    country: str | None = None,
-    **kwargs: Any,
-) -> ObservationData:
-    """Convenience function to open OpenAQ observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    dates
-        Date range for API query [start, end].
-    country
-        Country code filter.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        OpenAQ observation data container.
-    """
-    from glob import glob
-
-    reader = OpenAQReader()
-
-    file_paths: Sequence[str | Path] | None = None
-    if files is not None:
-        if isinstance(files, (str, Path)):
-            file_str = str(files)
-            if "*" in file_str or "?" in file_str:
-                file_list = sorted(glob(file_str))
-                if not file_list:
-                    raise DataNotFoundError(f"No files match pattern: {files}")
-                file_paths = file_list
-            else:
-                file_paths = [files]
-        else:
-            file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, dates=dates, country=country, **kwargs)
-
-    return create_observation_data(
-        label=label,
-        obs_type="pt_sfc",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )

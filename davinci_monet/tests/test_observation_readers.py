@@ -648,52 +648,45 @@ class TestOzonesondeReader:
 
 
 # =============================================================================
-# Convenience Function Tests
+# Reader open() Tests
 # =============================================================================
 
 
-class TestConvenienceFunctions:
-    """Test convenience functions."""
+class TestReaderOpen:
+    """Reader ``open()`` returns a plain ``xr.Dataset`` with the right geometry.
 
-    def test_open_aqs(self):
-        """Test open_aqs function."""
-        from davinci_monet.observations import open_aqs
+    The per-reader ``open_*`` convenience functions and the
+    ``create_observation_data`` factory were removed; sources load through
+    registered reader classes' ``open()``.
+    """
+
+    def test_aqs_open_returns_point_dataset(self):
+        """AQSReader.open() returns a POINT-geometry Dataset."""
+        from davinci_monet.observations.surface.aqs import AQSReader
 
         ds = create_synthetic_surface_obs()
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             ds.to_netcdf(f.name)
-            obs = open_aqs(f.name, label="test_aqs")
-            assert obs.label == "test_aqs"
-            assert obs.geometry == DataGeometry.POINT
+            reader = AQSReader()
+            result = reader.open([f.name])
+            assert isinstance(result, xr.Dataset)
+            assert result.attrs.get("geometry") == DataGeometry.POINT.value
             Path(f.name).unlink()
 
-    def test_open_ozonesonde(self):
-        """Test open_ozonesonde function."""
-        from davinci_monet.observations import open_ozonesonde
+    def test_ozonesonde_open_returns_profile_dataset(self):
+        """OzonesondeReader.open() returns a PROFILE-geometry Dataset."""
+        from davinci_monet.observations.sonde.ozonesonde import OzonesondeReader
 
         ds = create_synthetic_profile_obs()
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             ds.to_netcdf(f.name)
-            obs = open_ozonesonde(f.name, label="test_sonde")
-            assert obs.label == "test_sonde"
-            assert obs.geometry == DataGeometry.PROFILE
+            reader = OzonesondeReader()
+            result = reader.open([f.name])
+            assert isinstance(result, xr.Dataset)
+            assert result.attrs.get("geometry") == DataGeometry.PROFILE.value
             Path(f.name).unlink()
-
-    def test_create_observation_data_with_data(self):
-        """Test create_observation_data with pre-loaded data."""
-        from davinci_monet.observations import create_observation_data
-
-        ds = create_synthetic_surface_obs()
-        obs = create_observation_data(
-            label="test_obs",
-            obs_type="pt_sfc",
-            data=ds,
-        )
-        assert obs.label == "test_obs"
-        assert obs.data is not None
-        assert obs.geometry == DataGeometry.POINT
 
 
 # =============================================================================

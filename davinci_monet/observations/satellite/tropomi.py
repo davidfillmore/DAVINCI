@@ -24,7 +24,6 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for TROPOMI
 TROPOMI_VARIABLE_MAPPING: dict[str, str] = {
@@ -234,67 +233,3 @@ class TROPOMIReader:
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return TROPOMI variable name mapping."""
         return TROPOMI_VARIABLE_MAPPING
-
-
-def open_tropomi(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "tropomi",
-    product: str = "NO2",
-    qa_threshold: float | None = 0.75,
-    **kwargs: Any,
-) -> ObservationData:
-    """Convenience function to open TROPOMI observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    product
-        Product type ('NO2', 'O3', 'CO', 'HCHO', 'SO2').
-    qa_threshold
-        QA filtering threshold.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        TROPOMI observation data container with SWATH geometry.
-
-    Note
-    ----
-    Full functionality requires monetio. Without monetio, TROPOMI swath
-    geometry handling may be incomplete.
-    """
-    from glob import glob
-
-    reader = TROPOMIReader()
-
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, product=product, qa_threshold=qa_threshold, **kwargs)
-
-    obs = create_observation_data(
-        label=label,
-        obs_type="satellite",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )
-    obs.geometry = DataGeometry.SWATH
-
-    return obs

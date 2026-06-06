@@ -19,7 +19,6 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Common variable name mappings for ICARTT aircraft data
 ICARTT_VARIABLE_MAPPING: dict[str, str] = {
@@ -342,56 +341,3 @@ class ICARTTReader:
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return ICARTT variable name mapping."""
         return ICARTT_VARIABLE_MAPPING
-
-
-def open_icartt(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "aircraft",
-    **kwargs: Any,
-) -> ObservationData:
-    """Convenience function to open ICARTT observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        ICARTT observation data container with TRACK geometry.
-    """
-    from glob import glob
-
-    reader = ICARTTReader()
-
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, **kwargs)
-
-    obs = create_observation_data(
-        label=label,
-        obs_type="aircraft",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )
-    obs.geometry = DataGeometry.TRACK
-
-    return obs

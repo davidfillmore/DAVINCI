@@ -18,7 +18,6 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for AERONET
 AERONET_VARIABLE_MAPPING: dict[str, str] = {
@@ -311,61 +310,3 @@ def _dataframe_to_xarray(df: pd.DataFrame) -> xr.Dataset:
     ds.attrs["geometry"] = DataGeometry.POINT.value
 
     return ds
-
-
-def open_aeronet(
-    files: str | Path | Sequence[str | Path] | None = None,
-    variables: Sequence[str] | None = None,
-    label: str = "aeronet",
-    dates: Sequence[datetime | str] | None = None,
-    product: str = "AOD15",
-    **kwargs: Any,
-) -> ObservationData:
-    """Convenience function to open AERONET observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    dates
-        Date range for API query [start, end].
-    product
-        AERONET product type.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        AERONET observation data container.
-    """
-    from glob import glob
-
-    reader = AERONETReader()
-
-    file_paths: Sequence[str | Path] | None = None
-    if files is not None:
-        if isinstance(files, (str, Path)):
-            file_str = str(files)
-            if "*" in file_str or "?" in file_str:
-                file_list = sorted(glob(file_str))
-                if not file_list:
-                    raise DataNotFoundError(f"No files match pattern: {files}")
-                file_paths = file_list
-            else:
-                file_paths = [files]
-        else:
-            file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, dates=dates, product=product, **kwargs)
-
-    return create_observation_data(
-        label=label,
-        obs_type="pt_sfc",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )

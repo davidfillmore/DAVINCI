@@ -20,7 +20,6 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
 
 
 @source_registry.register("satellite_l2")
@@ -225,98 +224,3 @@ class GenericL2Reader:
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return empty variable mapping (generic reader)."""
         return {}
-
-
-def open_satellite_l2(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "satellite_l2",
-    group: str | None = None,
-    dim_mapping: Mapping[str, str] | None = None,
-    coord_mapping: Mapping[str, str] | None = None,
-    qa_variable: str | None = None,
-    qa_threshold: float | None = None,
-    **kwargs: Any,
-) -> ObservationData:
-    """Open generic L2 satellite observation data.
-
-    This is a generic reader for Level 2 satellite swath products.
-    Use dedicated readers (e.g., open_tropomi) for satellite-specific
-    features when available.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    group
-        HDF5 group to read from.
-    dim_mapping
-        Mapping of file dimension names to standard names.
-    coord_mapping
-        Mapping of file coordinate names to standard names.
-    qa_variable
-        Name of quality assurance variable for filtering.
-    qa_threshold
-        QA threshold value.
-    **kwargs
-        Additional xarray options.
-
-    Returns
-    -------
-    ObservationData
-        Satellite observation data container with SWATH geometry.
-
-    Examples
-    --------
-    >>> # Basic usage
-    >>> obs = open_satellite_l2("satellite_*.nc")
-
-    >>> # With custom mappings
-    >>> obs = open_satellite_l2(
-    ...     "data.nc",
-    ...     dim_mapping={"nscans": "scanline"},
-    ...     coord_mapping={"latitude": "lat", "longitude": "lon"},
-    ...     qa_variable="quality_flag",
-    ...     qa_threshold=0.5,
-    ... )
-    """
-    from glob import glob
-
-    reader = GenericL2Reader()
-
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(
-        file_paths,
-        variables,
-        group=group,
-        dim_mapping=dim_mapping,
-        coord_mapping=coord_mapping,
-        qa_variable=qa_variable,
-        qa_threshold=qa_threshold,
-        **kwargs,
-    )
-
-    obs = create_observation_data(
-        label=label,
-        obs_type="satellite",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )
-    obs.geometry = DataGeometry.SWATH
-
-    return obs

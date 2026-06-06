@@ -23,7 +23,6 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
 
 # Standard variable name mappings for OMPS O3
 OMPS_O3_VARIABLE_MAPPING: dict[str, str] = {
@@ -189,61 +188,3 @@ class OMPSL3O3Reader:
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return OMPS O3 variable name mapping."""
         return OMPS_O3_VARIABLE_MAPPING
-
-
-def open_omps_l3_o3(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "omps_o3",
-    **kwargs: Any,
-) -> ObservationData:
-    """Open OMPS L3 total ozone observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        OMPS observation data container with GRID geometry.
-
-    Note
-    ----
-    Full functionality requires monetio. Without monetio, OMPS-specific
-    handling may be incomplete.
-    """
-    from glob import glob
-
-    reader = OMPSL3O3Reader()
-
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, **kwargs)
-
-    obs = create_observation_data(
-        label=label,
-        obs_type="gridded",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )
-    obs.geometry = DataGeometry.GRID
-
-    return obs

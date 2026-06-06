@@ -18,12 +18,9 @@ from davinci_monet.models import (
     CESMSEReader,
     CMAQReader,
     GenericReader,
-    ModelData,
     RRFSReader,
     UFSReader,
     WRFChemReader,
-    create_model_data,
-    open_model,
 )
 
 # =============================================================================
@@ -659,77 +656,28 @@ class TestGenericReader:
 
 
 # =============================================================================
-# Tests for open_model function
+# Tests for the generic reader open() entry point
 # =============================================================================
 
 
-class TestOpenModel:
-    """Tests for the universal open_model function."""
+class TestGenericReaderOpen:
+    """Generic reader ``open()`` returns a plain ``xr.Dataset``.
 
-    def test_open_with_generic(self, temp_netcdf_file: Path) -> None:
-        """Test opening with no model type (generic)."""
-        data = open_model(temp_netcdf_file, label="test")
+    The universal ``open_model`` convenience function was removed; sources now
+    load through registered reader classes' ``open()``.
+    """
 
-        assert isinstance(data, ModelData)
-        assert data.label == "test"
-        assert data.mod_type == "generic"
-        assert data.data is not None
+    def test_open_returns_dataset(self, temp_netcdf_file: Path) -> None:
+        """Opening a file with GenericReader yields a populated Dataset."""
+        ds = GenericReader().open([temp_netcdf_file])
 
-    def test_open_with_unknown_type(self, temp_netcdf_file: Path) -> None:
-        """Test opening with unknown model type falls back to generic."""
-        with pytest.warns(UserWarning, match="Unknown model type"):
-            data = open_model(temp_netcdf_file, mod_type="unknown", label="test")
-
-        assert data.mod_type == "generic"
+        assert isinstance(ds, xr.Dataset)
+        assert len(ds.data_vars) > 0
 
     def test_open_missing_pattern(self, tmp_path: Path) -> None:
-        """Test that missing glob pattern raises error."""
+        """Test that a missing file path raises DataNotFoundError."""
         with pytest.raises(DataNotFoundError):
-            open_model(tmp_path / "*.nonexistent")
-
-
-# =============================================================================
-# Tests for create_model_data function
-# =============================================================================
-
-
-class TestCreateModelData:
-    """Tests for create_model_data factory function."""
-
-    def test_create_with_data(self, generic_dataset: xr.Dataset) -> None:
-        """Test creating ModelData with pre-loaded data."""
-        model = create_model_data(
-            label="test_model",
-            mod_type="cesm",
-            data=generic_dataset,
-        )
-
-        assert model.label == "test_model"
-        assert model.mod_type == "cesm"
-        assert model.data is not None
-        assert "temperature" in model.data.data_vars
-
-    def test_create_with_files(self, temp_netcdf_file: Path) -> None:
-        """Test creating ModelData with file path."""
-        model = create_model_data(
-            label="test_model",
-            mod_type="generic",
-            files=temp_netcdf_file,
-        )
-
-        assert model.label == "test_model"
-        assert len(model.files) == 1
-        assert model.files[0] == temp_netcdf_file
-
-    def test_create_with_mapping(self) -> None:
-        """Test creating ModelData with variable mapping."""
-        model = create_model_data(
-            label="test_model",
-            mapping={"obs_label": {"obs_var": "model_var"}},
-        )
-
-        assert "obs_label" in model.obs_mapping
-        assert model.obs_mapping["obs_label"]["obs_var"] == "model_var"
+            GenericReader().open([tmp_path / "nonexistent.nc"])
 
 
 # =============================================================================
@@ -741,25 +689,16 @@ class TestModelReaderIntegration:
     """Integration tests for model readers with full workflow."""
 
     def test_full_workflow_generic(self, temp_netcdf_file: Path) -> None:
-        """Test complete workflow with generic reader."""
-        # Open the data
-        model = open_model(
-            temp_netcdf_file,
-            mod_type="generic",
-            label="test_run",
-        )
+        """Test opening through the generic reader yields usable data."""
+        ds = GenericReader().open([temp_netcdf_file])
 
-        # Verify data is loaded
-        assert model.data is not None
-        assert model.label == "test_run"
+        # Verify data is loaded as a Dataset.
+        assert isinstance(ds, xr.Dataset)
+        assert len(ds.data_vars) > 0
 
-        # Test subset operations
-        subset = model.subset_time(
-            start=pd.Timestamp("2024-01-01"),
-            end=pd.Timestamp("2024-01-05"),
-        )
-        assert subset.data is not None
-        assert len(subset.data.time) == 5
+        # Time subsetting is a plain xarray operation on the returned Dataset.
+        subset = ds.sel(time=slice(pd.Timestamp("2024-01-01"), pd.Timestamp("2024-01-05")))
+        assert len(subset.time) == 5
 
     def test_reader_standardization(self, cmaq_dataset: xr.Dataset) -> None:
         """Test that reader standardizes coordinates properly."""
