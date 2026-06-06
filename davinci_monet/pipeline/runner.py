@@ -510,24 +510,45 @@ class ProgressFormatter:
         if self.show_output:
             self.console.print(*args, **kwargs)
 
-    def print_summary(self, items: list[str], summary_file: str | None = None) -> None:
+    def print_summary(
+        self,
+        items: list[str],
+        summary_file: str | None = None,
+        usage: dict[str, Any] | None = None,
+        credits_remaining: float | None = None,
+    ) -> None:
         """Render an itemized AI summary to the terminal at end of run.
 
-        Shows the condensed bullet list (derived from the full brief) plus a
-        pointer to the full-brief file. No-op when output is disabled or there
-        are no items.
+        Shows the condensed bullet list, then (dim) tokens used, OpenRouter
+        credits remaining (when available), and a pointer to the full-brief
+        file. No-op when output is disabled or there are no items.
         """
         if not self.show_output or not items:
             return
         from rich.panel import Panel
 
-        body = "\n".join(f"• {item}" for item in items)
+        body_lines = [f"• {item}" for item in items]
+        meta: list[str] = []
+        if (
+            usage
+            and usage.get("input_tokens") is not None
+            and usage.get("output_tokens") is not None
+        ):
+            tin = int(usage["input_tokens"])
+            tout = int(usage["output_tokens"])
+            meta.append(f"Tokens: {tin:,} in / {tout:,} out ({tin + tout:,} total)")
+        if credits_remaining is not None:
+            meta.append(f"OpenRouter credits: ${credits_remaining:.2f} remaining")
         if summary_file:
-            body += f"\n\n[dim]Full brief → {summary_file}[/dim]"
+            meta.append(f"Full brief → {summary_file}")
+        if meta:
+            body_lines.append("")
+            body_lines.extend(f"[dim]{line}[/dim]" for line in meta)
+
         self._print()
         self._print(
             Panel(
-                body,
+                "\n".join(body_lines),
                 title="AI Summary",
                 border_style=self.NCAR_AQUA,
                 padding=(1, 2),
@@ -1707,6 +1728,8 @@ class PipelineRunner:
                 formatter.print_summary(
                     summary_result.data["bullets"],
                     summary_result.data.get("summary_file"),
+                    usage=summary_result.data.get("usage"),
+                    credits_remaining=summary_result.data.get("credits_remaining"),
                 )
 
             # Write Markdown log file

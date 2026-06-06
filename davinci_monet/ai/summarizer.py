@@ -47,6 +47,7 @@ class SummaryResult:
     usage: dict[str, Any]
     plots_used: list[str]
     images_sent: int
+    credits_remaining: float | None = None
 
 
 def _fmt(value: Any) -> str:
@@ -58,6 +59,11 @@ def _fmt(value: Any) -> str:
 _BULLET_RE = re.compile(r"^\s*[-*•]\s+(.*\S)\s*$")
 _SUBHEADING_RE = re.compile(r"^\s*#{2,6}\s+(.*\S)\s*$")
 _OVERFLOW_ITEM = "… (full brief in AI_summary.md)"
+_EMPHASIS_RE = re.compile(r"[*_`]")
+
+
+def _strip_emphasis(text: str) -> str:
+    return _EMPHASIS_RE.sub("", text).strip()
 
 
 def extract_bullets(markdown: str, *, max_items: int = 12) -> list[str]:
@@ -69,9 +75,10 @@ def extract_bullets(markdown: str, *, max_items: int = 12) -> list[str]:
     Caps at ``max_items``; when truncated, the final item points to the file.
     """
     lines = markdown.splitlines()
-    items = [m.group(1).strip() for line in lines if (m := _BULLET_RE.match(line))]
+    items = [_strip_emphasis(m.group(1)) for line in lines if (m := _BULLET_RE.match(line))]
     if not items:
-        items = [m.group(1).strip() for line in lines if (m := _SUBHEADING_RE.match(line))]
+        items = [_strip_emphasis(m.group(1)) for line in lines if (m := _SUBHEADING_RE.match(line))]
+    items = [item for item in items if item]
     if not items:
         return []
     if len(items) > max_items:

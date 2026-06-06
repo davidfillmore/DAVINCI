@@ -171,7 +171,9 @@ def test_summary_displayed_to_terminal_at_end_of_run(monkeypatch, tmp_path: Path
     monkeypatch.setattr(
         runner_mod.ProgressFormatter,
         "print_summary",
-        lambda self, items, summary_file=None: displayed.append((items, summary_file)),
+        lambda self, items, summary_file=None, usage=None, credits_remaining=None: displayed.append(
+            (items, summary_file)
+        ),
     )
 
     config = _build_config(tmp_path)

@@ -50,6 +50,7 @@ def test_call_openrouter_maps_response(monkeypatch, tmp_path: Path) -> None:
         return _canned()
 
     monkeypatch.setattr(orouter, "_send_openrouter_request", _fake_send)
+    monkeypatch.setattr(orouter, "_fetch_credits_remaining", lambda c, k: None)
 
     encoded = [("fig", EncodedImage(media_type="image/png", data="QUJD"))]
     result = call_openrouter("SYS", "USER", encoded, cfg)
@@ -72,3 +73,59 @@ def test_call_openrouter_malformed_response_raises(monkeypatch, tmp_path: Path) 
 
     with pytest.raises(SummaryError, match="Unexpected OpenRouter response shape"):
         call_openrouter("SYS", "USER", [], cfg)
+
+
+def test_fetch_credits_remaining_parses(monkeypatch, tmp_path: Path) -> None:
+    class _Resp:
+        status_code = 200
+
+        def json(self):
+            return {"data": {"limit_remaining": 99.97}}
+
+    monkeypatch.setattr("httpx.get", lambda *a, **k: _Resp())
+    cfg = SummaryConfig.model_validate({"provider": "openrouter"})
+    assert orouter._fetch_credits_remaining(cfg, "sk-or-test") == 99.97
+
+
+def test_fetch_credits_remaining_none_on_non_200(monkeypatch) -> None:
+    class _Resp:
+        status_code = 402
+
+        def json(self):
+            return {}
+
+    monkeypatch.setattr("httpx.get", lambda *a, **k: _Resp())
+    cfg = SummaryConfig.model_validate({"provider": "openrouter"})
+    assert orouter._fetch_credits_remaining(cfg, "k") is None
+
+
+def test_fetch_credits_remaining_none_on_missing_field(monkeypatch) -> None:
+    class _Resp:
+        status_code = 200
+
+        def json(self):
+            return {"data": {}}
+
+    monkeypatch.setattr("httpx.get", lambda *a, **k: _Resp())
+    cfg = SummaryConfig.model_validate({"provider": "openrouter"})
+    assert orouter._fetch_credits_remaining(cfg, "k") is None
+
+
+def test_fetch_credits_remaining_none_on_error(monkeypatch) -> None:
+    def _boom(*a, **k):
+        raise RuntimeError("network down")
+
+    monkeypatch.setattr("httpx.get", _boom)
+    cfg = SummaryConfig.model_validate({"provider": "openrouter"})
+    assert orouter._fetch_credits_remaining(cfg, "k") is None
+
+
+def test_call_openrouter_sets_credits(monkeypatch, tmp_path: Path) -> None:
+    keyfile = tmp_path / "k.api"
+    keyfile.write_text("sk-or-test")
+    cfg = SummaryConfig.model_validate({"provider": "openrouter", "api_key_file": str(keyfile)})
+    monkeypatch.setattr(orouter, "_send_openrouter_request", lambda c, k, b: _canned())
+    monkeypatch.setattr(orouter, "_fetch_credits_remaining", lambda c, k: 42.0)
+
+    result = call_openrouter("SYS", "USER", [], cfg)
+    assert result.credits_remaining == 42.0

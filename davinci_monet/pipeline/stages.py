@@ -3006,6 +3006,7 @@ class SummaryStage(BaseStage):
                 "bullets": extract_bullets(result.markdown),
                 "model": result.model,
                 "usage": result.usage,
+                "credits_remaining": result.credits_remaining,
                 "images_sent": result.images_sent,
             },
             duration=time.time() - start,
