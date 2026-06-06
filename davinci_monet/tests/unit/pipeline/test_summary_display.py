@@ -30,15 +30,24 @@ def _formatter_with_buffer(show_output: bool) -> tuple[ProgressFormatter, String
     return fmt, buf
 
 
-def test_print_summary_outputs_markdown_when_enabled() -> None:
+def test_print_summary_lists_items_and_file() -> None:
     fmt, buf = _formatter_with_buffer(show_output=True)
-    fmt.print_summary("# Brief\n\nThe model overestimates ozone.")
-    assert "overestimates ozone" in buf.getvalue()
+    fmt.print_summary(["MB +4.82 ppb", "R 0.849"], "/out/AI_summary.md")
+    out = buf.getvalue()
+    assert "MB +4.82 ppb" in out
+    assert "R 0.849" in out
+    assert "AI_summary.md" in out
 
 
 def test_print_summary_silent_when_disabled() -> None:
     fmt, buf = _formatter_with_buffer(show_output=False)
-    fmt.print_summary("# Brief\n\nHidden body.")
+    fmt.print_summary(["hidden"], "/out/AI_summary.md")
+    assert buf.getvalue() == ""
+
+
+def test_print_summary_noop_when_no_items() -> None:
+    fmt, buf = _formatter_with_buffer(show_output=True)
+    fmt.print_summary([], "/out/AI_summary.md")
     assert buf.getvalue() == ""
 
 

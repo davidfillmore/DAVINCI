@@ -510,22 +510,26 @@ class ProgressFormatter:
         if self.show_output:
             self.console.print(*args, **kwargs)
 
-    def print_summary(self, markdown: str) -> None:
-        """Render the AI summary brief to the terminal at end of run.
+    def print_summary(
+        self, items: list[str], summary_file: str | None = None
+    ) -> None:
+        """Render an itemized AI summary to the terminal at end of run.
 
-        Displayed durably (after the per-stage Live animation has stopped),
-        unlike progress messages which are transient. No-op when output is
-        disabled (e.g. programmatic runs with show_progress=False).
+        Shows the condensed bullet list (derived from the full brief) plus a
+        pointer to the full-brief file. No-op when output is disabled or there
+        are no items.
         """
-        if not self.show_output:
+        if not self.show_output or not items:
             return
-        from rich.markdown import Markdown
         from rich.panel import Panel
 
+        body = "\n".join(f"• {item}" for item in items)
+        if summary_file:
+            body += f"\n\n[dim]Full brief → {summary_file}[/dim]"
         self._print()
         self._print(
             Panel(
-                Markdown(markdown.strip()),
+                body,
                 title="AI Summary",
                 border_style=self.NCAR_AQUA,
                 padding=(1, 2),
@@ -1700,9 +1704,12 @@ class PipelineRunner:
                 summary_result is not None
                 and summary_result.status == StageStatus.COMPLETED
                 and isinstance(summary_result.data, dict)
-                and summary_result.data.get("markdown")
+                and summary_result.data.get("bullets")
             ):
-                formatter.print_summary(summary_result.data["markdown"])
+                formatter.print_summary(
+                    summary_result.data["bullets"],
+                    summary_result.data.get("summary_file"),
+                )
 
             # Write Markdown log file
             if log_collector and log_path:
