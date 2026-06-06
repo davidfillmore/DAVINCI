@@ -1,6 +1,10 @@
 # macOS
 .DS_Store
 
+# Secrets / API credentials
+OpenRouter.api
+*.api
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

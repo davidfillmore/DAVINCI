@@ -598,7 +598,8 @@ class TestCreateStandardPipeline:
         # Unified pipeline: a single LoadSourcesStage replaces the former
         # LoadModelsStage + LoadObservationsStage, and the obs-only stages are
         # folded in (they skip when pairs exist; the paired stages skip when not).
-        assert len(stages) == 7
+        # A non-fatal SummaryStage is appended as the final stage.
+        assert len(stages) == 8
 
         stage_names = [s.name for s in stages]
         assert "load_sources" in stage_names
@@ -610,6 +611,7 @@ class TestCreateStandardPipeline:
         assert "statistics" in stage_names
         assert "plotting" in stage_names
         assert "save_results" in stage_names
+        assert "summary" in stage_names
 
     def test_stages_are_in_order(self):
         """Test stages are in correct execution order."""
@@ -633,7 +635,7 @@ class TestPipelineRunner:
         """Test runner uses standard pipeline by default."""
         runner = PipelineRunner()
 
-        assert len(runner.stages) == 7
+        assert len(runner.stages) == 8
 
     def test_custom_stages(self):
         """Test runner accepts custom stages."""

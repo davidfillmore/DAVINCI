@@ -510,6 +510,52 @@ class ProgressFormatter:
         if self.show_output:
             self.console.print(*args, **kwargs)
 
+    def print_summary(
+        self,
+        items: list[str],
+        summary_file: str | None = None,
+        usage: dict[str, Any] | None = None,
+        credits_remaining: float | None = None,
+    ) -> None:
+        """Render an itemized AI summary to the terminal at end of run.
+
+        Shows the condensed bullet list, then (dim) tokens used, OpenRouter
+        credits remaining (when available), and a pointer to the full-brief
+        file. No-op when output is disabled or there are no items.
+        """
+        if not self.show_output or not items:
+            return
+        from rich.panel import Panel
+
+        body_lines = [f"• {item}" for item in items]
+        meta: list[str] = []
+        if (
+            usage
+            and usage.get("input_tokens") is not None
+            and usage.get("output_tokens") is not None
+        ):
+            tin = int(usage["input_tokens"])
+            tout = int(usage["output_tokens"])
+            meta.append(f"Tokens: {tin:,} in / {tout:,} out ({tin + tout:,} total)")
+        if credits_remaining is not None:
+            meta.append(f"OpenRouter credits: ${credits_remaining:.2f} remaining")
+        if summary_file:
+            meta.append(f"Full brief → {summary_file}")
+        if meta:
+            body_lines.append("")
+            body_lines.extend(f"[dim]{line}[/dim]" for line in meta)
+
+        self._print()
+        self._print(
+            Panel(
+                "\n".join(body_lines),
+                title="AI Summary",
+                border_style=self.NCAR_AQUA,
+                padding=(1, 2),
+            )
+        )
+        self._print()
+
     def _create_pulsing_davinci(self) -> "Text":  # type: ignore[name-defined]
         """Create 'DAVINCI' text with left-to-right brightening effect."""
         from rich.text import Text
@@ -1669,6 +1715,23 @@ class PipelineRunner:
                 error_message=error_message,
             )
 
+            # Display the AI summary brief (if produced) to the terminal. The
+            # summary stage cannot print durably itself (its log_progress is
+            # transient), so the runner renders it here at end of run.
+            summary_result = context.results.get("summary")
+            if (
+                summary_result is not None
+                and summary_result.status == StageStatus.COMPLETED
+                and isinstance(summary_result.data, dict)
+                and summary_result.data.get("bullets")
+            ):
+                formatter.print_summary(
+                    summary_result.data["bullets"],
+                    summary_result.data.get("summary_file"),
+                    usage=summary_result.data.get("usage"),
+                    credits_remaining=summary_result.data.get("credits_remaining"),
+                )
+
             # Write Markdown log file
             if log_collector and log_path:
                 log_collector.end_pipeline(result.success)
@@ -1789,11 +1852,14 @@ class PipelineRunner:
         try:
             # Validate stage
             if not stage.validate(context):
-                logger.warning(f"Stage '{stage.name}' validation failed, skipping")
+                # A stage that opts out of running for this configuration is a
+                # benign skip (e.g. obs-only stages in a paired run), not a
+                # failure — log at debug so it does not read as an error.
+                logger.debug(f"Stage '{stage.name}' not applicable for this run, skipping")
                 result = StageResult(
                     stage_name=stage.name,
                     status=StageStatus.SKIPPED,
-                    error="Validation failed",
+                    error="Not applicable for this run",
                     duration_seconds=time.time() - start_time,
                 )
             else:
