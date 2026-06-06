@@ -522,3 +522,225 @@ class TestSpatialDistributionRenderParity:
         plotter = SpatialDistributionPlotter()
         with pytest.raises(NotImplementedError, match="SpatialDistributionPlotter"):
             plotter.render(build_series(ds, "obs_o3"))
+
+
+# ---------------------------------------------------------------------------
+# SiteTimeSeriesPlotter
+# ---------------------------------------------------------------------------
+
+
+def _site_ds(n_times: int = 50, n_sites: int = 3, seed: int = 0) -> xr.Dataset:
+    """Minimal site-based paired dataset: (site, time) dims with coords."""
+    rng = np.random.default_rng(seed)
+    times = np.datetime64("2024-02-01") + np.arange(n_times) * np.timedelta64(1, "h")
+    sites = [f"site_{i}" for i in range(n_sites)]
+    obs = rng.uniform(20, 60, (n_sites, n_times))
+    mod = obs + rng.uniform(-5, 5, (n_sites, n_times))
+    ds = xr.Dataset(
+        {
+            "obs_o3": (
+                ("site", "time"),
+                obs,
+                {"role": "obs", "pair_role": "reference", "units": "ppb"},
+            ),
+            "model_o3": (
+                ("site", "time"),
+                mod,
+                {"role": "model", "pair_role": "comparand", "units": "ppb"},
+            ),
+        },
+        coords={
+            "time": times,
+            "site": sites,
+            "latitude": ("site", np.linspace(35.0, 45.0, n_sites)),
+            "longitude": ("site", np.linspace(-120.0, -100.0, n_sites)),
+        },
+    )
+    return ds
+
+
+class TestSiteTimeSeriesRenderParity:
+    def test_plot_and_render_both_return_figure(self) -> None:
+        from davinci_monet.plots.renderers.site_timeseries import SiteTimeSeriesPlotter
+
+        ds = _site_ds()
+        plotter = SiteTimeSeriesPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3", ncols=2, min_points=5)
+        plt.close(fig_plot)
+        fig_render = plotter.render(build_series(ds, "obs_o3", "model_o3"), ncols=2, min_points=5)
+        plt.close(fig_render)
+        assert isinstance(fig_plot, matplotlib.figure.Figure)
+        assert isinstance(fig_render, matplotlib.figure.Figure)
+
+    def test_plot_and_render_same_axes_count(self) -> None:
+        from davinci_monet.plots.renderers.site_timeseries import SiteTimeSeriesPlotter
+
+        ds = _site_ds()
+        plotter = SiteTimeSeriesPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3", ncols=2, min_points=5)
+        n_plot = len(fig_plot.axes)
+        plt.close(fig_plot)
+        fig_render = plotter.render(build_series(ds, "obs_o3", "model_o3"), ncols=2, min_points=5)
+        n_render = len(fig_render.axes)
+        plt.close(fig_render)
+        assert n_plot == n_render
+
+    def test_render_wrong_series_count_raises(self) -> None:
+        from davinci_monet.plots.renderers.site_timeseries import SiteTimeSeriesPlotter
+
+        ds = _site_ds()
+        plotter = SiteTimeSeriesPlotter()
+        with pytest.raises(NotImplementedError, match="SiteTimeSeriesPlotter"):
+            plotter.render(build_series(ds, "obs_o3"))
+
+
+# ---------------------------------------------------------------------------
+# FlightTimeSeriesPlotter
+# ---------------------------------------------------------------------------
+
+
+def _flight_ds(n_per_flight: int = 30, n_flights: int = 2, seed: int = 0) -> xr.Dataset:
+    """Minimal flight-based paired dataset with a 'flight' coordinate."""
+    rng = np.random.default_rng(seed)
+    all_times = []
+    all_obs = []
+    all_mod = []
+    all_flight = []
+    for day in range(n_flights):
+        base = np.datetime64(f"2024-02-0{day + 1}T10:00")
+        times = base + np.arange(n_per_flight) * np.timedelta64(1, "m")
+        obs = rng.uniform(20, 60, n_per_flight)
+        mod = obs + rng.uniform(-5, 5, n_per_flight)
+        all_times.append(times)
+        all_obs.append(obs)
+        all_mod.append(mod)
+        all_flight.extend([f"2024-02-0{day + 1}"] * n_per_flight)
+    all_times_arr = np.concatenate(all_times)
+    all_obs_arr = np.concatenate(all_obs)
+    all_mod_arr = np.concatenate(all_mod)
+    ds = xr.Dataset(
+        {
+            "obs_o3": (
+                "time",
+                all_obs_arr,
+                {"role": "obs", "pair_role": "reference", "units": "ppb"},
+            ),
+            "model_o3": (
+                "time",
+                all_mod_arr,
+                {"role": "model", "pair_role": "comparand", "units": "ppb"},
+            ),
+        },
+        coords={
+            "time": all_times_arr,
+            "flight": ("time", all_flight),
+        },
+    )
+    return ds
+
+
+class TestFlightTimeSeriesRenderParity:
+    def test_plot_and_render_both_return_figure(self) -> None:
+        from davinci_monet.plots.renderers.flight_timeseries import FlightTimeSeriesPlotter
+
+        ds = _flight_ds()
+        plotter = FlightTimeSeriesPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3", ncols=2, min_points=5)
+        plt.close(fig_plot)
+        fig_render = plotter.render(build_series(ds, "obs_o3", "model_o3"), ncols=2, min_points=5)
+        plt.close(fig_render)
+        assert isinstance(fig_plot, matplotlib.figure.Figure)
+        assert isinstance(fig_render, matplotlib.figure.Figure)
+
+    def test_plot_and_render_same_axes_count(self) -> None:
+        from davinci_monet.plots.renderers.flight_timeseries import FlightTimeSeriesPlotter
+
+        ds = _flight_ds()
+        plotter = FlightTimeSeriesPlotter()
+        fig_plot = plotter.plot(
+            ds, "obs_o3", "model_o3", ncols=2, min_points=5, show_altitude=False
+        )
+        n_plot = len(fig_plot.axes)
+        plt.close(fig_plot)
+        fig_render = plotter.render(
+            build_series(ds, "obs_o3", "model_o3"), ncols=2, min_points=5, show_altitude=False
+        )
+        n_render = len(fig_render.axes)
+        plt.close(fig_render)
+        assert n_plot == n_render
+
+    def test_plot_per_flight_generator_unchanged(self) -> None:
+        """plot_per_flight must still yield (flight_id, Figure) tuples."""
+        from davinci_monet.plots.renderers.flight_timeseries import FlightTimeSeriesPlotter
+
+        ds = _flight_ds()
+        plotter = FlightTimeSeriesPlotter()
+        results = list(plotter.plot_per_flight(ds, "obs_o3", "model_o3", min_points=5))
+        assert len(results) == 2
+        for flight_id, fig in results:
+            assert isinstance(flight_id, str)
+            assert isinstance(fig, matplotlib.figure.Figure)
+            plt.close(fig)
+
+    def test_render_wrong_series_count_raises(self) -> None:
+        from davinci_monet.plots.renderers.flight_timeseries import FlightTimeSeriesPlotter
+
+        ds = _flight_ds()
+        plotter = FlightTimeSeriesPlotter()
+        with pytest.raises(NotImplementedError, match="FlightTimeSeriesPlotter"):
+            plotter.render(build_series(ds, "obs_o3"))
+
+
+# ---------------------------------------------------------------------------
+# PerSiteTimeSeriesPlotter (single-site plot() vs render())
+# ---------------------------------------------------------------------------
+
+
+class TestPerSiteTimeSeriesRenderParity:
+    def test_plot_and_render_both_return_figure(self) -> None:
+        from davinci_monet.plots.renderers.per_site_timeseries import PerSiteTimeSeriesPlotter
+
+        ds = _site_ds()
+        plotter = PerSiteTimeSeriesPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3", min_points=5)
+        plt.close(fig_plot)
+        fig_render = plotter.render(build_series(ds, "obs_o3", "model_o3"), min_points=5)
+        plt.close(fig_render)
+        assert isinstance(fig_plot, matplotlib.figure.Figure)
+        assert isinstance(fig_render, matplotlib.figure.Figure)
+
+    def test_plot_and_render_same_axes_count(self) -> None:
+        from davinci_monet.plots.renderers.per_site_timeseries import PerSiteTimeSeriesPlotter
+
+        ds = _site_ds()
+        plotter = PerSiteTimeSeriesPlotter()
+        fig_plot = plotter.plot(ds, "obs_o3", "model_o3", site="site_0", min_points=5)
+        n_plot = len(fig_plot.axes)
+        plt.close(fig_plot)
+        fig_render = plotter.render(
+            build_series(ds, "obs_o3", "model_o3"), site="site_0", min_points=5
+        )
+        n_render = len(fig_render.axes)
+        plt.close(fig_render)
+        assert n_plot == n_render
+
+    def test_plot_per_site_generator_unchanged(self) -> None:
+        """plot_per_site must still yield (site_id, Figure) tuples."""
+        from davinci_monet.plots.renderers.per_site_timeseries import PerSiteTimeSeriesPlotter
+
+        ds = _site_ds()
+        plotter = PerSiteTimeSeriesPlotter()
+        results = list(plotter.plot_per_site(ds, "obs_o3", "model_o3", min_points=5))
+        assert len(results) == 3
+        for site_id, fig in results:
+            assert isinstance(site_id, str)
+            assert isinstance(fig, matplotlib.figure.Figure)
+            plt.close(fig)
+
+    def test_render_wrong_series_count_raises(self) -> None:
+        from davinci_monet.plots.renderers.per_site_timeseries import PerSiteTimeSeriesPlotter
+
+        ds = _site_ds()
+        plotter = PerSiteTimeSeriesPlotter()
+        with pytest.raises(NotImplementedError, match="PerSiteTimeSeriesPlotter"):
+            plotter.render(build_series(ds, "obs_o3"))

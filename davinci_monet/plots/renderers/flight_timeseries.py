@@ -18,9 +18,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
+    build_series,
     format_label_with_units,
     format_plot_title,
     get_role_color,
@@ -123,67 +125,56 @@ class FlightTimeSeriesPlotter(BasePlotter):
     name: str = "flight_timeseries"
     default_figsize: tuple[float, float] = (9, 4)  # Wide for temporal data
 
-    def plot(
+    def render(
         self,
-        paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
-        ncols: int = 3,
-        min_points: int = 10,
-        time_dim: str = "time",
-        flight_coord: str = "flight",
-        show_stats: bool = True,
-        scale_factor: float = 1.0,
-        obs_style: str = "scatter",
-        model_style: str = "line",
-        show_altitude: bool = True,
-        altitude_var: str | None = None,
-        altitude_units: str = "km",
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Generate flight-by-flight time series panels.
+        """Render flight-by-flight time series panels from a list of two PlotSeries.
 
         Parameters
         ----------
-        paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+        series
+            Exactly 2 series: one reference (obs) and one comparand (model).
         ax
             Ignored for this plot type (creates own figure).
-        ncols
-            Number of columns in subplot grid.
-        min_points
-            Minimum valid data points required to include a flight.
-        time_dim
-            Name of time dimension.
-        flight_coord
-            Name of flight coordinate (default: 'flight').
-        show_stats
-            If True, show N, NMB, R statistics on each panel.
-        scale_factor
-            Scale factor for display values.
-        obs_style
-            Style for observations: 'scatter' or 'line'.
-        model_style
-            Style for model: 'line' or 'scatter'.
-        show_altitude
-            If True, show aircraft altitude on right y-axis.
-        altitude_var
-            Name of altitude variable. If None, searches common names.
-        altitude_units
-            Units for altitude display ('km' or 'm'). Data assumed in meters.
         **kwargs
-            Additional options.
+            Forwarded kwargs; renderer-specific ones:
+            ncols (int, default 3), min_points (int, default 10),
+            time_dim (str, default "time"), flight_coord (str, default "flight"),
+            show_stats (bool, default True), scale_factor (float, default 1.0),
+            obs_style (str, default "scatter"), model_style (str, default "line"),
+            show_altitude (bool, default True), altitude_var (str|None, default None),
+            altitude_units (str, default "km").
 
         Returns
         -------
         matplotlib.figure.Figure
             The generated figure.
         """
+        if len(series) != 2:
+            raise NotImplementedError(
+                f"FlightTimeSeriesPlotter.render requires exactly 2 series; got {len(series)}."
+            )
+        ref = next((s for s in series if s.pair_role == "reference"), series[0])
+        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
+        paired_data = ref.dataset
+        obs_var = ref.var_name
+        model_var = comp.var_name
+
+        ncols: int = kwargs.pop("ncols", 3)
+        min_points: int = kwargs.pop("min_points", 10)
+        time_dim: str = kwargs.pop("time_dim", "time")
+        flight_coord: str = kwargs.pop("flight_coord", "flight")
+        show_stats: bool = kwargs.pop("show_stats", True)
+        scale_factor: float = kwargs.pop("scale_factor", 1.0)
+        obs_style: str = kwargs.pop("obs_style", "scatter")
+        model_style: str = kwargs.pop("model_style", "line")
+        show_altitude: bool = kwargs.pop("show_altitude", True)
+        altitude_var: str | None = kwargs.pop("altitude_var", None)
+        altitude_units: str = kwargs.pop("altitude_units", "km")
+
         style = self.config.style
 
         # Series colors/labels by source role (R-3): obs gray, model blue, else
@@ -237,7 +228,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
         # Plot each flight
         for idx, flight in enumerate(valid_flights):
-            ax = axes_flat[idx]
+            panel_ax = axes_flat[idx]
             mask = paired_data[flight_coord].values == flight
 
             # Get data for this flight
@@ -258,7 +249,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Plot observations
             if obs_style == "scatter":
-                ax.scatter(
+                panel_ax.scatter(
                     times[valid_obs],
                     obs_vals[valid_obs],
                     s=12,
@@ -268,7 +259,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     zorder=3,
                 )
             else:
-                ax.plot(
+                panel_ax.plot(
                     times[valid_obs],
                     obs_vals[valid_obs],
                     "o-",
@@ -282,7 +273,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Plot model
             if model_style == "line":
-                ax.plot(
+                panel_ax.plot(
                     times,
                     mod_vals,
                     color=model_color,
@@ -292,7 +283,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     zorder=2,
                 )
             else:
-                ax.scatter(
+                panel_ax.scatter(
                     times[valid_both],
                     mod_vals[valid_both],
                     s=12,
@@ -308,8 +299,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 alt_vals = alt_vals[sort_idx]
                 valid_alt = ~np.isnan(alt_vals)
 
-                ax2 = ax.twinx()
-                ax2.plot(  # type: ignore[union-attr]
+                ax2 = panel_ax.twinx()
+                ax2.plot(
                     times[valid_alt],
                     alt_vals[valid_alt],
                     color=ALTITUDE_COLOR,
@@ -348,11 +339,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     stats_text += f"\nR={r:.2f}"
 
                 # Multi-panel font sizes (smaller for dense panels)
-                ax.text(
+                panel_ax.text(
                     0.97,
                     0.03,
                     stats_text,
-                    transform=ax.transAxes,
+                    transform=panel_ax.transAxes,
                     fontsize=self.config.text.annotation_small,
                     verticalalignment="bottom",
                     horizontalalignment="right",
@@ -360,27 +351,27 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 )
 
             # Title with flight date
-            ax.set_title(f"Flight {flight}", fontsize=self.config.text.annotation_small)
+            panel_ax.set_title(f"Flight {flight}", fontsize=self.config.text.annotation_small)
 
-            ax.set_ylim(bottom=0)
-            ax.grid(True, alpha=0.3)
+            panel_ax.set_ylim(bottom=0)
+            panel_ax.grid(True, alpha=0.3)
 
             # Legend on first panel only
             if idx == 0:
-                ax.legend(loc="lower left", fontsize=self.config.text.legend_small)
+                panel_ax.legend(loc="lower left", fontsize=self.config.text.legend_small)
 
             # Y-axis label on left column
             if idx % ncols == 0:
                 units = get_variable_units(paired_data, obs_var)
                 ylabel = get_variable_label(paired_data, obs_var, include_prefix=False)
                 ylabel = format_label_with_units(ylabel, units)
-                ax.set_ylabel(ylabel, fontsize=self.config.text.legend_small)
+                panel_ax.set_ylabel(ylabel, fontsize=self.config.text.legend_small)
 
             # Format x-axis
-            ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
-            ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
-            ax.tick_params(axis="x", rotation=45)
-            ax.set_xlabel("UTC Time", fontsize=self.config.text.legend_small)
+            panel_ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+            panel_ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
+            panel_ax.tick_params(axis="x", rotation=45)
+            panel_ax.set_xlabel("UTC Time", fontsize=self.config.text.legend_small)
 
         # Hide unused subplots
         for idx in range(n_flights, len(axes_flat)):
@@ -394,6 +385,86 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
         plt.tight_layout()
         return fig
+
+    def plot(
+        self,
+        paired_data: xr.Dataset,
+        obs_var: str,
+        model_var: str,
+        ax: matplotlib.axes.Axes | None = None,
+        ncols: int = 3,
+        min_points: int = 10,
+        time_dim: str = "time",
+        flight_coord: str = "flight",
+        show_stats: bool = True,
+        scale_factor: float = 1.0,
+        obs_style: str = "scatter",
+        model_style: str = "line",
+        show_altitude: bool = True,
+        altitude_var: str | None = None,
+        altitude_units: str = "km",
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Generate flight-by-flight time series panels.
+
+        Thin wrapper around :meth:`render`. See that method for parameter docs.
+
+        Parameters
+        ----------
+        paired_data
+            Paired dataset with model and observation variables.
+        obs_var
+            Name of observation variable.
+        model_var
+            Name of model variable.
+        ax
+            Ignored for this plot type (creates own figure).
+        ncols
+            Number of columns in subplot grid.
+        min_points
+            Minimum valid data points required to include a flight.
+        time_dim
+            Name of time dimension.
+        flight_coord
+            Name of flight coordinate (default: 'flight').
+        show_stats
+            If True, show N, NMB, R statistics on each panel.
+        scale_factor
+            Scale factor for display values.
+        obs_style
+            Style for observations: 'scatter' or 'line'.
+        model_style
+            Style for model: 'line' or 'scatter'.
+        show_altitude
+            If True, show aircraft altitude on right y-axis.
+        altitude_var
+            Name of altitude variable. If None, searches common names.
+        altitude_units
+            Units for altitude display ('km' or 'm'). Data assumed in meters.
+        **kwargs
+            Additional options.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated figure.
+        """
+        return self.render(
+            build_series(paired_data, obs_var, model_var),
+            ax=ax,
+            ncols=ncols,
+            min_points=min_points,
+            time_dim=time_dim,
+            flight_coord=flight_coord,
+            show_stats=show_stats,
+            scale_factor=scale_factor,
+            obs_style=obs_style,
+            model_style=model_style,
+            show_altitude=show_altitude,
+            altitude_var=altitude_var,
+            altitude_units=altitude_units,
+            **kwargs,
+        )
 
     def plot_per_flight(
         self,

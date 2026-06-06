@@ -18,9 +18,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
+    build_series,
     format_label_with_units,
     format_plot_title,
     get_role_color,
@@ -90,6 +92,95 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
     name: str = "per_site_timeseries"
     default_figsize: tuple[float, float] = (9, 4)
 
+    def render(
+        self,
+        series: list[PlotSeries],
+        ax: matplotlib.axes.Axes | None = None,
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Render a single-site timeseries from a list of two PlotSeries.
+
+        Parameters
+        ----------
+        series
+            Exactly 2 series: one reference (obs) and one comparand (model).
+        ax
+            Ignored (creates own figure).
+        **kwargs
+            Forwarded kwargs; renderer-specific ones:
+            site (str|None, default None), min_points (int, default 20),
+            time_dim (str, default "time"), site_dim (str, default "site"),
+            show_stats (bool, default True), scale_factor (float, default 1.0),
+            obs_style (str, default "scatter"), model_style (str, default "line").
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated figure.
+        """
+        if len(series) != 2:
+            raise NotImplementedError(
+                f"PerSiteTimeSeriesPlotter.render requires exactly 2 series; got {len(series)}."
+            )
+        ref = next((s for s in series if s.pair_role == "reference"), series[0])
+        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
+        paired_data = ref.dataset
+        obs_var = ref.var_name
+        model_var = comp.var_name
+
+        site: str | None = kwargs.pop("site", None)
+        min_points: int = kwargs.pop("min_points", 20)
+        time_dim: str = kwargs.pop("time_dim", "time")
+        site_dim: str = kwargs.pop("site_dim", "site")
+        show_stats: bool = kwargs.pop("show_stats", True)
+        scale_factor: float = kwargs.pop("scale_factor", 1.0)
+        obs_style: str = kwargs.pop("obs_style", "scatter")
+        model_style: str = kwargs.pop("model_style", "line")
+
+        if site_dim not in paired_data.dims:
+            raise ValueError(f"Site dimension '{site_dim}' not found in dataset")
+
+        if site is not None:
+            # Use the specified site
+            site_data = paired_data.sel({site_dim: site})
+        else:
+            # Pick the first site with enough data
+            sites = paired_data[site_dim].values
+            chosen_site = None
+            for s in sites:
+                sd = paired_data.sel({site_dim: s})
+                obs_vals = sd[obs_var].values
+                mod_vals = sd[model_var].values
+                valid = ~np.isnan(obs_vals) & ~np.isnan(mod_vals)
+                if valid.sum() >= min_points:
+                    chosen_site = s
+                    break
+            if chosen_site is None:
+                raise ValueError(f"No sites with >= {min_points} valid data points")
+            site = chosen_site
+            site_data = paired_data.sel({site_dim: site})
+
+        fig, plot_ax = plt.subplots(figsize=self.default_figsize)
+
+        self._plot_site_panel(
+            plot_ax,
+            site_data,
+            paired_data,
+            site,
+            obs_var,
+            model_var,
+            time_dim,
+            site_dim,
+            scale_factor,
+            obs_style,
+            model_style,
+            show_stats,
+            single_panel=True,
+        )
+
+        plt.tight_layout()
+        return fig
+
     def plot(
         self,
         paired_data: xr.Dataset,
@@ -107,6 +198,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Plot a single site timeseries.
+
+        Thin wrapper around :meth:`render`. See that method for parameter docs.
 
         Parameters
         ----------
@@ -142,48 +235,19 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         matplotlib.figure.Figure
             The generated figure.
         """
-        if site_dim not in paired_data.dims:
-            raise ValueError(f"Site dimension '{site_dim}' not found in dataset")
-
-        if site is not None:
-            # Use the specified site
-            site_data = paired_data.sel({site_dim: site})
-        else:
-            # Pick the first site with enough data
-            sites = paired_data[site_dim].values
-            site = None
-            for s in sites:
-                sd = paired_data.sel({site_dim: s})
-                obs_vals = sd[obs_var].values
-                mod_vals = sd[model_var].values
-                valid = ~np.isnan(obs_vals) & ~np.isnan(mod_vals)
-                if valid.sum() >= min_points:
-                    site = s
-                    break
-            if site is None:
-                raise ValueError(f"No sites with >= {min_points} valid data points")
-            site_data = paired_data.sel({site_dim: site})
-
-        fig, plot_ax = plt.subplots(figsize=self.default_figsize)
-
-        self._plot_site_panel(
-            plot_ax,
-            site_data,
-            paired_data,
-            site,
-            obs_var,
-            model_var,
-            time_dim,
-            site_dim,
-            scale_factor,
-            obs_style,
-            model_style,
-            show_stats,
-            single_panel=True,
+        return self.render(
+            build_series(paired_data, obs_var, model_var),
+            ax=ax,
+            site=site,
+            min_points=min_points,
+            time_dim=time_dim,
+            site_dim=site_dim,
+            show_stats=show_stats,
+            scale_factor=scale_factor,
+            obs_style=obs_style,
+            model_style=model_style,
+            **kwargs,
         )
-
-        plt.tight_layout()
-        return fig
 
     def plot_per_site(
         self,
