@@ -31,8 +31,8 @@ class SummaryPayload:
     instructions: str | None
 
 
-# The obs/paired stage fork was collapsed (renderer unification P2): the unified
-# StatisticsStage/PlottingStage emit under these single keys for both run types.
+# StatisticsStage/PlottingStage emit under these single keys for both
+# single-source and paired-source run types.
 _STATS_STAGES = ("statistics",)
 _PLOT_STAGES = ("plotting",)
 
@@ -44,11 +44,18 @@ def collect_payload(context: "PipelineContext", cfg: "SummaryConfig") -> Summary
     period = {"start": analysis.get("start_time"), "end": analysis.get("end_time")}
 
     sources_summary: list[str] = []
-    for block in ("sources", "model", "obs"):
+    source_blocks: tuple[str, ...]
+    if config.get("sources"):
+        source_blocks = ("sources",)
+    else:
+        source_blocks = ("model", "obs")
+    for block in source_blocks:
         for label, spec in (config.get(block) or {}).items():
             if isinstance(spec, dict):
                 stype = spec.get("type") or spec.get("mod_type") or spec.get("obs_type") or "?"
-                sources_summary.append(f"{label} ({stype})")
+                role = spec.get("role")
+                role_text = f", role={role}" if role else ""
+                sources_summary.append(f"{label} ({stype}{role_text})")
 
     pairs_summary = list((config.get("pairs") or {}).keys())
 

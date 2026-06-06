@@ -137,7 +137,7 @@ def write_paired_data(
     format: str = "netcdf",
     prefix: str = "",
 ) -> list[str]:
-    """Write paired model-observation data to files.
+    """Write paired source data to files.
 
     Parameters
     ----------

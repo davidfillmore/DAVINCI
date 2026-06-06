@@ -1,7 +1,7 @@
-"""Unified pairing engine for model-observation matching.
+"""Unified pairing engine for source matching.
 
 This module provides the main pairing orchestrator that dispatches to
-geometry-specific strategies based on observation data type.
+geometry-specific strategies based on reference and comparand data geometry.
 """
 
 from __future__ import annotations
@@ -254,6 +254,10 @@ class PairingEngine:
             obs_label=obs_label,
             geometry=geometry,
             pairing_info={
+                "reference_label": obs_label,
+                "comparand_label": model_label,
+                "reference_geometry": geometry.name,
+                "comparand_geometry": DataGeometry.GRID.name,
                 "radius_of_influence": config.radius_of_influence,
                 "time_tolerance": config.time_tolerance,
                 "vertical_method": config.vertical_method,

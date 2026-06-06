@@ -860,12 +860,12 @@ def series_colors(
 ) -> list[str]:
     """Per-series colors under the unified, count-aware rule.
 
-    - **1 series** → ``NCAR_PRIMARY`` (the obs-only brand blue), or ``MODEL_COLOR``
+    - **1 series** → ``NCAR_PRIMARY`` (the single-source brand blue), or ``MODEL_COLOR``
       when the lone source is ``role == "model"``. This is what keeps a single
-      obs source blue rather than the paired-obs gray that ``get_color_for_role``
+      source blue rather than the paired-reference gray that ``get_color_for_role``
       would assign.
-    - **2 series** → reference/obs in ``obs_color`` (gray) and comparand/model in
-      ``model_color`` (blue), preserving today's model-vs-obs contrast.
+    - **2 series** → reference in ``obs_color`` (gray) and comparand in
+      ``model_color`` (blue), preserving today's comparison contrast.
     - **N > 2 series** → distinct ``NCAR_PALETTE`` colors cycled by ``index``.
 
     ``obs_color``/``model_color`` let a caller pass the active ``StyleConfig``
@@ -894,8 +894,8 @@ def get_role_color(
     """Plot color for a paired series, by its source role (renderer rewire R-3).
 
     Reads the variable's ``role`` attr (set by ``tag_paired_roles``): ``obs``
-    renders in the neutral observation gray, ``model`` in NCAR blue (preserving
-    the model-vs-obs convention), and same-role / role-less series cycle the
+    renders in the neutral reference gray, ``model`` in NCAR blue (preserving
+    the legacy model-vs-obs convention), and same-role / role-less series cycle the
     NCAR palette by ``index`` (their order in the plot).
 
     ``obs_color``/``model_color`` let a caller supply the active ``StyleConfig``
@@ -922,10 +922,10 @@ def get_role_color(
 
 
 def dataset_source_label(dataset: xr.Dataset, default: str | None = None) -> str | None:
-    """Source label for a single-source (obs-only) dataset (renderer rewire R-4).
+    """Source label for a single-source dataset.
 
-    Obs-only datasets carry their source label in the dataset-level ``attrs``
-    (set by the loading stage), not per-variable. Returns it so an obs-only plot
+    Single-source datasets carry their source label in the dataset-level ``attrs``
+    (set by the loading stage), not per-variable. Returns it so a source plot
     can self-identify its source, or ``default`` when absent.
     """
     label = dataset.attrs.get("source_label")

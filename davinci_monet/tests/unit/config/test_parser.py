@@ -273,6 +273,24 @@ class TestConfigBuilder:
         config = ConfigBuilder().add_observation("airnow", obs_type="pt_sfc").build()
         assert "airnow" in config.obs
 
+    def test_add_source_and_pair(self) -> None:
+        """Test adding unified sources and source pairs."""
+        config = (
+            ConfigBuilder()
+            .add_source("cam", type="generic", files="/data/cam.nc")
+            .add_source("airnow", type="pt_sfc", filename="/data/airnow.nc")
+            .add_pair(
+                "cam_airnow_o3",
+                sources=["cam", "airnow"],
+                reference="airnow",
+                variables={"cam": "O3", "airnow": "o3"},
+            )
+            .build()
+        )
+
+        assert set(config.sources) == {"cam", "airnow"}
+        assert config.pairs["cam_airnow_o3"].reference == "airnow"
+
     def test_add_plot(self) -> None:
         """Test adding plot."""
         config = ConfigBuilder().add_plot("ts1", "timeseries", data=["airnow_cmaq"]).build()

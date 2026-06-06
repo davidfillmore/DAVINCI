@@ -1,12 +1,12 @@
-"""Statistical metrics for model-observation comparison.
+"""Statistical metrics for paired source comparison.
 
-This module provides individual metric implementations for evaluating
-atmospheric model performance against observations.
+This module provides individual metric implementations for comparing a
+comparand source against a reference source.
 
 All metrics follow the convention:
-- obs: observation values
-- mod: model values (prediction)
-- Positive bias means model > observation
+- obs: reference values (legacy parameter name)
+- mod: comparand values (legacy parameter name)
+- Positive bias means comparand > reference
 """
 
 from __future__ import annotations
@@ -161,10 +161,10 @@ class CountMetric(BaseMetric):
 
 @statistic_registry.register("MO")
 class MeanObsMetric(BaseMetric):
-    """Mean of observations."""
+    """Mean of reference values."""
 
     name = "MO"
-    long_name = "Mean Observation"
+    long_name = "Mean Reference"
     units = None  # Inherits from data
 
     def compute(self, obs: np.ndarray, mod: np.ndarray, **kwargs: Any) -> float:
@@ -176,10 +176,10 @@ class MeanObsMetric(BaseMetric):
 
 @statistic_registry.register("MP")
 class MeanModMetric(BaseMetric):
-    """Mean of model predictions."""
+    """Mean of comparand values."""
 
     name = "MP"
-    long_name = "Mean Model"
+    long_name = "Mean Comparand"
     units = None
 
     def compute(self, obs: np.ndarray, mod: np.ndarray, **kwargs: Any) -> float:
@@ -191,10 +191,10 @@ class MeanModMetric(BaseMetric):
 
 @statistic_registry.register("STDO")
 class StdObsMetric(BaseMetric):
-    """Standard deviation of observations."""
+    """Standard deviation of reference values."""
 
     name = "STDO"
-    long_name = "Obs Standard Deviation"
+    long_name = "Reference Standard Deviation"
     units = None
 
     def compute(self, obs: np.ndarray, mod: np.ndarray, **kwargs: Any) -> float:
@@ -206,10 +206,10 @@ class StdObsMetric(BaseMetric):
 
 @statistic_registry.register("STDP")
 class StdModMetric(BaseMetric):
-    """Standard deviation of model predictions."""
+    """Standard deviation of comparand values."""
 
     name = "STDP"
-    long_name = "Model Standard Deviation"
+    long_name = "Comparand Standard Deviation"
     units = None
 
     def compute(self, obs: np.ndarray, mod: np.ndarray, **kwargs: Any) -> float:

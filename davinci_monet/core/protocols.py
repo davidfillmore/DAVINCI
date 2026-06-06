@@ -49,13 +49,16 @@ class DataGeometry(Enum):
 
 
 # =============================================================================
-# Model Protocols
+# Legacy Compatibility Protocols
 # =============================================================================
+#
+# New source readers should implement SourceReader. The model/observation
+# protocols are retained for downstream type imports and legacy adapters.
 
 
 @runtime_checkable
 class ModelReader(Protocol):
-    """Protocol for model output readers.
+    """Compatibility protocol for model output readers.
 
     Model readers are responsible for loading atmospheric model output
     (CMAQ, WRF-Chem, UFS, CESM, etc.) into standardized xarray Datasets.
@@ -134,14 +137,9 @@ class ModelProcessor(Protocol):
         ...
 
 
-# =============================================================================
-# Observation Protocols
-# =============================================================================
-
-
 @runtime_checkable
 class ObservationReader(Protocol):
-    """Protocol for observation data readers.
+    """Compatibility protocol for observation data readers.
 
     Observation readers load observational data from various sources
     (surface networks, aircraft campaigns, satellites) into xarray Datasets
@@ -298,10 +296,10 @@ class SourceProcessor(Protocol):
 
 @runtime_checkable
 class PairingStrategy(Protocol):
-    """Protocol for model-observation pairing strategies.
+    """Protocol for source-pairing strategies.
 
-    Each pairing strategy handles a specific data geometry, implementing
-    the spatial and temporal matching logic appropriate for that geometry.
+    ``pair_sources`` is the canonical role-neutral API. ``pair`` remains as a
+    legacy model/observation adapter for existing strategies and callers.
     """
 
     @property
@@ -321,7 +319,7 @@ class PairingStrategy(Protocol):
         horizontal_method: str = "nearest",
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Pair model output with observations.
+        """Pair model output with observations through the legacy adapter.
 
         Parameters
         ----------
@@ -494,9 +492,9 @@ class SpatialPlotter(Protocol):
         paired_data
             Paired Dataset.
         obs_var
-            Observation variable name.
+            Compatibility name for reference variable.
         model_var
-            Model variable name.
+            Compatibility name for comparand variable.
         domain
             Geographic extent (lon_min, lon_max, lat_min, lat_max).
         projection
@@ -548,9 +546,9 @@ class StatisticMetric(Protocol):
         Parameters
         ----------
         obs
-            Observation values.
+            Reference values.
         model
-            Model values (aligned with obs).
+            Comparand values (aligned with reference).
         **kwargs
             Metric-specific options.
 
@@ -570,8 +568,8 @@ class StatisticsCalculator(Protocol):
     def compute(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        reference_var: str,
+        comparand_var: str,
         metrics: Sequence[str] | None = None,
         groupby: str | Sequence[str] | None = None,
         **kwargs: Any,
@@ -582,10 +580,10 @@ class StatisticsCalculator(Protocol):
         ----------
         paired_data
             Paired Dataset.
-        obs_var
-            Observation variable name.
-        model_var
-            Model variable name.
+        reference_var
+            Reference variable name.
+        comparand_var
+            Comparand variable name.
         metrics
             List of metric names to compute. If None, compute all.
         groupby

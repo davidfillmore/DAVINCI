@@ -122,7 +122,7 @@ class PipelineContext:
     observations
         Dictionary of loaded observation data.
     paired
-        Dictionary of paired model-observation data.
+        Dictionary of paired source data.
     results
         Results from completed stages.
     metadata
@@ -181,6 +181,30 @@ class PipelineContext:
         if label not in self.sources:
             raise KeyError(f"Source '{label}' not found in context")
         return self.sources[label]
+
+    def iter_sources(self) -> list[tuple[str, Any]]:
+        """Return loaded sources in insertion order."""
+        return list(self.sources.items())
+
+    def get_source_dataset(self, label: str) -> xr.Dataset:
+        """Return the xarray Dataset for a source label."""
+        source = self.get_source(label)
+        data = source.data if hasattr(source, "data") else source
+        if not isinstance(data, xr.Dataset):
+            raise KeyError(f"Source '{label}' does not contain an xarray Dataset")
+        return data
+
+    def get_source_role(self, label: str) -> str | None:
+        """Return optional source role metadata for a source label."""
+        source = self.get_source(label)
+        role = getattr(source, "role", None)
+        if role:
+            return str(role)
+        data = source.data if hasattr(source, "data") else source
+        if isinstance(data, xr.Dataset):
+            raw = data.attrs.get("role")
+            return str(raw) if raw else None
+        return None
 
     def get_paired(self, key: str) -> Any:
         """Get paired data by key."""
@@ -392,6 +416,37 @@ def tag_source_roles(
             var.attrs.setdefault("role", role)
         var.attrs.setdefault("source_label", source_label)
     return data
+
+
+def iter_single_source_datasets(
+    context: PipelineContext,
+) -> list[tuple[str, Any, xr.Dataset, str | None]]:
+    """Return loaded single-source datasets from the unified source view.
+
+    ``context.sources`` is canonical for the standard pipeline. The legacy
+    role-specific dictionaries remain a compatibility fallback for tests and
+    direct stage use that bypasses ``LoadSourcesStage``.
+    """
+    if context.sources:
+        items = list(context.sources.items())
+    else:
+        seen: set[str] = set()
+        items = []
+        for label, obj in context.models.items():
+            seen.add(label)
+            items.append((label, obj))
+        for label, obj in context.observations.items():
+            if label not in seen:
+                items.append((label, obj))
+
+    sources: list[tuple[str, Any, xr.Dataset, str | None]] = []
+    for label, obj in items:
+        ds = obj.data if hasattr(obj, "data") else obj
+        if not isinstance(ds, xr.Dataset):
+            continue
+        role = getattr(obj, "role", None) or ds.attrs.get("role")
+        sources.append((str(label), obj, ds, str(role) if role else None))
+    return sources
 
 
 def resolve_paired_var_names(
@@ -955,21 +1010,25 @@ class LoadObservationsStage(BaseStage):
                 )
                 return data
 
-        # --- Get target grid from model ---
+        # --- Get target grid from a loaded source ---
         grid_source = config.get("grid_source")
         if not grid_source:
             context.log_progress("done: No grid_source specified, skipping MODIS")
             return None
 
-        model_obj = context.models.get(grid_source)
-        if model_obj is None:
-            context.log_progress(f"done: grid_source model '{grid_source}' not loaded, skipping")
+        grid_obj = (
+            context.sources.get(grid_source)
+            or context.models.get(grid_source)
+            or context.observations.get(grid_source)
+        )
+        if grid_obj is None:
+            context.log_progress(f"done: grid_source '{grid_source}' not loaded, skipping")
             return None
 
-        model_ds = model_obj.data if hasattr(model_obj, "data") else model_obj
-        # Extract lat/lon from model
-        lat_centers = model_ds["lat"].values.astype(np.float64)
-        lon_centers = model_ds["lon"].values.astype(np.float64)
+        grid_ds = grid_obj.data if hasattr(grid_obj, "data") else grid_obj
+        # Extract lat/lon from target grid
+        lat_centers = grid_ds["lat"].values.astype(np.float64)
+        lon_centers = grid_ds["lon"].values.astype(np.float64)
 
         # --- Subset files by time ---
         filename = config.get("filename", "")
@@ -1176,7 +1235,10 @@ class LoadSourcesStage(BaseStage):
 
         if context.config.get("sources"):
             try:
-                for label, raw_config in context.config.get("sources", {}).items():
+                source_configs = context.config.get("sources", {})
+                total_sources = len(source_configs)
+                for index, (label, raw_config) in enumerate(source_configs.items(), start=1):
+                    context.log_progress(f"    Loading source: {label} ({index}/{total_sources})")
                     source = self._load_unified_source(label, raw_config, context)
                     self._register_source(context, label, source)
                 return self._create_result(
@@ -1429,6 +1491,12 @@ class LoadSourcesStage(BaseStage):
 
     @staticmethod
     def _register_source(context: PipelineContext, label: str, obj: SourceData) -> None:
+        """Register a loaded source.
+
+        ``context.sources`` is canonical. Role-specific dictionaries are
+        compatibility mirrors for legacy callers and must not be required by
+        standard stages.
+        """
         context.sources[label] = obj
         if obj.role == "model":
             context.models[label] = obj
@@ -1453,7 +1521,7 @@ class PairingStage(BaseStage):
         """Validate that models and observations are loaded."""
         pairs_config = context.config.get("pairs")
         if isinstance(pairs_config, dict) and any(
-            isinstance(pair, dict) and "sources" in pair for pair in pairs_config.values()
+            isinstance(pair, dict) and bool(pair.get("sources")) for pair in pairs_config.values()
         ):
             return True
         if pairs_config and len(context.sources) >= 2:
@@ -1798,7 +1866,7 @@ class PairingStage(BaseStage):
             if not isinstance(raw_pair, dict):
                 errors.append(f"Pair '{pair_name}' must be a mapping")
                 continue
-            if "sources" in raw_pair:
+            if raw_pair.get("sources"):
                 srcs = raw_pair.get("sources") or []
                 if len(srcs) != 2:
                     errors.append(f"Pair '{pair_name}' must list exactly two sources; got {srcs!r}")
@@ -1979,6 +2047,7 @@ class PairingStage(BaseStage):
 
         debug = context.config.get("analysis", {}).get("debug", False)
         paired_count = 0
+        execution_errors: list[str] = []
         context.log_progress(f"    parallel_start: {len(jobs)}")
 
         for job in jobs:
@@ -1987,9 +2056,7 @@ class PairingStage(BaseStage):
             ref_ds = self._source_dataset(job.reference_obj)
             comp_ds = self._source_dataset(job.comparand_obj)
             if ref_ds is None or comp_ds is None:
-                context.metadata.setdefault("pairing_errors", []).append(
-                    f"{job.pair_key}: reference or comparand data is None"
-                )
+                execution_errors.append(f"{job.pair_key}: reference or comparand data is None")
                 context.log_progress(f"    parallel_completed: {job.pair_key} - FAILED")
                 continue
 
@@ -2029,10 +2096,19 @@ class PairingStage(BaseStage):
                     f"{n_vars} vars, {_format_size(n_points)} points{timing_str}"
                 )
             except Exception as e:
-                context.metadata.setdefault("pairing_errors", []).append(f"{job.pair_key}: {e}")
+                execution_errors.append(f"{job.pair_key}: {e}")
                 context.log_progress(f"    parallel_completed: {job.pair_key} - FAILED")
 
         context.log_progress("    parallel_end")
+        if execution_errors:
+            context.metadata.setdefault("pairing_errors", []).extend(execution_errors)
+            return self._create_result(
+                StageStatus.FAILED,
+                data={"paired_keys": list(context.paired.keys())},
+                error="Source pair execution failed: " + "; ".join(execution_errors),
+                duration=time.time() - start,
+                count=paired_count,
+            )
         return self._create_result(
             StageStatus.COMPLETED,
             data={"paired_keys": list(context.paired.keys())},
@@ -2060,20 +2136,21 @@ class PairingStage(BaseStage):
 
 
 class StatisticsStage(BaseStage):
-    """Stage for calculating statistics on paired data."""
+    """Stage for calculating statistics on paired or single-source data."""
 
     def __init__(self) -> None:
         super().__init__("statistics")
 
     def validate(self, context: PipelineContext) -> bool:
-        """Run for paired data (comparison stats) or unpaired observations
-        (descriptive stats) — the unified obs/paired statistics stage."""
-        return bool(context.paired) or bool(context.observations)
+        """Run for paired comparisons or descriptive stats on loaded sources."""
+        return bool(context.paired) or bool(iter_single_source_datasets(context))
 
-    def _execute_descriptive(self, context: PipelineContext) -> StageResult:
-        """Descriptive stats for unpaired observation sources (folded from the
-        former ObsStatisticsStage); tags the run descriptive so SaveResultsStage
-        routes it to ``statistics_descriptive.csv``."""
+    def _execute_descriptive(
+        self,
+        context: PipelineContext,
+        sources: list[tuple[str, Any, xr.Dataset, str | None]] | None = None,
+    ) -> StageResult:
+        """Descriptive stats for unpaired sources."""
         import time
 
         import numpy as np
@@ -2081,15 +2158,16 @@ class StatisticsStage(BaseStage):
         context.metadata["statistics_kind"] = "descriptive"
         start = time.time()
         all_stats: dict[str, dict[str, dict[str, float]]] = {}
-        for obs_label, obs_data in context.observations.items():
-            ds = obs_data.data if hasattr(obs_data, "data") else obs_data
-            obs_stats: dict[str, dict[str, float]] = {}
+        source_items = sources if sources is not None else iter_single_source_datasets(context)
+        for source_label, _source_obj, ds, _role in source_items:
+            source_stats: dict[str, dict[str, float]] = {}
             for var_name in ds.data_vars:
-                values = ds[var_name].values.flatten()
+                var_key = str(var_name)
+                values = ds[var_key].values.flatten()
                 values = values[np.isfinite(values)]
                 if len(values) < 1:
                     continue
-                obs_stats[var_name] = {
+                source_stats[var_key] = {
                     "N": len(values),
                     "mean": float(np.mean(values)),
                     "median": float(np.median(values)),
@@ -2101,7 +2179,7 @@ class StatisticsStage(BaseStage):
                     "p75": float(np.percentile(values, 75)),
                     "p90": float(np.percentile(values, 90)),
                 }
-            all_stats[obs_label] = obs_stats
+            all_stats[source_label] = source_stats
         return self._create_result(
             StageStatus.COMPLETED,
             data=all_stats,
@@ -2110,12 +2188,12 @@ class StatisticsStage(BaseStage):
 
     def execute(self, context: PipelineContext) -> StageResult:
         """Comparison statistics on paired data, or descriptive statistics on
-        unpaired observations (unified obs/paired statistics stage)."""
+        unpaired sources."""
         import time
 
-        # Obs-only run: no pairs, but observations to describe.
-        if not context.paired and context.observations:
-            return self._execute_descriptive(context)
+        single_sources = iter_single_source_datasets(context)
+        if not context.paired and single_sources:
+            return self._execute_descriptive(context, single_sources)
 
         context.metadata["statistics_kind"] = "comparison"
         start = time.time()
@@ -2193,8 +2271,8 @@ class StatisticsStage(BaseStage):
         for obs_var, model_var, base_name in iter_paired_variable_pairs(paired_data):
             df = calculator.compute(
                 paired_data,
-                obs_var=obs_var,
-                model_var=model_var,
+                reference_var=obs_var,
+                comparand_var=model_var,
                 metrics=list(metrics) if metrics else None,
             )
 
@@ -2291,20 +2369,45 @@ class StatisticsStage(BaseStage):
 
 
 class PlottingStage(BaseStage):
-    """Stage for generating plots from paired data."""
+    """Stage for generating plots from paired or single-source data."""
 
     def __init__(self) -> None:
         super().__init__("plotting")
 
+    @staticmethod
+    def _config_dict(value: Any) -> dict[str, Any]:
+        if hasattr(value, "model_dump"):
+            return dict(value.model_dump(exclude_none=True))
+        if isinstance(value, dict):
+            return value
+        return {}
+
+    @classmethod
+    def _source_var_config(
+        cls,
+        config: dict[str, Any],
+        source_label: str,
+        variable_name: str,
+    ) -> dict[str, Any]:
+        """Return variable plot config for a source label from unified or legacy config."""
+        for block in ("sources", "model", "obs"):
+            block_cfg = config.get(block, {})
+            if not isinstance(block_cfg, dict):
+                continue
+            source_cfg = cls._config_dict(block_cfg.get(source_label, {}))
+            variables = cls._config_dict(source_cfg.get("variables", {}))
+            if variable_name in variables:
+                return cls._config_dict(variables[variable_name])
+        return {}
+
     def validate(self, context: PipelineContext) -> bool:
-        """Run for paired data (comparison plots) or unpaired observations
-        (obs-only plots) — the unified obs/paired plotting stage."""
-        return bool(context.paired) or bool(context.observations)
+        """Run for paired comparisons or single-source plots."""
+        return bool(context.paired) or bool(iter_single_source_datasets(context))
 
-    def _execute_obs(self, context: PipelineContext) -> StageResult:
-        """Obs-only plotting (folded from the former ObsPlottingStage).
+    def _execute_single_source(self, context: PipelineContext) -> StageResult:
+        """Single-source plotting.
 
-        Renders each obs plot spec against its single obs source, auto-splitting
+        Renders each plot spec against its single configured source, auto-splitting
         on a ``flight`` coord with >1 flight. Multi-figure renderers (e.g. hourly
         LMA density) return a list of ``(fig, suffix)``.
         """
@@ -2322,6 +2425,7 @@ class PlottingStage(BaseStage):
         _SCHEMA_KEYS = {
             "type",
             "obs",
+            "source",
             "variable",
             "fig_kwargs",
             "default_plot_kwargs",
@@ -2340,27 +2444,30 @@ class PlottingStage(BaseStage):
         plot_count = 0
         plots_generated: list[str] = []
         errors: list[str] = []
+        source_map = {
+            label: (obj, ds, role) for label, obj, ds, role in iter_single_source_datasets(context)
+        }
 
         for plot_name, plot_spec in plots_config.items():
             plot_type = plot_spec.get("type", "")
-            # Obs-only specs are single-source (they carry an ``obs:`` key). Both
-            # canonical type names and the deprecated ``obs_*`` aliases are handled;
-            # only skip specs with no type or no obs source.
-            if not plot_type or "obs" not in plot_spec:
+            # Single-source specs carry either canonical ``source:`` or the
+            # deprecated ``obs:`` key.
+            if not plot_type or ("source" not in plot_spec and "obs" not in plot_spec):
                 continue
 
-            obs_label = plot_spec.get("obs", "")
+            source_label = str(plot_spec.get("source") or plot_spec.get("obs") or "")
             variable = plot_spec.get("variable", "")
 
-            if obs_label not in context.observations:
-                errors.append(f"Observation '{obs_label}' not found for plot '{plot_name}'")
+            if source_label not in source_map:
+                errors.append(f"Source '{source_label}' not found for plot '{plot_name}'")
                 continue
 
-            obs_data = context.observations[obs_label]
-            ds = obs_data.data if hasattr(obs_data, "data") else obs_data
+            _source_obj, ds, role = source_map[source_label]
 
             if variable not in ds.data_vars:
-                errors.append(f"Variable '{variable}' not in '{obs_label}' for plot '{plot_name}'")
+                errors.append(
+                    f"Variable '{variable}' not in source '{source_label}' for plot '{plot_name}'"
+                )
                 continue
 
             plotter = get_plotter(plot_type)
@@ -2394,15 +2501,14 @@ class PlottingStage(BaseStage):
 
                 if "flight_tracks" in plot_spec:
                     flight_kwargs["obs_datasets"] = {
-                        label: (od.data if hasattr(od, "data") else od)
-                        for label, od in context.observations.items()
+                        label: source_ds for label, (_obj, source_ds, _role) in source_map.items()
                     }
 
                 try:
                     if unified:
                         # Tag the single source so build_series picks up role +
                         # source label, then render through the unified contract.
-                        tag_source_roles(subset, role="obs", source_label=obs_label)
+                        tag_source_roles(subset, role=role, source_label=source_label)
                         result = plotter.render(build_series(subset, variable), **flight_kwargs)
                     else:
                         result = plotter.plot(subset, variable, **flight_kwargs)
@@ -2413,7 +2519,7 @@ class PlottingStage(BaseStage):
                             plt.close(fig)
                             plot_count += 1
                             plots_generated.append(str(out_path))
-                            _logger.info(f"Saved obs plot: {out_path}")
+                            _logger.info(f"Saved source plot: {out_path}")
                     else:
                         fig = result
                         out_path = output_dir / f"{plot_name}{suffix}.png"
@@ -2421,11 +2527,11 @@ class PlottingStage(BaseStage):
                         plt.close(fig)
                         plot_count += 1
                         plots_generated.append(str(out_path))
-                        _logger.info(f"Saved obs plot: {out_path}")
+                        _logger.info(f"Saved source plot: {out_path}")
                 except Exception as e:
                     label = f"'{plot_name}' (flight {fid})" if fid else f"'{plot_name}'"
                     errors.append(f"Plot {label} failed: {e}")
-                    _logger.warning(f"Obs plot {label} failed: {e}")
+                    _logger.warning(f"Source plot {label} failed: {e}")
 
         return self._create_result(
             StageStatus.COMPLETED if plot_count > 0 or not plots_config else StageStatus.SKIPPED,
@@ -2434,11 +2540,9 @@ class PlottingStage(BaseStage):
         )
 
     def execute(self, context: PipelineContext) -> StageResult:
-        """Generate comparison plots from paired data, or obs-only plots from
-        unpaired observations (unified obs/paired plotting stage)."""
-        # Obs-only run: no pairs, but observations to plot.
-        if not context.paired and context.observations:
-            return self._execute_obs(context)
+        """Generate comparison plots from paired data, or plots from unpaired sources."""
+        if not context.paired and iter_single_source_datasets(context):
+            return self._execute_single_source(context)
 
         import time
         from pathlib import Path
@@ -2469,7 +2573,6 @@ class PlottingStage(BaseStage):
 
         # Get pairs config for variable mapping
         pairs_config = context.config.get("pairs", {})
-        model_config = context.config.get("model", {})
         total_plots = len(plot_config)
         plot_count = 0
         file_index = 0  # Global counter for ordering files in preview
@@ -2577,18 +2680,14 @@ class PlottingStage(BaseStage):
                     if obs_var_name not in paired_data or model_var_name not in paired_data:
                         continue
 
-                    # Get plotter config from model variable settings
+                    # Get plotter config from source variable settings. The
+                    # comparand side wins for comparison-specific plot limits;
+                    # reference settings are a fallback for same-source-role runs.
                     model_var = var_spec.get("model_var", "")
-                    var_config = (
-                        model_config.get(model_label, {}).get("variables", {}).get(model_var, {})
-                    )
+                    obs_var = var_spec.get("obs_var", "")
+                    var_config = self._source_var_config(context.config, model_label, model_var)
                     if not var_config:
-                        var_config = (
-                            context.config.get("sources", {})
-                            .get(model_label, {})
-                            .get("variables", {})
-                            .get(model_var, {})
-                        )
+                        var_config = self._source_var_config(context.config, obs_label, obs_var)
                     vmin = var_config.get("vmin_plot")
                     vmax = var_config.get("vmax_plot")
                     vdiff = var_config.get("vdiff_plot")
@@ -2663,19 +2762,25 @@ class PlottingStage(BaseStage):
                         plot_options.setdefault("n_levels", nlevels)
 
                     # spatial_overlay needs the raw gridded model field for the
-                    # contour layer; the paired dataset only carries model values
-                    # interpolated to obs sites.
+                    # contour layer; the paired dataset usually carries sampled
+                    # values at reference locations only. Keep the renderer option
+                    # name `model_field` for compatibility.
                     if plot_type == "spatial_overlay":
                         if "model_field" not in plot_options:
-                            model_obj = context.models.get(model_label)
-                            if model_obj is not None:
-                                model_ds = (
-                                    model_obj.data if hasattr(model_obj, "data") else model_obj
+                            source_obj = (
+                                context.sources.get(model_label)
+                                or context.sources.get(obs_label)
+                                or context.models.get(model_label)
+                                or context.observations.get(obs_label)
+                            )
+                            if source_obj is not None:
+                                source_ds = (
+                                    source_obj.data if hasattr(source_obj, "data") else source_obj
                                 )
-                                if model_ds is not None and model_var in getattr(
-                                    model_ds, "data_vars", {}
-                                ):
-                                    plot_options["model_field"] = model_ds[model_var]
+                                source_vars = getattr(source_ds, "data_vars", {})
+                                field_var = model_var if model_var in source_vars else obs_var
+                                if source_ds is not None and field_var in source_vars:
+                                    plot_options["model_field"] = source_ds[field_var]
                         # Observation readers differ on coord naming
                         # (`latitude`/`longitude` vs `lat`/`lon`). Pick whichever
                         # the paired dataset actually carries.
@@ -2721,18 +2826,24 @@ class PlottingStage(BaseStage):
                     # Forward per-plot axis label overrides to the plotter config
                     # so renderers like scatter can display source-named labels
                     # (e.g. "MODIS Terra AOD") instead of "Observed AOD (550 nm)".
-                    for label_key in ("obs_label", "model_label"):
-                        if label_key in plot_spec:
-                            plotter_config[label_key] = plot_spec[label_key]
+                    label_aliases = {
+                        "reference_label": "obs_label",
+                        "comparand_label": "model_label",
+                        "obs_label": "obs_label",
+                        "model_label": "model_label",
+                    }
+                    for input_key, plotter_key in label_aliases.items():
+                        if input_key in plot_spec:
+                            plotter_config[plotter_key] = plot_spec[input_key]
                     if subtitle:
                         plotter_config["title"] = f"{title}\n{subtitle}"
 
                     # Get plotter
                     plotter = get_plotter(plot_type, config=plotter_config)
 
-                    # Create subdirectory by observation dataset
-                    obs_output_dir = output_dir / obs_label
-                    obs_output_dir.mkdir(parents=True, exist_ok=True)
+                    # Create subdirectory by reference source.
+                    reference_output_dir = output_dir / obs_label
+                    reference_output_dir.mkdir(parents=True, exist_ok=True)
 
                     # Check for per-flight splitting
                     split_by_flight = plot_spec.get("split_by_flight", False)
@@ -2755,13 +2866,15 @@ class PlottingStage(BaseStage):
                         ):
                             # Save plot with flight ID first for grouping by flight in slideshows
                             output_path = (
-                                obs_output_dir / f"{flight_id}_{file_index:02d}_{plot_name}.png"
+                                reference_output_dir
+                                / f"{flight_id}_{file_index:02d}_{plot_name}.png"
                             )
                             plotter.save(fig, output_path, dpi=300)
                             plots_generated.append(str(output_path))
 
                             pdf_path = (
-                                obs_output_dir / f"{flight_id}_{file_index:02d}_{plot_name}.pdf"
+                                reference_output_dir
+                                / f"{flight_id}_{file_index:02d}_{plot_name}.pdf"
                             )
                             plotter.save(fig, pdf_path)
                             plots_generated.append(str(pdf_path))
@@ -2787,13 +2900,15 @@ class PlottingStage(BaseStage):
                             **plot_options,
                         ):
                             output_path = (
-                                obs_output_dir / f"site_{site_id}_{file_index:02d}_{plot_name}.png"
+                                reference_output_dir
+                                / f"site_{site_id}_{file_index:02d}_{plot_name}.png"
                             )
                             plotter.save(fig, output_path, dpi=300)
                             plots_generated.append(str(output_path))
 
                             pdf_path = (
-                                obs_output_dir / f"site_{site_id}_{file_index:02d}_{plot_name}.pdf"
+                                reference_output_dir
+                                / f"site_{site_id}_{file_index:02d}_{plot_name}.pdf"
                             )
                             plotter.save(fig, pdf_path)
                             plots_generated.append(str(pdf_path))
@@ -2810,12 +2925,12 @@ class PlottingStage(BaseStage):
                         )
 
                         # Save plot (prefixed for ordering)
-                        output_path = obs_output_dir / f"{file_index:02d}_{plot_name}.png"
+                        output_path = reference_output_dir / f"{file_index:02d}_{plot_name}.png"
                         plotter.save(fig, output_path, dpi=300)
                         plots_generated.append(str(output_path))
 
                         # Also save PDF
-                        pdf_path = obs_output_dir / f"{file_index:02d}_{plot_name}.pdf"
+                        pdf_path = reference_output_dir / f"{file_index:02d}_{plot_name}.pdf"
                         plotter.save(fig, pdf_path)
                         plots_generated.append(str(pdf_path))
 
@@ -2859,8 +2974,8 @@ class SaveResultsStage(BaseStage):
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Save statistics from the statistics stage. Comparison stats go to
-        # statistics_summary.csv (byte-identical to before); obs-only descriptive
-        # stats go to a separate statistics_descriptive.csv (Q3).
+        # statistics_summary.csv for comparison stats; single-source descriptive
+        # stats go to a separate statistics_descriptive.csv.
         stats_result = context.results.get("statistics")
         stats_kind = context.metadata.get("statistics_kind", "comparison")
         if stats_result and stats_result.data and stats_kind == "descriptive":
@@ -2894,8 +3009,12 @@ class SaveResultsStage(BaseStage):
                         continue
                     row = {"Variable": var_name}
                     row["N"] = _get_metric(var_stats, "N", "n", default=0)
-                    row["Mean_Obs"] = _get_metric(var_stats, "MO", "obs_mean")
-                    row["Mean_Model"] = _get_metric(var_stats, "MP", "model_mean")
+                    mean_reference = _get_metric(var_stats, "MO", "obs_mean")
+                    mean_comparand = _get_metric(var_stats, "MP", "model_mean")
+                    row["Mean_Reference"] = mean_reference
+                    row["Mean_Comparand"] = mean_comparand
+                    row["Mean_Obs"] = mean_reference
+                    row["Mean_Model"] = mean_comparand
                     row["MB"] = _get_metric(var_stats, "MB", "mean_bias")
                     row["RMSE"] = _get_metric(var_stats, "RMSE", "rmse")
                     row["R"] = _get_metric(var_stats, "R", "correlation")
@@ -2904,7 +3023,7 @@ class SaveResultsStage(BaseStage):
                     # Prefer computed NMB/NME if present; otherwise derive as fallback
                     nmb = _get_metric(var_stats, "NMB", default=float("nan"))
                     nme = _get_metric(var_stats, "NME", default=float("nan"))
-                    obs_mean = row["Mean_Obs"]
+                    obs_mean = row["Mean_Reference"]
 
                     if isinstance(nmb, (int, float)) and not math.isnan(float(nmb)):
                         row["NMB_%"] = nmb
@@ -3068,12 +3187,12 @@ def create_standard_pipeline() -> list[BaseStage]:
 
 
 def create_obs_pipeline() -> list[BaseStage]:
-    """Create an observation-only pipeline (no model/pairing stages).
+    """Create a single-source pipeline (no pairing stage).
 
     Returns
     -------
     list[BaseStage]
-        List of stages for obs-only analysis.
+        List of stages for single-source analysis.
     """
     return [
         LoadSourcesStage(),

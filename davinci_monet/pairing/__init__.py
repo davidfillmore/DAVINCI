@@ -1,4 +1,4 @@
-"""Unified pairing engine for model-observation collocation."""
+"""Unified pairing engine for source collocation."""
 
 from davinci_monet.pairing.direction import (
     IRREGULAR_GEOMETRIES,

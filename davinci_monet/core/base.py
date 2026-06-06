@@ -4,8 +4,8 @@ This module provides the core data container classes that wrap xarray Datasets
 with metadata and common operations.
 
 Key Classes:
-    - PairedData: Container for paired model-observation data
-    - DataContainer: Base class for model and observation containers
+    - PairedData: Container for paired source data
+    - DataContainer: Base class for source containers
 """
 
 from __future__ import annotations
@@ -521,21 +521,22 @@ def iter_canonical_variable_series(dataset: xr.Dataset) -> dict[str, list[PlotSe
 
 @dataclass
 class PairedData:
-    """Container for paired model-observation data.
+    """Container for paired source data.
 
-    Holds the result of pairing model output with observations,
-    including metadata about the pairing process.
+    Canonically, paired data has a reference source and a comparand source.
+    The historical ``obs_label`` and ``model_label`` fields are retained as
+    compatibility aliases for reference and comparand, respectively.
 
     Attributes
     ----------
     data : xr.Dataset
-        The paired dataset with both model and observation variables.
+        The paired dataset with reference and comparand variables.
     model_label : str
-        Label of the model source.
+        Compatibility alias for the comparand source label.
     obs_label : str
-        Label of the observation source.
+        Compatibility alias for the reference source label.
     geometry : DataGeometry
-        The geometry type of the observation data.
+        The geometry type of the reference data.
     pairing_info : dict[str, Any]
         Metadata about the pairing process.
     """
@@ -548,12 +549,31 @@ class PairedData:
 
     @property
     def pair_label(self) -> str:
-        """Get combined pair label (obs_model format)."""
-        return f"{self.obs_label}_{self.model_label}"
+        """Get combined pair label (reference_comparand format)."""
+        return f"{self.reference_label}_{self.comparand_label}"
 
     @property
-    def model_variables(self) -> list[str]:
-        """List of model (comparand-role) variables in the paired data."""
+    def reference_label(self) -> str:
+        """Label of the reference source."""
+        return str(self.pairing_info.get("reference_label") or self.obs_label)
+
+    @property
+    def comparand_label(self) -> str:
+        """Label of the comparand source."""
+        return str(self.pairing_info.get("comparand_label") or self.model_label)
+
+    @property
+    def reference_variables(self) -> list[str]:
+        """List of reference-role variables in the paired data."""
+        return [
+            str(v)
+            for v in self.data.data_vars
+            if paired_variable_pair_role(self.data, str(v)) == "reference"
+        ]
+
+    @property
+    def comparand_variables(self) -> list[str]:
+        """List of comparand-role variables in the paired data."""
         return [
             str(v)
             for v in self.data.data_vars
@@ -561,13 +581,14 @@ class PairedData:
         ]
 
     @property
+    def model_variables(self) -> list[str]:
+        """Compatibility alias for comparand-role variables."""
+        return self.comparand_variables
+
+    @property
     def obs_variables(self) -> list[str]:
-        """List of observation (reference-role) variables in the paired data."""
-        return [
-            str(v)
-            for v in self.data.data_vars
-            if paired_variable_pair_role(self.data, str(v)) == "reference"
-        ]
+        """Compatibility alias for reference-role variables."""
+        return self.reference_variables
 
     @property
     def paired_variable_names(self) -> list[tuple[str, str]]:
@@ -577,19 +598,19 @@ class PairedData:
         ]
 
     def _resolve_role_var(self, variable: str, role: str) -> str | None:
-        """Resolve a paired variable for ``role`` ('obs'/'model').
+        """Resolve a paired variable for ``role``.
 
-        Accepts an exact name, a legacy-prefixed name, a bare canonical name, or
-        a source-label name, so callers work against both legacy ``model_``/``obs_``
-        and source-label paired output (renderer rewire R-5).
+        ``role`` accepts canonical pair roles (``reference``/``comparand``) and
+        compatibility names (``obs``/``model``). Variable lookup accepts exact,
+        legacy-prefixed, bare canonical, or source-label names.
         """
-        wanted = "reference" if role == "obs" else "comparand"
+        wanted = "reference" if role in {"obs", "reference"} else "comparand"
         if (
             variable in self.data.data_vars
             and paired_variable_pair_role(self.data, variable) == wanted
         ):
             return variable
-        prefix = "obs_" if role == "obs" else "model_"
+        prefix = "obs_" if wanted == "reference" else "model_"
         legacy = variable if variable.startswith(prefix) else f"{prefix}{variable}"
         if legacy in self.data.data_vars and paired_variable_pair_role(self.data, legacy) == wanted:
             return legacy
@@ -603,8 +624,30 @@ class PairedData:
                 return name
         return None
 
+    def get_reference(self, variable: str) -> xr.DataArray:
+        """Get a reference-role variable."""
+        name = self._resolve_role_var(variable, "reference")
+        if name is None:
+            raise VariableNotFoundError(
+                f"Reference variable '{variable}' not found. "
+                f"Available: {self.reference_variables}"
+            )
+        result: xr.DataArray = self.data[name]
+        return result
+
+    def get_comparand(self, variable: str) -> xr.DataArray:
+        """Get a comparand-role variable."""
+        name = self._resolve_role_var(variable, "comparand")
+        if name is None:
+            raise VariableNotFoundError(
+                f"Comparand variable '{variable}' not found. "
+                f"Available: {self.comparand_variables}"
+            )
+        result: xr.DataArray = self.data[name]
+        return result
+
     def get_obs(self, variable: str) -> xr.DataArray:
-        """Get observation variable.
+        """Get reference variable through the legacy observation accessor.
 
         Parameters
         ----------
@@ -615,18 +658,12 @@ class PairedData:
         Returns
         -------
         xr.DataArray
-            Observation data.
+            Reference data.
         """
-        name = self._resolve_role_var(variable, "obs")
-        if name is None:
-            raise VariableNotFoundError(
-                f"Observation variable '{variable}' not found. " f"Available: {self.obs_variables}"
-            )
-        result: xr.DataArray = self.data[name]
-        return result
+        return self.get_reference(variable)
 
     def get_model(self, variable: str) -> xr.DataArray:
-        """Get model variable.
+        """Get comparand variable through the legacy model accessor.
 
         Parameters
         ----------
@@ -637,18 +674,12 @@ class PairedData:
         Returns
         -------
         xr.DataArray
-            Model data.
+            Comparand data.
         """
-        name = self._resolve_role_var(variable, "model")
-        if name is None:
-            raise VariableNotFoundError(
-                f"Model variable '{variable}' not found. " f"Available: {self.model_variables}"
-            )
-        result: xr.DataArray = self.data[name]
-        return result
+        return self.get_comparand(variable)
 
     def get_pair(self, variable: str) -> tuple[xr.DataArray, xr.DataArray]:
-        """Get both observation and model arrays for a variable.
+        """Get both reference and comparand arrays for a variable.
 
         Parameters
         ----------
@@ -658,11 +689,11 @@ class PairedData:
         Returns
         -------
         tuple[xr.DataArray, xr.DataArray]
-            (obs_array, model_array) tuple.
+            (reference_array, comparand_array) tuple.
         """
-        obs = self.get_obs(variable)
-        model = self.get_model(variable)
-        return (obs, model)
+        reference = self.get_reference(variable)
+        comparand = self.get_comparand(variable)
+        return (reference, comparand)
 
     @property
     def time_range(self) -> TimeRange | None:

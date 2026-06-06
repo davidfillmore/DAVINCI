@@ -66,12 +66,12 @@ class OutputConfig:
 #: Mapping of metric abbreviations to full names
 METRIC_FULL_NAMES = {
     "N": "Sample Size",
-    "MO": "Mean Observation",
-    "MP": "Mean Model",
-    "STDO": "Obs Standard Deviation",
-    "STDP": "Model Standard Deviation",
-    "MdnO": "Median Observation",
-    "MdnP": "Median Model",
+    "MO": "Mean Reference",
+    "MP": "Mean Comparand",
+    "STDO": "Reference Standard Deviation",
+    "STDP": "Comparand Standard Deviation",
+    "MdnO": "Median Reference",
+    "MdnP": "Median Comparand",
     "MB": "Mean Bias",
     "MdnB": "Median Bias",
     "NMB": "Normalized Mean Bias",

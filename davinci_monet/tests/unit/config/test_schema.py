@@ -418,6 +418,29 @@ class TestMonetConfig:
         assert config.model["cmaq"].radius_of_influence == 15000
         assert config.obs["airnow"].variables["OZONE"].nan_value == -1.0
 
+    def test_monet_config_parses_unified_pairs(self) -> None:
+        """Test root config parses unified source pairs as typed configs."""
+        config = MonetConfig.model_validate(
+            {
+                "sources": {
+                    "a": {"type": "generic", "files": "/tmp/a.nc"},
+                    "b": {"type": "generic", "files": "/tmp/b.nc"},
+                },
+                "pairs": {
+                    "a_b": {
+                        "sources": ["a", "b"],
+                        "reference": "a",
+                        "variables": {"a": "O3", "b": "O3"},
+                    }
+                },
+            }
+        )
+
+        assert "a_b" in config.pairs
+        assert config.pairs["a_b"].sources == ["a", "b"]
+        assert config.pairs["a_b"].reference == "a"
+        assert config.pairs["a_b"].variables == {"a": "O3", "b": "O3"}
+
 
 class TestExtraFieldsHandling:
     """Tests for handling extra/unknown fields."""
