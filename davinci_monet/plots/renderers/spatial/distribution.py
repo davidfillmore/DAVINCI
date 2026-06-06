@@ -20,7 +20,11 @@ from davinci_monet.plots.base import (
     get_variable_units,
 )
 from davinci_monet.plots.registry import register_plotter
-from davinci_monet.plots.renderers.spatial.base import BaseSpatialPlotter, MapConfig
+from davinci_monet.plots.renderers.spatial.base import (
+    BaseSpatialPlotter,
+    MapConfig,
+    detect_spatial_geometry,
+)
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -180,23 +184,15 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         lat_da = paired_data[resolved_lat]
         lon_da = paired_data[resolved_lon]
         # Reference DataArray for geometry detection — use obs_data dims.
-        ref_da = obs_data
-        is_point_data = (
-            lat_da.ndim == 1
-            and lon_da.ndim == 1
-            and lat_da.dims == lon_da.dims
-            and lat_da.dims[0] in ref_da.dims
-        )
+        _geometry = detect_spatial_geometry(lat_da, lon_da, obs_data)
 
         # Resolve "auto" to a concrete method based on data geometry: gridded
         # data (1-D lat/lon axes with a 2-D+ field, or 2-D curvilinear coords)
         # renders as a filled pcolormesh field; point/site data uses scatter.
         effective_plot_type = plot_type
         if plot_type == "auto":
-            is_regular_grid = (not is_point_data) and lats.ndim == 1 and ref_da.ndim >= 2
-            is_curvilinear_grid = lats.ndim == 2
             effective_plot_type = (
-                "pcolormesh" if (is_regular_grid or is_curvilinear_grid) else "scatter"
+                "pcolormesh" if _geometry in ("regular_grid", "curvilinear_grid") else "scatter"
             )
 
         # Calculate common limits

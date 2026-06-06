@@ -22,6 +22,70 @@ if TYPE_CHECKING:
     import xarray as xr
 
 
+def detect_spatial_geometry(
+    lat_da: xr.DataArray,
+    lon_da: xr.DataArray,
+    field_da: xr.DataArray,
+) -> str:
+    """Classify the spatial geometry of a paired dataset variable.
+
+    Examines the DataArray dimensions of the lat/lon coordinates and the
+    field to distinguish three mutually exclusive cases:
+
+    - ``"point"``: lat and lon are both 1-D, share the **same single
+      dimension**, and that dimension appears in the field.  This is the
+      geometry of station/site observations (AirNow, AERONET, aircraft
+      tracks) where each element is an independent location.
+
+    - ``"regular_grid"``: lat and lon are both 1-D but do **not** share a
+      single site dimension (i.e. they are independent axis arrays), and
+      the field has at least two dimensions.  This is the geometry of
+      structured rectilinear model output where lat and lon define a
+      Cartesian product.
+
+    - ``"curvilinear_grid"``: lat and/or lon are 2-D arrays whose values
+      vary in two dimensions.  This is the geometry of non-rectangular
+      grids (e.g. rotated-pole or staggered grids).
+
+    Parameters
+    ----------
+    lat_da:
+        DataArray for latitude coordinate (from ``paired_data[resolved_lat]``).
+    lon_da:
+        DataArray for longitude coordinate (from ``paired_data[resolved_lon]``).
+    field_da:
+        DataArray for the field being classified (bias, obs_data, etc.).
+
+    Returns
+    -------
+    str
+        One of ``"point"``, ``"regular_grid"``, or ``"curvilinear_grid"``.
+    """
+    # Curvilinear: lat (or lon) is 2-D.  Check this first so that 2-D
+    # coords are never misclassified as point data.
+    if lat_da.ndim == 2:
+        return "curvilinear_grid"
+
+    # Point: both 1-D, sharing the same single dimension, and that
+    # dimension is present in the field (not just a standalone coord).
+    if (
+        lat_da.ndim == 1
+        and lon_da.ndim == 1
+        and lat_da.dims == lon_da.dims
+        and lat_da.dims[0] in field_da.dims
+    ):
+        return "point"
+
+    # Regular grid: 1-D lat/lon axes that are independent (not the same
+    # site dim), with a field that spans at least two dimensions.
+    if lat_da.ndim == 1 and lon_da.ndim == 1 and field_da.ndim >= 2:
+        return "regular_grid"
+
+    # Fallback — treat as point to preserve existing "else" branch
+    # behaviour (scatter for anything not clearly gridded).
+    return "point"
+
+
 @dataclass
 class MapConfig:
     """Configuration for map display.

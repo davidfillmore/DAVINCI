@@ -25,6 +25,7 @@ from davinci_monet.plots.registry import register_plotter
 from davinci_monet.plots.renderers.spatial.base import (
     BaseSpatialPlotter,
     MapConfig,
+    detect_spatial_geometry,
     get_domain_extent,
 )
 
@@ -182,12 +183,8 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         # single dim and must not be meshgridded as if they were grid axes.
         lat_da = paired_data[resolved_lat]
         lon_da = paired_data[resolved_lon]
-        is_point_data = (
-            lat_da.ndim == 1
-            and lon_da.ndim == 1
-            and lat_da.dims == lon_da.dims
-            and lat_da.dims[0] in bias.dims
-        )
+        _geometry = detect_spatial_geometry(lat_da, lon_da, bias)
+        is_point_data = _geometry == "point"
 
         if is_point_data:
             # Point/site data: drop singleton dims (e.g. legacy AirNow y=1
@@ -266,10 +263,8 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         # renders as a filled pcolormesh field; point/site data uses scatter.
         effective_plot_type = plot_type
         if plot_type == "auto":
-            is_regular_grid = (not is_point_data) and lats.ndim == 1 and bias.ndim >= 2
-            is_curvilinear_grid = lats.ndim == 2
             effective_plot_type = (
-                "pcolormesh" if (is_regular_grid or is_curvilinear_grid) else "scatter"
+                "pcolormesh" if _geometry in ("regular_grid", "curvilinear_grid") else "scatter"
             )
 
         # Choose plot method based on data geometry
