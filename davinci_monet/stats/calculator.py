@@ -1,7 +1,8 @@
-"""Statistics calculator for paired model-observation data.
+"""Statistics calculator for paired source data.
 
 This module provides the main interface for computing statistics
-on paired datasets, with support for grouping and multiple metrics.
+on paired reference/comparand datasets, with support for grouping and multiple
+metrics.
 """
 
 from __future__ import annotations
@@ -92,10 +93,13 @@ class StatisticsCalculator:
     def compute(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        obs_var: str | None = None,
+        model_var: str | None = None,
         metrics: Sequence[str] | None = None,
         groupby: str | Sequence[str] | None = None,
+        *,
+        reference_var: str | None = None,
+        comparand_var: str | None = None,
         **kwargs: Any,
     ) -> pd.DataFrame:
         """Compute statistics for paired data.
@@ -103,15 +107,19 @@ class StatisticsCalculator:
         Parameters
         ----------
         paired_data
-            Paired dataset with model and observation variables.
+            Paired dataset with reference and comparand variables.
         obs_var
-            Name of observation variable.
+            Compatibility name for reference variable.
         model_var
-            Name of model variable.
+            Compatibility name for comparand variable.
         metrics
             List of metric names. If None, uses config.metrics.
         groupby
             Optional dimension(s) to group by.
+        reference_var
+            Name of reference variable.
+        comparand_var
+            Name of comparand variable.
         **kwargs
             Additional options passed to individual metrics.
 
@@ -121,10 +129,14 @@ class StatisticsCalculator:
             Statistics table with metrics as columns.
         """
         metrics = list(metrics) if metrics is not None else self.config.metrics
+        reference_name = reference_var or obs_var
+        comparand_name = comparand_var or model_var
+        if reference_name is None or comparand_name is None:
+            raise ValueError("Both reference_var and comparand_var are required")
 
         # Get data arrays
-        obs_data = paired_data[obs_var]
-        model_data = paired_data[model_var]
+        obs_data = paired_data[reference_name]
+        model_data = paired_data[comparand_name]
 
         if groupby is not None:
             return self._compute_grouped(obs_data, model_data, metrics, groupby, **kwargs)
@@ -422,9 +434,12 @@ class StatisticsCalculator:
     def compute_summary(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        obs_var: str | None = None,
+        model_var: str | None = None,
         metrics: Sequence[str] | None = None,
+        *,
+        reference_var: str | None = None,
+        comparand_var: str | None = None,
         **kwargs: Any,
     ) -> dict[str, float]:
         """Compute summary statistics as a dictionary.
@@ -434,11 +449,15 @@ class StatisticsCalculator:
         paired_data
             Paired dataset.
         obs_var
-            Observation variable name.
+            Compatibility name for reference variable.
         model_var
-            Model variable name.
+            Compatibility name for comparand variable.
         metrics
             List of metric names.
+        reference_var
+            Reference variable name.
+        comparand_var
+            Comparand variable name.
         **kwargs
             Additional options.
 
@@ -447,7 +466,15 @@ class StatisticsCalculator:
         dict[str, float]
             Dictionary of metric values.
         """
-        df = self.compute(paired_data, obs_var, model_var, metrics=metrics, **kwargs)
+        df = self.compute(
+            paired_data,
+            obs_var,
+            model_var,
+            metrics=metrics,
+            reference_var=reference_var,
+            comparand_var=comparand_var,
+            **kwargs,
+        )
         return df.iloc[0].to_dict()
 
 
@@ -458,11 +485,14 @@ class StatisticsCalculator:
 
 def calculate_statistics(
     paired_data: xr.Dataset,
-    obs_var: str,
-    model_var: str,
+    obs_var: str | None = None,
+    model_var: str | None = None,
     metrics: Sequence[str] | None = None,
     groupby: str | Sequence[str] | None = None,
     config: StatisticsConfig | dict[str, Any] | None = None,
+    *,
+    reference_var: str | None = None,
+    comparand_var: str | None = None,
     **kwargs: Any,
 ) -> pd.DataFrame:
     """Calculate statistics for paired data.
@@ -472,17 +502,21 @@ def calculate_statistics(
     Parameters
     ----------
     paired_data
-        Paired dataset with model and observation variables.
+        Paired dataset with reference and comparand variables.
     obs_var
-        Name of observation variable.
+        Compatibility name for reference variable.
     model_var
-        Name of model variable.
+        Compatibility name for comparand variable.
     metrics
         List of metric names. If None, uses standard set.
     groupby
         Optional dimension(s) to group by.
     config
         Statistics configuration.
+    reference_var
+        Name of reference variable.
+    comparand_var
+        Name of comparand variable.
     **kwargs
         Additional options.
 
@@ -508,7 +542,16 @@ def calculate_statistics(
         config = StatisticsConfig.from_dict(config)
 
     calc = StatisticsCalculator(config=config)
-    return calc.compute(paired_data, obs_var, model_var, metrics=metrics, groupby=groupby, **kwargs)
+    return calc.compute(
+        paired_data,
+        obs_var,
+        model_var,
+        metrics=metrics,
+        groupby=groupby,
+        reference_var=reference_var,
+        comparand_var=comparand_var,
+        **kwargs,
+    )
 
 
 def quick_stats(

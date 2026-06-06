@@ -361,9 +361,9 @@ class ObservationConfig(FlexibleModel):
     data_proc
         Data processing options.
     grid_source
-        Model label whose grid is used as the binning target for swath
-        observations (e.g., ``modis_l2``). The model must be loaded
-        before observations.
+        Source label whose grid is used as the binning target for swath
+        observations (e.g., ``modis_l2``). The grid source must be loaded
+        before the swath source.
     time_resolution
         Pandas frequency string for temporal binning of swath data
         (e.g., "1D" for daily). Default "1D".
@@ -485,17 +485,40 @@ class SourceConfig(FlexibleModel):
 
 
 class SourcePairConfig(FlexibleModel):
-    """Binary pair definition for the unified sources schema (Phase 6).
+    """Binary pair definition.
 
-    ``sources`` lists exactly two source labels; ``reference`` optionally names
-    which one is the reference (otherwise geometry precedence decides);
-    ``variables`` maps each source label to its variable name. Order does not
-    imply direction.
+    Unified pairs use ``sources``/``reference``/``variables``. Legacy pairs use
+    ``model``/``obs``/``variable`` and are retained for compatibility.
     """
 
     sources: list[str] = Field(default_factory=list)
     reference: str | None = None
     variables: dict[str, str] = Field(default_factory=dict)
+
+    model: str | None = None
+    obs: str | None = None
+    variable: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_pair_shape(self) -> "SourcePairConfig":
+        has_sources = bool(self.sources)
+        has_legacy = bool(self.model or self.obs or self.variable)
+        if has_sources:
+            if len(self.sources) != 2:
+                raise ValueError("unified pair 'sources' must contain exactly two labels")
+            if self.reference is not None and self.reference not in self.sources:
+                raise ValueError("'reference' must be one of the pair sources")
+            missing = [label for label in self.sources if label not in self.variables]
+            if missing:
+                raise ValueError(
+                    "unified pair 'variables' missing source label(s): " + ", ".join(missing)
+                )
+        elif has_legacy:
+            if not self.model or not self.obs:
+                raise ValueError("legacy pair must include both 'model' and 'obs'")
+            if "model_var" not in self.variable or "obs_var" not in self.variable:
+                raise ValueError("legacy pair 'variable' must include model_var and obs_var")
+        return self
 
 
 class DataProcConfig(FlexibleModel):
@@ -749,6 +772,7 @@ class MonetConfig(FlexibleModel):
     obs: dict[str, ObservationConfig] = Field(default_factory=dict)
     # Unified data-source block (Phase 6), additive alongside model:/obs:.
     sources: dict[str, SourceConfig] = Field(default_factory=dict)
+    pairs: dict[str, SourcePairConfig] = Field(default_factory=dict)
     plots: dict[str, PlotGroupConfig] = Field(default_factory=dict)
     stats: StatsConfig | None = None
     summary: SummaryConfig | None = None
@@ -792,6 +816,19 @@ class MonetConfig(FlexibleModel):
         if isinstance(v, dict):
             return {
                 str(name): SourceConfig(**cfg) if isinstance(cfg, dict) else cfg
+                for name, cfg in v.items()
+            }
+        return dict(v)
+
+    @field_validator("pairs", mode="before")
+    @classmethod
+    def parse_pairs(cls, v: Any) -> dict[str, SourcePairConfig]:
+        """Parse unified source-pair configurations."""
+        if v is None:
+            return {}
+        if isinstance(v, dict):
+            return {
+                str(name): SourcePairConfig(**cfg) if isinstance(cfg, dict) else cfg
                 for name, cfg in v.items()
             }
         return dict(v)

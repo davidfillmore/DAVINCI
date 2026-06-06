@@ -33,7 +33,7 @@ def _series(n_t: int = 10, n_s: int = 8) -> PlotSeries:
 def _band_extents(uncertainty_type: str) -> tuple[float, float]:
     s = _series()
     fig = TimeSeriesPlotter().render([s], show_uncertainty=True, uncertainty_type=uncertainty_type)
-    verts = fig.axes[0].collections[0].get_paths()[0].vertices
+    verts = np.asarray(fig.axes[0].collections[0].get_paths()[0].vertices)
     top, bot = float(verts[:, 1].max()), float(verts[:, 1].min())
     plt.close(fig)
     return top, bot

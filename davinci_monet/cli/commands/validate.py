@@ -77,14 +77,31 @@ def validate_config_command(
             if config.analysis.output_dir:
                 typer.echo(f"    Output dir: {config.analysis.output_dir}")
 
+        # Unified sources
+        if config.sources:
+            typer.echo(f"  Sources: {len(config.sources)} defined")
+            for name, source_cfg in config.sources.items():
+                role = f", role={source_cfg.role}" if source_cfg.role else ""
+                typer.echo(f"    - {name}: {source_cfg.type}{role}")
+
+        # Unified pairs
+        if config.pairs:
+            typer.echo(f"  Pairs: {len(config.pairs)} defined")
+            for name, pair_cfg in config.pairs.items():
+                if pair_cfg.sources:
+                    reference = f", reference={pair_cfg.reference}" if pair_cfg.reference else ""
+                    typer.echo(f"    - {name}: {', '.join(pair_cfg.sources)}{reference}")
+                elif pair_cfg.model and pair_cfg.obs:
+                    typer.echo(f"    - {name}: {pair_cfg.model}, {pair_cfg.obs}")
+
         # Models
-        if config.model:
+        if not config.sources and config.model:
             typer.echo(f"  Models: {len(config.model)} defined")
             for name, model_cfg in config.model.items():
                 typer.echo(f"    - {name}: {model_cfg.mod_type}")
 
         # Observations
-        if config.obs:
+        if not config.sources and config.obs:
             typer.echo(f"  Observations: {len(config.obs)} defined")
             for name, obs_cfg in config.obs.items():
                 typer.echo(f"    - {name}: {obs_cfg.obs_type}")

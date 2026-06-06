@@ -135,7 +135,7 @@ def preprocess_config(data: dict[str, Any]) -> dict[str, Any]:
             analysis["_end_time_has_time"] = bool(re.search(r"\d{2}:\d{2}", end_time))
 
     # Ensure all sections exist as dicts (not None)
-    for section in ["model", "obs", "plots"]:
+    for section in ["model", "obs", "sources", "pairs", "plots"]:
         if section not in data or data[section] is None:
             data[section] = {}
 
@@ -332,6 +332,8 @@ class ConfigBuilder:
             "analysis": {},
             "model": {},
             "obs": {},
+            "sources": {},
+            "pairs": {},
             "plots": {},
         }
 
@@ -385,6 +387,27 @@ class ConfigBuilder:
             Self for chaining.
         """
         self._data["obs"][name] = kwargs
+        return self
+
+    def add_source(self, name: str, **kwargs: Any) -> "ConfigBuilder":
+        """Add a unified source configuration."""
+        self._data["sources"][name] = kwargs
+        return self
+
+    def add_pair(
+        self,
+        name: str,
+        sources: list[str],
+        variables: dict[str, str],
+        reference: str | None = None,
+        **kwargs: Any,
+    ) -> "ConfigBuilder":
+        """Add a unified binary pair configuration."""
+        pair: dict[str, Any] = {"sources": sources, "variables": variables}
+        if reference is not None:
+            pair["reference"] = reference
+        pair.update(kwargs)
+        self._data["pairs"][name] = pair
         return self
 
     def add_plot(self, name: str, plot_type: str, **kwargs: Any) -> "ConfigBuilder":

@@ -357,6 +357,21 @@ class TestStatisticsCalculator:
         assert "RMSE" in summary
         assert "R" in summary
 
+    def test_reference_comparand_keywords(self, paired_dataset):
+        """Test neutral reference/comparand variable keywords."""
+        from davinci_monet.stats import StatisticsCalculator
+
+        calc = StatisticsCalculator()
+        stats = calc.compute(
+            paired_dataset,
+            reference_var="obs_o3",
+            comparand_var="model_o3",
+            metrics=["N", "MB"],
+        )
+
+        assert int(stats["N"].iloc[0]) == 500
+        assert "MB" in stats.columns
+
 
 class TestConvenienceFunctions:
     """Tests for convenience functions."""
@@ -373,6 +388,19 @@ class TestConvenienceFunctions:
 
         assert isinstance(stats, pd.DataFrame)
         assert len(stats) == 1
+
+    def test_calculate_statistics_reference_comparand_keywords(self, paired_dataset):
+        """Test convenience wrapper accepts neutral variable keywords."""
+        from davinci_monet.stats import calculate_statistics
+
+        stats = calculate_statistics(
+            paired_dataset,
+            reference_var="obs_o3",
+            comparand_var="model_o3",
+            metrics=["N"],
+        )
+
+        assert int(stats["N"].iloc[0]) == 500
 
     def test_quick_stats(self, random_arrays):
         """Test quick_stats function."""

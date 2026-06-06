@@ -398,3 +398,151 @@ def test_invalid_legacy_pair_missing_variable_fails_when_sources_loaded() -> Non
     assert "cam_airnow_o3" in str(result.error)
     assert "missing variable mapping" in str(result.error)
     assert ctx.paired == {}
+
+
+def test_single_model_source_gets_descriptive_stats(tmp_path: Path) -> None:
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    source_path = tmp_path / "cam.nc"
+    _write_grid_source(source_path)
+
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "sources": {
+            "cam": {
+                "type": "generic",
+                "role": "model",
+                "files": str(source_path),
+                "variables": {"O3": {"units": "ppb"}},
+            }
+        },
+        "stats": {"metrics": ["N"]},
+    }
+
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+
+    assert result.success
+    assert result.context is not None
+    stats = result.context.results["statistics"].data
+    assert "cam" in stats
+    assert "O3" in stats["cam"]
+    assert stats["cam"]["O3"]["N"] == 8
+
+
+def test_single_source_plot_uses_source_key_not_obs_key(tmp_path: Path) -> None:
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    source_path = tmp_path / "cam.nc"
+    _write_grid_source(source_path)
+
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "sources": {
+            "cam": {
+                "type": "generic",
+                "role": "model",
+                "files": str(source_path),
+                "variables": {"O3": {"units": "ppb"}},
+            }
+        },
+        "plots": {
+            "hist_o3": {
+                "type": "histogram",
+                "source": "cam",
+                "variable": "O3",
+            }
+        },
+    }
+
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+
+    assert result.success
+    assert result.context is not None
+    plots = result.context.results["plotting"].data["plots_generated"]
+    assert len([p for p in plots if p.endswith(".png")]) == 1
+
+
+def test_unsupported_source_pair_fails_pairing_stage() -> None:
+    from davinci_monet.core.protocols import DataGeometry
+    from davinci_monet.pipeline.stages import (
+        PairingStage,
+        PipelineContext,
+        SourceData,
+        StageStatus,
+    )
+
+    point_a = xr.Dataset(
+        {"o3": ("site", np.array([1.0]))},
+        coords={
+            "site": [0],
+            "latitude": ("site", [40.0]),
+            "longitude": ("site", [-105.0]),
+        },
+        attrs={"geometry": "point"},
+    )
+    track_b = xr.Dataset(
+        {"o3": ("time", np.array([1.2]))},
+        coords={
+            "time": np.array(["2024-01-01T00:00"], dtype="datetime64[m]"),
+            "latitude": ("time", [40.0]),
+            "longitude": ("time", [-105.0]),
+        },
+        attrs={"geometry": "track"},
+    )
+    ctx = PipelineContext(
+        config={
+            "pairs": {
+                "a_b_o3": {
+                    "sources": ["a", "b"],
+                    "reference": "a",
+                    "variables": {"a": "o3", "b": "o3"},
+                }
+            }
+        },
+        sources={
+            "a": SourceData(point_a, "a", "pt_sfc", DataGeometry.POINT, role="obs"),
+            "b": SourceData(track_b, "b", "icartt", DataGeometry.TRACK, role="obs"),
+        },
+    )
+
+    result = PairingStage().execute(ctx)
+
+    assert result.status is StageStatus.FAILED
+    assert "a_b_o3" in str(result.error)
+    assert "Unsupported pairing combination" in str(result.error)
+
+
+def test_sources_config_supports_obs_obs_grid_pair(tmp_path: Path) -> None:
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    ref_path = tmp_path / "sat_ref.nc"
+    comp_path = tmp_path / "sat_cmp.nc"
+    _write_grid_source(ref_path, offset=0.0)
+    _write_grid_source(comp_path, offset=1.0)
+
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "sources": {
+            "modis": {"type": "generic", "role": "obs", "files": str(ref_path)},
+            "viirs": {"type": "generic", "role": "obs", "files": str(comp_path)},
+        },
+        "pairs": {
+            "modis_viirs_o3": {
+                "sources": ["modis", "viirs"],
+                "reference": "modis",
+                "variables": {"modis": "O3", "viirs": "O3"},
+            }
+        },
+        "stats": {"metrics": ["N", "MB"]},
+    }
+
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+
+    assert result.success
+    assert result.context is not None
+    paired = result.context.paired["modis_viirs_o3"].data
+    assert set(paired.data_vars) == {"modis_O3", "viirs_O3"}
+    assert paired["modis_O3"].attrs["pair_role"] == "reference"
+    assert paired["viirs_O3"].attrs["pair_role"] == "comparand"
+    assert paired["modis_O3"].attrs["role"] == "obs"
+    assert paired["viirs_O3"].attrs["role"] == "obs"

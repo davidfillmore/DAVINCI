@@ -61,6 +61,7 @@ class LogCollector:
         self._current_stage: LogEntry | None = None
         self._item_start_times: dict[str, float] = {}
         # Additional data extracted from context
+        self.source_details: dict[str, dict[str, Any]] = {}
         self.model_details: dict[str, dict[str, Any]] = {}
         self.obs_details: dict[str, dict[str, Any]] = {}
         self.pair_details: dict[str, dict[str, Any]] = {}
@@ -127,6 +128,7 @@ class LogCollector:
     def log_item(self, message: str) -> None:
         """Parse and log a progress message."""
         # Parse patterns like "Loading model: cesm_asiaq (1/2)"
+        source_match = re.match(r"\s*Loading source: (\S+)", message)
         model_match = re.match(r"\s*Loading model: (\S+)", message)
         obs_match = re.match(r"\s*Loading obs: (\S+)", message)
         # Legacy pairing pattern
@@ -135,7 +137,10 @@ class LogCollector:
         parallel_started_match = re.match(r"\s*parallel_started: (\S+)", message)
         parallel_completed_match = re.match(r"\s*parallel_completed: (\S+)(.*)", message)
 
-        if model_match:
+        if source_match:
+            name = source_match.group(1)
+            self._start_item(name, "source")
+        elif model_match:
             name = model_match.group(1)
             self._start_item(name, "model")
         elif obs_match:
@@ -206,6 +211,42 @@ class LogCollector:
 
     def extract_context_data(self, context: "PipelineContext") -> None:
         """Extract detailed data from pipeline context after execution."""
+
+        def _source_detail(label: str, source_data: Any, role: str | None = None) -> dict[str, Any]:
+            details: dict[str, Any] = {}
+            ds = source_data.data if hasattr(source_data, "data") else source_data
+            if hasattr(source_data, "source_type"):
+                details["type"] = source_data.source_type
+            elif hasattr(source_data, "obs_type"):
+                details["type"] = source_data.obs_type
+            elif hasattr(source_data, "mod_type"):
+                details["type"] = source_data.mod_type
+            details["role"] = role or getattr(source_data, "role", None)
+            if details["role"] is None and hasattr(ds, "attrs"):
+                details["role"] = ds.attrs.get("role")
+            if hasattr(ds, "data_vars"):
+                details["variables"] = len(ds.data_vars)
+                if "time" in ds.sizes:
+                    details["time_steps"] = ds.sizes["time"]
+                elif "obs_time" in ds.sizes:
+                    details["time_steps"] = ds.sizes["obs_time"]
+                if "site" in ds.sizes:
+                    details["sites"] = ds.sizes["site"]
+                elif "x" in ds.sizes:
+                    details["points"] = ds.sizes["x"]
+                total_size = sum(ds[v].size for v in ds.data_vars)
+                details["data_points"] = total_size
+            return details
+
+        if context.sources:
+            for label, source_data in context.sources.items():
+                self.source_details[label] = _source_detail(label, source_data)
+        else:
+            for label, model_data in context.models.items():
+                self.source_details[label] = _source_detail(label, model_data, role="model")
+            for label, obs_data in context.observations.items():
+                self.source_details[label] = _source_detail(label, obs_data, role="obs")
+
         # Extract model details
         for label, model_data in context.models.items():
             details: dict[str, Any] = {}
@@ -309,9 +350,34 @@ class LogCollector:
                 )
             lines.append("")
 
-        # Models table with details
+        # Sources table with details
+        if self.source_details:
+            lines.append("## Sources Loaded")
+            lines.append("")
+            lines.append("| Source | Role | Type | Variables | Records | Data Points |")
+            lines.append("|--------|------|------|-----------|---------|-------------|")
+            for name, details in self.source_details.items():
+                role = details.get("role") or "-"
+                source_type = details.get("type") or "-"
+                vars_count = details.get("variables", "-")
+                records = (
+                    details.get("sites")
+                    or details.get("points")
+                    or details.get("time_steps")
+                    or "-"
+                )
+                if isinstance(records, int):
+                    records = self._format_number(records)
+                data_points = details.get("data_points")
+                data_str = self._format_number(data_points) if data_points else "-"
+                lines.append(
+                    f"| {name} | {role} | {source_type} | {vars_count} | {records} | {data_str} |"
+                )
+            lines.append("")
+
+        # Legacy model/observation tables with details
         models = [e for e in self.entries if e.category == "model"]
-        if models:
+        if models and not self.source_details:
             lines.append("## Models Loaded")
             lines.append("")
             lines.append("| Model | Variables | Time Steps | Data Points | Duration |")
@@ -329,7 +395,7 @@ class LogCollector:
 
         # Observations table with details
         observations = [e for e in self.entries if e.category == "observation"]
-        if observations:
+        if observations and not self.source_details:
             lines.append("## Observations Loaded")
             lines.append("")
             lines.append("| Observation | Type | Variables | Records | Duration |")
@@ -378,8 +444,8 @@ class LogCollector:
                     continue
                 lines.append(f"### {pair_key}")
                 lines.append("")
-                lines.append("| Variable | N | Mean Obs | Mean Model | MB | RMSE | R |")
-                lines.append("|----------|---|----------|------------|-----|------|---|")
+                lines.append("| Variable | N | Mean Reference | Mean Comparand | MB | RMSE | R |")
+                lines.append("|----------|---|----------------|----------------|-----|------|---|")
                 for var_name, stats in pair_stats.items():
                     if not isinstance(stats, dict):
                         continue
@@ -391,14 +457,14 @@ class LogCollector:
                         return default
 
                     n = _get_metric("N", "n", default="-")
-                    obs_mean = _get_metric("MO", "obs_mean")
-                    model_mean = _get_metric("MP", "model_mean")
+                    reference_mean = _get_metric("MO", "obs_mean")
+                    comparand_mean = _get_metric("MP", "model_mean")
                     mb = _get_metric("MB", "mean_bias")
                     rmse = _get_metric("RMSE", "rmse")
                     r = _get_metric("R", "correlation")
                     # Format values
-                    obs_str = f"{obs_mean:.2f}" if obs_mean is not None else "-"
-                    model_str = f"{model_mean:.2f}" if model_mean is not None else "-"
+                    reference_str = f"{reference_mean:.2f}" if reference_mean is not None else "-"
+                    comparand_str = f"{comparand_mean:.2f}" if comparand_mean is not None else "-"
                     mb_str = f"{mb:+.2f}" if mb is not None else "-"
                     rmse_str = f"{rmse:.2f}" if rmse is not None else "-"
                     r_str = (
@@ -407,7 +473,7 @@ class LogCollector:
                         else "-"
                     )
                     lines.append(
-                        f"| {var_name} | {n} | {obs_str} | {model_str} | {mb_str} | {rmse_str} | {r_str} |"
+                        f"| {var_name} | {n} | {reference_str} | {comparand_str} | {mb_str} | {rmse_str} | {r_str} |"
                     )
                 lines.append("")
 
@@ -1484,23 +1550,21 @@ class PipelineRunner:
         """
         import gc
 
-        # Close model datasets
-        for label, model_data in list(context.models.items()):
+        source_items = (
+            list(context.sources.items())
+            if context.sources
+            else list(context.models.items()) + list(context.observations.items())
+        )
+        closed_ids: set[int] = set()
+        for _label, source_data in source_items:
             try:
-                if hasattr(model_data, "data") and hasattr(model_data.data, "close"):
-                    model_data.data.close()
-                elif hasattr(model_data, "close"):
-                    model_data.close()
-            except Exception:
-                pass  # Ignore errors during cleanup
-
-        # Close observation datasets
-        for label, obs_data in list(context.observations.items()):
-            try:
-                if hasattr(obs_data, "data") and hasattr(obs_data.data, "close"):
-                    obs_data.data.close()
-                elif hasattr(obs_data, "close"):
-                    obs_data.close()
+                data = source_data.data if hasattr(source_data, "data") else source_data
+                data_id = id(data)
+                if data_id in closed_ids:
+                    continue
+                if hasattr(data, "close"):
+                    data.close()
+                    closed_ids.add(data_id)
             except Exception:
                 pass  # Ignore errors during cleanup
 
@@ -1574,7 +1638,12 @@ class PipelineRunner:
                 if collector:
                     collector.log_item(msg)
                 # Parse message type and format appropriately
-                if msg.strip().startswith("Loading model:"):
+                if msg.strip().startswith("Loading source:"):
+                    match = re.match(r"\s*Loading source: (\S+) \((\d+)/(\d+)\)", msg)
+                    if match:
+                        name, idx, total = match.groups()
+                        fmt.item_start("source", name, int(idx), int(total))
+                elif msg.strip().startswith("Loading model:"):
                     match = re.match(r"\s*Loading model: (\S+) \((\d+)/(\d+)\)", msg)
                     if match:
                         name, idx, total = match.groups()
@@ -1820,10 +1889,9 @@ class PipelineRunner:
                 "At least one source, model, or observation must be defined."
             )
 
-        # The unified standard pipeline handles both model-vs-obs and obs-only
-        # runs: the pairing/statistics/plotting stages skip when there are no
-        # pairs, and the obs-only stages skip when pairs exist. No special-case
-        # pipeline swap is needed.
+        # The unified standard pipeline handles both paired-source and
+        # single-source runs: pairing skips when there are no pairs, while
+        # statistics/plotting dispatch on the available source state.
 
         context = PipelineContext(config=config)
         if config_path:
@@ -1853,7 +1921,7 @@ class PipelineRunner:
             # Validate stage
             if not stage.validate(context):
                 # A stage that opts out of running for this configuration is a
-                # benign skip (e.g. obs-only stages in a paired run), not a
+                # benign skip (e.g. an optional stage without input), not a
                 # failure — log at debug so it does not read as an error.
                 logger.debug(f"Stage '{stage.name}' not applicable for this run, skipping")
                 result = StageResult(

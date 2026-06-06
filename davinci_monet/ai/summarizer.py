@@ -15,9 +15,9 @@ from davinci_monet.ai.payload import SummaryPayload
 logger = logging.getLogger(__name__)
 
 
-SYSTEM_PROMPT = """You are a climate and atmospheric-composition model-evaluation analyst.
+SYSTEM_PROMPT = """You are a climate and atmospheric-composition data-comparison analyst.
 You are given the configuration, summary statistics, and figures from a single DAVINCI
-model-evaluation run. Write a concise markdown brief with EXACTLY these four sections:
+analysis run. Write a concise markdown brief with EXACTLY these four sections:
 
 ## What this run is
 ## Headline metrics
@@ -26,8 +26,8 @@ model-evaluation run. Write a concise markdown brief with EXACTLY these four sec
 
 In "What this run is", describe the data sources, time period, variables, and pairing.
 In "Headline metrics", call out the most important statistics per variable and pair.
-In "Interpretation", describe where the model agrees or disagrees with observations and
-any spatial or temporal patterns visible in the attached figures.
+In "Interpretation", describe where the comparand agrees or disagrees with the reference
+source and any spatial or temporal patterns visible in the attached figures.
 In "Caveats", note the sample size and what the metrics do not capture.
 
 Be specific and quantitative. Do not invent numbers that are not present in the provided

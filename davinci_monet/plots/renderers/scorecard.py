@@ -68,11 +68,11 @@ class ScorecardPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with model and observation variables.
+            Paired dataset with reference and comparand variables.
         obs_var
-            Name of observation variable.
+            Compatibility name for reference variable.
         model_var
-            Name of model variable.
+            Compatibility name for comparand variable.
         ax
             Optional axes to plot on.
         **kwargs
@@ -84,20 +84,20 @@ class ScorecardPlotter(BasePlotter):
             The generated figure.
         """
         # Calculate basic statistics
-        obs = paired_data[obs_var].values.flatten()
-        model = paired_data[model_var].values.flatten()
+        reference = paired_data[obs_var].values.flatten()
+        comparand = paired_data[model_var].values.flatten()
 
-        mask = np.isfinite(obs) & np.isfinite(model)
-        obs = obs[mask]
-        model = model[mask]
+        mask = np.isfinite(reference) & np.isfinite(comparand)
+        reference = reference[mask]
+        comparand = comparand[mask]
 
         stats = {
-            "N": len(obs),
-            "Mean Obs": np.mean(obs),
-            "Mean Model": np.mean(model),
-            "MB": np.mean(model - obs),
-            "RMSE": np.sqrt(np.mean((model - obs) ** 2)),
-            "R": np.corrcoef(obs, model)[0, 1] if len(obs) > 1 else np.nan,
+            "N": len(reference),
+            "Mean Reference": np.mean(reference),
+            "Mean Comparand": np.mean(comparand),
+            "MB": np.mean(comparand - reference),
+            "RMSE": np.sqrt(np.mean((comparand - reference) ** 2)),
+            "R": np.corrcoef(reference, comparand)[0, 1] if len(reference) > 1 else np.nan,
         }
 
         # Create simple 1-row scorecard
