@@ -26,7 +26,7 @@ import davinci_monet.observations.surface.airnow  # noqa: F401
 import davinci_monet.observations.surface.aqs  # noqa: F401
 import davinci_monet.observations.surface.openaq  # noqa: F401
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
+from davinci_monet.core.registry import source_registry as observation_registry
 
 # =============================================================================
 # Helper functions for creating synthetic observation data

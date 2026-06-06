@@ -18,10 +18,6 @@ from davinci_monet.core.protocols import (
     DataGeometry,
     DataReader,
     DataWriter,
-    ModelProcessor,
-    ModelReader,
-    ObservationProcessor,
-    ObservationReader,
     PairingEngine,
     PairingStrategy,
     Pipeline,
@@ -54,73 +50,6 @@ class TestDataGeometry:
         assert len(geometries) == 5
         assert DataGeometry.POINT in geometries
         assert DataGeometry.GRID in geometries
-
-
-class TestModelReaderProtocol:
-    """Tests for ModelReader protocol."""
-
-    def test_protocol_is_runtime_checkable(self) -> None:
-        """Verify ModelReader is runtime_checkable."""
-
-        # Create a mock implementation
-        class MockModelReader:
-            @property
-            def name(self) -> str:
-                return "mock"
-
-            def open(
-                self,
-                file_paths: Sequence[str | Path],
-                variables: Sequence[str] | None = None,
-                **kwargs: Any,
-            ) -> Any:
-                return None
-
-            def get_variable_mapping(self) -> Mapping[str, str]:
-                return {}
-
-        reader = MockModelReader()
-        assert isinstance(reader, ModelReader)
-
-    def test_non_implementation_fails_check(self) -> None:
-        """Verify non-implementing class fails isinstance check."""
-
-        class NotAReader:
-            pass
-
-        obj = NotAReader()
-        assert not isinstance(obj, ModelReader)
-
-
-class TestObservationReaderProtocol:
-    """Tests for ObservationReader protocol."""
-
-    def test_protocol_is_runtime_checkable(self) -> None:
-        """Verify ObservationReader is runtime_checkable."""
-
-        class MockObsReader:
-            @property
-            def name(self) -> str:
-                return "mock_obs"
-
-            @property
-            def geometry(self) -> DataGeometry:
-                return DataGeometry.POINT
-
-            def open(
-                self,
-                file_paths: Sequence[str | Path],
-                variables: Sequence[str] | None = None,
-                time_range: tuple[Any, Any] | None = None,
-                **kwargs: Any,
-            ) -> Any:
-                return None
-
-            def get_variable_mapping(self) -> Mapping[str, str]:
-                return {}
-
-        reader = MockObsReader()
-        assert isinstance(reader, ObservationReader)
 
 
 class TestPairingStrategyProtocol:
@@ -284,30 +213,6 @@ class TestConfigurableProtocol:
 
         obj = MockConfigurable()
         assert isinstance(obj, Configurable)
-
-
-class TestProcessorProtocols:
-    """Tests for processor protocols."""
-
-    def test_model_processor_is_runtime_checkable(self) -> None:
-        """Verify ModelProcessor is runtime_checkable."""
-
-        class MockProcessor:
-            def process(self, dataset: Any, **kwargs: Any) -> Any:
-                return dataset
-
-        proc = MockProcessor()
-        assert isinstance(proc, ModelProcessor)
-
-    def test_observation_processor_is_runtime_checkable(self) -> None:
-        """Verify ObservationProcessor is runtime_checkable."""
-
-        class MockProcessor:
-            def process(self, dataset: Any, **kwargs: Any) -> Any:
-                return dataset
-
-        proc = MockProcessor()
-        assert isinstance(proc, ObservationProcessor)
 
 
 class TestPairingEngineProtocol:

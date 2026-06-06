@@ -41,10 +41,6 @@ from davinci_monet.core.protocols import (
     DataGeometry,
     DataReader,
     DataWriter,
-    ModelProcessor,
-    ModelReader,
-    ObservationProcessor,
-    ObservationReader,
     PairingEngine,
     PairingStrategy,
     Pipeline,
@@ -61,8 +57,6 @@ from davinci_monet.core.registry import (
     ComponentNotFoundError,
     Registry,
     RegistryError,
-    model_registry,
-    observation_registry,
     plotter_registry,
     reader_registry,
     source_registry,
@@ -86,12 +80,6 @@ __all__ = [
     "validate_dataset_geometry",
     # Data geometry enum
     "DataGeometry",
-    # Model protocols
-    "ModelReader",
-    "ModelProcessor",
-    # Observation protocols
-    "ObservationReader",
-    "ObservationProcessor",
     # Unified source protocols
     "SourceReader",
     "SourceProcessor",
@@ -118,8 +106,6 @@ __all__ = [
     "ComponentNotFoundError",
     "ComponentAlreadyRegisteredError",
     # Pre-configured registries
-    "model_registry",
-    "observation_registry",
     "source_registry",
     "plotter_registry",
     "statistic_registry",

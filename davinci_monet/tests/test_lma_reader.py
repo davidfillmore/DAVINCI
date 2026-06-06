@@ -15,7 +15,7 @@ import xarray as xr
 # Ensure LMA reader is registered
 import davinci_monet.observations.lightning.lma  # noqa: F401
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
+from davinci_monet.core.registry import source_registry as observation_registry
 
 # =============================================================================
 # Synthetic LMA Data

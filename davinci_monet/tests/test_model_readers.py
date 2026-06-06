@@ -12,7 +12,7 @@ import pytest
 import xarray as xr
 
 from davinci_monet.core.exceptions import DataNotFoundError
-from davinci_monet.core.registry import model_registry
+from davinci_monet.core.registry import source_registry as model_registry
 from davinci_monet.models import (
     CESMFVReader,
     CESMSEReader,

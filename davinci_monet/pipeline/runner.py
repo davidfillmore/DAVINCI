@@ -1801,11 +1801,10 @@ class PipelineRunner:
             # Preview generated plots if pipeline succeeded and show_plots is enabled
             if self._show_plots and result.success:
                 plot_paths: list[str] = []
-                for stage_name in ("plotting", "obs_plotting"):
-                    if stage_name in context.results:
-                        stage_result = context.results[stage_name]
-                        if stage_result.data and "plots_generated" in stage_result.data:
-                            plot_paths.extend(stage_result.data["plots_generated"])
+                if "plotting" in context.results:
+                    stage_result = context.results["plotting"]
+                    if stage_result.data and "plots_generated" in stage_result.data:
+                        plot_paths.extend(stage_result.data["plots_generated"])
                 if plot_paths:
                     formatter.preview_plots(
                         plot_paths, duration=1.0, preview_format=self._preview_format
