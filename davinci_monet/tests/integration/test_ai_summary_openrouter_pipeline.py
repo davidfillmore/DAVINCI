@@ -147,3 +147,49 @@ def test_openrouter_summary_skips_without_key(monkeypatch, tmp_path: Path) -> No
 
     assert result.success  # non-fatal: run still succeeds
     assert not (tmp_path / "output" / "AI_summary.md").exists()
+
+
+def test_openrouter_summary_displays_tokens_and_credits(monkeypatch, tmp_path: Path) -> None:
+    import davinci_monet.pipeline.runner as runner_mod
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    def _fake_send(cfg, key, body):
+        return {
+            "model": body["model"],
+            "choices": [{"message": {"content": "## Caveats\n- only point\n"}}],
+            "usage": {"prompt_tokens": 123, "completion_tokens": 45},
+        }
+
+    monkeypatch.setattr(orouter, "_send_openrouter_request", _fake_send)
+    monkeypatch.setattr(orouter, "_fetch_credits_remaining", lambda cfg, key: 88.5)
+
+    captured: list[dict] = []
+    monkeypatch.setattr(
+        runner_mod.ProgressFormatter,
+        "print_summary",
+        lambda self, items, summary_file=None, usage=None, credits_remaining=None: captured.append(
+            {"items": items, "usage": usage, "credits_remaining": credits_remaining}
+        ),
+    )
+
+    keyfile = tmp_path / "OpenRouter.api"
+    keyfile.write_text("sk-or-fake")
+    config = _build_config(tmp_path)
+    config["summary"] = {
+        "enabled": True,
+        "provider": "openrouter",
+        "api_key_file": str(keyfile),
+    }
+
+    runner = PipelineRunner(show_progress=True)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", LegacyConfigWarning)
+        result = runner.run_from_config(config)
+
+    assert result.success
+    assert captured, "summary was not displayed"
+    call = captured[0]
+    assert call["usage"] == {"input_tokens": 123, "output_tokens": 45}
+    assert call["credits_remaining"] == 88.5
+    # full brief still on disk
+    assert "## Caveats" in (tmp_path / "output" / "AI_summary.md").read_text()
