@@ -17,17 +17,21 @@ from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
     format_label_with_units,
+    format_plot_title,
     get_role_color,
     get_series_label,
     get_variable_label,
     get_variable_units,
+    series_colors,
 )
-from davinci_monet.plots.registry import register_plotter
+from davinci_monet.plots.registry import register_alias, register_plotter
 
 if TYPE_CHECKING:
     import matplotlib.axes
     import matplotlib.figure
     import xarray as xr
+
+    from davinci_monet.core.base import PlotSeries
 
 
 @register_plotter("timeseries")
@@ -252,6 +256,161 @@ class TimeSeriesPlotter(BasePlotter):
         # Grid
         ax.grid(True, alpha=0.3)
 
+        return fig
+
+    def render(
+        self,
+        series: list[PlotSeries],
+        ax: matplotlib.axes.Axes | None = None,
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Unified renderer entry: render 1..N source series.
+
+        - ``1`` series → a single line, aggregated over non-time dims by default
+          (the cross-site mean — no more one-line-per-site spaghetti). Opt into
+          per-site lines with ``show_individual_sites=True`` and a ±1σ band with
+          ``show_uncertainty=True``.
+        - ``2`` series → reference-vs-comparand; delegates to the legacy paired
+          ``plot()`` so obs-gray/model-blue styling is unchanged.
+        - ``>2`` series → multi-source overlay, palette-cycled.
+        """
+        if len(series) == 2:
+            ref = next((s for s in series if s.pair_role == "reference"), series[0])
+            comp = next((s for s in series if s.pair_role == "comparand"), series[1])
+            return self.plot(series[0].dataset, ref.var_name, comp.var_name, ax=ax, **kwargs)
+        if len(series) == 1:
+            return self._render_single(series[0], ax=ax, **kwargs)
+        return self._render_overlay(series, ax=ax, **kwargs)
+
+    def _render_single(
+        self,
+        s: PlotSeries,
+        ax: matplotlib.axes.Axes | None = None,
+        *,
+        title: str | None = None,
+        color: str | None = None,
+        show_altitude: bool = False,
+        alt_coord: str = "altitude",
+        show_uncertainty: bool = False,
+        show_individual_sites: bool = False,
+        time_dim: str = "time",
+        aggregate_dim: str | None = None,
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Render one source series as a single (aggregated) line."""
+        if ax is None:
+            fig, ax = self.create_figure()
+        else:
+            fig = ax.get_figure()  # type: ignore[assignment]
+
+        ds = s.dataset
+        da = ds[s.var_name]
+        color = color or series_colors([s])[0]
+        label = s.source_label or get_variable_label(ds, s.var_name, include_prefix=False)
+        time_values = pd.to_datetime(ds[time_dim].values)
+        non_time_dims = [d for d in da.dims if d != time_dim]
+
+        if show_individual_sites and non_time_dims:
+            import matplotlib.cm as cm
+
+            sdim = aggregate_dim if (aggregate_dim in non_time_dims) else non_time_dims[0]
+            n = ds.sizes[sdim]
+            palette = cm.tab20(np.linspace(0, 1, min(n, 20)))  # type: ignore[attr-defined]
+            for i in range(n):
+                ax.plot(
+                    time_values,
+                    da.isel({sdim: i}).values,
+                    color=palette[i % len(palette)],
+                    linewidth=1.0,
+                    alpha=0.7,
+                )
+        else:
+            agg_dims = (
+                [aggregate_dim] if (aggregate_dim and aggregate_dim in da.dims) else non_time_dims
+            )
+            mean = da.mean(dim=agg_dims) if agg_dims else da
+            ax.plot(time_values, mean.values, color=color, linewidth=1.5, label=label)
+            if show_uncertainty and agg_dims:
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", "Degrees of freedom", RuntimeWarning)
+                    std = da.std(dim=agg_dims)
+                ax.fill_between(
+                    time_values,
+                    (mean - std).values,
+                    (mean + std).values,
+                    color=color,
+                    alpha=0.25,
+                    linewidth=0,
+                )
+
+        units = ds[s.var_name].attrs.get("units", "")
+        var_label = get_variable_label(ds, s.var_name, include_prefix=False)
+        ax.set_ylabel(
+            f"{var_label} ({units})" if units else var_label, fontsize=self.config.text.fontsize
+        )
+        ax.set_xlabel("Time", fontsize=self.config.text.fontsize)
+        if title:
+            ax.set_title(format_plot_title(title), fontsize=self.config.text.title_fontsize)
+        ax.grid(True, alpha=0.3)
+        ax.tick_params(axis="x", rotation=45)
+
+        if show_altitude and alt_coord in ds.coords:
+            ax2 = ax.twinx()
+            ax2.plot(  # type: ignore[attr-defined]
+                time_values, ds[alt_coord].values, color="#AAAAAA", linewidth=0.8, alpha=0.6
+            )
+            alt_units = ds[alt_coord].attrs.get("units", "")
+            ax2.set_ylabel(
+                f"Altitude ({alt_units})" if alt_units else "Altitude",
+                fontsize=self.config.text.fontsize,
+                color="#AAAAAA",
+            )
+            ax2.tick_params(axis="y", labelcolor="#AAAAAA")
+        return fig
+
+    def _render_overlay(
+        self,
+        series: list[PlotSeries],
+        ax: matplotlib.axes.Axes | None = None,
+        *,
+        title: str | None = None,
+        time_dim: str = "time",
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Render N>2 source series as a palette-cycled overlay of mean lines."""
+        if ax is None:
+            fig, ax = self.create_figure()
+        else:
+            fig = ax.get_figure()  # type: ignore[assignment]
+
+        colors = series_colors(series)
+        for s, c in zip(series, colors):
+            da = s.dataset[s.var_name]
+            non_time_dims = [d for d in da.dims if d != time_dim]
+            mean = da.mean(dim=non_time_dims) if non_time_dims else da
+            label = s.source_label or get_variable_label(
+                s.dataset, s.var_name, include_prefix=False
+            )
+            ax.plot(
+                pd.to_datetime(s.dataset[time_dim].values),
+                mean.values,
+                color=c,
+                linewidth=1.5,
+                label=label,
+            )
+        ax.legend(fontsize=self.config.text.legend)
+
+        first = series[0]
+        units = first.dataset[first.var_name].attrs.get("units", "")
+        var_label = get_variable_label(first.dataset, first.var_name, include_prefix=False)
+        ax.set_ylabel(
+            f"{var_label} ({units})" if units else var_label, fontsize=self.config.text.fontsize
+        )
+        ax.set_xlabel("Time", fontsize=self.config.text.fontsize)
+        if title:
+            ax.set_title(format_plot_title(title), fontsize=self.config.text.title_fontsize)
+        ax.grid(True, alpha=0.3)
+        ax.tick_params(axis="x", rotation=45)
         return fig
 
     def _plot_individual_sites(
@@ -643,3 +802,9 @@ def plot_timeseries(
 
     plotter = TimeSeriesPlotter(config=config)
     return plotter.plot(paired_data, obs_var, model_var, **kwargs)
+
+
+# ``obs_timeseries`` is a deprecated alias of the unified ``timeseries`` renderer
+# (renderer unification P3): a single obs source renders one aggregated line, so
+# obs-only configs keep working through the canonical renderer.
+register_alias("obs_timeseries", "timeseries")

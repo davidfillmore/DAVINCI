@@ -368,6 +368,32 @@ def tag_paired_roles(
             del data[name]
 
 
+def tag_source_roles(
+    data: Any,
+    *,
+    role: str | None,
+    source_label: str,
+) -> Any:
+    """Tag each variable of a single-source dataset with ``role``/``source_label``.
+
+    Per-variable counterpart of :func:`tag_paired_roles` for *unpaired* sources:
+    a single obs (or model) source carries its label/role only at the dataset
+    level today, so the unified series resolver
+    (:func:`~davinci_monet.core.base.iter_canonical_variable_series`) cannot see
+    its variables. This sets the attrs per data_var (idempotent via
+    ``setdefault``, never overwriting a pre-existing ``role``) so a single source
+    becomes a 1-series plot under the unified renderer. Returns ``data``.
+    """
+    if data is None or not hasattr(data, "data_vars"):
+        return data
+    for name in data.data_vars:
+        var = data[name]
+        if role is not None:
+            var.attrs.setdefault("role", role)
+        var.attrs.setdefault("source_label", source_label)
+    return data
+
+
 def resolve_paired_var_names(
     paired_data: Any,
     obs_var: str,
@@ -2040,13 +2066,58 @@ class StatisticsStage(BaseStage):
         super().__init__("statistics")
 
     def validate(self, context: PipelineContext) -> bool:
-        """Validate that paired data exists."""
-        return bool(context.paired)
+        """Run for paired data (comparison stats) or unpaired observations
+        (descriptive stats) — the unified obs/paired statistics stage."""
+        return bool(context.paired) or bool(context.observations)
 
-    def execute(self, context: PipelineContext) -> StageResult:
-        """Calculate statistics on paired data."""
+    def _execute_descriptive(self, context: PipelineContext) -> StageResult:
+        """Descriptive stats for unpaired observation sources (folded from the
+        former ObsStatisticsStage); tags the run descriptive so SaveResultsStage
+        routes it to ``statistics_descriptive.csv``."""
         import time
 
+        import numpy as np
+
+        context.metadata["statistics_kind"] = "descriptive"
+        start = time.time()
+        all_stats: dict[str, dict[str, dict[str, float]]] = {}
+        for obs_label, obs_data in context.observations.items():
+            ds = obs_data.data if hasattr(obs_data, "data") else obs_data
+            obs_stats: dict[str, dict[str, float]] = {}
+            for var_name in ds.data_vars:
+                values = ds[var_name].values.flatten()
+                values = values[np.isfinite(values)]
+                if len(values) < 1:
+                    continue
+                obs_stats[var_name] = {
+                    "N": len(values),
+                    "mean": float(np.mean(values)),
+                    "median": float(np.median(values)),
+                    "std": float(np.std(values)),
+                    "min": float(np.min(values)),
+                    "max": float(np.max(values)),
+                    "p10": float(np.percentile(values, 10)),
+                    "p25": float(np.percentile(values, 25)),
+                    "p75": float(np.percentile(values, 75)),
+                    "p90": float(np.percentile(values, 90)),
+                }
+            all_stats[obs_label] = obs_stats
+        return self._create_result(
+            StageStatus.COMPLETED,
+            data=all_stats,
+            duration=time.time() - start,
+        )
+
+    def execute(self, context: PipelineContext) -> StageResult:
+        """Comparison statistics on paired data, or descriptive statistics on
+        unpaired observations (unified obs/paired statistics stage)."""
+        import time
+
+        # Obs-only run: no pairs, but observations to describe.
+        if not context.paired and context.observations:
+            return self._execute_descriptive(context)
+
+        context.metadata["statistics_kind"] = "comparison"
         start = time.time()
         stats_results: dict[str, Any] = {}
 
@@ -2226,11 +2297,149 @@ class PlottingStage(BaseStage):
         super().__init__("plotting")
 
     def validate(self, context: PipelineContext) -> bool:
-        """Validate that paired data exists."""
-        return bool(context.paired)
+        """Run for paired data (comparison plots) or unpaired observations
+        (obs-only plots) — the unified obs/paired plotting stage."""
+        return bool(context.paired) or bool(context.observations)
+
+    def _execute_obs(self, context: PipelineContext) -> StageResult:
+        """Obs-only plotting (folded from the former ObsPlottingStage).
+
+        Renders each obs plot spec against its single obs source, auto-splitting
+        on a ``flight`` coord with >1 flight. Multi-figure renderers (e.g. hourly
+        LMA density) return a list of ``(fig, suffix)``.
+        """
+        import logging
+        import time
+        from pathlib import Path
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        from davinci_monet.plots.base import BasePlotter, build_series
+        from davinci_monet.plots.registry import get_plotter
+
+        _logger = logging.getLogger(__name__)
+        _SCHEMA_KEYS = {
+            "type",
+            "obs",
+            "variable",
+            "fig_kwargs",
+            "default_plot_kwargs",
+            "text_kwargs",
+            "domain_type",
+            "domain_name",
+            "data",
+            "data_proc",
+        }
+
+        start = time.time()
+        plots_config = context.config.get("plots", {})
+        output_dir = Path(context.config.get("analysis", {}).get("output_dir", "."))
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        plot_count = 0
+        plots_generated: list[str] = []
+        errors: list[str] = []
+
+        for plot_name, plot_spec in plots_config.items():
+            plot_type = plot_spec.get("type", "")
+            # Obs-only specs are single-source (they carry an ``obs:`` key). Both
+            # canonical type names and the deprecated ``obs_*`` aliases are handled;
+            # only skip specs with no type or no obs source.
+            if not plot_type or "obs" not in plot_spec:
+                continue
+
+            obs_label = plot_spec.get("obs", "")
+            variable = plot_spec.get("variable", "")
+
+            if obs_label not in context.observations:
+                errors.append(f"Observation '{obs_label}' not found for plot '{plot_name}'")
+                continue
+
+            obs_data = context.observations[obs_label]
+            ds = obs_data.data if hasattr(obs_data, "data") else obs_data
+
+            if variable not in ds.data_vars:
+                errors.append(f"Variable '{variable}' not in '{obs_label}' for plot '{plot_name}'")
+                continue
+
+            plotter = get_plotter(plot_type)
+            # Migrated (unified) renderers override render() and consume a series
+            # list; legacy obs_* renderers still take (dataset, variable).
+            unified = isinstance(plotter, BasePlotter) and (
+                type(plotter).render is not BasePlotter.render
+            )
+            plot_kwargs = {k: v for k, v in plot_spec.items() if k not in _SCHEMA_KEYS}
+            base_title = plot_kwargs.get("title", f"{variable} {plot_type}")
+
+            has_flights = "flight" in ds.coords
+            flight_ids = (
+                sorted(set(np.unique(ds["flight"].values).tolist())) if has_flights else [None]
+            )
+
+            for fid in flight_ids:
+                if fid is not None:
+                    mask = ds["flight"].values == fid
+                    subset = ds.isel(time=mask)
+                    suffix = f"_{fid}"
+                    flight_kwargs = {**plot_kwargs, "title": f"{base_title} — {fid}"}
+                else:
+                    subset = ds
+                    suffix = ""
+                    flight_kwargs = plot_kwargs
+
+                vals = subset[variable].values
+                if not np.any(np.isfinite(vals)):
+                    continue
+
+                if "flight_tracks" in plot_spec:
+                    flight_kwargs["obs_datasets"] = {
+                        label: (od.data if hasattr(od, "data") else od)
+                        for label, od in context.observations.items()
+                    }
+
+                try:
+                    if unified:
+                        # Tag the single source so build_series picks up role +
+                        # source label, then render through the unified contract.
+                        tag_source_roles(subset, role="obs", source_label=obs_label)
+                        result = plotter.render(build_series(subset, variable), **flight_kwargs)
+                    else:
+                        result = plotter.plot(subset, variable, **flight_kwargs)
+                    if isinstance(result, list):
+                        for fig, fig_suffix in result:
+                            out_path = output_dir / f"{plot_name}{suffix}{fig_suffix}.png"
+                            plotter.save(fig, out_path)
+                            plt.close(fig)
+                            plot_count += 1
+                            plots_generated.append(str(out_path))
+                            _logger.info(f"Saved obs plot: {out_path}")
+                    else:
+                        fig = result
+                        out_path = output_dir / f"{plot_name}{suffix}.png"
+                        plotter.save(fig, out_path)
+                        plt.close(fig)
+                        plot_count += 1
+                        plots_generated.append(str(out_path))
+                        _logger.info(f"Saved obs plot: {out_path}")
+                except Exception as e:
+                    label = f"'{plot_name}' (flight {fid})" if fid else f"'{plot_name}'"
+                    errors.append(f"Plot {label} failed: {e}")
+                    _logger.warning(f"Obs plot {label} failed: {e}")
+
+        return self._create_result(
+            StageStatus.COMPLETED if plot_count > 0 or not plots_config else StageStatus.SKIPPED,
+            data={"plot_count": plot_count, "plots_generated": plots_generated, "errors": errors},
+            duration=time.time() - start,
+        )
 
     def execute(self, context: PipelineContext) -> StageResult:
-        """Generate plots from paired data."""
+        """Generate comparison plots from paired data, or obs-only plots from
+        unpaired observations (unified obs/paired plotting stage)."""
+        # Obs-only run: no pairs, but observations to plot.
+        if not context.paired and context.observations:
+            return self._execute_obs(context)
+
         import time
         from pathlib import Path
 
@@ -2649,9 +2858,26 @@ class SaveResultsStage(BaseStage):
         output_dir = Path(output_dir_str)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save statistics summary from statistics stage
+        # Save statistics from the statistics stage. Comparison stats go to
+        # statistics_summary.csv (byte-identical to before); obs-only descriptive
+        # stats go to a separate statistics_descriptive.csv (Q3).
         stats_result = context.results.get("statistics")
-        if stats_result and stats_result.data:
+        stats_kind = context.metadata.get("statistics_kind", "comparison")
+        if stats_result and stats_result.data and stats_kind == "descriptive":
+            context.log_progress("step: Writing descriptive statistics CSV...")
+            desc_rows = []
+            for source_label, var_stats in stats_result.data.items():
+                for var_name, var_metrics in var_stats.items():
+                    if var_name.startswith("_"):
+                        continue
+                    desc_rows.append({"Variable": var_name, "Source": source_label, **var_metrics})
+            if desc_rows:
+                desc_df = pd.DataFrame(desc_rows).set_index("Variable")
+                desc_file = output_dir / "statistics_descriptive.csv"
+                desc_df.to_csv(desc_file)
+                saved_files.append(str(desc_file))
+                context.log_progress(f"done: {len(desc_rows)} rows saved")
+        elif stats_result and stats_result.data:
             context.log_progress("step: Writing statistics CSV...")
             rows = []
 
@@ -2750,197 +2976,6 @@ class SaveResultsStage(BaseStage):
         )
 
 
-class ObsPlottingStage(BaseStage):
-    """Pipeline stage for observation-only plots."""
-
-    def __init__(self) -> None:
-        super().__init__("obs_plotting")
-
-    def validate(self, context: PipelineContext) -> bool:
-        # Obs-only plotting: active when sources are loaded but no cross-source
-        # pairs exist. In a paired run the standard PlottingStage handles output.
-        return bool(context.observations) and not bool(context.paired)
-
-    def execute(self, context: PipelineContext) -> StageResult:
-        """Execute observation-only plotting.
-
-        When datasets contain a ``flight`` coordinate with multiple flights,
-        generates one plot per flight automatically.  The per-flight title
-        appends the flight date to the configured title.
-        """
-        import logging
-        import time
-        from pathlib import Path
-
-        import matplotlib.pyplot as plt
-        import numpy as np
-
-        from davinci_monet.plots.registry import get_plotter
-
-        _logger = logging.getLogger(__name__)
-
-        # Keys to exclude when forwarding plot_spec to plotter kwargs
-        _SCHEMA_KEYS = {
-            "type",
-            "obs",
-            "variable",
-            "fig_kwargs",
-            "default_plot_kwargs",
-            "text_kwargs",
-            "domain_type",
-            "domain_name",
-            "data",
-            "data_proc",
-        }
-
-        start = time.time()
-        plots_config = context.config.get("plots", {})
-        output_dir = Path(context.config.get("analysis", {}).get("output_dir", "."))
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        plot_count = 0
-        plots_generated: list[str] = []
-        errors: list[str] = []
-
-        for plot_name, plot_spec in plots_config.items():
-            plot_type = plot_spec.get("type", "")
-            if not plot_type.startswith("obs_"):
-                continue
-
-            obs_label = plot_spec.get("obs", "")
-            variable = plot_spec.get("variable", "")
-
-            if obs_label not in context.observations:
-                errors.append(f"Observation '{obs_label}' not found for plot '{plot_name}'")
-                continue
-
-            obs_data = context.observations[obs_label]
-            ds = obs_data.data if hasattr(obs_data, "data") else obs_data
-
-            if variable not in ds.data_vars:
-                errors.append(f"Variable '{variable}' not in '{obs_label}' for plot '{plot_name}'")
-                continue
-
-            plotter = get_plotter(plot_type)
-            plot_kwargs = {k: v for k, v in plot_spec.items() if k not in _SCHEMA_KEYS}
-            base_title = plot_kwargs.get("title", f"{variable} {plot_type}")
-
-            # Determine flight subsets
-            has_flights = "flight" in ds.coords
-            if has_flights:
-                flight_ids = sorted(set(np.unique(ds["flight"].values).tolist()))
-            else:
-                flight_ids = [None]
-
-            for fid in flight_ids:
-                if fid is not None:
-                    mask = ds["flight"].values == fid
-                    subset = ds.isel(time=mask)
-                    suffix = f"_{fid}"
-                    flight_kwargs = {**plot_kwargs, "title": f"{base_title} — {fid}"}
-                else:
-                    subset = ds
-                    suffix = ""
-                    flight_kwargs = plot_kwargs
-
-                # Skip flights with no valid data for this variable
-                vals = subset[variable].values
-                if not np.any(np.isfinite(vals)):
-                    continue
-
-                # Provide obs_datasets for renderers needing cross-dataset access
-                if "flight_tracks" in plot_spec:
-                    flight_kwargs["obs_datasets"] = {
-                        label: (od.data if hasattr(od, "data") else od)
-                        for label, od in context.observations.items()
-                    }
-
-                try:
-                    result = plotter.plot(subset, variable, **flight_kwargs)
-
-                    # Multi-figure support (e.g., hourly LMA density maps)
-                    if isinstance(result, list):
-                        for fig, fig_suffix in result:
-                            out_path = output_dir / f"{plot_name}{suffix}{fig_suffix}.png"
-                            plotter.save(fig, out_path)
-                            plt.close(fig)
-                            plot_count += 1
-                            plots_generated.append(str(out_path))
-                            _logger.info(f"Saved obs plot: {out_path}")
-                    else:
-                        fig = result
-                        out_path = output_dir / f"{plot_name}{suffix}.png"
-                        plotter.save(fig, out_path)
-                        plt.close(fig)
-                        plot_count += 1
-                        plots_generated.append(str(out_path))
-                        _logger.info(f"Saved obs plot: {out_path}")
-                except Exception as e:
-                    label = f"'{plot_name}' (flight {fid})" if fid else f"'{plot_name}'"
-                    errors.append(f"Plot {label} failed: {e}")
-                    _logger.warning(f"Obs plot {label} failed: {e}")
-
-        message = f"Generated {plot_count} obs-only plots"
-        if errors:
-            message += f" ({len(errors)} errors)"
-
-        return self._create_result(
-            StageStatus.COMPLETED if plot_count > 0 or not plots_config else StageStatus.SKIPPED,
-            data={"plot_count": plot_count, "plots_generated": plots_generated, "errors": errors},
-            duration=time.time() - start,
-        )
-
-
-class ObsStatisticsStage(BaseStage):
-    """Pipeline stage for observation-only descriptive statistics."""
-
-    def __init__(self) -> None:
-        super().__init__("obs_statistics")
-
-    def validate(self, context: PipelineContext) -> bool:
-        # Obs-only statistics: active when sources are loaded but no cross-source
-        # pairs exist. In a paired run the standard StatisticsStage handles stats.
-        return bool(context.observations) and not bool(context.paired)
-
-    def execute(self, context: PipelineContext) -> StageResult:
-        """Compute descriptive statistics for all observation variables."""
-        import time
-
-        import numpy as np
-
-        start = time.time()
-        all_stats: dict[str, dict[str, dict[str, float]]] = {}
-
-        for obs_label, obs_data in context.observations.items():
-            ds = obs_data.data if hasattr(obs_data, "data") else obs_data
-            obs_stats: dict[str, dict[str, float]] = {}
-
-            for var_name in ds.data_vars:
-                values = ds[var_name].values.flatten()
-                values = values[np.isfinite(values)]
-                if len(values) < 1:
-                    continue
-                obs_stats[var_name] = {
-                    "N": len(values),
-                    "mean": float(np.mean(values)),
-                    "median": float(np.median(values)),
-                    "std": float(np.std(values)),
-                    "min": float(np.min(values)),
-                    "max": float(np.max(values)),
-                    "p10": float(np.percentile(values, 10)),
-                    "p25": float(np.percentile(values, 25)),
-                    "p75": float(np.percentile(values, 75)),
-                    "p90": float(np.percentile(values, 90)),
-                }
-            all_stats[obs_label] = obs_stats
-
-        return self._create_result(
-            StageStatus.COMPLETED,
-            data=all_stats,
-            duration=time.time() - start,
-        )
-
-
 class SummaryStage(BaseStage):
     """Optional final stage: AI summary of the analysis run via the Claude API.
 
@@ -3027,8 +3062,6 @@ def create_standard_pipeline() -> list[BaseStage]:
         PairingStage(),
         StatisticsStage(),
         PlottingStage(),
-        ObsStatisticsStage(),
-        ObsPlottingStage(),
         SaveResultsStage(),
         SummaryStage(),
     ]
@@ -3044,8 +3077,8 @@ def create_obs_pipeline() -> list[BaseStage]:
     """
     return [
         LoadSourcesStage(),
-        ObsStatisticsStage(),
-        ObsPlottingStage(),
+        StatisticsStage(),
+        PlottingStage(),
         SaveResultsStage(),
         SummaryStage(),
     ]

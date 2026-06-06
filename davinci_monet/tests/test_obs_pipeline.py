@@ -92,36 +92,32 @@ def obs_context(obs_data: ObservationData, tmp_path: Any) -> PipelineContext:
 
 
 class TestObsPlottingStage:
-    """Tests for ObsPlottingStage."""
+    """Obs-only plotting is now handled by the unified PlottingStage."""
 
     def test_stage_name(self) -> None:
-        """Stage name should be 'obs_plotting'."""
-        from davinci_monet.pipeline.stages import ObsPlottingStage
+        """The unified plotting stage is named 'plotting'."""
+        from davinci_monet.pipeline.stages import PlottingStage
 
-        stage = ObsPlottingStage()
-        assert stage.name == "obs_plotting"
+        assert PlottingStage().name == "plotting"
 
     def test_validate_with_obs(self, obs_context: PipelineContext) -> None:
-        """validate() returns True when observations exist."""
-        from davinci_monet.pipeline.stages import ObsPlottingStage
+        """validate() returns True when observations exist (obs-only run)."""
+        from davinci_monet.pipeline.stages import PlottingStage
 
-        stage = ObsPlottingStage()
-        assert stage.validate(obs_context) is True
+        assert PlottingStage().validate(obs_context) is True
 
     def test_validate_without_obs(self) -> None:
-        """validate() returns False when no observations."""
-        from davinci_monet.pipeline.stages import ObsPlottingStage
+        """validate() returns False when there is neither paired nor obs data."""
+        from davinci_monet.pipeline.stages import PlottingStage
 
-        stage = ObsPlottingStage()
         ctx = PipelineContext(config={})
-        assert stage.validate(ctx) is False
+        assert PlottingStage().validate(ctx) is False
 
     def test_execute_creates_plots(self, obs_context: PipelineContext, tmp_path: Any) -> None:
-        """execute() creates plot files in output dir."""
-        from davinci_monet.pipeline.stages import ObsPlottingStage
+        """execute() creates obs-only plot files in the output dir."""
+        from davinci_monet.pipeline.stages import PlottingStage
 
-        stage = ObsPlottingStage()
-        result = stage.execute(obs_context)
+        result = PlottingStage().execute(obs_context)
 
         assert result.status == StageStatus.COMPLETED
         assert result.data["plot_count"] >= 1
@@ -138,28 +134,25 @@ class TestObsPlottingStage:
 
 
 class TestObsStatisticsStage:
-    """Tests for ObsStatisticsStage."""
+    """Obs-only descriptive statistics are now handled by the unified StatisticsStage."""
 
     def test_stage_name(self) -> None:
-        """Stage name should be 'obs_statistics'."""
-        from davinci_monet.pipeline.stages import ObsStatisticsStage
+        """The unified statistics stage is named 'statistics'."""
+        from davinci_monet.pipeline.stages import StatisticsStage
 
-        stage = ObsStatisticsStage()
-        assert stage.name == "obs_statistics"
+        assert StatisticsStage().name == "statistics"
 
     def test_validate_with_obs(self, obs_context: PipelineContext) -> None:
-        """validate() returns True when observations exist."""
-        from davinci_monet.pipeline.stages import ObsStatisticsStage
+        """validate() returns True when observations exist (obs-only run)."""
+        from davinci_monet.pipeline.stages import StatisticsStage
 
-        stage = ObsStatisticsStage()
-        assert stage.validate(obs_context) is True
+        assert StatisticsStage().validate(obs_context) is True
 
     def test_execute_computes_stats(self, obs_context: PipelineContext) -> None:
-        """execute() returns correct structure: obs_label -> var_name -> metric."""
-        from davinci_monet.pipeline.stages import ObsStatisticsStage
+        """execute() returns descriptive stats: obs_label -> var_name -> metric."""
+        from davinci_monet.pipeline.stages import StatisticsStage
 
-        stage = ObsStatisticsStage()
-        result = stage.execute(obs_context)
+        result = StatisticsStage().execute(obs_context)
 
         assert result.status == StageStatus.COMPLETED
         # Top level keyed by obs label
@@ -192,10 +185,14 @@ class TestObsOnlyPipelineDetection:
         stages = create_obs_pipeline()
         stage_names = [s.name for s in stages]
 
-        # Unified loading stage replaces LoadObservationsStage.
+        # Unified loading stage replaces LoadObservationsStage; obs-only stats and
+        # plotting are handled by the unified StatisticsStage/PlottingStage.
         assert "load_sources" in stage_names
-        assert "obs_statistics" in stage_names
-        assert "obs_plotting" in stage_names
+        assert "statistics" in stage_names
+        assert "plotting" in stage_names
+        # The obs/paired stage fork is gone.
+        assert "obs_statistics" not in stage_names
+        assert "obs_plotting" not in stage_names
 
         # Must NOT include the legacy model/pairing stages.
         assert "load_models" not in stage_names
@@ -228,10 +225,13 @@ class TestObsOnlyPipelineDetection:
         result = runner.run_from_config(config)
 
         # The unified pipeline handles obs-only runs: load_sources loads, the
-        # pairing/statistics/plotting stages skip (no pairs), and the obs-only
-        # stages run. (Legacy load_models stage is gone entirely.)
+        # pairing stage skips (no pairs), and the unified statistics/plotting
+        # stages run the obs-only path. (Legacy load_models stage is gone, and so
+        # is the separate obs_statistics/obs_plotting fork.)
         stage_names = [s.name for s in runner.stages]
         assert "load_models" not in stage_names
         assert "load_sources" in stage_names
-        assert "obs_statistics" in stage_names
-        assert "obs_plotting" in stage_names
+        assert "statistics" in stage_names
+        assert "plotting" in stage_names
+        assert "obs_statistics" not in stage_names
+        assert "obs_plotting" not in stage_names

@@ -31,8 +31,10 @@ class SummaryPayload:
     instructions: str | None
 
 
-_STATS_STAGES = ("statistics", "obs_statistics")
-_PLOT_STAGES = ("plotting", "obs_plotting")
+# The obs/paired stage fork was collapsed (renderer unification P2): the unified
+# StatisticsStage/PlottingStage emit under these single keys for both run types.
+_STATS_STAGES = ("statistics",)
+_PLOT_STAGES = ("plotting",)
 
 
 def collect_payload(context: "PipelineContext", cfg: "SummaryConfig") -> SummaryPayload:

@@ -56,13 +56,26 @@ def register_plotter(name: str, *, replace: bool = False) -> Callable[[type[T]],
     return plotter_registry.register(name, replace=replace)
 
 
+_warned_aliases: set[str] = set()
+
+
+def register_alias(alias: str, target: str) -> None:
+    """Register a deprecated plot-type ``alias`` that resolves to ``target``.
+
+    Lets old ``type:`` strings (e.g. ``obs_timeseries``) keep working after a
+    renderer is merged/renamed. Resolution emits a one-time ``LegacyConfigWarning``
+    (see :func:`get_plotter_class`).
+    """
+    plotter_registry.register_alias(alias, target)
+
+
 def get_plotter_class(name: str) -> type[BasePlotter]:
-    """Get a plotter class by name.
+    """Get a plotter class by name (resolving deprecated aliases).
 
     Parameters
     ----------
     name
-        Plotter name.
+        Plotter name (or a registered deprecated alias).
 
     Returns
     -------
@@ -74,6 +87,18 @@ def get_plotter_class(name: str) -> type[BasePlotter]:
     ComponentNotFoundError
         If plotter is not registered.
     """
+    if plotter_registry.is_alias(name) and name not in _warned_aliases:
+        _warned_aliases.add(name)
+        import warnings
+
+        from davinci_monet.config.migration import LegacyConfigWarning
+
+        target = plotter_registry.resolve(name)
+        warnings.warn(
+            f"Plot type '{name}' is deprecated; use '{target}'.",
+            LegacyConfigWarning,
+            stacklevel=2,
+        )
     return plotter_registry.get(name)
 
 
@@ -182,6 +207,7 @@ def get_plot_category(name: str) -> str | None:
 __all__ = [
     "plotter_registry",
     "register_plotter",
+    "register_alias",
     "get_plotter",
     "get_plotter_class",
     "list_plotters",

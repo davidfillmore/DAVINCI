@@ -15,17 +15,27 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
-from davinci_monet.plots.obs_base import ObsPlotter
-from davinci_monet.plots.registry import register_plotter
+from davinci_monet.plots.base import BasePlotter
+from davinci_monet.plots.registry import register_alias, register_plotter
 from davinci_monet.plots.style import NCAR_PALETTE
 
 
-@register_plotter("obs_lma_density")
-class ObsLMADensityPlotter(ObsPlotter):
+@register_plotter("lma_density")
+class LMADensityPlotter(BasePlotter):
     """Plotter for LMA gridded flash density maps."""
 
-    name: str = "obs_lma_density"
+    name: str = "lma_density"
     default_figsize: tuple[float, float] = (10, 8)
+
+    def render(
+        self,
+        series: list[Any],
+        ax: "matplotlib.axes.Axes | None" = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Unified entry: render a single LMA source (may return hourly list)."""
+        s = series[0]
+        return self.plot(s.dataset, s.var_name, **kwargs)
 
     def plot(  # type: ignore[override]
         self,
@@ -305,3 +315,7 @@ class ObsLMADensityPlotter(ObsPlotter):
             fontsize=self.config.text.legend_small,
             framealpha=0.8,
         )
+
+
+# ``obs_lma_density`` is a deprecated alias of the unified renderer.
+register_alias("obs_lma_density", "lma_density")

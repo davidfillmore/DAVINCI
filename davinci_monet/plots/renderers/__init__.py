@@ -31,6 +31,9 @@ from davinci_monet.plots.renderers.flight_timeseries import (
     FlightTimeSeriesPlotter,
     plot_flight_timeseries,
 )
+from davinci_monet.plots.renderers.flight_track import FlightTrackPlotter
+from davinci_monet.plots.renderers.histogram import HistogramPlotter
+from davinci_monet.plots.renderers.lma_density import LMADensityPlotter
 from davinci_monet.plots.renderers.per_site_timeseries import (
     PerSiteTimeSeriesPlotter,
     plot_per_site_timeseries,
@@ -62,6 +65,7 @@ from davinci_monet.plots.renderers.taylor import TaylorPlotter, plot_taylor
 # Temporal plots
 from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter, plot_timeseries
 from davinci_monet.plots.renderers.track_map_3d import TrackMap3DPlotter, plot_track_map_3d
+from davinci_monet.plots.renderers.vertical_profile import VerticalProfilePlotter
 
 __all__ = [
     # Temporal

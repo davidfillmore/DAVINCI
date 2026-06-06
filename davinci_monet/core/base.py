@@ -449,6 +449,77 @@ def iter_paired_variable_pairs(dataset: xr.Dataset) -> list[tuple[str, str, str]
 
 
 @dataclass
+class PlotSeries:
+    """One plottable series — a variable from one data source, with role metadata.
+
+    The value object the unified renderer contract (``render(series)``) consumes.
+    ``index`` is the series' 0-based position within its canonical group and is
+    the styling hook for palette cycling (``get_color_for_role(role, index)``).
+
+    Attributes
+    ----------
+    dataset
+        The dataset the variable lives in.
+    var_name
+        The actual variable name in ``dataset`` (e.g. ``cam_o3``/``airnow_o3``/``o3``).
+    canonical
+        The unprefixed canonical name (e.g. ``o3``).
+    role
+        Source role (``"obs"``/``"model"``/custom) or ``None`` when untagged.
+    pair_role
+        Pairing position (``"reference"``/``"comparand"``) or ``None`` when unpaired.
+    source_label
+        The source's identity in a unified pair (e.g. ``airnow``/``cam``) or ``None``.
+    index
+        Position within the canonical group (0-based).
+    """
+
+    dataset: xr.Dataset
+    var_name: str
+    canonical: str
+    role: str | None
+    pair_role: str | None
+    source_label: str | None
+    index: int
+
+
+def iter_canonical_variable_series(dataset: xr.Dataset) -> dict[str, list[PlotSeries]]:
+    """Group a dataset's source variables by canonical name into :class:`PlotSeries`.
+
+    N-capable sibling of :func:`iter_paired_variable_pairs`: where that returns a
+    single ``(reference, comparand)`` pair per canonical, this returns *every*
+    source variable for each canonical as an ordered list (1 → single series,
+    2 → reference + comparand, N → multi-source overlay). Only variables carrying
+    a recognised ``role`` or ``pair_role`` (attr, or the legacy ``obs_``/``model_``
+    prefix) are included; bookkeeping vars without a role (e.g. obs counts) are
+    skipped. Series preserve ``data_vars`` order; ``index`` is the 0-based position
+    within the canonical group.
+    """
+    groups: dict[str, list[PlotSeries]] = {}
+    for v in dataset.data_vars:
+        name = str(v)
+        role = paired_variable_role(dataset, name)
+        pair_role = paired_variable_pair_role(dataset, name)
+        if role is None and pair_role is None:
+            continue
+        canonical = paired_canonical_name(dataset, name)
+        source_label = dataset[name].attrs.get("source_label")
+        group = groups.setdefault(canonical, [])
+        group.append(
+            PlotSeries(
+                dataset=dataset,
+                var_name=name,
+                canonical=canonical,
+                role=role,
+                pair_role=pair_role,
+                source_label=str(source_label) if source_label else None,
+                index=len(group),
+            )
+        )
+    return groups
+
+
+@dataclass
 class PairedData:
     """Container for paired model-observation data.
 
