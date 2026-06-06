@@ -1380,6 +1380,9 @@ class LoadSourcesStage(BaseStage):
             "radius_of_influence",
             "mapping",
             "display_name",
+            "resample",
+            "min_obs_count",
+            "track_obs_count",
         }
         reader_kwargs = {k: v for k, v in cfg.items() if k not in passthrough_keys}
         import inspect
@@ -1404,6 +1407,17 @@ class LoadSourcesStage(BaseStage):
             data = data.sel(time=slice(start_time, end_time))
         if variables:
             data = self._apply_variable_config(data, variables)
+
+        resample_freq = cfg.get("resample")
+        if resample_freq:
+            from davinci_monet.observations.base import resample_dataset
+
+            data = resample_dataset(
+                data,
+                str(resample_freq),
+                min_count=cfg.get("min_obs_count"),
+                track_count=bool(cfg.get("track_obs_count")),
+            )
 
         geometry = self._data_geometry(getattr(reader, "geometry"))
         source = SourceData(

@@ -546,3 +546,48 @@ def test_sources_config_supports_obs_obs_grid_pair(tmp_path: Path) -> None:
     assert paired["viirs_O3"].attrs["pair_role"] == "comparand"
     assert paired["modis_O3"].attrs["role"] == "obs"
     assert paired["viirs_O3"].attrs["role"] == "obs"
+
+
+def test_unified_source_applies_resample(tmp_path: Path) -> None:
+    """A `sources:` obs with `resample` is averaged to the target frequency at load."""
+    import pandas as pd
+
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    src = tmp_path / "hf.nc"
+    times = pd.date_range("2024-01-01T00:00", periods=4, freq="15min")
+    ds = xr.Dataset(
+        {"o3": (("time", "site"), np.array([[10.0], [20.0], [30.0], [40.0]]))},
+        coords={
+            "time": times,
+            "site": [0],
+            "latitude": ("site", [40.0]),
+            "longitude": ("site", [-105.0]),
+        },
+        attrs={"geometry": "point"},
+    )
+    ds.to_netcdf(src)
+
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "sources": {
+            "hf": {
+                "type": "generic",
+                "role": "obs",
+                "files": str(src),
+                "resample": "h",
+                "track_obs_count": True,
+                "variables": {"o3": {"units": "ppb"}},
+            }
+        },
+    }
+
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+
+    assert result.success
+    assert result.context is not None
+    loaded = result.context.sources["hf"].data
+    assert loaded.sizes["time"] == 1
+    assert float(loaded["o3"].isel(time=0, site=0)) == 25.0
+    assert "obs_count" in loaded
+    assert int(loaded["obs_count"].isel(time=0, site=0)) == 4

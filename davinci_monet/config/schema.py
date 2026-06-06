@@ -456,6 +456,9 @@ class SourceConfig(FlexibleModel):
     radius_of_influence: float = 12000.0
     mapping: dict[str, dict[str, str]] = Field(default_factory=dict)
     display_name: str | None = None
+    resample: str | None = None
+    min_obs_count: int | None = None
+    track_obs_count: bool = False
 
     @field_validator("files", mode="before")
     @classmethod

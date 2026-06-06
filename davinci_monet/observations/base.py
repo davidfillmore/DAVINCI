@@ -21,6 +21,35 @@ from davinci_monet.core.registry import source_registry
 from davinci_monet.core.types import PathLike, TimeRange, VariableMapping
 
 
+def resample_dataset(
+    data: "xr.Dataset",
+    freq: str,
+    min_count: int | None = None,
+    track_count: bool = False,
+) -> "xr.Dataset":
+    """Resample a dataset along ``time``, masking sparse bins and optionally counting.
+
+    Pure-function form of :meth:`ObservationData.resample_data` so the unified
+    source loader can resample bare datasets without an ``ObservationData`` wrapper.
+    """
+    if "time" not in data.dims:
+        return data
+    resampler = data.resample(time=freq)
+    result = resampler.mean()
+    if track_count or min_count is not None:
+        data_vars = [v for v in data.data_vars if v not in ("latitude", "longitude", "altitude")]
+        if data_vars:
+            counts = resampler.count()[data_vars[0]]
+            if track_count:
+                result["obs_count"] = counts
+            if min_count is not None:
+                mask = counts >= min_count
+                for var in data_vars:
+                    if var in result:
+                        result[var] = result[var].where(mask)
+    return result
+
+
 @dataclass
 class ObservationData(DataContainer):
     """Container for observational data.
@@ -253,41 +282,11 @@ class ObservationData(DataContainer):
         """
         if self.data is None:
             return
-
         if freq is None:
             freq = self.resample
-
         if freq is None:
             return
-
-        if "time" not in self.data.dims:
-            return
-
-        resampler = self.data.resample(time=freq)
-
-        # Calculate means
-        result = resampler.mean()
-
-        # Track observation counts if requested
-        if track_count or min_count is not None:
-            # Count non-NaN values for first data variable (excluding coords)
-            data_vars = [
-                v for v in self.data.data_vars if v not in ("latitude", "longitude", "altitude")
-            ]
-            if data_vars:
-                counts = resampler.count()[data_vars[0]]
-
-                if track_count:
-                    result["obs_count"] = counts
-
-                if min_count is not None:
-                    # Mask averages with insufficient observations
-                    mask = counts >= min_count
-                    for var in data_vars:
-                        if var in result:
-                            result[var] = result[var].where(mask)
-
-        self.data = result
+        self.data = resample_dataset(self.data, freq, min_count=min_count, track_count=track_count)
 
     def filter_by_flag(
         self,
