@@ -116,6 +116,7 @@ def test_generate_summary_routes_to_openrouter(monkeypatch, tmp_path) -> None:
         }
 
     monkeypatch.setattr(orouter, "_send_openrouter_request", _fake_send)
+    monkeypatch.setattr(orouter, "_fetch_credits_remaining", lambda c, k: None)
 
     result = generate_summary(_payload(_png_path(tmp_path)), cfg=cfg)
     assert "## Caveats" in result.markdown

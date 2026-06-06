@@ -101,6 +101,7 @@ def test_openrouter_summary_writes_file(monkeypatch, tmp_path: Path) -> None:
         }
 
     monkeypatch.setattr(orouter, "_send_openrouter_request", _fake_send)
+    monkeypatch.setattr(orouter, "_fetch_credits_remaining", lambda cfg, key: None)
 
     keyfile = tmp_path / "OpenRouter.api"
     keyfile.write_text("sk-or-fake")
