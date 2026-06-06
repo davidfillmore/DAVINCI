@@ -16,7 +16,7 @@ from davinci_monet.ai.summarizer import (
 )
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/key"
+OPENROUTER_CREDITS_URL = "https://openrouter.ai/api/v1/credits"
 
 
 def build_openrouter_messages(
@@ -55,24 +55,28 @@ def _send_openrouter_request(cfg: Any, key: str, body: dict[str, Any]) -> dict[s
 
 
 def _fetch_credits_remaining(cfg: Any, key: str) -> float | None:
-    """Best-effort remaining OpenRouter key credit ($). Never raises.
+    """Best-effort remaining OpenRouter account credit ($). Never raises.
 
-    Returns ``data.limit_remaining`` from GET /api/v1/key, or None on any error,
-    non-200 response, or missing/null field. Credits are informational only and
-    must never affect the summary.
+    Returns ``data.total_credits - data.total_usage`` from GET /api/v1/credits,
+    or None on any error, non-200 response, or missing/null field. Credits are
+    informational only and must never affect the summary.
     """
     import httpx
 
     try:
         resp = httpx.get(
-            OPENROUTER_KEY_URL,
+            OPENROUTER_CREDITS_URL,
             headers={"Authorization": f"Bearer {key}"},
             timeout=15,
         )
         if resp.status_code != 200:
             return None
-        remaining = (resp.json().get("data") or {}).get("limit_remaining")
-        return float(remaining) if remaining is not None else None
+        credit_data = resp.json().get("data") or {}
+        total_credits = credit_data.get("total_credits")
+        total_usage = credit_data.get("total_usage")
+        if total_credits is None or total_usage is None:
+            return None
+        return float(total_credits) - float(total_usage)
     except Exception:  # noqa: BLE001 - credits are best-effort; never fail the summary
         return None
 

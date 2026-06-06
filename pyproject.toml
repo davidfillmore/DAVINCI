@@ -47,6 +47,7 @@ dependencies = [
 [project.optional-dependencies]
 ai = [
     "anthropic>=0.40",
+    "httpx>=0.24",
     "pillow>=10.0",
 ]
 dev = [

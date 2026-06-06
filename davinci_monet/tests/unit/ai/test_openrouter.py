@@ -75,16 +75,23 @@ def test_call_openrouter_malformed_response_raises(monkeypatch, tmp_path: Path) 
         call_openrouter("SYS", "USER", [], cfg)
 
 
-def test_fetch_credits_remaining_parses(monkeypatch, tmp_path: Path) -> None:
+def test_fetch_credits_remaining_parses_account_credits(monkeypatch, tmp_path: Path) -> None:
     class _Resp:
         status_code = 200
 
         def json(self):
-            return {"data": {"limit_remaining": 99.97}}
+            return {"data": {"total_credits": 100.5, "total_usage": 25.75}}
 
-    monkeypatch.setattr("httpx.get", lambda *a, **k: _Resp())
+    captured = {}
+
+    def _fake_get(url, *args, **kwargs):
+        captured["url"] = url
+        return _Resp()
+
+    monkeypatch.setattr("httpx.get", _fake_get)
     cfg = SummaryConfig.model_validate({"provider": "openrouter"})
-    assert orouter._fetch_credits_remaining(cfg, "sk-or-test") == 99.97
+    assert orouter._fetch_credits_remaining(cfg, "sk-or-test") == 74.75
+    assert captured["url"] == "https://openrouter.ai/api/v1/credits"
 
 
 def test_fetch_credits_remaining_none_on_non_200(monkeypatch) -> None:
@@ -104,7 +111,7 @@ def test_fetch_credits_remaining_none_on_missing_field(monkeypatch) -> None:
         status_code = 200
 
         def json(self):
-            return {"data": {}}
+            return {"data": {"total_credits": 100.0}}
 
     monkeypatch.setattr("httpx.get", lambda *a, **k: _Resp())
     cfg = SummaryConfig.model_validate({"provider": "openrouter"})

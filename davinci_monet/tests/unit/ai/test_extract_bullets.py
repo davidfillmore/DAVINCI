@@ -53,3 +53,8 @@ def test_extract_bullets_caps_with_overflow() -> None:
 def test_extract_bullets_strips_markdown_emphasis() -> None:
     md = "## Headline metrics\n- **Mean Bias** +4.8 ppb\n- _RMSE_ 5.66\n- `R` 0.85\n"
     assert extract_bullets(md) == ["Mean Bias +4.8 ppb", "RMSE 5.66", "R 0.85"]
+
+
+def test_extract_bullets_preserves_identifier_underscores() -> None:
+    md = "- Pair synthetic_surface / model_O3 used PM2_5 mapping\n"
+    assert extract_bullets(md) == ["Pair synthetic_surface / model_O3 used PM2_5 mapping"]

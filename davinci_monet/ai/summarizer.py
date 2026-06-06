@@ -59,11 +59,18 @@ def _fmt(value: Any) -> str:
 _BULLET_RE = re.compile(r"^\s*[-*•]\s+(.*\S)\s*$")
 _SUBHEADING_RE = re.compile(r"^\s*#{2,6}\s+(.*\S)\s*$")
 _OVERFLOW_ITEM = "… (full brief in AI_summary.md)"
-_EMPHASIS_RE = re.compile(r"[*_`]")
+_CODE_SPAN_RE = re.compile(r"`([^`]+)`")
+_STRONG_EMPHASIS_RE = re.compile(r"(\*\*|__)(.+?)\1")
+_STAR_EMPHASIS_RE = re.compile(r"(?<!\*)\*(?!\s|\*)(.+?)(?<!\s)(?<!\*)\*(?!\*)")
+_UNDERSCORE_EMPHASIS_RE = re.compile(r"(?<!\w)_(?!\s|_)(.+?)(?<!\s)_(?!\w|_)")
 
 
 def _strip_emphasis(text: str) -> str:
-    return _EMPHASIS_RE.sub("", text).strip()
+    text = _CODE_SPAN_RE.sub(r"\1", text)
+    text = _STRONG_EMPHASIS_RE.sub(r"\2", text)
+    text = _STAR_EMPHASIS_RE.sub(r"\1", text)
+    text = _UNDERSCORE_EMPHASIS_RE.sub(r"\1", text)
+    return text.strip()
 
 
 def extract_bullets(markdown: str, *, max_items: int = 12) -> list[str]:
