@@ -127,6 +127,59 @@ def test_sources_config_pairs_from_pair_variables(tmp_path: Path) -> None:
     assert paired["airnow_o3"].attrs["source_label"] == "airnow"
 
 
+def test_implicit_auto_pairing_from_mapping_without_pairs(tmp_path: Path) -> None:
+    """A sources config with a model ``mapping:`` and no ``pairs:`` auto-pairs.
+
+    Runs the real user path (``PipelineRunner.run_from_config``). With no
+    explicit ``pairs:`` block, PairingStage synthesizes jobs from the model
+    source's ``mapping:`` and routes them through ``engine.pair_sources`` — the
+    same unified executor as explicit pairs. The pair key keeps the historical
+    ``<model>_<obs>`` form and paired vars are renamed to source labels and
+    role-tagged, proving the unified (not the removed legacy) path produced them.
+    """
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    model_path = tmp_path / "model.nc"
+    obs_path = tmp_path / "obs.nc"
+    _write_grid_source(model_path)
+    _write_point_source(obs_path)
+
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "sources": {
+            "cam": {
+                "type": "generic",
+                "role": "model",
+                "files": str(model_path),
+                "radius_of_influence": 200000,
+                "mapping": {"airnow": {"o3": "O3"}},
+                "variables": {"O3": {"units": "ppb"}},
+            },
+            "airnow": {
+                "type": "pt_sfc",
+                "role": "obs",
+                "filename": str(obs_path),
+                "variables": {"o3": {"units": "ppb"}},
+            },
+        },
+        "stats": {"metrics": ["N", "MB"]},
+    }
+
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+
+    assert result.success
+    assert result.context is not None
+    # Implicit pair key is <model>_<obs>, matching the historical loop.
+    assert set(result.context.paired) == {"cam_airnow"}
+    paired = result.context.paired["cam_airnow"].data
+    # pair_sources renamed both sides to source-label names and tagged roles.
+    assert set(paired.data_vars) == {"cam_o3", "airnow_o3"}
+    assert paired["cam_o3"].attrs["role"] == "model"
+    assert paired["airnow_o3"].attrs["role"] == "obs"
+    assert paired["cam_o3"].attrs["pair_role"] == "comparand"
+    assert paired["airnow_o3"].attrs["pair_role"] == "reference"
+
+
 def test_sources_config_supports_model_model_pair(tmp_path: Path) -> None:
     from davinci_monet.pipeline.runner import PipelineRunner
 
@@ -362,6 +415,14 @@ def test_invalid_sources_pair_unknown_source_fails() -> None:
 
 
 def test_invalid_legacy_pair_missing_source_fails_when_sources_loaded() -> None:
+    """A legacy model/obs/variable pair is migrated then validated.
+
+    The real pipeline auto-converts legacy ``pairs:`` to the unified
+    ``sources:`` form via ``migrate_to_sources`` before pairing runs;
+    PairingStage no longer accepts the legacy pair shape directly. Here the
+    migrated pair still fails because ``airnow`` is not a loaded source.
+    """
+    from davinci_monet.config.migration import migrate_to_sources
     from davinci_monet.core.protocols import DataGeometry
     from davinci_monet.pipeline.stages import (
         PairingStage,
@@ -371,15 +432,17 @@ def test_invalid_legacy_pair_missing_source_fails_when_sources_loaded() -> None:
     )
 
     ctx = PipelineContext(
-        config={
-            "pairs": {
-                "cam_airnow_o3": {
-                    "model": "cam",
-                    "obs": "airnow",
-                    "variable": {"model_var": "O3", "obs_var": "o3"},
+        config=migrate_to_sources(
+            {
+                "pairs": {
+                    "cam_airnow_o3": {
+                        "model": "cam",
+                        "obs": "airnow",
+                        "variable": {"model_var": "O3", "obs_var": "o3"},
+                    }
                 }
             }
-        },
+        ),
         sources={
             "cam": SourceData(
                 data=xr.Dataset({"O3": ("time", np.array([1.0]))}),
@@ -400,6 +463,8 @@ def test_invalid_legacy_pair_missing_source_fails_when_sources_loaded() -> None:
 
 
 def test_invalid_legacy_pair_missing_variable_fails_when_sources_loaded() -> None:
+    """A migrated legacy pair missing a variable mapping fails validation."""
+    from davinci_monet.config.migration import migrate_to_sources
     from davinci_monet.core.protocols import DataGeometry
     from davinci_monet.pipeline.stages import (
         PairingStage,
@@ -409,15 +474,17 @@ def test_invalid_legacy_pair_missing_variable_fails_when_sources_loaded() -> Non
     )
 
     ctx = PipelineContext(
-        config={
-            "pairs": {
-                "cam_airnow_o3": {
-                    "model": "cam",
-                    "obs": "airnow",
-                    "variable": {"model_var": "O3"},
+        config=migrate_to_sources(
+            {
+                "pairs": {
+                    "cam_airnow_o3": {
+                        "model": "cam",
+                        "obs": "airnow",
+                        "variable": {"model_var": "O3"},
+                    }
                 }
             }
-        },
+        ),
         sources={
             "cam": SourceData(
                 data=xr.Dataset({"O3": ("time", np.array([1.0]))}),

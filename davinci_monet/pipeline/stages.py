@@ -867,18 +867,14 @@ class PairingStage(BaseStage):
         return bool(context.models) and bool(context.observations)
 
     def execute(self, context: PipelineContext) -> StageResult:
-        """Pair model and observation data.
+        """Pair source data through the unified role-neutral engine.
 
-        Uses two-phase execution to avoid GIL contention between Dask-backed
-        and eager (non-Dask) models. Dask models spawn many threads during
-        compute() which can block eager model pairings if run simultaneously.
+        Jobs come from the explicit ``pairs:`` block when present, otherwise
+        from implicit auto-pairing synthesized from role-tagged sources and the
+        model source's ``mapping:``. Either way they run through
+        :meth:`_execute_source_pair_jobs` / ``engine.pair_sources``.
         """
-        import os
-        import platform
-        import subprocess
         import time
-
-        from davinci_monet.pairing import PairingConfig, PairingEngine
 
         start = time.time()
 
@@ -895,55 +891,14 @@ class PairingStage(BaseStage):
                 duration=time.time() - start,
                 count=0,
             )
-        if source_jobs:
-            return self._execute_source_pair_jobs(
-                context,
-                source_jobs,
-                pairing_config_dict,
-                start,
-            )
+        if not source_jobs:
+            # No explicit ``pairs:`` block: synthesize jobs from role-tagged
+            # sources using each model source's ``mapping:`` (implicit auto-
+            # pairing). These flow through the same unified executor as ``pairs:``
+            # jobs, so all pairing goes through ``engine.pair_sources``.
+            source_jobs = self._build_implicit_pair_jobs(context)
 
-        # Build list of pairs to process, separating Dask-backed from eager models
-        # Each tuple includes an index for consistent ordering in output messages
-        dask_pairs: list[tuple[int, str, Any, str, Any, dict, dict, int | None]] = []
-        eager_pairs: list[tuple[int, str, Any, str, Any, dict, dict, int | None]] = []
-        pair_index = 0
-
-        for model_label, model_data in context.models.items():
-            model_config = context.config.get("model", {}).get(model_label, {})
-            mapping = model_config.get("mapping", {})
-
-            # Check if model is Dask-backed
-            model_ds = model_data.data if hasattr(model_data, "data") else model_data
-            is_dask = self._is_dask_backed(model_ds)
-
-            for obs_label, obs_data in context.observations.items():
-                if mapping and obs_label not in mapping:
-                    continue
-
-                var_mapping = mapping.get(obs_label, {})
-                if not var_mapping:
-                    continue
-
-                pair_index += 1
-                pair_tuple = (
-                    pair_index,
-                    model_label,
-                    model_data,
-                    obs_label,
-                    obs_data,
-                    model_config,
-                    var_mapping,
-                    None,
-                )
-
-                if is_dask:
-                    dask_pairs.append(pair_tuple)
-                else:
-                    eager_pairs.append(pair_tuple)
-
-        total_pairs = len(dask_pairs) + len(eager_pairs)
-        if total_pairs == 0:
+        if not source_jobs:
             return self._create_result(
                 StageStatus.COMPLETED,
                 data={"paired_keys": []},
@@ -951,245 +906,22 @@ class PairingStage(BaseStage):
                 count=0,
             )
 
-        debug = context.config.get("analysis", {}).get("debug", False)
-        cpu_count = os.cpu_count() or 4
-
-        def _get_ram_gb() -> int | None:
-            try:
-                if platform.system() == "Darwin":
-                    result = subprocess.run(
-                        ["sysctl", "-n", "hw.memsize"],
-                        capture_output=True,
-                        text=True,
-                        timeout=2,
-                    )
-                    if result.returncode == 0 and result.stdout.strip():
-                        return int(result.stdout.strip()) // (1024**3)
-                elif platform.system() == "Linux":
-                    with open("/proc/meminfo") as f:
-                        for line in f:
-                            if line.startswith("MemTotal"):
-                                kb = int(line.split()[1])
-                                return kb // (1024**2)
-            except Exception:
-                return None
-            return None
-
-        ram_gb = _get_ram_gb()
-        dask_pair_workers = pairing_config_dict.get("dask_pair_workers")
-        if dask_pair_workers is None:
-            dask_pair_workers = 1  # Default to serial pairs for Dask-backed data
-        dask_pair_workers = max(1, int(dask_pair_workers))
-        dask_num_workers = pairing_config_dict.get("dask_num_workers")
-        if dask_num_workers is None:
-            dask_num_workers = max(1, cpu_count // dask_pair_workers)
-            if ram_gb is not None:
-                if ram_gb <= 16:
-                    dask_num_workers = min(dask_num_workers, 4)
-                elif ram_gb <= 32:
-                    dask_num_workers = min(dask_num_workers, 6)
-            dask_num_workers = min(32, dask_num_workers)
-        dask_num_workers = max(1, int(dask_num_workers))
-        eager_pair_workers = pairing_config_dict.get("max_workers")
-        if eager_pair_workers is None:
-            eager_pair_workers = min(len(eager_pairs), max(1, cpu_count // 2)) if eager_pairs else 1
-            if ram_gb is not None and ram_gb <= 16:
-                eager_pair_workers = min(eager_pair_workers, 4)
-        eager_pair_workers = max(1, int(eager_pair_workers))
-        if debug and dask_pairs:
-            context.log_progress(
-                f"step: Dask pairing workers={dask_pair_workers}, "
-                f"dask_num_workers={dask_num_workers}, "
-                f"eager_workers={eager_pair_workers}"
-            )
-
-        def pair_single(args: tuple) -> tuple[int, str, Any, str | None, float]:
-            """Process a single model-obs pair. Returns (index, pair_key, paired_ds, error, duration)."""
-            import time as time_mod
-
-            pair_start = time_mod.time()
-            (
-                idx,
-                model_label,
-                model_data,
-                obs_label,
-                obs_data,
-                model_config,
-                var_mapping,
-                dask_workers,
-            ) = args
-            pair_key = f"{model_label}_{obs_label}"
-
-            try:
-                obs_vars = list(var_mapping.keys())
-                model_vars = list(var_mapping.values())
-
-                model_ds = model_data.data if hasattr(model_data, "data") else model_data
-                obs_ds = obs_data.data if hasattr(obs_data, "data") else obs_data
-
-                if model_ds is None or obs_ds is None:
-                    return (
-                        idx,
-                        pair_key,
-                        None,
-                        "Model or obs data is None",
-                        time_mod.time() - pair_start,
-                    )
-
-                radius = model_config.get("radius_of_influence", 12000.0)
-                pairing_cfg = PairingConfig(
-                    radius_of_influence=radius,
-                    time_tolerance=pairing_config_dict.get("time_tolerance", "1h"),
-                    time_method=pairing_config_dict.get("time_method", "nearest"),
-                )
-
-                engine = PairingEngine()
-                if dask_workers is not None:
-                    import dask
-
-                    with dask.config.set(scheduler="threads", num_workers=dask_workers):
-                        paired_ds = engine.pair(
-                            model_ds,
-                            obs_ds,
-                            obs_vars=obs_vars,
-                            model_vars=model_vars,
-                            config=pairing_cfg,
-                            dask_num_workers=dask_workers,
-                        )
-                else:
-                    paired_ds = engine.pair(
-                        model_ds,
-                        obs_ds,
-                        obs_vars=obs_vars,
-                        model_vars=model_vars,
-                        config=pairing_cfg,
-                    )
-
-                return (idx, pair_key, paired_ds, None, time_mod.time() - pair_start)
-
-            except Exception as e:
-                return (idx, pair_key, None, str(e), time_mod.time() - pair_start)
-
-        paired_count = 0
-
-        def run_phase(pairs: list, phase_name: str, max_workers: int) -> None:
-            """Run a phase of pairs in parallel."""
-            nonlocal paired_count
-            from concurrent.futures import ThreadPoolExecutor, as_completed
-
-            if not pairs:
-                return
-            max_workers = min(max_workers, len(pairs))
-
-            # Run pairs in parallel
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {}
-                # Submit each pair and log start message
-                for args in pairs:
-                    idx, model_label, _, obs_label, _, _, _, _ = args
-                    pair_key = f"{model_label}_{obs_label}"
-                    context.log_progress(f"    parallel_started: {pair_key}")
-                    futures[executor.submit(pair_single, args)] = args
-
-                # Collect results as they complete
-                for future in as_completed(futures):
-                    idx, pair_key, paired_ds, error, pair_duration = future.result()
-
-                    if error:
-                        context.metadata.setdefault("pairing_errors", []).append(
-                            f"{pair_key}: {error}"
-                        )
-                        if debug:
-                            context.log_progress(
-                                f"      [TIMING] {pair_key} failed: {_format_duration(pair_duration)}"
-                            )
-                        # Still count as "completed" for progress display
-                        context.log_progress(f"    parallel_completed: {pair_key} - FAILED")
-                    elif paired_ds is not None:
-                        context.paired[pair_key] = paired_ds
-                        paired_count += 1
-
-                        # Recover the source labels for this pair (model -> comparand,
-                        # obs -> reference) to drive source-label renaming.
-                        _, src_model_label, _, src_obs_label, _, _, _, _ = futures[future]
-
-                        # Tag role metadata and rename the paired variables to
-                        # source-label names (R-5 clean break; drops model_/obs_).
-                        paired_data = paired_ds.data if hasattr(paired_ds, "data") else paired_ds
-                        tag_paired_roles(
-                            paired_data,
-                            reference_label=src_obs_label,
-                            comparand_label=src_model_label,
-                        )
-
-                        # Summary message: count paired (obs, model) variable pairs.
-                        n_vars = len(iter_paired_variable_pairs(paired_data))
-                        n_points = paired_data.sizes.get("time", paired_data.sizes.get("x", 0))
-                        timing_str = f" [{_format_duration(pair_duration)}]" if debug else ""
-                        context.log_progress(
-                            f"    parallel_completed: {pair_key} - "
-                            f"{n_vars} vars, {_format_size(n_points)} points{timing_str}"
-                        )
-
-        # Build loading message for parallel mode display
-        # Group Dask pairs by model to show what's being loaded
-        loading_msg = ""
-        if dask_pairs:
-            # Extract unique model(s) and their obs from Dask pairs
-            dask_models: dict[str, list[str]] = {}
-            for _, model_label, _, obs_label, _, _, _, _ in dask_pairs:
-                dask_models.setdefault(model_label, []).append(obs_label)
-
-            # Format: "loading model → obs1, obs2, obs3"
-            parts = []
-            for model_name, obs_names in dask_models.items():
-                obs_str = ", ".join(obs_names)
-                parts.append(f"loading {model_name} → {obs_str}")
-            loading_msg = "; ".join(parts)
-
-        # Enter parallel mode for progress display
-        if loading_msg:
-            context.log_progress(f"    parallel_start: {total_pairs} | {loading_msg}")
-        else:
-            context.log_progress(f"    parallel_start: {total_pairs}")
-
-        # Phase 1: Process Dask-backed model pairs (default serial to avoid oversubscription)
-        for i, args in enumerate(dask_pairs):
-            dask_pairs[i] = (*args[:-1], dask_num_workers)
-        run_phase(dask_pairs, "dask", max_workers=dask_pair_workers)
-
-        # Phase 2: Process eager (non-Dask) model pairs in parallel
-        # These run after Dask compute() completes, avoiding GIL contention
-        run_phase(eager_pairs, "eager", max_workers=eager_pair_workers)
-
-        # Exit parallel mode
-        context.log_progress("    parallel_end")
-
-        # Warn if pairing produced no data (transient Dask/HDF5 issue)
-        if total_pairs > 0 and paired_count == 0:
-            import logging
-
-            logger = logging.getLogger(__name__)
-            logger.warning(
-                f"Pairing completed but produced no data ({total_pairs} pairs attempted). "
-                "This may be a transient HDF5/Dask issue. Try: "
-                "DASK_NUM_WORKERS=1 HDF5_USE_FILE_LOCKING=FALSE davinci-monet run ..."
-            )
-            context.log_progress(
-                "    warning: No paired data produced - statistics/plotting will be skipped"
-            )
-
-        return self._create_result(
-            StageStatus.COMPLETED,
-            data={"paired_keys": list(context.paired.keys())},
-            duration=time.time() - start,
-            count=paired_count,
+        return self._execute_source_pair_jobs(
+            context,
+            source_jobs,
+            pairing_config_dict,
+            start,
         )
 
     def _build_source_pair_jobs(
         self, context: PipelineContext
     ) -> tuple[list[SourcePairJob], list[str]]:
-        """Build role-neutral pair jobs from ``pairs:`` or legacy mappings."""
+        """Build role-neutral pair jobs from the explicit ``pairs:`` block.
+
+        Each pair must be in unified form (``sources: [a, b]``). Implicit
+        auto-pairing (no ``pairs:`` block) is handled separately by
+        :meth:`_build_implicit_pair_jobs`.
+        """
         from davinci_monet.pairing.direction import resolve_pair_direction
 
         jobs: list[SourcePairJob] = []
@@ -1279,57 +1011,104 @@ class PairingStage(BaseStage):
                         radius_of_influence=self._pair_radius(raw_pair, comparand_obj),
                     )
                 )
-            elif "model" in raw_pair and "obs" in raw_pair:
-                model_label = str(raw_pair["model"])
-                obs_label = str(raw_pair["obs"])
-                if model_label not in context.sources or obs_label not in context.sources:
-                    if context.sources:
-                        missing = [
-                            label
-                            for label in (model_label, obs_label)
-                            if label not in context.sources
-                        ]
-                        errors.append(
-                            f"Pair '{pair_name}' references unknown source(s): "
-                            f"{', '.join(missing)}"
-                        )
-                    continue
-                var_spec = raw_pair.get("variable") or {}
-                model_var = var_spec.get("model_var")
-                obs_var = var_spec.get("obs_var")
-                if not model_var or not obs_var:
-                    missing = [
-                        label
-                        for label, value in (
-                            (model_label, model_var),
-                            (obs_label, obs_var),
-                        )
-                        if not value
-                    ]
-                    errors.append(
-                        f"Pair '{pair_name}' missing variable mapping for source(s): "
-                        f"{', '.join(missing)}"
-                    )
-                    continue
-                pair_index += 1
-                model_obj = context.sources[model_label]
-                obs_obj = context.sources[obs_label]
-                jobs.append(
-                    SourcePairJob(
-                        index=pair_index,
-                        pair_key=str(pair_name),
-                        reference_label=obs_label,
-                        reference_obj=obs_obj,
-                        comparand_label=model_label,
-                        comparand_obj=model_obj,
-                        reference_var=str(obs_var),
-                        comparand_var=str(model_var),
-                        reference_role=self._source_role(obs_obj) or "obs",
-                        comparand_role=self._source_role(model_obj) or "model",
-                        radius_of_influence=self._pair_radius(raw_pair, model_obj),
-                    )
+            else:
+                errors.append(
+                    f"Pair '{pair_name}' must declare 'sources: [a, b]'. The legacy "
+                    "'model'/'obs'/'variable' pair shape is no longer accepted; run "
+                    "'davinci-monet migrate-config' to convert the control file."
                 )
         return jobs, errors
+
+    def _build_implicit_pair_jobs(self, context: PipelineContext) -> list[SourcePairJob]:
+        """Synthesize pair jobs when no explicit ``pairs:`` block is configured.
+
+        Implicit auto-pairing: every model-role source is paired against every
+        obs-role source named in that model's ``mapping:`` (``{obs_label: {obs_var:
+        model_var}}``), reference = obs, comparand = model. The pair key matches
+        the historical ``<model_label>_<obs_label>`` form so existing single-block
+        configs (e.g. ``plots: {data: [cmaq_airnow]}``) keep resolving. Jobs run
+        through the same unified executor (``engine.pair_sources``) as ``pairs:``
+        jobs — there is no separate legacy ``engine.pair`` loop.
+
+        ``mapping:`` is read from the source's loaded config (``SourceData.config``)
+        and, for pre-populated ``context.models`` that bypassed
+        :class:`LoadSourcesStage`, falls back to the legacy ``model:`` config block.
+        """
+        jobs: list[SourcePairJob] = []
+        pair_index = 0
+        legacy_model_cfg = context.config.get("model", {})
+        if not isinstance(legacy_model_cfg, dict):
+            legacy_model_cfg = {}
+
+        for model_label, model_obj in self._model_role_sources(context):
+            mapping = self._source_mapping(model_obj)
+            if not mapping:
+                legacy_entry = legacy_model_cfg.get(model_label, {})
+                if isinstance(legacy_entry, dict):
+                    mapping = legacy_entry.get("mapping", {}) or {}
+            if not isinstance(mapping, dict) or not mapping:
+                continue
+
+            for obs_label, var_mapping in mapping.items():
+                if not isinstance(var_mapping, dict) or not var_mapping:
+                    continue
+                obs_obj = self._lookup_source(context, str(obs_label))
+                if obs_obj is None:
+                    continue
+                # mapping is {obs_var: model_var}; one job per variable pair.
+                for obs_var, model_var in var_mapping.items():
+                    pair_index += 1
+                    jobs.append(
+                        SourcePairJob(
+                            index=pair_index,
+                            pair_key=f"{model_label}_{obs_label}",
+                            reference_label=str(obs_label),
+                            reference_obj=obs_obj,
+                            comparand_label=str(model_label),
+                            comparand_obj=model_obj,
+                            reference_var=str(obs_var),
+                            comparand_var=str(model_var),
+                            reference_role=self._source_role(obs_obj) or "obs",
+                            comparand_role=self._source_role(model_obj) or "model",
+                            radius_of_influence=self._pair_radius({}, model_obj),
+                        )
+                    )
+        return jobs
+
+    @staticmethod
+    def _model_role_sources(context: PipelineContext) -> list[tuple[str, Any]]:
+        """Return (label, obj) for model-role sources, preferring ``sources``.
+
+        Falls back to the legacy ``context.models`` mirror for direct stage use
+        that bypassed :class:`LoadSourcesStage`.
+        """
+        items: list[tuple[str, Any]] = []
+        if context.sources:
+            for label, obj in context.sources.items():
+                if PairingStage._source_role(obj) == "model":
+                    items.append((str(label), obj))
+        if not items:
+            items = [(str(label), obj) for label, obj in context.models.items()]
+        return items
+
+    @staticmethod
+    def _lookup_source(context: PipelineContext, label: str) -> Any:
+        """Resolve a source by label from ``sources`` then the obs mirror."""
+        if label in context.sources:
+            return context.sources[label]
+        if label in context.observations:
+            return context.observations[label]
+        return None
+
+    @staticmethod
+    def _source_mapping(obj: Any) -> dict[str, Any]:
+        """Return a source's ``mapping:`` config, if any."""
+        cfg = getattr(obj, "config", None)
+        if isinstance(cfg, dict):
+            mapping = cfg.get("mapping")
+            if isinstance(mapping, dict):
+                return mapping
+        return {}
 
     @staticmethod
     def _source_dataset(obj: Any) -> xr.Dataset | None:
@@ -1453,24 +1232,6 @@ class PairingStage(BaseStage):
             duration=time.time() - start,
             count=paired_count,
         )
-
-    def _is_dask_backed(self, ds: xr.Dataset) -> bool:
-        """Check if a dataset has Dask-backed arrays.
-
-        Parameters
-        ----------
-        ds
-            xarray Dataset to check.
-
-        Returns
-        -------
-        bool
-            True if any data variable has Dask chunks.
-        """
-        for var in ds.data_vars:
-            if ds[var].chunks is not None:
-                return True
-        return False
 
 
 class StatisticsStage(BaseStage):
@@ -1924,14 +1685,16 @@ class PlottingStage(BaseStage):
                         pair_spec = {}
 
                     sources = [str(src) for src in pair_spec.get("sources", [])]
-                    model_label = str(pair_spec.get("model", ""))
-                    obs_label = str(pair_spec.get("obs", ""))
-                    var_spec = pair_spec.get("variable", {})
+                    model_label = ""
+                    obs_label = ""
+                    var_spec: dict[str, Any] = {}
 
-                    # Find paired data
-                    pair_key = f"{model_label}_{obs_label}"
+                    # Resolve the paired-data key. Unified ``sources:`` pairs and
+                    # implicitly auto-paired pairs are both keyed by the pair name
+                    # in ``context.paired``; for unified pairs we also recover the
+                    # reference/comparand labels from the spec.
+                    pair_key = pair_name
                     if "sources" in pair_spec:
-                        pair_key = pair_name
                         reference_label = pair_spec.get("reference")
                         if reference_label is not None and str(reference_label) in sources:
                             obs_label = str(reference_label)
@@ -1939,29 +1702,13 @@ class PlottingStage(BaseStage):
                                 (src for src in sources if src != obs_label),
                                 "",
                             )
-                    elif not pair_spec and pair_name in context.paired:
-                        pair_key = pair_name
-                    elif pair_key not in context.paired and pair_name in context.paired:
-                        pair_key = pair_name
                     if pair_key not in context.paired:
                         continue
 
                     paired_obj = context.paired[pair_key]
                     paired_data = paired_obj.data if hasattr(paired_obj, "data") else paired_obj
 
-                    if not pair_spec:
-                        pair_vars = iter_paired_variable_pairs(paired_data)
-                        if not pair_vars:
-                            continue
-                        obs_var_name, model_var_name, obs_var = pair_vars[0]
-                        obs_label = str(
-                            paired_data[obs_var_name].attrs.get("source_label", "reference")
-                        )
-                        model_label = str(
-                            paired_data[model_var_name].attrs.get("source_label", "comparand")
-                        )
-                        var_spec = {"obs_var": obs_var, "model_var": obs_var}
-                    elif "sources" in pair_spec:
+                    if "sources" in pair_spec:
                         pair_vars = iter_paired_variable_pairs(paired_data)
                         if not pair_vars:
                             continue
@@ -1986,13 +1733,21 @@ class PlottingStage(BaseStage):
                             paired_data, obs_var, obs_label, model_label
                         )
                     else:
-                        # Resolve the paired variable names: prefer the source-label
-                        # aliases (e.g. cam_o3 / airnow_o3) added by tag_paired_roles,
-                        # falling back to the legacy obs_/model_ prefixes (R-2).
-                        obs_var = var_spec.get("obs_var", "")
-                        obs_var_name, model_var_name = resolve_paired_var_names(
-                            paired_data, obs_var, obs_label, model_label
+                        # No (or empty) pair spec: a plot referencing a pair key in
+                        # context.paired directly (implicit auto-pairing or a
+                        # pre-paired key). Recover labels/vars from the paired
+                        # data's role-tagged source-label attrs.
+                        pair_vars = iter_paired_variable_pairs(paired_data)
+                        if not pair_vars:
+                            continue
+                        obs_var_name, model_var_name, obs_var = pair_vars[0]
+                        obs_label = str(
+                            paired_data[obs_var_name].attrs.get("source_label", "reference")
                         )
+                        model_label = str(
+                            paired_data[model_var_name].attrs.get("source_label", "comparand")
+                        )
+                        var_spec = {"obs_var": obs_var, "model_var": obs_var}
 
                     # Apply per-plot domain filter if requested. domain_type/
                     # domain_name in the plot spec restrict paired_data to a
