@@ -12,7 +12,6 @@ import xarray as xr
 from davinci_monet.core.base import (
     DataContainer,
     PairedData,
-    create_paired_dataset,
     validate_dataset_geometry,
 )
 from davinci_monet.core.exceptions import DataValidationError, VariableNotFoundError
@@ -361,43 +360,3 @@ class TestValidateDatasetGeometry:
         )
         with pytest.raises(DataValidationError):
             validate_dataset_geometry(ds, DataGeometry.POINT)
-
-
-class TestCreatePairedDataset:
-    """Tests for create_paired_dataset function."""
-
-    def test_basic_pairing(self) -> None:
-        """Test basic paired dataset creation."""
-        obs = xr.Dataset(
-            {"ozone": (["time", "site"], np.random.randn(10, 5))},
-            coords={"time": np.arange(10), "site": np.arange(5)},
-        )
-        model = xr.Dataset(
-            {"o3": (["time", "site"], np.random.randn(10, 5))},
-            coords={"time": np.arange(10), "site": np.arange(5)},
-        )
-        paired = create_paired_dataset(obs, model, obs_vars=["ozone"], model_vars=["o3"])
-        assert "obs_ozone" in paired
-        assert "model_ozone" in paired
-
-    def test_mismatched_vars_raises(self) -> None:
-        """Test mismatched variable lists raises error."""
-        obs = xr.Dataset({"ozone": (["time"], np.random.randn(10))})
-        model = xr.Dataset({"o3": (["time"], np.random.randn(10))})
-        with pytest.raises(DataValidationError):
-            create_paired_dataset(obs, model, obs_vars=["ozone", "pm25"], model_vars=["o3"])
-
-    def test_custom_prefixes(self) -> None:
-        """Test custom prefixes."""
-        obs = xr.Dataset({"ozone": (["time"], np.random.randn(10))})
-        model = xr.Dataset({"o3": (["time"], np.random.randn(10))})
-        paired = create_paired_dataset(
-            obs,
-            model,
-            obs_vars=["ozone"],
-            model_vars=["o3"],
-            prefix_obs="observation_",
-            prefix_model="simulation_",
-        )
-        assert "observation_ozone" in paired
-        assert "simulation_ozone" in paired

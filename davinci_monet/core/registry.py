@@ -314,9 +314,6 @@ model_registry: Registry[type] = source_registry
 observation_registry: Registry[type] = source_registry
 """Deprecated alias of :data:`source_registry` retained for compatibility."""
 
-pairing_registry: Registry[type] = Registry("pairing")
-"""Registry for pairing strategy classes (point, track, profile, swath, grid)."""
-
 plotter_registry: Registry[type] = Registry("plotter")
 """Registry for plotter classes (timeseries, scatter, spatial, etc.)."""
 

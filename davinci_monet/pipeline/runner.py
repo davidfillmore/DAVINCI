@@ -504,22 +504,6 @@ class LogCollector:
         return "\n".join(lines)
 
 
-class TeeWriter:
-    """Write to multiple file-like objects simultaneously."""
-
-    def __init__(self, *writers: TextIO) -> None:
-        self.writers = writers
-
-    def write(self, message: str) -> None:
-        for writer in self.writers:
-            writer.write(message)
-            writer.flush()
-
-    def flush(self) -> None:
-        for writer in self.writers:
-            writer.flush()
-
-
 class ProgressFormatter:
     """Formats pipeline progress output with rich animated styling.
 

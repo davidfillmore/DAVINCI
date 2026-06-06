@@ -11,7 +11,6 @@ This module provides the foundational components for DAVINCI:
 from davinci_monet.core.base import (
     DataContainer,
     PairedData,
-    create_paired_dataset,
     validate_dataset_geometry,
 )
 from davinci_monet.core.exceptions import (
@@ -64,7 +63,6 @@ from davinci_monet.core.registry import (
     RegistryError,
     model_registry,
     observation_registry,
-    pairing_registry,
     plotter_registry,
     reader_registry,
     source_registry,
@@ -85,7 +83,6 @@ __all__ = [
     # Base data classes
     "DataContainer",
     "PairedData",
-    "create_paired_dataset",
     "validate_dataset_geometry",
     # Data geometry enum
     "DataGeometry",
@@ -124,7 +121,6 @@ __all__ = [
     "model_registry",
     "observation_registry",
     "source_registry",
-    "pairing_registry",
     "plotter_registry",
     "statistic_registry",
     "reader_registry",
