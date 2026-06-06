@@ -2432,7 +2432,7 @@ class PlottingStage(BaseStage):
         import matplotlib.pyplot as plt
         import numpy as np
 
-        from davinci_monet.plots.base import BasePlotter, build_series
+        from davinci_monet.plots.base import build_series
         from davinci_monet.plots.registry import get_plotter
 
         _logger = logging.getLogger(__name__)
@@ -2485,11 +2485,6 @@ class PlottingStage(BaseStage):
                 continue
 
             plotter = get_plotter(plot_type)
-            # Migrated (unified) renderers override render() and consume a series
-            # list; legacy obs_* renderers still take (dataset, variable).
-            unified = isinstance(plotter, BasePlotter) and (
-                type(plotter).render is not BasePlotter.render
-            )
             plot_kwargs = {k: v for k, v in plot_spec.items() if k not in _SCHEMA_KEYS}
             base_title = plot_kwargs.get("title", f"{variable} {plot_type}")
 
@@ -2519,13 +2514,10 @@ class PlottingStage(BaseStage):
                     }
 
                 try:
-                    if unified:
-                        # Tag the single source so build_series picks up role +
-                        # source label, then render through the unified contract.
-                        tag_source_roles(subset, role=role, source_label=source_label)
-                        result = plotter.render(build_series(subset, variable), **flight_kwargs)
-                    else:
-                        result = plotter.plot(subset, variable, **flight_kwargs)
+                    # Tag the single source so build_series picks up role +
+                    # source label, then render through the unified contract.
+                    tag_source_roles(subset, role=role, source_label=source_label)
+                    result = plotter.render(build_series(subset, variable), **flight_kwargs)
                     if isinstance(result, list):
                         for fig, fig_suffix in result:
                             out_path = output_dir / f"{plot_name}{suffix}{fig_suffix}.png"
@@ -2564,7 +2556,7 @@ class PlottingStage(BaseStage):
         import matplotlib.pyplot as plt
 
         from davinci_monet.plots import get_plotter
-        from davinci_monet.plots.base import format_plot_title
+        from davinci_monet.plots.base import build_series, format_plot_title
 
         start = time.time()
         plots_generated: list[str] = []
@@ -2933,9 +2925,9 @@ class PlottingStage(BaseStage):
 
                         context.log_progress(f"done: saved {site_count} sites to {obs_label}/")
                     else:
-                        # Generate single plot (original behavior)
-                        fig = plotter.plot(
-                            paired_data, obs_var_name, model_var_name, **plot_options
+                        # Generate single plot via the unified render contract.
+                        fig = plotter.render(
+                            build_series(paired_data, obs_var_name, model_var_name), **plot_options
                         )
 
                         # Save plot (prefixed for ordering)
