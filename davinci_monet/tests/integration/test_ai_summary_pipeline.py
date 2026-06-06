@@ -160,18 +160,18 @@ def test_summary_stage_skips_without_api_key(monkeypatch, tmp_path: Path) -> Non
 
 
 def test_summary_displayed_to_terminal_at_end_of_run(monkeypatch, tmp_path: Path) -> None:
-    """Per spec, the brief must be printed to the terminal (not just the file)."""
+    """Terminal gets the itemized bullets; AI_summary.md keeps the full brief."""
     import davinci_monet.pipeline.runner as runner_mod
     from davinci_monet.pipeline.runner import PipelineRunner
 
     stub = _StubClient()
     monkeypatch.setattr(summarizer_mod, "_build_client", lambda cfg: stub)
 
-    displayed: list[str] = []
+    displayed: list[tuple] = []
     monkeypatch.setattr(
         runner_mod.ProgressFormatter,
         "print_summary",
-        lambda self, markdown: displayed.append(markdown),
+        lambda self, items, summary_file=None: displayed.append((items, summary_file)),
     )
 
     config = _build_config(tmp_path)
@@ -183,5 +183,10 @@ def test_summary_displayed_to_terminal_at_end_of_run(monkeypatch, tmp_path: Path
         result = runner.run_from_config(config)
 
     assert result.success
-    assert displayed, "summary brief was not displayed at end of run"
-    assert "## Caveats" in displayed[0]
+    assert displayed, "summary was not displayed at end of run"
+    items, summary_file = displayed[0]
+    # the display got an itemized list (not the raw full markdown)
+    assert isinstance(items, list) and items
+    assert summary_file is not None and summary_file.endswith("AI_summary.md")
+    # the file on disk still holds the full brief
+    assert "## Caveats" in (tmp_path / "output" / "AI_summary.md").read_text()

@@ -106,3 +106,36 @@ def test_summary_stage_invalid_config_is_nonfatal(tmp_path: Path) -> None:
     )
     result = SummaryStage().execute(ctx)
     assert result.status == StageStatus.SKIPPED
+
+
+def test_summary_stage_includes_bullets_in_data(monkeypatch, tmp_path: Path) -> None:
+    def _fake_client(cfg):
+        class _Msgs:
+            def create(self, **kwargs):
+                class _Block:
+                    text = "## Headline metrics\n- MB +4.8 ppb\n- R 0.85\n" "## Caveats\n- N=98\n"
+
+                class _Usage:
+                    input_tokens = 1
+                    output_tokens = 2
+
+                class _Resp:
+                    content = [_Block()]
+                    usage = _Usage()
+                    model = cfg.model
+
+                return _Resp()
+
+        class _Client:
+            messages = _Msgs()
+
+        return _Client()
+
+    monkeypatch.setattr(summarizer_mod, "_build_client", _fake_client)
+
+    result = SummaryStage().execute(_ctx(tmp_path))
+    assert result.status == StageStatus.COMPLETED
+    assert result.data["bullets"] == ["MB +4.8 ppb", "R 0.85", "N=98"]
+    # full brief still carried + written
+    assert "## Caveats" in result.data["markdown"]
+    assert "## Caveats" in Path(result.data["summary_file"]).read_text()

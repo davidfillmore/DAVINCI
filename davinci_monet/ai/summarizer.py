@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -52,6 +53,30 @@ def _fmt(value: Any) -> str:
     if isinstance(value, float):
         return f"{value:.3g}"
     return str(value)
+
+
+_BULLET_RE = re.compile(r"^\s*[-*•]\s+(.*\S)\s*$")
+_SUBHEADING_RE = re.compile(r"^\s*#{2,6}\s+(.*\S)\s*$")
+_OVERFLOW_ITEM = "… (full brief in AI_summary.md)"
+
+
+def extract_bullets(markdown: str, *, max_items: int = 12) -> list[str]:
+    """Condense a brief to an itemized list for terminal display.
+
+    Returns every markdown bullet line (-, *, or bullet char) across all
+    sections, marker stripped. If the brief has no bullets, falls back to the
+    level-2+ section headings. Returns an empty list if neither is present.
+    Caps at ``max_items``; when truncated, the final item points to the file.
+    """
+    lines = markdown.splitlines()
+    items = [m.group(1).strip() for line in lines if (m := _BULLET_RE.match(line))]
+    if not items:
+        items = [m.group(1).strip() for line in lines if (m := _SUBHEADING_RE.match(line))]
+    if not items:
+        return []
+    if len(items) > max_items:
+        items = items[: max_items - 1] + [_OVERFLOW_ITEM]
+    return items
 
 
 def render_text(payload: SummaryPayload) -> str:
