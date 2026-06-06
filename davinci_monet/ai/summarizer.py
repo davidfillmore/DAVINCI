@@ -47,6 +47,7 @@ class SummaryResult:
     usage: dict[str, Any]
     plots_used: list[str]
     images_sent: int
+    credits_remaining: float | None = None
 
 
 def _fmt(value: Any) -> str:
