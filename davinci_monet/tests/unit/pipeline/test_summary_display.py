@@ -39,6 +39,31 @@ def test_print_summary_lists_items_and_file() -> None:
     assert "AI_summary.md" in out
 
 
+def test_print_summary_shows_tokens() -> None:
+    fmt, buf = _formatter_with_buffer(show_output=True)
+    fmt.print_summary(
+        ["x"], "/out/AI_summary.md", usage={"input_tokens": 1240, "output_tokens": 480}
+    )
+    out = buf.getvalue()
+    assert "1,240 in" in out
+    assert "480 out" in out
+    assert "1,720 total" in out
+
+
+def test_print_summary_shows_credits() -> None:
+    fmt, buf = _formatter_with_buffer(show_output=True)
+    fmt.print_summary(["x"], None, usage=None, credits_remaining=99.97)
+    assert "$99.97 remaining" in buf.getvalue()
+
+
+def test_print_summary_omits_credits_when_none() -> None:
+    fmt, buf = _formatter_with_buffer(show_output=True)
+    fmt.print_summary(
+        ["x"], None, usage={"input_tokens": 1, "output_tokens": 2}, credits_remaining=None
+    )
+    assert "credits" not in buf.getvalue().lower()
+
+
 def test_print_summary_silent_when_disabled() -> None:
     fmt, buf = _formatter_with_buffer(show_output=False)
     fmt.print_summary(["hidden"], "/out/AI_summary.md")
