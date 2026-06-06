@@ -113,10 +113,7 @@ def test_summary_stage_includes_bullets_in_data(monkeypatch, tmp_path: Path) -> 
         class _Msgs:
             def create(self, **kwargs):
                 class _Block:
-                    text = (
-                        "## Headline metrics\n- MB +4.8 ppb\n- R 0.85\n"
-                        "## Caveats\n- N=98\n"
-                    )
+                    text = "## Headline metrics\n- MB +4.8 ppb\n- R 0.85\n" "## Caveats\n- N=98\n"
 
                 class _Usage:
                     input_tokens = 1

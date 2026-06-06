@@ -510,9 +510,7 @@ class ProgressFormatter:
         if self.show_output:
             self.console.print(*args, **kwargs)
 
-    def print_summary(
-        self, items: list[str], summary_file: str | None = None
-    ) -> None:
+    def print_summary(self, items: list[str], summary_file: str | None = None) -> None:
         """Render an itemized AI summary to the terminal at end of run.
 
         Shows the condensed bullet list (derived from the full brief) plus a
