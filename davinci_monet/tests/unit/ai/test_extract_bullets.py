@@ -48,3 +48,8 @@ def test_extract_bullets_caps_with_overflow() -> None:
     assert len(out) == 5
     assert out[:4] == ["item 0", "item 1", "item 2", "item 3"]
     assert out[4] == "… (full brief in AI_summary.md)"
+
+
+def test_extract_bullets_strips_markdown_emphasis() -> None:
+    md = "## Headline metrics\n- **Mean Bias** +4.8 ppb\n- _RMSE_ 5.66\n- `R` 0.85\n"
+    assert extract_bullets(md) == ["Mean Bias +4.8 ppb", "RMSE 5.66", "R 0.85"]
