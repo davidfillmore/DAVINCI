@@ -18,6 +18,7 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
+from davinci_monet.io.reader_utils import set_geometry_attr
 
 
 def resample_dataset(
@@ -101,7 +102,7 @@ class _GenericNetCDFReader:
             start, end = time_range
             ds = ds.sel(time=slice(start, end))
 
-        ds.attrs["geometry"] = self.geometry.name.lower()
+        set_geometry_attr(ds, self.geometry)
         return ds
 
     def get_variable_mapping(self) -> Mapping[str, str]:

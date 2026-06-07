@@ -443,7 +443,7 @@ class TestTROPOMIReader:
 
         reader = TROPOMIReader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.SWATH.value
+        assert result.attrs.get("geometry") == DataGeometry.SWATH.name.lower()
 
 
 class TestGOESL3AODReader:
@@ -486,7 +486,7 @@ class TestGOESL3AODReader:
 
         reader = GOESL3AODReader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.GRID.value
+        assert result.attrs.get("geometry") == DataGeometry.GRID.name.lower()
 
     def test_backward_compatibility_alias(self):
         """Test GOESReader alias still works."""
@@ -521,7 +521,7 @@ class TestTEMPOL2NO2Reader:
         ds = create_synthetic_satellite_swath()
         reader = TEMPOL2NO2Reader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.SWATH.value
+        assert result.attrs.get("geometry") == DataGeometry.SWATH.name.lower()
 
 
 class TestMODISL2AODReader:
@@ -549,7 +549,7 @@ class TestMODISL2AODReader:
         ds = create_synthetic_satellite_swath()
         reader = MODISL2AODReader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.SWATH.value
+        assert result.attrs.get("geometry") == DataGeometry.SWATH.name.lower()
 
 
 class TestMOPITTL3COReader:
@@ -577,7 +577,7 @@ class TestMOPITTL3COReader:
         ds = create_synthetic_gridded_obs()
         reader = MOPITTL3COReader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.GRID.value
+        assert result.attrs.get("geometry") == DataGeometry.GRID.name.lower()
 
 
 class TestOMPSL3O3Reader:
@@ -605,7 +605,7 @@ class TestOMPSL3O3Reader:
         ds = create_synthetic_gridded_obs()
         reader = OMPSL3O3Reader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.GRID.value
+        assert result.attrs.get("geometry") == DataGeometry.GRID.name.lower()
 
 
 # =============================================================================
@@ -671,7 +671,7 @@ class TestReaderOpen:
             reader = AQSReader()
             result = reader.open([f.name])
             assert isinstance(result, xr.Dataset)
-            assert result.attrs.get("geometry") == DataGeometry.POINT.value
+            assert result.attrs.get("geometry") == DataGeometry.POINT.name.lower()
             Path(f.name).unlink()
 
     def test_ozonesonde_open_returns_profile_dataset(self):
@@ -685,7 +685,7 @@ class TestReaderOpen:
             reader = OzonesondeReader()
             result = reader.open([f.name])
             assert isinstance(result, xr.Dataset)
-            assert result.attrs.get("geometry") == DataGeometry.PROFILE.value
+            assert result.attrs.get("geometry") == DataGeometry.PROFILE.name.lower()
             Path(f.name).unlink()
 
 
@@ -707,7 +707,7 @@ class TestGeometryAttributes:
             ds.to_netcdf(f.name)
             reader = AQSReader()
             result = reader.open([f.name])
-            assert result.attrs.get("geometry") == DataGeometry.POINT.value
+            assert result.attrs.get("geometry") == DataGeometry.POINT.name.lower()
             Path(f.name).unlink()
 
     def test_satellite_swath_geometry(self):
@@ -717,7 +717,7 @@ class TestGeometryAttributes:
         ds = create_synthetic_satellite_swath()
         reader = TROPOMIReader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.SWATH.value
+        assert result.attrs.get("geometry") == DataGeometry.SWATH.name.lower()
 
     def test_gridded_geometry(self):
         """Test gridded readers set GRID geometry via standardization."""
@@ -726,7 +726,7 @@ class TestGeometryAttributes:
         ds = create_synthetic_gridded_obs()
         reader = GOESL3AODReader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.GRID.value
+        assert result.attrs.get("geometry") == DataGeometry.GRID.name.lower()
 
     def test_profile_geometry(self):
         """Test profile readers set PROFILE geometry."""
@@ -738,5 +738,5 @@ class TestGeometryAttributes:
             ds.to_netcdf(f.name)
             reader = OzonesondeReader()
             result = reader.open([f.name])
-            assert result.attrs.get("geometry") == DataGeometry.PROFILE.value
+            assert result.attrs.get("geometry") == DataGeometry.PROFILE.name.lower()
             Path(f.name).unlink()

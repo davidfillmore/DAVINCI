@@ -20,6 +20,11 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
+from davinci_monet.io.reader_utils import (
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 
 @source_registry.register("satellite_l2")
@@ -93,14 +98,7 @@ class GenericL2Reader:
         xr.Dataset
             L2 satellite observations with swath dimensions.
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No satellite L2 files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"Satellite L2 files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="Satellite L2")
 
         ds = self._open_files(file_list, variables, group=group, **kwargs)
 
@@ -149,12 +147,7 @@ class GenericL2Reader:
         else:
             ds = ds_list[0]
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _find_concat_dim(self, ds: xr.Dataset) -> str:
         """Find appropriate dimension for concatenation."""
@@ -217,9 +210,7 @@ class GenericL2Reader:
         if coord_renames:
             ds = ds.rename(coord_renames)
 
-        ds.attrs["geometry"] = DataGeometry.SWATH.value
-
-        return ds
+        return set_geometry_attr(ds, DataGeometry.SWATH)
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return empty variable mapping (generic reader)."""

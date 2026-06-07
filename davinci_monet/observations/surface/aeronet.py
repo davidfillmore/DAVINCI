@@ -18,6 +18,12 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
+from davinci_monet.io.reader_utils import (
+    retry_transient_open,
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 # Standard variable name mappings for AERONET
 AERONET_VARIABLE_MAPPING: dict[str, str] = {
@@ -100,16 +106,9 @@ class AERONETReader:
         **kwargs: Any,
     ) -> xr.Dataset:
         """Open AERONET data from files."""
-        file_list = [Path(f) for f in file_paths]
+        file_list = validate_file_list(file_paths, source_label="AERONET")
 
-        if not file_list:
-            raise DataNotFoundError("No AERONET files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"AERONET files not found: {missing}")
-
-        try:
+        def _open() -> xr.Dataset:
             if len(file_list) > 1:
                 ds = xr.open_mfdataset(
                     [str(f) for f in file_list],
@@ -119,13 +118,9 @@ class AERONETReader:
                 )
             else:
                 ds = xr.open_dataset(str(file_list[0]), **kwargs)
-        except Exception as e:
-            raise DataFormatError(f"Failed to open AERONET files: {e}") from e
+            return select_variables(ds, variables)
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
+        ds = retry_transient_open(_open, context="Opening AERONET files")
 
         return self._standardize_dataset(ds)
 
@@ -172,11 +167,7 @@ class AERONETReader:
             raise DataNotFoundError(f"No AERONET data found for {start_date} to {end_date}")
 
         ds: xr.Dataset = self._dataframe_to_dataset(df)
-
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
+        ds = select_variables(ds, variables)
 
         return self._standardize_dataset(ds)
 
@@ -216,9 +207,7 @@ class AERONETReader:
         if coord_renames:
             ds = ds.rename(coord_renames)
 
-        ds.attrs["geometry"] = DataGeometry.POINT.value
-
-        return ds
+        return set_geometry_attr(ds, DataGeometry.POINT)
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return AERONET variable name mapping."""
@@ -307,6 +296,6 @@ def _dataframe_to_xarray(df: pd.DataFrame) -> xr.Dataset:
 
     # Add attributes
     ds.attrs["source"] = "AERONET"
-    ds.attrs["geometry"] = DataGeometry.POINT.value
+    set_geometry_attr(ds, DataGeometry.POINT)
 
     return ds

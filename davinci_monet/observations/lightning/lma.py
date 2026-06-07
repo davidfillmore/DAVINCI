@@ -21,9 +21,14 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 import xarray as xr
 
-from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
+from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
+from davinci_monet.io.reader_utils import (
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 # Standard variable name mappings for LMA data
 LMA_VARIABLE_MAPPING: dict[str, str] = {
@@ -103,14 +108,7 @@ class LMAReader:
             LMA observations with dimensions (time, latitude, longitude)
             and density variables.
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No LMA files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"LMA files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="LMA")
 
         ds = self._open_netcdf(file_list, variables, **kwargs)
 
@@ -151,11 +149,8 @@ class LMAReader:
         else:
             ds = ds_list[0]
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                # Keep coordinate variables too
-                ds = ds[available]
+        # Keep coordinate variables too
+        ds = select_variables(ds, variables)
 
         return ds
 
@@ -214,7 +209,7 @@ class LMAReader:
             ds = ds.expand_dims("time")
 
         # Set geometry attribute
-        ds.attrs["geometry"] = DataGeometry.GRID.value
+        ds = set_geometry_attr(ds, DataGeometry.GRID)
 
         # Add network metadata
         if network is not None and network in LMA_NETWORKS:

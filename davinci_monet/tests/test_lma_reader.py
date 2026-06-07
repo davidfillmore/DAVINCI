@@ -187,7 +187,7 @@ class TestLMAReader:
             assert "time" in result.dims
             assert "latitude" in result.dims
             assert "longitude" in result.dims
-            assert result.attrs["geometry"] == DataGeometry.GRID.value
+            assert result.attrs["geometry"] == DataGeometry.GRID.name.lower()
 
             Path(f.name).unlink()
 
@@ -339,7 +339,7 @@ class TestLMAReaderOpen:
             result = reader.open([f.name])
 
             assert isinstance(result, xr.Dataset)
-            assert result.attrs.get("geometry") == DataGeometry.GRID.value
+            assert result.attrs.get("geometry") == DataGeometry.GRID.name.lower()
             assert "flash_extent_density" in result.data_vars
 
             Path(f.name).unlink()

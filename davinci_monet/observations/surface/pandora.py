@@ -14,9 +14,14 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
+from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
+from davinci_monet.io.reader_utils import (
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 # Standard variable name mappings for Pandora
 PANDORA_VARIABLE_MAPPING: dict[str, str] = {
@@ -210,14 +215,7 @@ class PandoraReader:
         xr.Dataset
             Pandora observations with dimensions (time, site).
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No Pandora files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"Pandora files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="Pandora")
 
         # Parse time bounds
         if start_time is not None:
@@ -272,12 +270,7 @@ class PandoraReader:
         ds = self._dataframe_to_dataset(combined_df)
 
         # Select variables if specified
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _dataframe_to_dataset(self, df: pd.DataFrame) -> xr.Dataset:
         """Convert Pandora DataFrame to xarray Dataset.
@@ -327,7 +320,7 @@ class PandoraReader:
 
         # Add attributes
         ds.attrs["source"] = "Pandora"
-        ds.attrs["geometry"] = DataGeometry.POINT.value
+        set_geometry_attr(ds, DataGeometry.POINT)
         ds.attrs["description"] = "Pandora spectrometer column NO2 measurements"
 
         # Variable attributes

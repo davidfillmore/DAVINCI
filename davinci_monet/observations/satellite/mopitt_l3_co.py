@@ -23,6 +23,11 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
+from davinci_monet.io.reader_utils import (
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 # Standard variable name mappings for MOPITT CO
 MOPITT_CO_VARIABLE_MAPPING: dict[str, str] = {
@@ -85,14 +90,7 @@ class MOPITTL3COReader:
         xr.Dataset
             MOPITT observations with grid dimensions.
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No MOPITT files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"MOPITT files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="MOPITT")
 
         # Try monetio first
         try:
@@ -135,12 +133,7 @@ class MOPITTL3COReader:
 
             ds = xr.concat(ds_list, dim="time")
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _open_with_xarray(
         self,
@@ -167,12 +160,7 @@ class MOPITTL3COReader:
         else:
             ds = ds_list[0]
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize MOPITT dataset dimensions and coordinates."""
@@ -186,9 +174,7 @@ class MOPITTL3COReader:
         if coord_renames:
             ds = ds.rename(coord_renames)
 
-        ds.attrs["geometry"] = DataGeometry.GRID.value
-
-        return ds
+        return set_geometry_attr(ds, DataGeometry.GRID)
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return MOPITT CO variable name mapping."""

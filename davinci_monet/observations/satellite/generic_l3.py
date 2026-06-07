@@ -19,6 +19,11 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
+from davinci_monet.io.reader_utils import (
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 
 @source_registry.register("satellite_l3")
@@ -89,14 +94,7 @@ class GenericL3Reader:
         xr.Dataset
             L3 satellite observations with grid dimensions.
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No satellite L3 files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"Satellite L3 files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="Satellite L3")
 
         ds = self._open_files(file_list, variables, **kwargs)
 
@@ -138,12 +136,7 @@ class GenericL3Reader:
         else:
             ds = ds_list[0]
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _apply_dim_mapping(self, ds: xr.Dataset, dim_mapping: Mapping[str, str]) -> xr.Dataset:
         """Apply dimension name mapping."""
@@ -200,9 +193,7 @@ class GenericL3Reader:
         if coord_renames:
             ds = ds.rename(coord_renames)
 
-        ds.attrs["geometry"] = DataGeometry.GRID.value
-
-        return ds
+        return set_geometry_attr(ds, DataGeometry.GRID)
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return empty variable mapping (generic reader)."""

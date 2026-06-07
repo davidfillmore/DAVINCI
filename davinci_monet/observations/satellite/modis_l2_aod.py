@@ -24,6 +24,11 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
+from davinci_monet.io.reader_utils import (
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 # Standard variable name mappings for MODIS AOD
 MODIS_AOD_VARIABLE_MAPPING: dict[str, str] = {
@@ -90,14 +95,7 @@ class MODISL2AODReader:
         xr.Dataset
             MODIS observations with swath dimensions.
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No MODIS files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"MODIS files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="MODIS")
 
         # Try monetio first
         try:
@@ -132,12 +130,7 @@ class MODISL2AODReader:
         else:
             ds = modis_mod.read_mfdataset(files, **kwargs)
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _open_with_xarray(
         self,
@@ -172,12 +165,7 @@ class MODISL2AODReader:
         else:
             ds = ds_list[0]
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _apply_qa_filter(self, ds: xr.Dataset, qa_threshold: int) -> xr.Dataset:
         """Apply quality assurance filtering to dataset."""
@@ -212,9 +200,7 @@ class MODISL2AODReader:
         if coord_renames:
             ds = ds.rename(coord_renames)
 
-        ds.attrs["geometry"] = DataGeometry.SWATH.value
-
-        return ds
+        return set_geometry_attr(ds, DataGeometry.SWATH)
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return MODIS AOD variable name mapping."""

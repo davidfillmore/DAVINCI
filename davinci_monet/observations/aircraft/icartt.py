@@ -19,6 +19,11 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
+from davinci_monet.io.reader_utils import (
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 # Common variable name mappings for ICARTT aircraft data
 ICARTT_VARIABLE_MAPPING: dict[str, str] = {
@@ -81,14 +86,7 @@ class ICARTTReader:
             Aircraft observations with dimension (time,) and
             lat/lon/alt coordinates.
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No ICARTT files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"ICARTT files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="ICARTT")
 
         # Try monetio first
         try:
@@ -136,12 +134,7 @@ class ICARTTReader:
         else:
             ds = xr.concat(ds_list, dim="time")
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _open_with_parser(
         self,
@@ -164,12 +157,7 @@ class ICARTTReader:
 
         ds = xr.concat(ds_list, dim="time")
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _parse_icartt_file(self, file_path: Path) -> xr.Dataset:
         """Parse a single ICARTT file.
@@ -334,9 +322,7 @@ class ICARTTReader:
             flight_dates = times.strftime("%Y-%m-%d")
             ds = ds.assign_coords(flight=("time", flight_dates))
 
-        ds.attrs["geometry"] = DataGeometry.TRACK.value
-
-        return ds
+        return set_geometry_attr(ds, DataGeometry.TRACK)
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return ICARTT variable name mapping."""

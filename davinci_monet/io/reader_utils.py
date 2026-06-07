@@ -39,6 +39,7 @@ from davinci_monet.core.exceptions import (
     is_transient_error,
     write_error_log,
 )
+from davinci_monet.core.protocols import DataGeometry
 
 __all__ = [
     "resolve_file_list",
@@ -49,6 +50,7 @@ __all__ = [
     "standardize_dims",
     "promote_to_coords",
     "alias_coord",
+    "set_geometry_attr",
 ]
 
 
@@ -345,4 +347,37 @@ def alias_coord(ds: xr.Dataset, source: str, alias: str) -> xr.Dataset:
     """
     if source in ds.coords and alias not in ds.coords:
         return ds.assign_coords({alias: ds[source]})
+    return ds
+
+
+def set_geometry_attr(ds: xr.Dataset, geometry: DataGeometry) -> xr.Dataset:
+    """Write ``ds.attrs['geometry']`` using one canonical encoding.
+
+    Readers historically tagged the geometry attribute with inconsistent
+    encodings: the :class:`~davinci_monet.core.protocols.DataGeometry` ``.value``
+    int, the bare ``"GRID"`` string, and the lowercase ``.name``. This helper
+    writes the single canonical form — the lowercase enum name
+    (``DataGeometry.POINT`` -> ``"point"``) — matching what the pipeline load
+    stage (:meth:`LoadSourcesStage._register_source`) writes when it overwrites
+    the attr from the reader's ``geometry`` property.
+
+    The encoding is the one both consumers accept:
+    :meth:`PairingEngine._detect_geometry` and
+    :func:`~davinci_monet.core.base.validate_dataset_geometry` resolve a string
+    geometry via ``DataGeometry[value.upper()]``, so ``"point"`` round-trips to
+    :attr:`DataGeometry.POINT`.
+
+    Parameters
+    ----------
+    ds
+        Dataset to tag (mutated in place).
+    geometry
+        Geometry the reader produces.
+
+    Returns
+    -------
+    xr.Dataset
+        The same dataset, with ``attrs['geometry']`` set to the lowercase name.
+    """
+    ds.attrs["geometry"] = geometry.name.lower()
     return ds

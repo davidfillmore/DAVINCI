@@ -18,6 +18,11 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
+from davinci_monet.io.reader_utils import (
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 # Standard variable name mappings for ozonesondes
 OZONESONDE_VARIABLE_MAPPING: dict[str, str] = {
@@ -81,14 +86,7 @@ class OzonesondeReader:
             Ozonesonde observations with dimensions (time, level) and
             lat/lon coordinates.
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No ozonesonde files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"Ozonesonde files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="Ozonesonde")
 
         # Auto-detect format if not specified
         if format_type is None:
@@ -151,12 +149,7 @@ class OzonesondeReader:
         else:
             ds = ds_list[0]
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _open_woudc(
         self,
@@ -182,12 +175,7 @@ class OzonesondeReader:
         else:
             ds = ds_list[0]
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _parse_woudc_file(self, file_path: Path) -> xr.Dataset:
         """Parse a WOUDC format ozonesonde file."""
@@ -270,12 +258,7 @@ class OzonesondeReader:
         else:
             ds = ds_list[0]
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _parse_shadoz_file(self, file_path: Path) -> xr.Dataset:
         """Parse a SHADOZ format ozonesonde file."""
@@ -346,9 +329,7 @@ class OzonesondeReader:
         if coord_renames:
             ds = ds.rename(coord_renames)
 
-        ds.attrs["geometry"] = DataGeometry.PROFILE.value
-
-        return ds
+        return set_geometry_attr(ds, DataGeometry.PROFILE)
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return ozonesonde variable name mapping."""

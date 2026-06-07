@@ -15,9 +15,15 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
+from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
+from davinci_monet.io.reader_utils import (
+    retry_transient_open,
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 # Standard variable name mappings for AQS
 AQS_VARIABLE_MAPPING: dict[str, str] = {
@@ -101,16 +107,9 @@ class AQSReader:
         **kwargs: Any,
     ) -> xr.Dataset:
         """Open AQS data from files."""
-        file_list = [Path(f) for f in file_paths]
+        file_list = validate_file_list(file_paths, source_label="AQS")
 
-        if not file_list:
-            raise DataNotFoundError("No AQS files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"AQS files not found: {missing}")
-
-        try:
+        def _open() -> xr.Dataset:
             if len(file_list) > 1:
                 ds = xr.open_mfdataset(
                     [str(f) for f in file_list],
@@ -120,13 +119,9 @@ class AQSReader:
                 )
             else:
                 ds = xr.open_dataset(str(file_list[0]), **kwargs)
-        except Exception as e:
-            raise DataFormatError(f"Failed to open AQS files: {e}") from e
+            return select_variables(ds, variables)
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
+        ds = retry_transient_open(_open, context="Opening AQS files")
 
         return self._standardize_dataset(ds)
 
@@ -169,11 +164,7 @@ class AQSReader:
         # Combine and convert to xarray
         combined_df = pd.concat(ds_list, ignore_index=True)
         ds: xr.Dataset = self._dataframe_to_dataset(combined_df)
-
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
+        ds = select_variables(ds, variables)
 
         return self._standardize_dataset(ds)
 
@@ -204,9 +195,7 @@ class AQSReader:
             ds = ds.rename(coord_renames)
 
         # Set geometry attribute
-        ds.attrs["geometry"] = DataGeometry.POINT.value
-
-        return ds
+        return set_geometry_attr(ds, DataGeometry.POINT)
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return AQS variable name mapping."""
