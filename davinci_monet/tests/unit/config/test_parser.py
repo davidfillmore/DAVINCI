@@ -117,14 +117,9 @@ class TestPreprocessConfig:
 
     def test_null_sections_become_empty_dicts(self) -> None:
         """Test null sections are converted to empty dicts."""
-        data = preprocess_config({"analysis": {}, "model": None, "obs": None})
-        assert data["model"] == {}
-        assert data["obs"] == {}
-
-    def test_null_projection_removed(self) -> None:
-        """Test null projection is removed."""
-        data = preprocess_config({"model": {"cmaq": {"projection": None}}})
-        assert "projection" not in data["model"]["cmaq"]
+        data = preprocess_config({"analysis": {}, "sources": None, "pairs": None})
+        assert data["sources"] == {}
+        assert data["pairs"] == {}
 
 
 class TestLoadConfig:
@@ -147,18 +142,36 @@ analysis:
   start_time: '2024-01-01'
   end_time: '2024-01-02'
   debug: true
+sources:
+  cmaq:
+    type: cmaq
+    role: model
+    files: /data/*.nc
+  airnow:
+    type: pt_sfc
+    role: obs
+"""
+        config = load_config(yaml_str)
+        assert config.analysis.start_time == datetime(2024, 1, 1)
+        assert "cmaq" in config.sources
+        assert "airnow" in config.sources
+
+    def test_legacy_model_obs_config_rejected(self) -> None:
+        """Legacy model:/obs: config is a hard error pointing at migrate-config."""
+        yaml_str = """
+analysis:
+  start_time: '2024-01-01'
+  end_time: '2024-01-02'
 model:
   cmaq:
+    type: cmaq
     files: /data/*.nc
-    mod_type: cmaq
 obs:
   airnow:
     obs_type: pt_sfc
 """
-        config = load_config(yaml_str)
-        assert config.analysis.start_time == datetime(2024, 1, 1)
-        assert "cmaq" in config.model
-        assert "airnow" in config.obs
+        with pytest.raises(ConfigurationError, match="migrate-config"):
+            load_config(yaml_str)
 
     def test_load_from_file(self) -> None:
         """Test loading from file."""
@@ -179,10 +192,15 @@ class TestValidateConfig:
         """Test validating a valid config."""
         data: dict[str, Any] = {
             "analysis": {"start_time": "2024-01-01"},
-            "model": {"test": {"mod_type": "cmaq"}},
+            "sources": {"test": {"type": "cmaq", "role": "model"}},
         }
         config = validate_config(data)
         assert isinstance(config, MonetConfig)
+
+    def test_validate_legacy_config_rejected(self) -> None:
+        """validate_config rejects legacy model:/obs: dicts."""
+        with pytest.raises(ConfigurationError, match="migrate-config"):
+            validate_config({"model": {"test": {"mod_type": "cmaq"}}})
 
     def test_validate_empty_config(self) -> None:
         """Test validating empty config."""
@@ -198,7 +216,7 @@ class TestDumpConfig:
         config = MonetConfig.model_validate(
             {
                 "analysis": {"debug": True},
-                "model": {"cmaq": {"mod_type": "cmaq"}},
+                "sources": {"cmaq": {"type": "cmaq", "role": "model"}},
             }
         )
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
@@ -206,7 +224,7 @@ class TestDumpConfig:
                 dump_config(config, f.name)
                 reloaded = load_config(f.name)
                 assert reloaded.analysis.debug is True
-                assert "cmaq" in reloaded.model
+                assert "cmaq" in reloaded.sources
             finally:
                 os.unlink(f.name)
 
@@ -234,19 +252,19 @@ class TestMergeConfigs:
     def test_merge_adds_new_sections(self) -> None:
         """Test merging adds new sections."""
         base = MonetConfig.model_validate({"analysis": {}})
-        override: dict[str, Any] = {"model": {"cmaq": {"mod_type": "cmaq"}}}
+        override: dict[str, Any] = {"sources": {"cmaq": {"type": "cmaq", "role": "model"}}}
         merged = merge_configs(base, override)
-        assert "cmaq" in merged.model
+        assert "cmaq" in merged.sources
 
     def test_merge_deep_dict(self) -> None:
         """Test deep merging of nested dicts."""
         base = MonetConfig.model_validate(
-            {"model": {"cmaq": {"mod_type": "cmaq", "radius_of_influence": 10000}}}
+            {"sources": {"cmaq": {"type": "cmaq", "radius_of_influence": 10000}}}
         )
-        override: dict[str, Any] = {"model": {"cmaq": {"radius_of_influence": 15000}}}
+        override: dict[str, Any] = {"sources": {"cmaq": {"radius_of_influence": 15000}}}
         merged = merge_configs(base, override)
-        assert merged.model["cmaq"].mod_type == "cmaq"
-        assert merged.model["cmaq"].radius_of_influence == 15000
+        assert merged.sources["cmaq"].type == "cmaq"
+        assert merged.sources["cmaq"].radius_of_influence == 15000
 
 
 class TestConfigBuilder:
@@ -262,16 +280,20 @@ class TestConfigBuilder:
         config = ConfigBuilder().set_analysis(start_time="2024-01-01", debug=True).build()
         assert config.analysis.debug is True
 
-    def test_add_model(self) -> None:
-        """Test adding model."""
-        config = ConfigBuilder().add_model("cmaq", mod_type="cmaq", files="/data/*.nc").build()
-        assert "cmaq" in config.model
-        assert config.model["cmaq"].mod_type == "cmaq"
+    def test_add_source_model(self) -> None:
+        """Test adding a model-role source."""
+        config = (
+            ConfigBuilder()
+            .add_source("cmaq", type="cmaq", role="model", files="/data/*.nc")
+            .build()
+        )
+        assert "cmaq" in config.sources
+        assert config.sources["cmaq"].type == "cmaq"
 
-    def test_add_observation(self) -> None:
-        """Test adding observation."""
-        config = ConfigBuilder().add_observation("airnow", obs_type="pt_sfc").build()
-        assert "airnow" in config.obs
+    def test_add_source_obs(self) -> None:
+        """Test adding an obs-role source."""
+        config = ConfigBuilder().add_source("airnow", type="pt_sfc", role="obs").build()
+        assert "airnow" in config.sources
 
     def test_add_source_and_pair(self) -> None:
         """Test adding unified sources and source pairs."""
@@ -308,14 +330,14 @@ class TestConfigBuilder:
         config = (
             ConfigBuilder()
             .set_analysis(start_time="2024-01-01", end_time="2024-01-02")
-            .add_model("cmaq", mod_type="cmaq")
-            .add_observation("airnow", obs_type="pt_sfc")
+            .add_source("cmaq", type="cmaq", role="model")
+            .add_source("airnow", type="pt_sfc", role="obs")
             .add_plot("ts", "timeseries", data=["airnow_cmaq"])
             .build()
         )
         assert config.analysis.start_time is not None
-        assert "cmaq" in config.model
-        assert "airnow" in config.obs
+        assert "cmaq" in config.sources
+        assert "airnow" in config.sources
         assert "ts" in config.plots
 
     def test_to_dict(self) -> None:

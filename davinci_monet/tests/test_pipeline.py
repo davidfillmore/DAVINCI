@@ -37,20 +37,20 @@ from davinci_monet.pipeline import (
 
 @pytest.fixture
 def sample_context() -> PipelineContext:
-    """Create a sample pipeline context."""
+    """Create a sample pipeline context (unified sources schema)."""
     return PipelineContext(
         config={
-            "model": {
+            "sources": {
                 "test_model": {
+                    "type": "generic",
+                    "role": "model",
                     "files": "/path/to/model.nc",
-                    "mod_type": "generic",
-                }
-            },
-            "obs": {
+                },
                 "test_obs": {
-                    "obs_type": "pt_sfc",
+                    "type": "pt_sfc",
+                    "role": "obs",
                     "filename": "/path/to/obs.nc",
-                }
+                },
             },
         }
     )
@@ -158,8 +158,9 @@ class TestPipelineContext:
 
     def test_context_with_config(self, sample_context: PipelineContext):
         """Test context with configuration."""
-        assert "model" in sample_context.config
-        assert "obs" in sample_context.config
+        assert "sources" in sample_context.config
+        assert "test_model" in sample_context.config["sources"]
+        assert "test_obs" in sample_context.config["sources"]
 
     def test_get_model(self):
         """Test getting model from context."""
@@ -265,10 +266,20 @@ class TestLoadSourcesStage:
         stage = LoadSourcesStage()
         assert stage.name == "load_sources"
 
-    def test_validation_with_legacy_model_config(self, sample_context: PipelineContext):
-        """validate() passes for a legacy model:/obs: config (auto-converted)."""
+    def test_validation_rejects_legacy_model_config(self):
+        """validate() fails for a legacy model:/obs: config (no longer accepted).
+
+        Legacy control files are rejected at config load; the stage only
+        recognizes the unified ``sources:`` shape (or pre-populated containers).
+        """
         stage = LoadSourcesStage()
-        assert stage.validate(sample_context) is True
+        ctx = PipelineContext(
+            config={
+                "model": {"test_model": {"type": "generic", "files": "/path/to/m.nc"}},
+                "obs": {"test_obs": {"obs_type": "pt_sfc", "filename": "/path/to/o.nc"}},
+            }
+        )
+        assert stage.validate(ctx) is False
 
     def test_validation_with_sources_config(self):
         """validate() passes for a native sources: config."""
@@ -284,12 +295,12 @@ class TestLoadSourcesStage:
         ctx = PipelineContext()
         assert stage.validate(ctx) is False
 
-    def test_legacy_model_kwargs_flow_through_to_reader(self, monkeypatch):
-        """A legacy model: config auto-converts and its mod_kwargs reach the reader.
+    def test_source_kwargs_flow_through_to_reader(self, monkeypatch):
+        """A unified source's reader-specific kwargs reach the registered reader.
 
-        Exercises the unified loader path: legacy ``model:`` -> ``sources:`` via
-        migrate_to_sources, then ``_load_unified_source`` passes through-config
-        kwargs (e.g. ``mech``) to the registered reader's ``open()``.
+        Exercises the unified loader path: ``_load_unified_source`` passes
+        through-config kwargs (e.g. ``mech``) to the registered reader's
+        ``open()`` while filtering out the loader/schema control keys.
         """
         captured: dict[str, Any] = {}
 
@@ -309,10 +320,11 @@ class TestLoadSourcesStage:
         stage = LoadSourcesStage()
         ctx = PipelineContext(
             config={
-                "model": {
+                "sources": {
                     "WRF-Chem": {
+                        "type": "wrfchem",
+                        "role": "model",
                         "files": "/path/to/wrfout.nc",
-                        "mod_type": "wrfchem",
                         "mech": "racm_esrl_vcp",
                     }
                 }
@@ -324,9 +336,6 @@ class TestLoadSourcesStage:
         assert result.status == StageStatus.COMPLETED, result.error
         assert captured.get("mech") == "racm_esrl_vcp"
         assert "WRF-Chem" in ctx.sources
-        # The legacy config was converted to the unified sources schema in place.
-        assert "sources" in ctx.config
-        assert "model" not in ctx.config
 
 
 class TestPairingStage:

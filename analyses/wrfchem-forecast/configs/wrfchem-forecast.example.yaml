@@ -21,9 +21,10 @@ analysis:
   style:
     theme: ncar
 
-model:
+sources:
   WRF-Chem:
-    mod_type: wrfchem
+    role: model
+    type: wrfchem
     # Hour-0 of the current cycle's wrfout is the IC dump — PM2_5_DRY is
     # exactly zero there because the chemistry tendency hasn't run yet. We
     # take hour 00 from the *previous* cycle's +24h forecast (where the
@@ -70,9 +71,9 @@ model:
       marker: s
       linestyle: "-"
 
-obs:
   airnow:
-    obs_type: pt_sfc
+    role: obs
+    type: pt_sfc
     filename: /glade/work/fillmore/Data/AirNow/AirNow_${YYYY}${MM}${DD}.nc
     drop_unused_vars: true
     variables:
@@ -94,7 +95,8 @@ obs:
         nlevels_plot: 21
 
   aeronet:
-    obs_type: pt_sfc
+    role: obs
+    type: pt_sfc
     filename: /glade/work/fillmore/Data/AeroNet/AeroNet_${YYYY}${MM}${DD}.nc
     variables:
       aod_500nm:
@@ -110,25 +112,25 @@ obs:
 
 pairs:
   wrfchem_airnow_pm25:
-    model: WRF-Chem
-    obs: airnow
-    variable:
-      model_var: PM2_5_DRY
-      obs_var: "PM2.5"
+    sources: [WRF-Chem, airnow]
+    reference: airnow
+    variables:
+      WRF-Chem: PM2_5_DRY
+      airnow: "PM2.5"
 
   wrfchem_airnow_o3:
-    model: WRF-Chem
-    obs: airnow
-    variable:
-      model_var: o3
-      obs_var: OZONE
+    sources: [WRF-Chem, airnow]
+    reference: airnow
+    variables:
+      WRF-Chem: o3
+      airnow: OZONE
 
   wrfchem_aeronet_aod:
-    model: WRF-Chem
-    obs: aeronet
-    variable:
-      model_var: AOD2D_OUT
-      obs_var: aod_500nm
+    sources: [WRF-Chem, aeronet]
+    reference: aeronet
+    variables:
+      WRF-Chem: AOD2D_OUT
+      aeronet: aod_500nm
 
 plots:
 

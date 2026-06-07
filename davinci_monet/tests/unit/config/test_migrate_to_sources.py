@@ -73,7 +73,11 @@ class TestMigrateToSources:
         out = migrate_to_sources(_legacy())
         cfg = MonetConfig(**out)
         assert set(cfg.sources) == {"cam", "airnow"}
-        assert cfg.model == {} and cfg.obs == {}
+        # The migrated dict carries no legacy model:/obs: blocks, and the schema
+        # no longer defines those fields.
+        assert "model" not in out and "obs" not in out
+        assert "model" not in MonetConfig.model_fields
+        assert "obs" not in MonetConfig.model_fields
 
     def test_idempotent_on_already_unified(self) -> None:
         unified = migrate_to_sources(_legacy())

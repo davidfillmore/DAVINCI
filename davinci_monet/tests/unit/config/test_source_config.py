@@ -1,13 +1,17 @@
 """Tests for the unified sources config schema (Phase 6, CFG-1).
 
-Additive: introduces SourceConfig + a `sources:` block and a binary
-SourcePairConfig alongside the existing model:/obs: schema, which remains
-supported (deprecated) and is left untouched here.
+The unified ``sources:`` block plus binary ``SourcePairConfig`` is the only
+supported data-source schema; the legacy ``model:``/``obs:`` blocks were removed
+and are now rejected at config load.
 """
 
 from __future__ import annotations
 
+import pytest
+
+from davinci_monet.config.parser import validate_config
 from davinci_monet.config.schema import MonetConfig, SourceConfig, SourcePairConfig
+from davinci_monet.core.exceptions import ConfigurationError
 
 
 class TestSourceConfig:
@@ -67,15 +71,18 @@ class TestSourcePairConfig:
         assert pair.reference is None
 
 
-class TestLegacyStillParses:
-    def test_model_obs_blocks_unchanged(self) -> None:
-        cfg = MonetConfig.model_validate(
-            {
-                "model": {"cam": {"mod_type": "cesm_fv", "files": "/d/*.nc"}},
-                "obs": {"airnow": {"obs_type": "pt_sfc", "filename": "/a.nc"}},
-            }
-        )
-        assert "cam" in cfg.model
-        assert "airnow" in cfg.obs
-        # sources stays empty for legacy configs.
-        assert cfg.sources == {}
+class TestLegacyRejected:
+    def test_model_obs_blocks_rejected_at_load(self) -> None:
+        """Legacy model:/obs: blocks are a hard error pointing at migrate-config."""
+        with pytest.raises(ConfigurationError, match="migrate-config"):
+            validate_config(
+                {
+                    "model": {"cam": {"mod_type": "cesm_fv", "files": "/d/*.nc"}},
+                    "obs": {"airnow": {"obs_type": "pt_sfc", "filename": "/a.nc"}},
+                }
+            )
+
+    def test_schema_has_no_model_obs_fields(self) -> None:
+        """The root schema no longer defines model:/obs: fields."""
+        assert "model" not in MonetConfig.model_fields
+        assert "obs" not in MonetConfig.model_fields

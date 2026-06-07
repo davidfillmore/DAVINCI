@@ -21,14 +21,12 @@ from __future__ import annotations
 import csv
 import os
 import shutil
-import warnings
 from pathlib import Path
 
 import numpy as np
 import pytest
 import xarray as xr
 
-from davinci_monet.config.migration import LegacyConfigWarning
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
 from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario
@@ -145,9 +143,10 @@ class TestPointPipeline:
                 "output_dir": str(output_dir),
                 "log_dir": str(log_dir),
             },
-            "model": {
+            "sources": {
                 "synthetic": {
-                    "mod_type": "generic",
+                    "type": "generic",
+                    "role": "model",
                     "files": str(model_path),
                     "radius_of_influence": 50000,
                     "mapping": {"surface": {"O3": "O3"}},
@@ -160,19 +159,18 @@ class TestPointPipeline:
                         },
                     },
                 },
-            },
-            "obs": {
                 "surface": {
-                    "obs_type": "pt_sfc",
+                    "type": "pt_sfc",
+                    "role": "obs",
                     "filename": str(obs_path),
                     "variables": {"O3": {"obs_min": 0, "obs_max": 200, "units": "ppb"}},
                 },
             },
             "pairs": {
                 "synthetic_surface": {
-                    "model": "synthetic",
-                    "obs": "surface",
-                    "variable": {"model_var": "O3", "obs_var": "O3"},
+                    "sources": ["synthetic", "surface"],
+                    "reference": "surface",
+                    "variables": {"synthetic": "O3", "surface": "O3"},
                 },
             },
             "plots": {
@@ -223,9 +221,7 @@ class TestPointPipeline:
         }
 
         runner = PipelineRunner(show_progress=False)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", LegacyConfigWarning)
-            result = runner.run_from_config(config)
+        result = runner.run_from_config(config)
         _assert_pipeline_success(result)
 
         # Verify stats
@@ -306,27 +302,27 @@ class TestTrackPipeline:
                 "output_dir": str(output_dir),
                 "log_dir": str(log_dir),
             },
-            "model": {
+            "sources": {
                 "synthetic": {
-                    "mod_type": "generic",
+                    "type": "generic",
+                    "role": "model",
                     "files": str(model_path),
                     "radius_of_influence": 100000,
                     "mapping": {"aircraft": {"O3": "O3"}},
                     "variables": {"O3": {"units": "ppb"}},
                 },
-            },
-            "obs": {
                 "aircraft": {
-                    "obs_type": "aircraft",
+                    "type": "aircraft",
+                    "role": "obs",
                     "filename": str(obs_path),
                     "variables": {"O3": {"units": "ppb"}},
                 },
             },
             "pairs": {
                 "synthetic_aircraft": {
-                    "model": "synthetic",
-                    "obs": "aircraft",
-                    "variable": {"model_var": "O3", "obs_var": "O3"},
+                    "sources": ["synthetic", "aircraft"],
+                    "reference": "aircraft",
+                    "variables": {"synthetic": "O3", "aircraft": "O3"},
                 },
             },
             "plots": {
@@ -352,9 +348,7 @@ class TestTrackPipeline:
         }
 
         runner = PipelineRunner(show_progress=False)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", LegacyConfigWarning)
-            result = runner.run_from_config(config)
+        result = runner.run_from_config(config)
         _assert_pipeline_success(result)
         _assert_plots(output_dir, min_count=3)
         assert list(log_dir.glob("pipeline_*.md")), "No pipeline log"
@@ -412,7 +406,7 @@ class TestObsOnlyPipeline:
         output_dir = tmp_path / "output"
         log_dir = tmp_path / "logs"
 
-        # No model section triggers the obs-only pipeline.
+        # A single obs-role source with no pairs triggers the obs-only pipeline.
         config = {
             "analysis": {
                 "start_time": "2012-05-29",
@@ -420,9 +414,10 @@ class TestObsOnlyPipeline:
                 "output_dir": str(output_dir),
                 "log_dir": str(log_dir),
             },
-            "obs": {
+            "sources": {
                 "dc8": {
-                    "obs_type": "aircraft",
+                    "type": "aircraft",
+                    "role": "obs",
                     "filename": str(obs_path),
                     "variables": {
                         "O3": {"units": "ppbv"},
@@ -459,9 +454,7 @@ class TestObsOnlyPipeline:
         }
 
         runner = PipelineRunner(show_progress=False)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", LegacyConfigWarning)
-            result = runner.run_from_config(config)
+        result = runner.run_from_config(config)
         _assert_pipeline_success(result)
         _assert_plots(output_dir, min_count=4)
         assert list(log_dir.glob("pipeline_*.md")), "No pipeline log"

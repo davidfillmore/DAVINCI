@@ -1,14 +1,16 @@
-"""Pydantic models for MELODIES-MONET configuration validation.
+"""Pydantic models for DAVINCI configuration validation.
 
-This module provides type-safe validation for YAML configuration files,
-maintaining backward compatibility with existing MELODIES-MONET configs.
+This module provides type-safe validation for the unified ``sources:``/``pairs:``
+YAML configuration schema. The legacy MELODIES-MONET ``model:``/``obs:`` blocks
+are no longer accepted; convert old control files with
+``davinci-monet migrate-config``.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -217,7 +219,7 @@ class VariableConfig(FlexibleModel):
 
 
 # =============================================================================
-# Model Configuration
+# Plot / Source Keyword Arguments
 # =============================================================================
 
 
@@ -231,190 +233,11 @@ class PlotKwargs(FlexibleModel):
     markersize: float | None = None
 
 
-class ModelConfig(FlexibleModel):
-    """Configuration for a single model.
-
-    Parameters
-    ----------
-    files
-        Path or glob pattern to model files.
-    files_vert
-        Path to vertical coordinate files (CMAQ).
-    files_surf
-        Path to surface files (CMAQ).
-    mod_type
-        Model type: 'cmaq', 'wrfchem', 'ufs', 'raqms', etc.
-    mod_kwargs
-        Additional model-specific keyword arguments.
-    radius_of_influence
-        Horizontal radius for spatial matching (meters).
-    mapping
-        Variable mapping: {obs_label: {obs_var: model_var}}.
-    variables
-        Model variable configurations.
-    projection
-        Map projection specification.
-    plot_kwargs
-        Default plot styling for this model.
-    apply_ak
-        Apply averaging kernels for satellite comparison.
-    """
-
-    files: str | Path | list[str | Path] | None = None
-    files_vert: str | Path | None = None
-    files_surf: str | Path | None = None
-    mod_type: str | None = None
-    mod_kwargs: dict[str, Any] = Field(default_factory=dict)
-    radius_of_influence: float = 12000.0
-    mapping: dict[str, dict[str, str]] = Field(default_factory=dict)
-    variables: dict[str, VariableConfig] = Field(default_factory=dict)
-    projection: Any = None
-    plot_kwargs: PlotKwargs | dict[str, Any] | None = None
-    apply_ak: bool = False
-    display_name: str | None = None
-
-    @field_validator("files", mode="before")
-    @classmethod
-    def convert_files(cls, v: Any) -> str | list[str] | None:
-        """Keep paths as strings to preserve glob patterns; accept a list of
-        paths for cases that need to combine multiple cycles or explicit files.
-        """
-        if v is None:
-            return None
-        if isinstance(v, (list, tuple)):
-            return [str(item) for item in v]
-        return str(v)
-
-    @field_validator("files_vert", "files_surf", mode="before")
-    @classmethod
-    def convert_path(cls, v: Any) -> str | None:
-        """Keep paths as strings to preserve glob patterns."""
-        if v is None:
-            return None
-        return str(v)
-
-    @field_validator("variables", mode="before")
-    @classmethod
-    def parse_variables(cls, v: Any) -> dict[str, VariableConfig]:
-        """Parse variable configurations."""
-        if v is None:
-            return {}
-        if isinstance(v, dict):
-            result: dict[str, VariableConfig] = {
-                str(name): VariableConfig(**cfg) if isinstance(cfg, dict) else cfg
-                for name, cfg in v.items()
-            }
-            return result
-        result = dict(v)
-        return result
-
-
-# =============================================================================
-# Observation Configuration
-# =============================================================================
-
-
-ObsType = Literal[
-    "pt_sfc",  # Point surface (AirNow, etc.)
-    "aircraft",  # Aircraft tracks
-    "sat_swath_clm",  # Satellite swath column
-    "sat_grid_clm",  # Satellite gridded column
-    "mobile",  # Mobile platforms
-    "sonde",  # Vertical soundings
-    "lma",  # Lightning Mapping Array grids
-]
-
-
 class FilterConfig(FlexibleModel):
     """Configuration for data filtering."""
 
     value: Any
     oper: str  # 'isin', '<', '>', '==', etc.
-
-
-class ObservationConfig(FlexibleModel):
-    """Configuration for a single observation source.
-
-    Parameters
-    ----------
-    filename
-        Path to observation file(s).
-    obs_type
-        Observation type determining geometry.
-    sat_type
-        Satellite-specific type (e.g., 'mopitt_l3').
-    variables
-        Variable configurations.
-    use_airnow
-        Use AirNow data (legacy flag).
-    resample
-        Pandas resample string (e.g., 'h' for hourly, '30min' for 30 minutes).
-        Used to average high-frequency observations to match model resolution.
-    min_obs_count
-        Minimum number of observations required per resampled average.
-        Averages with fewer observations are set to NaN. Only used when
-        resample is specified.
-    track_obs_count
-        If True, add 'obs_count' variable to output tracking the number of
-        observations in each resampled average. Only used when resample is
-        specified.
-    data_proc
-        Data processing options.
-    grid_source
-        Source label whose grid is used as the binning target for swath
-        observations (e.g., ``modis_l2``). The grid source must be loaded
-        before the swath source.
-    time_resolution
-        Pandas frequency string for temporal binning of swath data
-        (e.g., "1D" for daily). Default "1D".
-    save_binned
-        If True, write the gridded observation product to NetCDF
-        after binning.
-    load_binned
-        If True, load a previously saved gridded product instead of
-        re-reading HDF4 granules and re-binning.
-    binned_file
-        Path for the cached gridded NetCDF file.
-    """
-
-    filename: str | Path | None = None
-    obs_type: str | None = None
-    sat_type: str | None = None
-    variables: dict[str, VariableConfig] = Field(default_factory=dict)
-    display_name: str | None = None
-    use_airnow: bool | None = None
-    resample: str | None = None
-    min_obs_count: int | None = None
-    track_obs_count: bool = False
-    data_proc: dict[str, Any] = Field(default_factory=dict)
-    grid_source: str | None = None
-    time_resolution: str = "1D"
-    save_binned: bool = False
-    load_binned: bool = False
-    binned_file: str | Path | None = None
-
-    @field_validator("filename", mode="before")
-    @classmethod
-    def convert_filename(cls, v: Any) -> str | None:
-        """Keep filenames as strings to preserve glob patterns."""
-        if v is None:
-            return None
-        return str(v)
-
-    @field_validator("variables", mode="before")
-    @classmethod
-    def parse_variables(cls, v: Any) -> dict[str, VariableConfig]:
-        """Parse variable configurations."""
-        if v is None:
-            return {}
-        if isinstance(v, dict):
-            result: dict[str, VariableConfig] = {
-                str(name): VariableConfig(**cfg) if isinstance(cfg, dict) else cfg
-                for name, cfg in v.items()
-            }
-            return result
-        result = dict(v)
-        return result
 
 
 # =============================================================================
@@ -443,9 +266,10 @@ class SourceConfig(FlexibleModel):
 
     A data source is just data of a given geometry; ``role`` is optional
     metadata used for plot styling/legends only, never for pairing logic. This
-    is the additive replacement for ``ModelConfig`` + ``ObservationConfig``;
-    both remain supported (deprecated) and are converted to sources internally.
-    Extra reader-specific keys are accepted (FlexibleModel) and passed through.
+    is the single supported data-source schema (the former ``model:``/``obs:``
+    blocks were removed; convert old control files with
+    ``davinci-monet migrate-config``). Extra reader-specific keys are accepted
+    (FlexibleModel) and passed through.
     """
 
     type: str | None = None
@@ -490,37 +314,26 @@ class SourceConfig(FlexibleModel):
 class SourcePairConfig(FlexibleModel):
     """Binary pair definition.
 
-    Unified pairs use ``sources``/``reference``/``variables``. Legacy pairs use
-    ``model``/``obs``/``variable`` and are retained for compatibility.
+    Pairs use ``sources``/``reference``/``variables``. (The legacy
+    ``model``/``obs``/``variable`` pair shape was removed; convert old control
+    files with ``davinci-monet migrate-config``.)
     """
 
     sources: list[str] = Field(default_factory=list)
     reference: str | None = None
     variables: dict[str, str] = Field(default_factory=dict)
 
-    model: str | None = None
-    obs: str | None = None
-    variable: dict[str, str] = Field(default_factory=dict)
-
     @model_validator(mode="after")
     def validate_pair_shape(self) -> "SourcePairConfig":
-        has_sources = bool(self.sources)
-        has_legacy = bool(self.model or self.obs or self.variable)
-        if has_sources:
-            if len(self.sources) != 2:
-                raise ValueError("unified pair 'sources' must contain exactly two labels")
-            if self.reference is not None and self.reference not in self.sources:
-                raise ValueError("'reference' must be one of the pair sources")
-            missing = [label for label in self.sources if label not in self.variables]
-            if missing:
-                raise ValueError(
-                    "unified pair 'variables' missing source label(s): " + ", ".join(missing)
-                )
-        elif has_legacy:
-            if not self.model or not self.obs:
-                raise ValueError("legacy pair must include both 'model' and 'obs'")
-            if "model_var" not in self.variable or "obs_var" not in self.variable:
-                raise ValueError("legacy pair 'variable' must include model_var and obs_var")
+        if not self.sources:
+            raise ValueError("pair must define 'sources' (exactly two source labels)")
+        if len(self.sources) != 2:
+            raise ValueError("pair 'sources' must contain exactly two labels")
+        if self.reference is not None and self.reference not in self.sources:
+            raise ValueError("'reference' must be one of the pair sources")
+        missing = [label for label in self.sources if label not in self.variables]
+        if missing:
+            raise ValueError("pair 'variables' missing source label(s): " + ", ".join(missing))
         return self
 
 
@@ -749,10 +562,10 @@ class MonetConfig(FlexibleModel):
     ----------
     analysis
         Analysis configuration (time window, output directory).
-    model
-        Dictionary of model configurations keyed by model label.
-    obs
-        Dictionary of observation configurations keyed by obs label.
+    sources
+        Dictionary of unified data-source configurations keyed by source label.
+    pairs
+        Dictionary of binary pair definitions keyed by pair name.
     plots
         Dictionary of plot group configurations keyed by group name.
     stats
@@ -763,52 +576,23 @@ class MonetConfig(FlexibleModel):
     >>> from davinci_monet.config.schema import MonetConfig
     >>> config = MonetConfig.model_validate({
     ...     "analysis": {"start_time": "2024-01-01", "end_time": "2024-01-02"},
-    ...     "model": {"test_model": {"mod_type": "cmaq"}},
-    ...     "obs": {"test_obs": {"obs_type": "pt_sfc"}},
+    ...     "sources": {
+    ...         "cam": {"type": "cesm_fv", "role": "model"},
+    ...         "airnow": {"type": "pt_sfc", "role": "obs"},
+    ...     },
     ... })
     >>> config.analysis.start_time
     datetime.datetime(2024, 1, 1, 0, 0)
     """
 
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
-    model: dict[str, ModelConfig] = Field(default_factory=dict)
-    obs: dict[str, ObservationConfig] = Field(default_factory=dict)
-    # Unified data-source block (Phase 6), additive alongside model:/obs:.
+    # Unified data-source block — the only supported data-source schema. Legacy
+    # model:/obs: control files are rejected at load (parser._reject_legacy_config).
     sources: dict[str, SourceConfig] = Field(default_factory=dict)
     pairs: dict[str, SourcePairConfig] = Field(default_factory=dict)
     plots: dict[str, PlotGroupConfig] = Field(default_factory=dict)
     stats: StatsConfig | None = None
     summary: SummaryConfig | None = None
-
-    @field_validator("model", mode="before")
-    @classmethod
-    def parse_models(cls, v: Any) -> dict[str, ModelConfig]:
-        """Parse model configurations."""
-        if v is None:
-            return {}
-        if isinstance(v, dict):
-            result: dict[str, ModelConfig] = {
-                str(name): ModelConfig(**cfg) if isinstance(cfg, dict) else cfg
-                for name, cfg in v.items()
-            }
-            return result
-        result = dict(v)
-        return result
-
-    @field_validator("obs", mode="before")
-    @classmethod
-    def parse_observations(cls, v: Any) -> dict[str, ObservationConfig]:
-        """Parse observation configurations."""
-        if v is None:
-            return {}
-        if isinstance(v, dict):
-            result: dict[str, ObservationConfig] = {
-                str(name): ObservationConfig(**cfg) if isinstance(cfg, dict) else cfg
-                for name, cfg in v.items()
-            }
-            return result
-        result = dict(v)
-        return result
 
     @field_validator("sources", mode="before")
     @classmethod
@@ -853,71 +637,15 @@ class MonetConfig(FlexibleModel):
 
     @model_validator(mode="after")
     def validate_data_references(self) -> "MonetConfig":
-        """Validate that data references in plots/stats exist."""
-        model_labels = set(self.model.keys())
-        obs_labels = set(self.obs.keys())
+        """Validate that plot/stats data references resolve to defined pairs.
 
-        # Check plot data references
-        for plot_name, plot_config in self.plots.items():
-            for data_ref in plot_config.data:
-                # Data refs are typically formatted as "model_obs" (e.g., "cmaq_airnow")
-                # Legacy "obs_model" (e.g., "airnow_cmaq") is also supported.
-                found = False
-                for obs_label in obs_labels:
-                    if data_ref.startswith(obs_label + "_"):
-                        model_part = data_ref[len(obs_label) + 1 :]
-                        if model_part in model_labels:
-                            found = True
-                            break
-                if not found:
-                    for model_label in model_labels:
-                        if data_ref.startswith(model_label + "_"):
-                            obs_part = data_ref[len(model_label) + 1 :]
-                            if obs_part in obs_labels:
-                                found = True
-                                break
-                # Don't raise error for now - allow flexible data references
-                # This supports legacy configs that may have different formats
-
-        return self
-
-    def get_model_obs_pairs(self) -> list[tuple[str, str]]:
-        """Get all model-observation pairs from the configuration.
-
-        Returns
-        -------
-        list[tuple[str, str]]
-            List of (obs_label, model_label) pairs.
+        Plot ``data`` entries normally name a pair (or a single source for
+        single-source plots). References are checked permissively — unknown
+        references are tolerated rather than raised, since plot data refs can
+        legitimately combine labels in flexible ways — but the hook is kept so
+        future validation can hang off it.
         """
-        pairs: set[tuple[str, str]] = set()
-
-        # Extract from model mappings
-        for model_label, model_config in self.model.items():
-            for obs_label in model_config.mapping.keys():
-                pairs.add((obs_label, model_label))
-
-        # Extract from plot data references (support model_obs and legacy obs_model)
-        obs_labels = set(self.obs.keys())
-        model_labels = set(self.model.keys())
-
-        for plot_config in self.plots.values():
-            for data_ref in plot_config.data:
-                # Legacy obs_model
-                for obs_label in obs_labels:
-                    if data_ref.startswith(obs_label + "_"):
-                        model_part = data_ref[len(obs_label) + 1 :]
-                        if model_part in model_labels:
-                            pairs.add((obs_label, model_part))
-                            break
-                # Preferred model_obs
-                for model_label in model_labels:
-                    if data_ref.startswith(model_label + "_"):
-                        obs_part = data_ref[len(model_label) + 1 :]
-                        if obs_part in obs_labels:
-                            pairs.add((obs_part, model_label))
-                            break
-
-        return sorted(pairs)
+        return self
 
 
 # =============================================================================

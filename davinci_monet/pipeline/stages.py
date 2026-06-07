@@ -480,23 +480,22 @@ class LoadSourcesStage(BaseStage):
     """Standard data-source loading stage.
 
     Loads the unified ``sources:`` config directly through ``source_registry``.
-    Legacy ``model:`` / ``obs:`` (and ``models:`` / ``observations:``) configs
-    are auto-converted to the unified ``sources:`` form (via
-    :func:`~davinci_monet.config.migration.migrate_to_sources`) and loaded
-    through the same unified loop — the legacy per-role loader stages have been
-    removed. Loaded datasets are tagged with ``role`` (``"model"``/``"obs"`` when
-    known), ``source_label``, and ``geometry``. Results are mirrored in
-    ``context.models`` / ``context.observations`` so existing accessors keep
-    working.
+    Legacy ``model:`` / ``obs:`` configs are no longer accepted — they are
+    rejected at config load (see
+    :func:`~davinci_monet.config.parser.load_config`); convert them with
+    ``davinci-monet migrate-config``. Loaded datasets are tagged with ``role``
+    (``"model"``/``"obs"`` when known), ``source_label``, and ``geometry``.
+    Results are mirrored in ``context.models`` / ``context.observations`` so
+    existing accessors keep working.
     """
 
     def __init__(self) -> None:
         super().__init__("load_sources")
 
     def validate(self, context: PipelineContext) -> bool:
-        """Validate that at least one source (model or obs) is configured."""
+        """Validate that at least one source is configured."""
         cfg = context.config
-        has_config = any(k in cfg for k in ("sources", "model", "models", "obs", "observations"))
+        has_config = "sources" in cfg
         # Already-populated containers are also a valid starting point.
         return (
             has_config
@@ -509,32 +508,13 @@ class LoadSourcesStage(BaseStage):
         """Load and unify all data sources into ``context.sources``.
 
         Native ``sources:`` configs load directly through ``source_registry``.
-        Legacy ``model:``/``obs:`` (and ``models:``/``observations:``) configs are
-        auto-converted to the unified ``sources:`` form via
-        :func:`~davinci_monet.config.migration.migrate_to_sources` and loaded
-        through the *same* unified loop — there is no separate legacy loader path.
+        Legacy ``model:``/``obs:`` configs are rejected upstream at config load,
+        so this stage only handles the unified ``sources:`` shape (plus any
+        pre-populated containers for direct stage/unit-test use).
         """
         import time
 
         start = time.time()
-
-        if not context.config.get("sources") and any(
-            k in context.config for k in ("model", "models", "obs", "observations")
-        ):
-            # Auto-convert a legacy control file to the unified sources schema in
-            # place, then fall through to the unified loader below. Mutating
-            # context.config keeps downstream stages (pairing/plotting) on the
-            # unified `sources:`/`pairs:` shape.
-            from davinci_monet.config.migration import migrate_to_sources
-
-            try:
-                context.config = migrate_to_sources(context.config)
-            except Exception as e:
-                return self._create_result(
-                    StageStatus.FAILED,
-                    error=f"Failed to convert legacy model/obs config to sources: {e}",
-                    duration=time.time() - start,
-                )
 
         if context.config.get("sources"):
             try:
@@ -662,12 +642,12 @@ class LoadSourcesStage(BaseStage):
         role = self._infer_source_role(role, reader_cls)
         reader = reader_cls()
         # Control keys consumed by the loader / schema, NOT forwarded to the
-        # reader's open(). Covers the unified SourceConfig keys plus every legacy
-        # model:/obs: ModelConfig/ObservationConfig field, since an auto-converted
-        # legacy control file (model_dump) materializes those keys (e.g.
-        # files_vert=None, mod_kwargs={}, projection=None) at the source level —
-        # forwarding them to xr.open_dataset would raise. mod_kwargs is handled
-        # separately below (it is the reader-options channel).
+        # reader's open(). Covers the unified SourceConfig keys plus the
+        # historical model:/obs: control keys that a hand-migrated source config
+        # may still carry (e.g. mod_kwargs, sat_type, grid_source); these are
+        # filtered defensively so they never leak into xr.open_dataset as
+        # unexpected kwargs. mod_kwargs is handled separately below (it is the
+        # reader-options channel).
         passthrough_keys = {
             # unified + shared
             "type",
@@ -681,7 +661,7 @@ class LoadSourcesStage(BaseStage):
             "resample",
             "min_obs_count",
             "track_obs_count",
-            # legacy ModelConfig control keys
+            # model-flavored reader/control keys
             "files_vert",
             "files_surf",
             "mod_type",
@@ -689,7 +669,7 @@ class LoadSourcesStage(BaseStage):
             "projection",
             "plot_kwargs",
             "apply_ak",
-            # legacy ObservationConfig control keys
+            # obs-flavored reader/control keys
             "obs_type",
             "sat_type",
             "use_airnow",

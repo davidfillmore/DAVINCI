@@ -1844,32 +1844,15 @@ class PipelineRunner:
 
             config = load_config(config).model_dump()
 
-        used_sources = bool(config.get("sources"))
-
-        # Validate that config has something to process
-        model_config = config.get("model") or {}
-        obs_config = config.get("obs") or {}
+        # Validate that config has something to process. Legacy model:/obs:
+        # blocks are rejected at config load (parser._reject_legacy_config); the
+        # unified `sources:` schema is the only supported data-source format.
         sources_config = config.get("sources") or {}
 
-        # Deprecation: a legacy model:/obs: config still works (auto-converted),
-        # but the unified `sources:` schema is the going-forward format.
-        if not used_sources and (model_config or obs_config):
-            import warnings
-
-            from davinci_monet.config.migration import LegacyConfigWarning
-
-            warnings.warn(
-                "The 'model:'/'obs:' config schema is deprecated; use the unified "
-                "'sources:' schema. Convert with: davinci-monet migrate-config "
-                "<config.yaml> -o <new.yaml>.",
-                LegacyConfigWarning,
-                stacklevel=2,
-            )
-
-        if not model_config and not obs_config and not sources_config:
+        if not sources_config:
             raise ConfigurationError(
                 "Configuration is empty or incomplete. "
-                "At least one source, model, or observation must be defined."
+                "At least one source must be defined under 'sources:'."
             )
 
         # The unified standard pipeline handles both paired-source and

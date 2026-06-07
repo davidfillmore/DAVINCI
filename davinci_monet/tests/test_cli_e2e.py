@@ -80,9 +80,10 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
           output_dir: "{output_dir}"
           log_dir: "{log_dir}"
 
-        model:
+        sources:
           synthetic:
-            mod_type: generic
+            role: model
+            type: generic
             files: "{model_path}"
             radius_of_influence: 50000
             mapping:
@@ -94,10 +95,9 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
                 vmin_plot: 30
                 vmax_plot: 70
                 vdiff_plot: 10
-
-        obs:
           surface:
-            obs_type: pt_sfc
+            role: obs
+            type: pt_sfc
             filename: "{obs_path}"
             variables:
               O3:
@@ -107,11 +107,11 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
 
         pairs:
           synthetic_surface:
-            model: synthetic
-            obs: surface
-            variable:
-              model_var: O3
-              obs_var: O3
+            sources: [synthetic, surface]
+            reference: surface
+            variables:
+              synthetic: O3
+              surface: O3
 
         plots:
           scatter_o3:
@@ -138,7 +138,6 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
 class TestCLIRunE2E:
     """End-to-end tests for `davinci-monet run <config.yaml>`."""
 
-    @pytest.mark.filterwarnings("ignore::davinci_monet.config.migration.LegacyConfigWarning")
     def test_cli_run_happy_path(self, synthetic_data: tuple) -> None:
         """Full pipeline through CLI with YAML config file."""
         from typer.testing import CliRunner

@@ -21,9 +21,10 @@ analysis:
   style:
     theme: ncar
 
-obs:
+sources:
   dc8:
-    obs_type: icartt
+    role: obs
+    type: icartt
     filename: ${DC3_DATA}/aircraft/merge/DC3-MRG10-DC8_MERGE_*_R10.ict
     variables:
       "NO":  { source_name: NO_ESRL }

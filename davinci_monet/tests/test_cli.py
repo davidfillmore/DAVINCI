@@ -203,23 +203,23 @@ class TestValidateCommand:
 
     @pytest.fixture
     def valid_config(self, tmp_path: Path) -> Path:
-        """Create a valid minimal configuration file."""
+        """Create a valid minimal configuration file (unified sources schema)."""
         config_content = """
 analysis:
   start_time: 2024-01-01
   end_time: 2024-01-02
 
-model:
+sources:
   test_model:
-    mod_type: cmaq
+    role: model
+    type: cmaq
     files: test.nc
     mapping:
       test_obs:
         o3: O3
-
-obs:
   test_obs:
-    obs_type: airnow
+    role: obs
+    type: airnow
     filename: obs.nc
 """
         config_file = tmp_path / "valid_config.yaml"
@@ -253,9 +253,10 @@ analysis:
   end_time: 2024-01-02
   extra_field: should_be_ignored
 
-model:
+sources:
   test_model:
-    mod_type: cmaq
+    role: model
+    type: cmaq
     files: test.nc
 """
         config_file = tmp_path / "config_extra.yaml"
@@ -545,22 +546,30 @@ analysis:
   end_time: 2024-01-02
   output_dir: output
 
-model:
+sources:
   model1:
-    mod_type: cmaq
+    role: model
+    type: cmaq
     files: model.nc
     mapping:
       obs1:
         o3: O3
         pm25: PM25_TOT
-
-obs:
   obs1:
-    obs_type: airnow
+    role: obs
+    type: airnow
     filename: obs.nc
     variables:
       o3: {}
       pm25: {}
+
+pairs:
+  model1_obs1:
+    sources: [model1, obs1]
+    reference: obs1
+    variables:
+      model1: O3
+      obs1: o3
 
 plots:
   timeseries_plot:

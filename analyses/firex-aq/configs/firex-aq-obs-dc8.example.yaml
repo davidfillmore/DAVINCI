@@ -21,9 +21,10 @@ analysis:
   style:
     theme: ncar
 
-obs:
+sources:
   dc8:
-    obs_type: icartt
+    role: obs
+    type: icartt
     filename: ${FIREX_AQ_DATA}/aircraft/merge/FIREXAQ-MRG60-DC8_MERGE_*.ict
     variables:
       "O3":   { source_name: O3_CL_RYERSON }
