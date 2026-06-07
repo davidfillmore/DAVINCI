@@ -63,18 +63,6 @@ class TestPairingStrategyProtocol:
             def geometry(self) -> DataGeometry:
                 return DataGeometry.POINT
 
-            def pair(
-                self,
-                model: Any,
-                obs: Any,
-                radius_of_influence: float | None = None,
-                time_tolerance: Any | None = None,
-                vertical_method: str = "nearest",
-                horizontal_method: str = "nearest",
-                **kwargs: Any,
-            ) -> Any:
-                return None
-
             def pair_sources(
                 self,
                 reference: Any,
@@ -225,10 +213,10 @@ class TestPairingEngineProtocol:
             def register_strategy(self, strategy: PairingStrategy) -> None:
                 pass
 
-            def pair(
+            def pair_sources(
                 self,
-                model: Any,
-                obs: Any,
+                reference: Any,
+                comparand: Any,
                 **kwargs: Any,
             ) -> Any:
                 return None

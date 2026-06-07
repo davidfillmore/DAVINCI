@@ -4,12 +4,6 @@ This module provides the components for building and executing
 analysis pipelines that flow data through stages.
 """
 
-from davinci_monet.pipeline.parallel import (
-    ParallelExecutor,
-    ParallelPairingExecutor,
-    ParallelResult,
-    parallel_process_files,
-)
 from davinci_monet.pipeline.runner import (
     PipelineBuilder,
     PipelineResult,
@@ -50,9 +44,4 @@ __all__ = [
     "PipelineResult",
     "PipelineBuilder",
     "run_analysis",
-    # Parallel
-    "ParallelExecutor",
-    "ParallelPairingExecutor",
-    "ParallelResult",
-    "parallel_process_files",
 ]

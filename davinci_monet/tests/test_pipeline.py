@@ -13,9 +13,6 @@ from davinci_monet.pipeline import (
     BaseStage,
     LoadSourcesStage,
     PairingStage,
-    ParallelExecutor,
-    ParallelPairingExecutor,
-    ParallelResult,
     PipelineBuilder,
     PipelineContext,
     PipelineResult,
@@ -27,7 +24,6 @@ from davinci_monet.pipeline import (
     StageStatus,
     StatisticsStage,
     create_standard_pipeline,
-    parallel_process_files,
 )
 
 # =============================================================================
@@ -928,150 +924,3 @@ class TestPipelineBuilder:
         runner = PipelineBuilder().with_hook("on_start", lambda ctx: called.append("start")).build()
 
         assert "on_start" in runner._hooks
-
-
-# =============================================================================
-# ParallelExecutor Tests
-# =============================================================================
-
-
-class TestParallelExecutor:
-    """Tests for ParallelExecutor."""
-
-    def test_empty_items(self):
-        """Test map with empty items."""
-        executor = ParallelExecutor()
-        result = executor.map(lambda x: x * 2, [])
-
-        assert result.success is True
-        assert result.results == []
-        assert result.errors == []
-
-    def test_map_simple(self):
-        """Test simple parallel map."""
-        executor = ParallelExecutor(max_workers=2)
-        result = executor.map(lambda x: x * 2, [1, 2, 3, 4, 5])
-
-        assert result.success is True
-        assert sorted(result.results) == [2, 4, 6, 8, 10]
-
-    def test_map_with_errors(self):
-        """Test map handles errors."""
-
-        def process(x):
-            if x == 3:
-                raise ValueError("Error on 3")
-            return x * 2
-
-        executor = ParallelExecutor(max_workers=2)
-        result = executor.map(process, [1, 2, 3, 4, 5])
-
-        assert result.success is False
-        assert len(result.errors) == 1
-        assert len(result.results) == 4
-
-    def test_execute_stages(self):
-        """Test executing stages in parallel."""
-
-        class SimpleStage(BaseStage):
-            def __init__(self, name: str, value: int):
-                super().__init__(name)
-                self._value = value
-
-            def execute(self, context: PipelineContext) -> StageResult:
-                return self._create_result(StageStatus.COMPLETED, data=self._value)
-
-        stages = [SimpleStage(f"stage_{i}", i) for i in range(5)]
-        executor = ParallelExecutor(max_workers=2)
-        ctx = PipelineContext()
-
-        results = executor.execute_stages(stages, ctx)
-
-        assert len(results) == 5
-        values = sorted(r.data for r in results)
-        assert values == [0, 1, 2, 3, 4]
-
-
-class TestParallelPairingExecutor:
-    """Tests for ParallelPairingExecutor."""
-
-    def test_pair_all_with_mapping(self) -> None:
-        """Test parallel pairing with explicit variable mapping."""
-        times = np.array([np.datetime64("2024-01-01T00:00:00")])
-        lats = np.array([40.0, 41.0])
-        lons = np.array([-105.0, -104.0])
-
-        model = xr.Dataset(
-            {"temperature": (["time", "lat", "lon"], np.full((1, 2, 2), 290.0))},
-            coords={"time": times, "lat": lats, "lon": lons},
-        )
-
-        obs = xr.Dataset(
-            {"temperature": (["time", "site"], np.full((1, 1), 289.0))},
-            coords={
-                "time": times,
-                "site": np.array([0]),
-                "latitude": ("site", np.array([40.0])),
-                "longitude": ("site", np.array([-105.0])),
-            },
-        )
-
-        executor = ParallelPairingExecutor(max_workers=1)
-        result = executor.pair_all(
-            models={"model": model},
-            observations={"obs": obs},
-            config={"mapping": {"obs": {"temperature": "temperature"}}},
-        )
-
-        assert "model_obs" in result
-        paired = result["model_obs"]
-        ds = paired.data if hasattr(paired, "data") else paired
-
-        assert "obs_temperature" in ds.data_vars
-        assert "model_temperature" in ds.data_vars
-
-
-class TestParallelResult:
-    """Tests for ParallelResult dataclass."""
-
-    def test_success_result(self):
-        """Test successful result."""
-        result = ParallelResult(
-            results=[1, 2, 3],
-            errors=[],
-            success=True,
-        )
-
-        assert result.success is True
-        assert result.results == [1, 2, 3]
-
-    def test_failed_result(self):
-        """Test failed result."""
-        result = ParallelResult(
-            results=[1, 2],
-            errors=["Error 1"],
-            success=False,
-        )
-
-        assert result.success is False
-        assert len(result.errors) == 1
-
-
-class TestParallelProcessFiles:
-    """Tests for parallel_process_files function."""
-
-    def test_process_files(self):
-        """Test processing files in parallel."""
-        files = ["file1.txt", "file2.txt", "file3.txt"]
-
-        def processor(path):
-            return f"processed_{path}"
-
-        result = parallel_process_files(files, processor, max_workers=2)
-
-        assert result.success is True
-        assert sorted(result.results) == [
-            "processed_file1.txt",
-            "processed_file2.txt",
-            "processed_file3.txt",
-        ]

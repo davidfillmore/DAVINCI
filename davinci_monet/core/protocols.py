@@ -139,52 +139,15 @@ class SourceProcessor(Protocol):
 class PairingStrategy(Protocol):
     """Protocol for source-pairing strategies.
 
-    ``pair_sources`` is the canonical role-neutral API. ``pair`` remains as a
-    legacy model/observation adapter for existing strategies and callers.
+    ``pair_sources`` is the canonical role-neutral API. Concrete strategy
+    classes may keep an internal ``pair(model, obs, ...)`` method that
+    ``pair_sources`` delegates to, but it is not part of this public contract.
     """
 
     @property
     @abstractmethod
     def geometry(self) -> DataGeometry:
         """The data geometry this strategy handles."""
-        ...
-
-    @abstractmethod
-    def pair(
-        self,
-        model: xr.Dataset,
-        obs: xr.Dataset,
-        radius_of_influence: float | None = None,
-        time_tolerance: Any | None = None,
-        vertical_method: str = "nearest",
-        horizontal_method: str = "nearest",
-        **kwargs: Any,
-    ) -> xr.Dataset:
-        """Pair model output with observations through the legacy adapter.
-
-        Parameters
-        ----------
-        model
-            Model Dataset with dims (time, level, lat, lon).
-        obs
-            Observation Dataset with geometry-specific dimensions.
-        radius_of_influence
-            Spatial search radius in meters.
-        time_tolerance
-            Maximum time difference for matching (e.g., '1h', timedelta).
-        vertical_method
-            Vertical interpolation method ('nearest', 'linear', 'log').
-        horizontal_method
-            Horizontal interpolation method ('nearest', 'bilinear').
-        **kwargs
-            Strategy-specific options.
-
-        Returns
-        -------
-        xr.Dataset
-            Paired Dataset with aligned model and observation variables.
-            Contains both 'model_<var>' and 'obs_<var>' data variables.
-        """
         ...
 
     @abstractmethod
@@ -196,8 +159,7 @@ class PairingStrategy(Protocol):
     ) -> xr.Dataset:
         """Pair two role-neutral sources.
 
-        The comparand is sampled onto the reference geometry. Legacy
-        implementations can map this to ``pair(model=comparand, obs=reference)``.
+        The comparand is sampled onto the reference geometry.
         """
         ...
 
@@ -207,7 +169,7 @@ class PairingEngine(Protocol):
     """Protocol for the main pairing orchestrator.
 
     The pairing engine selects the appropriate strategy based on
-    observation geometry and coordinates the pairing process.
+    reference geometry and coordinates the pairing process.
     """
 
     @abstractmethod
@@ -216,16 +178,15 @@ class PairingEngine(Protocol):
         ...
 
     @abstractmethod
-    def pair(
+    def pair_sources(
         self,
-        model: xr.Dataset,
-        obs: xr.Dataset,
+        reference: xr.Dataset,
+        comparand: xr.Dataset,
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Pair model and observations using the appropriate strategy.
+        """Pair two role-neutral sources using the appropriate strategy.
 
-        The strategy is selected based on the observation Dataset's
-        'geometry' attribute.
+        The strategy is selected based on the reference Dataset's geometry.
         """
         ...
 
