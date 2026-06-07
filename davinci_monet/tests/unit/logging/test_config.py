@@ -257,8 +257,8 @@ class TestStructuredFormatter:
         assert "[" not in result  # No extra fields bracket
 
 
-class TestLoggingIntegration:
-    """Integration tests for logging."""
+class TestLoggingWorkflow:
+    """Logging workflow tests (calls logging APIs directly)."""
 
     def teardown_method(self) -> None:
         """Clean up loggers after each test."""

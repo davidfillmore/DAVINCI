@@ -5,7 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 import xarray as xr
+
+pytestmark = pytest.mark.integration
 
 
 def _write_swath_source(path: Path, *, n_scan: int = 30, n_pix: int = 8) -> None:

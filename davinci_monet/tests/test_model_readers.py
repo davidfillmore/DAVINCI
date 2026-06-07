@@ -685,8 +685,8 @@ class TestGenericReaderOpen:
 # =============================================================================
 
 
-class TestModelReaderIntegration:
-    """Integration tests for model readers with full workflow."""
+class TestModelReaderRoundTrip:
+    """Round-trip tests for model readers (calls internal APIs directly)."""
 
     def test_full_workflow_generic(self, temp_netcdf_file: Path) -> None:
         """Test opening through the generic reader yields usable data."""

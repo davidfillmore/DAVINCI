@@ -827,12 +827,12 @@ class TestGridStrategy:
 
 
 # =============================================================================
-# Integration tests
+# Pairing Workflow Tests
 # =============================================================================
 
 
-class TestPairingIntegration:
-    """Integration tests for full pairing workflow."""
+class TestPairingWorkflow:
+    """Full pairing workflow tests (calls internal APIs directly, not PipelineRunner)."""
 
     def test_engine_pair_point(self, model_2d: xr.Dataset, point_obs: xr.Dataset) -> None:
         """Test full pairing workflow through engine for point data."""

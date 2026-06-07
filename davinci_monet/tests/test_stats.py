@@ -572,12 +572,12 @@ class TestMetricRegistry:
 
 
 # =============================================================================
-# Integration Tests
+# Workflow Tests
 # =============================================================================
 
 
-class TestIntegration:
-    """Integration tests for the statistics module."""
+class TestStatsWorkflow:
+    """End-to-end workflow tests for the statistics module (calls internal APIs directly)."""
 
     def test_full_workflow(self, paired_dataset, tmp_path):
         """Test complete statistics workflow."""

@@ -9,12 +9,15 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 import davinci_monet.ai.openrouter as orouter
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
 from davinci_monet.tests.synthetic.models import create_model_dataset
-from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario
+from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario, sample_obs_from
+
+pytestmark = pytest.mark.integration
 
 
 def _build_config(tmp_path: Path) -> dict:
@@ -31,7 +34,7 @@ def _build_config(tmp_path: Path) -> dict:
         noise_level=0.0,
         seed=42,
     )
-    obs_ds = scenario._generate_point_obs(model_ds)
+    obs_ds = sample_obs_from(model_ds, "point", scenario=scenario)
 
     rng = np.random.default_rng(42)
     model_ds["O3"] = model_ds["O3"] + 5.0 + rng.normal(0, 3.0, size=model_ds["O3"].shape)

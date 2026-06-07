@@ -19,7 +19,7 @@ from davinci_monet.cli.app import app
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
 from davinci_monet.tests.synthetic.models import create_model_dataset
-from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario
+from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario, sample_obs_from
 
 # =============================================================================
 # Fixtures
@@ -58,7 +58,7 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         noise_level=0.0,
         seed=42,
     )
-    obs_ds = scenario._generate_point_obs(model_ds)
+    obs_ds = sample_obs_from(model_ds, "point", scenario=scenario)
 
     # Add small bias so stats are non-trivial
     rng = np.random.default_rng(42)
@@ -135,6 +135,7 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
 # =============================================================================
 
 
+@pytest.mark.integration
 class TestCLIRunE2E:
     """End-to-end tests for `davinci-monet run <config.yaml>`."""
 

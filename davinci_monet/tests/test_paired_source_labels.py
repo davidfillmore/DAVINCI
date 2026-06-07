@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 import xarray as xr
 
 from davinci_monet.core.base import PairedData, iter_paired_variable_pairs
@@ -87,6 +88,7 @@ class TestSourceLabelRename:
         assert ds["obs_o3"].attrs["source_label"] == "obs"
 
 
+@pytest.mark.integration
 class TestPairedSourceLabelPipeline:
     """Integration test: the pipeline emits source-label paired names only.
 
@@ -100,7 +102,10 @@ class TestPairedSourceLabelPipeline:
         from davinci_monet.pipeline.runner import PipelineRunner
         from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
         from davinci_monet.tests.synthetic.models import create_model_dataset
-        from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario
+        from davinci_monet.tests.synthetic.scenarios import (
+            PerfectMatchScenario,
+            sample_obs_from,
+        )
 
         domain = Domain(
             lon_min=-105.0,
@@ -124,7 +129,7 @@ class TestPairedSourceLabelPipeline:
             noise_level=0.0,
             seed=42,
         )
-        obs_ds = scenario._generate_point_obs(model_ds)
+        obs_ds = sample_obs_from(model_ds, "point", scenario=scenario)
 
         model_path = tmp_path / "model.nc"
         obs_path = tmp_path / "obs.nc"

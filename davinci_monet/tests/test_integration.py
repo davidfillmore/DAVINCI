@@ -29,7 +29,7 @@ import xarray as xr
 
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
-from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario
+from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario, sample_obs_from
 
 # =============================================================================
 # Helpers
@@ -79,6 +79,7 @@ def _assert_plots(output_dir: Path, min_count: int) -> list[Path]:
 # =============================================================================
 
 
+@pytest.mark.integration
 class TestPointPipeline:
     """End-to-end paired pipeline: model + surface obs → 8 plot types."""
 
@@ -114,7 +115,7 @@ class TestPointPipeline:
             noise_level=0.0,
             seed=42,
         )
-        obs_ds = scenario._generate_point_obs(model_ds)
+        obs_ds = sample_obs_from(model_ds, "point", scenario=scenario)
 
         # Add model bias + noise (obs stay clean)
         rng = np.random.default_rng(42)
@@ -242,6 +243,7 @@ class TestPointPipeline:
 # =============================================================================
 
 
+@pytest.mark.integration
 class TestTrackPipeline:
     """End-to-end paired pipeline: model + aircraft track → 3 plot types."""
 
@@ -360,6 +362,7 @@ class TestTrackPipeline:
 # =============================================================================
 
 
+@pytest.mark.integration
 class TestObsOnlyPipeline:
     """End-to-end obs-only pipeline: aircraft data → 4 obs plot types."""
 

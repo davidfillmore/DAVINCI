@@ -198,6 +198,7 @@ class TestObsOnlyPipelineDetection:
         assert "load_observations" not in stage_names
         assert "pairing" not in stage_names
 
+    @pytest.mark.integration
     def test_run_from_config_detects_obs_only(self, obs_data: SourceData, tmp_path: Any) -> None:
         """PipelineRunner.run_from_config with obs-only config uses obs pipeline."""
         from davinci_monet.pipeline.runner import PipelineRunner

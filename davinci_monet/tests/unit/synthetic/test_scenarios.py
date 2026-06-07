@@ -243,8 +243,8 @@ class TestScenarioReproducibility:
         assert not np.allclose(model1["O3"].values, model2["O3"].values)
 
 
-class TestScenarioIntegration:
-    """Integration tests using scenarios."""
+class TestScenarioWorkflow:
+    """Scenario workflow tests (calls scenario APIs directly)."""
 
     def test_scenario_workflow(self) -> None:
         """Test complete scenario workflow."""

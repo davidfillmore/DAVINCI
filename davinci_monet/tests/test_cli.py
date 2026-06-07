@@ -530,12 +530,12 @@ class TestCLIImports:
 
 
 # =============================================================================
-# Integration Tests
+# CLI Command Tests
 # =============================================================================
 
 
-class TestCLIIntegration:
-    """Integration tests for CLI."""
+class TestCLICommands:
+    """CLI command tests (calls internal APIs directly, does not use PipelineRunner.run_from_config)."""
 
     @pytest.fixture
     def complete_config(self, tmp_path: Path) -> Path:

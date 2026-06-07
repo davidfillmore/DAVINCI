@@ -238,8 +238,8 @@ class TestColormapUtilities:
         plt.get_cmap(cmap_name)  # Should not raise
 
 
-class TestStyleIntegration:
-    """Integration tests for style with plotting."""
+class TestStyleWithPlotting:
+    """Style + plotting interaction tests (calls style/plot APIs directly)."""
 
     def teardown_method(self):
         """Reset matplotlib after each test."""
