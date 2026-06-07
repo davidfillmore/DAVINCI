@@ -7,6 +7,7 @@ of analysis stages, managing state and handling errors.
 from __future__ import annotations
 
 import logging
+import os
 import re
 import sys
 import time
@@ -1356,6 +1357,45 @@ class PipelineResult:
                 return result
         return None
 
+    @property
+    def stage_errors(self) -> dict[str, list[Any]]:
+        """Collect per-item errors from all stages.
+
+        Stages stash per-item error lists in ``context.metadata`` under keys
+        such as ``pairing_errors``, ``stats_errors``, and ``plot_errors``.
+        This property aggregates those lists alongside any stage-level
+        failures so that all errors are discoverable in one place without
+        changing the ``success`` flag semantics.
+
+        Returns
+        -------
+        dict[str, list[Any]]
+            Mapping of error-list key (e.g. ``"pairing_errors"``) or stage
+            name to a non-empty list of error descriptions.  Only entries
+            with at least one error are included.
+        """
+        errors: dict[str, list[Any]] = {}
+
+        # Per-item errors stashed in context.metadata by stages
+        if self.context is not None:
+            _METADATA_ERROR_KEYS = (
+                "pairing_errors",
+                "stats_errors",
+                "plot_errors",
+            )
+            for key in _METADATA_ERROR_KEYS:
+                value = self.context.metadata.get(key)
+                if value:
+                    errors[key] = list(value)
+
+        # Stage-level failures from StageResult.error
+        for sr in self.stage_results:
+            if sr.status == StageStatus.FAILED and sr.error:
+                stage_key = f"stage:{sr.stage_name}"
+                errors[stage_key] = [sr.error]
+
+        return errors
+
 
 class PipelineRunner:
     """Orchestrates execution of analysis pipeline stages.
@@ -1579,6 +1619,14 @@ class PipelineRunner:
         """
         if context is None:
             context = PipelineContext()
+
+        # Set HDF5 thread-safety defaults before any file I/O.
+        # Only set if the caller has not already provided an explicit value so
+        # that an explicit HDF5_USE_FILE_LOCKING=TRUE in the environment is
+        # always honoured.
+        if "HDF5_USE_FILE_LOCKING" not in os.environ:
+            os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+            logger.debug("HDF5_USE_FILE_LOCKING not set; defaulting to FALSE")
 
         # Clear HDF5/NetCDF state to avoid transient file handle errors
         self._cleanup_hdf5_state()

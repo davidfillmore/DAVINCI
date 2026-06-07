@@ -7,6 +7,7 @@ metrics.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Sequence
 
@@ -17,6 +18,8 @@ from davinci_monet.stats.metrics import STANDARD_METRICS, get_metric, list_metri
 
 if TYPE_CHECKING:
     import xarray as xr
+
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -426,7 +429,12 @@ class StatisticsCalculator:
             try:
                 metric = get_metric(metric_name)
                 results[metric_name] = metric.compute(obs, mod, **kwargs)
-            except Exception:
+            except Exception as exc:
+                logger.warning(
+                    "Metric '%s' raised an exception and will be set to NaN: %s",
+                    metric_name,
+                    exc,
+                )
                 results[metric_name] = np.nan
 
         return results
@@ -595,7 +603,12 @@ def quick_stats(
         try:
             metric = get_metric(metric_name)
             results[metric_name] = metric.compute(obs, mod)
-        except Exception:
+        except Exception as exc:
+            logger.warning(
+                "Metric '%s' raised an exception and will be set to NaN: %s",
+                metric_name,
+                exc,
+            )
             results[metric_name] = np.nan
 
     return results
