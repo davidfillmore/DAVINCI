@@ -12,15 +12,15 @@ from typing import Any, Mapping, Sequence
 
 import xarray as xr
 
-from davinci_monet.core.exceptions import (
-    DataFormatError,
-    DataNotFoundError,
-    cleanup_netcdf_state,
-    is_transient_error,
-    write_error_log,
-)
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
+from davinci_monet.io.reader_utils import (
+    alias_coord,
+    retry_transient_open,
+    select_variables,
+    standardize_dims,
+    validate_file_list,
+)
 
 # Standard variable name mappings for UFS-AQM
 UFS_VARIABLE_MAPPING: dict[str, str] = {
@@ -95,15 +95,7 @@ class UFSReader:
         xr.Dataset
             UFS data with standardized dimensions (time, z, lat, lon).
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No UFS files provided")
-
-        # Check files exist
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"UFS files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="UFS")
 
         # Try monetio first
         try:
@@ -205,47 +197,20 @@ class UFSReader:
         if is_grib:
             xr_kwargs.setdefault("engine", "cfgrib")
 
-        max_retries = 3
-        last_error: Exception | None = None
+        def _open() -> xr.Dataset:
+            if len(file_paths) > 1:
+                ds = xr.open_mfdataset(
+                    [str(f) for f in file_paths],
+                    combine="by_coords",
+                    parallel=True,
+                    **xr_kwargs,
+                )
+            else:
+                ds = xr.open_dataset(str(file_paths[0]), **xr_kwargs)
 
-        for attempt in range(max_retries):
-            try:
-                if len(file_paths) > 1:
-                    ds = xr.open_mfdataset(
-                        [str(f) for f in file_paths],
-                        combine="by_coords",
-                        parallel=True,
-                        **xr_kwargs,
-                    )
-                else:
-                    ds = xr.open_dataset(str(file_paths[0]), **xr_kwargs)
+            return select_variables(ds, variables)
 
-                if variables is not None:
-                    available = [v for v in variables if v in ds.data_vars]
-                    if available:
-                        ds = ds[available]
-
-                return ds
-
-            except Exception as e:
-                last_error = e
-                if attempt < max_retries - 1 and is_transient_error(e):
-                    warnings.warn(
-                        f"Transient NetCDF error (attempt {attempt + 1}/{max_retries}), "
-                        f"retrying: {e}",
-                        UserWarning,
-                    )
-                    cleanup_netcdf_state()
-                    continue
-                error_file = write_error_log(e, "Opening UFS files")
-                msg = f"Failed to open UFS files: {e}"
-                if error_file:
-                    msg += f" (details: {error_file})"
-                raise DataFormatError(msg) from e
-
-        raise DataFormatError(
-            f"Failed to open UFS files after {max_retries} attempts"
-        ) from last_error
+        return retry_transient_open(_open, context="Opening UFS files")
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize UFS dataset dimensions and coordinates.
@@ -260,37 +225,26 @@ class UFSReader:
         xr.Dataset
             Standardized dataset.
         """
-        # UFS dimension renames (depends on file type)
-        dim_renames: dict[str, str] = {}
-
-        # Common grib2 dimensions
-        if "step" in ds.dims:
-            dim_renames["step"] = "time"
-        if "valid_time" in ds.dims:
-            dim_renames["valid_time"] = "time"
-        if "level" in ds.dims:
-            dim_renames["level"] = "z"
-        if "heightAboveGround" in ds.dims:
-            dim_renames["heightAboveGround"] = "z"
-        if "isobaricInhPa" in ds.dims:
-            dim_renames["isobaricInhPa"] = "z"
-
-        # NetCDF dimensions
-        if "pfull" in ds.dims:
-            dim_renames["pfull"] = "z"
-        if "grid_yt" in ds.dims:
-            dim_renames["grid_yt"] = "y"
-        if "grid_xt" in ds.dims:
-            dim_renames["grid_xt"] = "x"
-
-        if dim_renames:
-            ds = ds.rename(dim_renames)
+        # UFS dimension renames (depends on file type): grib2 dims (step,
+        # valid_time, level, heightAboveGround, isobaricInhPa) and NetCDF dims
+        # (pfull, grid_yt, grid_xt).
+        ds = standardize_dims(
+            ds,
+            {
+                "step": "time",
+                "valid_time": "time",
+                "level": "z",
+                "heightAboveGround": "z",
+                "isobaricInhPa": "z",
+                "pfull": "z",
+                "grid_yt": "y",
+                "grid_xt": "x",
+            },
+        )
 
         # Handle lat/lon coordinates
-        if "latitude" in ds.coords and "lat" not in ds.coords:
-            ds = ds.assign_coords(lat=ds["latitude"])
-        if "longitude" in ds.coords and "lon" not in ds.coords:
-            ds = ds.assign_coords(lon=ds["longitude"])
+        ds = alias_coord(ds, "latitude", "lat")
+        ds = alias_coord(ds, "longitude", "lon")
 
         return ds
 

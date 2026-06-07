@@ -12,15 +12,14 @@ from typing import Any, Mapping, Sequence
 
 import xarray as xr
 
-from davinci_monet.core.exceptions import (
-    DataFormatError,
-    DataNotFoundError,
-    cleanup_netcdf_state,
-    is_transient_error,
-    write_error_log,
-)
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
+from davinci_monet.io.reader_utils import (
+    promote_to_coords,
+    retry_transient_open,
+    standardize_dims,
+    validate_file_list,
+)
 
 # Standard variable name mappings for WRF-Chem
 # WRF-Chem variable names vary by chemical mechanism
@@ -108,15 +107,7 @@ class WRFChemReader:
         xr.Dataset
             WRF-Chem data with standardized dimensions (time, z, lat, lon).
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No WRF-Chem files provided")
-
-        # Check files exist
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"WRF-Chem files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="WRF-Chem")
 
         # Try monetio first; fall back to plain xarray if monetio's wrf-python
         # path isn't usable (e.g. wrf-python ↔ netCDF4 incompatibility raising
@@ -211,58 +202,37 @@ class WRFChemReader:
         xr.Dataset
             Raw WRF-Chem dataset.
         """
-        max_retries = 3
-        last_error: Exception | None = None
 
-        for attempt in range(max_retries):
-            try:
-                if len(file_paths) > 1:
-                    # WRF files store time as the `Times` char-array (not a
-                    # coord variable on `Time`), so combine="by_coords" cannot
-                    # infer a concat dim. Use nested concat along Time, with
-                    # file paths sorted to provide chronological order.
-                    ds = xr.open_mfdataset(
-                        [str(f) for f in sorted(file_paths, key=str)],
-                        combine="nested",
-                        concat_dim="Time",
-                        parallel=True,
-                        **kwargs,
-                    )
-                else:
-                    ds = xr.open_dataset(str(file_paths[0]), **kwargs)
+        def _open() -> xr.Dataset:
+            if len(file_paths) > 1:
+                # WRF files store time as the `Times` char-array (not a
+                # coord variable on `Time`), so combine="by_coords" cannot
+                # infer a concat dim. Use nested concat along Time, with
+                # file paths sorted to provide chronological order.
+                ds = xr.open_mfdataset(
+                    [str(f) for f in sorted(file_paths, key=str)],
+                    combine="nested",
+                    concat_dim="Time",
+                    parallel=True,
+                    **kwargs,
+                )
+            else:
+                ds = xr.open_dataset(str(file_paths[0]), **kwargs)
 
-                if variables is not None:
-                    available = [v for v in variables if v in ds.data_vars]
-                    if available:
-                        # Preserve WRF housekeeping variables that
-                        # _standardize_dataset relies on (Times is the
-                        # char-array time encoding; XLAT/XLONG are the lat/
-                        # lon coords). These get dropped or set as coords by
-                        # standardize_dataset after the user's selection.
-                        keep_aux = [v for v in ("Times", "XLAT", "XLONG") if v in ds.variables]
-                        ds = ds[available + [v for v in keep_aux if v not in available]]
+            if variables is not None:
+                available = [v for v in variables if v in ds.data_vars]
+                if available:
+                    # Preserve WRF housekeeping variables that
+                    # _standardize_dataset relies on (Times is the
+                    # char-array time encoding; XLAT/XLONG are the lat/
+                    # lon coords). These get dropped or set as coords by
+                    # standardize_dataset after the user's selection.
+                    keep_aux = [v for v in ("Times", "XLAT", "XLONG") if v in ds.variables]
+                    ds = ds[available + [v for v in keep_aux if v not in available]]
 
-                return ds
+            return ds
 
-            except Exception as e:
-                last_error = e
-                if attempt < max_retries - 1 and is_transient_error(e):
-                    warnings.warn(
-                        f"Transient NetCDF error (attempt {attempt + 1}/{max_retries}), "
-                        f"retrying: {e}",
-                        UserWarning,
-                    )
-                    cleanup_netcdf_state()
-                    continue
-                error_file = write_error_log(e, "Opening WRF-Chem files")
-                msg = f"Failed to open WRF-Chem files: {e}"
-                if error_file:
-                    msg += f" (details: {error_file})"
-                raise DataFormatError(msg) from e
-
-        raise DataFormatError(
-            f"Failed to open WRF-Chem files after {max_retries} attempts"
-        ) from last_error
+        return retry_transient_open(_open, context="Opening WRF-Chem files")
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize WRF-Chem dataset dimensions and coordinates.
@@ -278,25 +248,18 @@ class WRFChemReader:
             Standardized dataset.
         """
         # WRF dimension renames
-        dim_renames: dict[str, str] = {}
-
-        if "Time" in ds.dims:
-            dim_renames["Time"] = "time"
-        if "bottom_top" in ds.dims:
-            dim_renames["bottom_top"] = "z"
-        if "south_north" in ds.dims:
-            dim_renames["south_north"] = "y"
-        if "west_east" in ds.dims:
-            dim_renames["west_east"] = "x"
-        if "bottom_top_stag" in ds.dims:
-            dim_renames["bottom_top_stag"] = "z_stag"
-        if "south_north_stag" in ds.dims:
-            dim_renames["south_north_stag"] = "y_stag"
-        if "west_east_stag" in ds.dims:
-            dim_renames["west_east_stag"] = "x_stag"
-
-        if dim_renames:
-            ds = ds.rename(dim_renames)
+        ds = standardize_dims(
+            ds,
+            {
+                "Time": "time",
+                "bottom_top": "z",
+                "south_north": "y",
+                "west_east": "x",
+                "bottom_top_stag": "z_stag",
+                "south_north_stag": "y_stag",
+                "west_east_stag": "x_stag",
+            },
+        )
 
         # Decode WRF's `Times` char-array variable into a datetime coord on
         # the `time` dim. monetio's path normally handles this; in the xarray
@@ -340,10 +303,7 @@ class WRFChemReader:
                 ds = ds.assign_coords(lon=_squeeze_time(ds["XLONG"]))
 
         # Handle latitude/longitude if present
-        if "latitude" in ds.data_vars and "latitude" not in ds.coords:
-            ds = ds.set_coords("latitude")
-        if "longitude" in ds.data_vars and "longitude" not in ds.coords:
-            ds = ds.set_coords("longitude")
+        ds = promote_to_coords(ds, ("latitude", "longitude"))
 
         return ds
 
