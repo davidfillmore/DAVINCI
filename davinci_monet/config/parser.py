@@ -1,7 +1,9 @@
-"""YAML configuration parser with backward compatibility.
+"""YAML configuration parser for the unified ``sources:``/``pairs:`` schema.
 
-This module provides functions for loading and parsing MELODIES-MONET
-YAML configuration files with full backward compatibility.
+This module loads and parses DAVINCI YAML configuration files. Legacy
+MELODIES-MONET ``model:``/``obs:`` blocks are rejected at load
+(:func:`_reject_legacy_config`); convert them with ``davinci-monet
+migrate-config``.
 """
 
 from __future__ import annotations
@@ -102,6 +104,34 @@ def expand_env_vars(data: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+_LEGACY_TOP_LEVEL_KEYS = ("model", "obs", "models", "observations")
+
+
+def _reject_legacy_config(data: dict[str, Any]) -> None:
+    """Hard-error on legacy ``model:``/``obs:`` (or ``models:``/``observations:``)
+    config blocks.
+
+    The unified ``sources:``/``pairs:`` schema is the only supported format.
+    ``preprocess_config`` injects empty ``model``/``obs`` dicts for structural
+    convenience, so only *non-empty* legacy blocks are an error — a config that
+    uses ``sources:`` with an incidental empty ``model: {}`` still loads.
+
+    Raises
+    ------
+    ConfigurationError
+        If any non-empty legacy data-source block is present.
+    """
+    legacy_present = [
+        key for key in _LEGACY_TOP_LEVEL_KEYS if isinstance(data.get(key), dict) and data[key]
+    ]
+    if legacy_present:
+        keys = ", ".join(f"'{k}:'" for k in legacy_present)
+        raise ConfigurationError(
+            f"Legacy {keys} config is no longer supported. "
+            "Convert it with: davinci-monet migrate-config <file> -o <out>"
+        )
+
+
 def preprocess_config(data: dict[str, Any]) -> dict[str, Any]:
     """Preprocess raw YAML data for compatibility.
 
@@ -135,16 +165,9 @@ def preprocess_config(data: dict[str, Any]) -> dict[str, Any]:
             analysis["_end_time_has_time"] = bool(re.search(r"\d{2}:\d{2}", end_time))
 
     # Ensure all sections exist as dicts (not None)
-    for section in ["model", "obs", "sources", "pairs", "plots"]:
+    for section in ["sources", "pairs", "plots"]:
         if section not in data or data[section] is None:
             data[section] = {}
-
-    # Handle null projection values
-    if "model" in data and data["model"]:
-        for model_config in data["model"].values():
-            if isinstance(model_config, dict):
-                if model_config.get("projection") is None:
-                    model_config.pop("projection", None)
 
     return data
 
@@ -188,6 +211,9 @@ def load_config(source: str | Path | TextIO) -> MonetConfig:
     # Load raw YAML
     data = load_yaml(source)
 
+    # Reject legacy model:/obs: configs before any preprocessing injects empties.
+    _reject_legacy_config(data)
+
     # Preprocess for compatibility
     data = preprocess_config(data)
 
@@ -216,6 +242,7 @@ def validate_config(data: dict[str, Any]) -> MonetConfig:
     ConfigurationError
         If validation fails.
     """
+    _reject_legacy_config(data)
     data = preprocess_config(data)
     try:
         return MonetConfig.model_validate(data)
@@ -321,8 +348,8 @@ class ConfigBuilder:
     --------
     >>> config = (ConfigBuilder()
     ...     .set_analysis(start_time="2024-01-01", end_time="2024-01-02")
-    ...     .add_model("cmaq", mod_type="cmaq", files="/data/*.nc")
-    ...     .add_observation("airnow", obs_type="pt_sfc")
+    ...     .add_source("cam", type="cesm_fv", role="model", files="/data/*.nc")
+    ...     .add_source("airnow", type="pt_sfc", role="obs")
     ...     .build())
     """
 
@@ -330,8 +357,6 @@ class ConfigBuilder:
         """Initialize empty configuration."""
         self._data: dict[str, Any] = {
             "analysis": {},
-            "model": {},
-            "obs": {},
             "sources": {},
             "pairs": {},
             "plots": {},
@@ -351,42 +376,6 @@ class ConfigBuilder:
             Self for chaining.
         """
         self._data["analysis"].update(kwargs)
-        return self
-
-    def add_model(self, name: str, **kwargs: Any) -> "ConfigBuilder":
-        """Add a model configuration.
-
-        Parameters
-        ----------
-        name
-            Model label.
-        **kwargs
-            Model parameters.
-
-        Returns
-        -------
-        ConfigBuilder
-            Self for chaining.
-        """
-        self._data["model"][name] = kwargs
-        return self
-
-    def add_observation(self, name: str, **kwargs: Any) -> "ConfigBuilder":
-        """Add an observation configuration.
-
-        Parameters
-        ----------
-        name
-            Observation label.
-        **kwargs
-            Observation parameters.
-
-        Returns
-        -------
-        ConfigBuilder
-            Self for chaining.
-        """
-        self._data["obs"][name] = kwargs
         return self
 
     def add_source(self, name: str, **kwargs: Any) -> "ConfigBuilder":

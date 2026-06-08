@@ -12,9 +12,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import TwoSlopeNorm
 
+from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
+    build_series,
     calculate_symmetric_limits,
     format_label_with_units,
     format_plot_title,
@@ -55,58 +57,49 @@ class CurtainPlotter(BasePlotter):
     name: str = "curtain"
     default_figsize: tuple[float, float] = (9, 4)  # Wide for distance/time extent
 
-    def plot(
+    def render(
         self,
-        paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
-        alt_var: str = "altitude",
-        time_dim: str = "time",
-        show_var: Literal["obs", "model", "bias"] = "bias",
-        cmap: str | None = None,
-        n_levels: int = 20,
-        show_scatter: bool = True,
-        scatter_size: float | None = None,
-        invert_yaxis: bool = False,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Generate a curtain plot.
+        """Render a curtain plot from a list of two PlotSeries.
 
         Parameters
         ----------
-        paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+        series
+            Exactly 2 series: one reference (obs) and one comparand (model).
         ax
-            Optional axes to plot on.
-        alt_var
-            Name of altitude coordinate/variable.
-        time_dim
-            Name of time dimension.
-        show_var
-            Which variable to show ('obs', 'model', 'bias').
-        cmap
-            Colormap. Defaults to RdBu_r for bias, viridis otherwise.
-        n_levels
-            Number of contour levels.
-        show_scatter
-            If True, overlay observation points as scatter.
-        scatter_size
-            Size of scatter points.
-        invert_yaxis
-            If True, invert y-axis (for pressure coordinates).
+            Optional axes to plot on. If None, creates new figure.
         **kwargs
-            Additional plotting arguments.
+            Forwarded to the curtain rendering logic, including ``alt_var``,
+            ``time_dim``, ``show_var``, ``cmap``, ``n_levels``,
+            ``show_scatter``, ``scatter_size``, ``invert_yaxis``.
 
         Returns
         -------
         matplotlib.figure.Figure
             The generated figure.
         """
+        if len(series) != 2:
+            raise NotImplementedError(
+                f"CurtainPlotter.render requires exactly 2 series; got {len(series)}."
+            )
+        ref = next((s for s in series if s.pair_role == "reference"), series[0])
+        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
+        paired_data = ref.dataset
+        obs_var = ref.var_name
+        model_var = comp.var_name
+
+        alt_var: str = kwargs.pop("alt_var", "altitude")
+        time_dim: str = kwargs.pop("time_dim", "time")
+        show_var: str = kwargs.pop("show_var", "bias")
+        cmap: str | None = kwargs.pop("cmap", None)
+        n_levels: int = kwargs.pop("n_levels", 20)
+        show_scatter: bool = kwargs.pop("show_scatter", True)
+        scatter_size: float | None = kwargs.pop("scatter_size", None)
+        invert_yaxis: bool = kwargs.pop("invert_yaxis", False)
+
         # Create figure if needed
         if ax is None:
             fig, ax = self.create_figure()
@@ -226,6 +219,72 @@ class CurtainPlotter(BasePlotter):
         ax.tick_params(axis="x", rotation=45)
 
         return fig
+
+    def plot(
+        self,
+        paired_data: xr.Dataset,
+        obs_var: str,
+        model_var: str,
+        ax: matplotlib.axes.Axes | None = None,
+        alt_var: str = "altitude",
+        time_dim: str = "time",
+        show_var: Literal["obs", "model", "bias"] = "bias",
+        cmap: str | None = None,
+        n_levels: int = 20,
+        show_scatter: bool = True,
+        scatter_size: float | None = None,
+        invert_yaxis: bool = False,
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Generate a curtain plot.
+
+        Parameters
+        ----------
+        paired_data
+            Paired dataset with model and observation variables.
+        obs_var
+            Name of observation variable.
+        model_var
+            Name of model variable.
+        ax
+            Optional axes to plot on.
+        alt_var
+            Name of altitude coordinate/variable.
+        time_dim
+            Name of time dimension.
+        show_var
+            Which variable to show ('obs', 'model', 'bias').
+        cmap
+            Colormap. Defaults to RdBu_r for bias, viridis otherwise.
+        n_levels
+            Number of contour levels.
+        show_scatter
+            If True, overlay observation points as scatter.
+        scatter_size
+            Size of scatter points.
+        invert_yaxis
+            If True, invert y-axis (for pressure coordinates).
+        **kwargs
+            Additional plotting arguments.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated figure.
+        """
+        return self.render(
+            build_series(paired_data, obs_var, model_var),
+            ax=ax,
+            alt_var=alt_var,
+            time_dim=time_dim,
+            show_var=show_var,
+            cmap=cmap,
+            n_levels=n_levels,
+            show_scatter=show_scatter,
+            scatter_size=scatter_size,
+            invert_yaxis=invert_yaxis,
+            **kwargs,
+        )
 
     def _plot_1d_trajectory(
         self,

@@ -22,8 +22,41 @@ from pathlib import Path
 
 import xarray as xr
 
-from davinci_monet.models.cesm import compute_tropospheric_column
 from davinci_monet.pipeline.runner import run_analysis
+
+# Physical constants for tropospheric column integration
+_P0_DEFAULT = 100000.0  # Pa
+_G = 9.80665  # m/s²
+_M_AIR = 0.0289644  # kg/mol
+
+
+def compute_tropospheric_column(
+    ds: xr.Dataset,
+    var_name: str,
+    ps_name: str = "PS",
+    hyai_name: str = "hyai",
+    hybi_name: str = "hybi",
+    p0: float | None = None,
+    z_dim: str = "z",
+) -> xr.DataArray:
+    """Compute tropospheric column (mol/m²) from mixing ratio on CESM hybrid coords."""
+    if p0 is None:
+        p0 = float(ds["P0"].values) if "P0" in ds else _P0_DEFAULT
+    tracer = ds[var_name]
+    ps = ds[ps_name]
+    hyai = ds[hyai_name]
+    hybi = ds[hybi_name]
+    if z_dim not in tracer.dims:
+        z_dim = "lev" if "lev" in tracer.dims else tracer.dims[0]
+    z_int_dim = f"{z_dim}_interface" if f"{z_dim}_interface" in ds.dims else "ilev"
+    p_int = hyai * p0 + hybi * ps
+    dp = p_int.diff(dim=z_int_dim if z_int_dim in p_int.dims else hyai.dims[0])
+    if dp.dims[0] != z_dim:
+        dp = dp.rename({dp.dims[0]: z_dim})
+    dn_air = dp / _G / _M_AIR
+    column = (tracer * dn_air).sum(dim=z_dim)
+    column.attrs = {"long_name": f"{var_name} tropospheric column", "units": "mol/m2"}
+    return column
 
 # Data directory from env var or default to ~/Data/ASIA-AQ
 ASIA_AQ_DATA = Path(os.environ.get("ASIA_AQ_DATA", Path.home() / "Data" / "ASIA-AQ"))

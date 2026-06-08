@@ -20,9 +20,10 @@ analysis:
   style:
     theme: ncar
 
-model:
+sources:
   cam_firex:
-    mod_type: generic
+    role: model
+    type: generic
     files: /path/to/model/output/*.nc    # <-- Replace with your model output
     radius_of_influence: 15000
 
@@ -63,9 +64,9 @@ model:
         vmax_plot: 20
         vdiff_plot: 10
 
-obs:
   dc8:
-    obs_type: icartt
+    role: obs
+    type: icartt
     filename: ${FIREX_AQ_DATA}/aircraft/merge/firexaq-MRG60-DC8_MERGE_*_R2.ict
     variables:
       O3_CL:
@@ -95,32 +96,32 @@ obs:
 
 pairs:
   cam_dc8_o3:
-    model: cam_firex
-    obs: dc8
-    variable:
-      model_var: O3
-      obs_var: O3_CL
+    sources: [cam_firex, dc8]
+    reference: dc8
+    variables:
+      cam_firex: O3
+      dc8: O3_CL
 
   cam_dc8_co:
-    model: cam_firex
-    obs: dc8
-    variable:
-      model_var: CO
-      obs_var: CO_DACOM
+    sources: [cam_firex, dc8]
+    reference: dc8
+    variables:
+      cam_firex: CO
+      dc8: CO_DACOM
 
   cam_dc8_no:
-    model: cam_firex
-    obs: dc8
-    variable:
-      model_var: "NO"
-      obs_var: NO_CL
+    sources: [cam_firex, dc8]
+    reference: dc8
+    variables:
+      cam_firex: "NO"
+      dc8: NO_CL
 
   cam_dc8_no2:
-    model: cam_firex
-    obs: dc8
-    variable:
-      model_var: NO2
-      obs_var: NO2_CL
+    sources: [cam_firex, dc8]
+    reference: dc8
+    variables:
+      cam_firex: NO2
+      dc8: NO2_CL
 
 plots:
   dc8_o3_scatter:

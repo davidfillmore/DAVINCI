@@ -21,10 +21,14 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 import xarray as xr
 
-from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
+from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
+from davinci_monet.io.reader_utils import (
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 # Standard variable name mappings for LMA data
 LMA_VARIABLE_MAPPING: dict[str, str] = {
@@ -104,14 +108,7 @@ class LMAReader:
             LMA observations with dimensions (time, latitude, longitude)
             and density variables.
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No LMA files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"LMA files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="LMA")
 
         ds = self._open_netcdf(file_list, variables, **kwargs)
 
@@ -152,11 +149,8 @@ class LMAReader:
         else:
             ds = ds_list[0]
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                # Keep coordinate variables too
-                ds = ds[available]
+        # Keep coordinate variables too
+        ds = select_variables(ds, variables)
 
         return ds
 
@@ -215,7 +209,7 @@ class LMAReader:
             ds = ds.expand_dims("time")
 
         # Set geometry attribute
-        ds.attrs["geometry"] = DataGeometry.GRID.value
+        ds = set_geometry_attr(ds, DataGeometry.GRID)
 
         # Add network metadata
         if network is not None and network in LMA_NETWORKS:
@@ -228,59 +222,3 @@ class LMAReader:
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return LMA variable name mapping."""
         return LMA_VARIABLE_MAPPING
-
-
-def open_lma(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "lma",
-    network: str | None = None,
-    **kwargs: Any,
-) -> ObservationData:
-    """Convenience function to open LMA observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    network
-        LMA network identifier ('oklma', 'colma', 'nalma').
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        LMA observation data container with GRID geometry.
-    """
-    from glob import glob
-
-    reader = LMAReader()
-
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, network=network, **kwargs)
-
-    obs = create_observation_data(
-        label=label,
-        obs_type="lma",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )
-    obs.geometry = DataGeometry.GRID
-
-    return obs

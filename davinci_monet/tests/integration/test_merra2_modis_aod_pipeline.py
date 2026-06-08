@@ -21,6 +21,8 @@ import yaml
 
 from davinci_monet.pipeline.runner import PipelineRunner
 
+pytestmark = pytest.mark.integration
+
 
 def _make_grid(varname: str, nt: int = 3, ny: int = 6, nx: int = 8, seed: int = 0) -> xr.Dataset:
     """Create a minimal synthetic GRID dataset.

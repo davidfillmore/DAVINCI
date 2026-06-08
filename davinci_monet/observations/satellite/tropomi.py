@@ -21,10 +21,14 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 import xarray as xr
 
-from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
+from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
+from davinci_monet.io.reader_utils import (
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 # Standard variable name mappings for TROPOMI
 TROPOMI_VARIABLE_MAPPING: dict[str, str] = {
@@ -92,14 +96,7 @@ class TROPOMIReader:
         xr.Dataset
             TROPOMI observations with swath dimensions.
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No TROPOMI files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"TROPOMI files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="TROPOMI")
 
         # Try monetio first
         try:
@@ -173,12 +170,7 @@ class TROPOMIReader:
         else:
             ds = ds_list[0]
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _apply_qa_filter(self, ds: xr.Dataset, qa_threshold: float) -> xr.Dataset:
         """Apply QA value filtering to dataset."""
@@ -227,74 +219,8 @@ class TROPOMIReader:
         if coord_renames:
             ds = ds.rename(coord_renames)
 
-        ds.attrs["geometry"] = DataGeometry.SWATH.value
-
-        return ds
+        return set_geometry_attr(ds, DataGeometry.SWATH)
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return TROPOMI variable name mapping."""
         return TROPOMI_VARIABLE_MAPPING
-
-
-def open_tropomi(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "tropomi",
-    product: str = "NO2",
-    qa_threshold: float | None = 0.75,
-    **kwargs: Any,
-) -> ObservationData:
-    """Convenience function to open TROPOMI observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    product
-        Product type ('NO2', 'O3', 'CO', 'HCHO', 'SO2').
-    qa_threshold
-        QA filtering threshold.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        TROPOMI observation data container with SWATH geometry.
-
-    Note
-    ----
-    Full functionality requires monetio. Without monetio, TROPOMI swath
-    geometry handling may be incomplete.
-    """
-    from glob import glob
-
-    reader = TROPOMIReader()
-
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, product=product, qa_threshold=qa_threshold, **kwargs)
-
-    obs = create_observation_data(
-        label=label,
-        obs_type="satellite",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )
-    obs.geometry = DataGeometry.SWATH
-
-    return obs

@@ -17,11 +17,11 @@ import pandas as pd
 import xarray as xr
 
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.observations.base import ObservationData
 from davinci_monet.pipeline.stages import (
     PipelineContext,
     PlottingStage,
     SaveResultsStage,
+    SourceData,
     StageStatus,
     StatisticsStage,
     create_standard_pipeline,
@@ -38,7 +38,13 @@ def _obs_ctx(tmp_path: Any) -> PipelineContext:
         },
         coords={"time": np.datetime64("2024-02-01") + np.arange(n) * np.timedelta64(1, "h")},
     )
-    obs = ObservationData(data=ds, label="airnow", obs_type="surface", _geometry=DataGeometry.POINT)
+    obs = SourceData(
+        data=ds,
+        label="airnow",
+        source_type="pt_sfc",
+        geometry=DataGeometry.POINT,
+        role="obs",
+    )
     return PipelineContext(
         config={
             "analysis": {"output_dir": str(tmp_path / "out")},
@@ -52,7 +58,7 @@ def _obs_ctx(tmp_path: Any) -> PipelineContext:
             },
             "stats": {"metrics": ["N", "mean", "median", "std", "min", "max", "p10", "p90"]},
         },
-        observations={"airnow": obs},
+        sources={"airnow": obs},
     )
 
 

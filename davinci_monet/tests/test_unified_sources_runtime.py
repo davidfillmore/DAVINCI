@@ -5,7 +5,54 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 import xarray as xr
+
+pytestmark = pytest.mark.integration
+
+
+def _write_swath_source(path: Path, *, n_scan: int = 30, n_pix: int = 8) -> None:
+    """Write a raw L2 swath NetCDF (2-D lat/lon on scanline/pixel dims).
+
+    Mirrors a satellite L2 product: along-track scanlines, cross-track pixels,
+    a single retrieved variable, and a per-scanline time coordinate. Lat/lon
+    fall inside the GRID source's footprint so binning lands on real cells.
+    """
+    scan_lats = np.linspace(-48.0, -2.0, n_scan)
+    scan_lons = np.linspace(102.0, 158.0, n_scan)
+    pix_offsets = np.linspace(-3.0, 3.0, n_pix)
+    lat2d = scan_lats[:, None] + pix_offsets[None, :] * 0.1
+    lon2d = scan_lons[:, None] + pix_offsets[None, :]
+    # Deterministic retrieved field: smooth gradient so binning is reproducible.
+    aod = 0.1 + 0.002 * (lat2d - lat2d.min()) + 0.001 * (lon2d - lon2d.min())
+    scan_times = np.array(["2019-12-21T12:00"], dtype="datetime64[m]").repeat(n_scan)
+    ds = xr.Dataset(
+        {"aod_550nm": (["scanline", "pixel"], aod.astype("float32"))},
+        coords={
+            "scanline": np.arange(n_scan),
+            "pixel": np.arange(n_pix),
+            "latitude": (["scanline", "pixel"], lat2d),
+            "longitude": (["scanline", "pixel"], lon2d),
+            "time": (["scanline"], scan_times),
+        },
+        attrs={"geometry": "swath"},
+    )
+    ds.to_netcdf(path)
+
+
+def _write_grid_aod_source(path: Path, *, n_lat: int = 12, n_lon: int = 12) -> None:
+    """Write a GRID NetCDF (1-D lat/lon) covering the swath footprint."""
+    lat = np.linspace(-50.0, 0.0, n_lat)
+    lon = np.linspace(100.0, 160.0, n_lon)
+    times = np.array(["2019-12-21T00:00"], dtype="datetime64[m]")
+    rng = np.random.default_rng(0)
+    data = rng.uniform(0.05, 0.4, size=(1, n_lat, n_lon)).astype("float32")
+    ds = xr.Dataset(
+        {"AOD": (("time", "lat", "lon"), data)},
+        coords={"time": times, "lat": lat, "lon": lon},
+        attrs={"geometry": "grid"},
+    )
+    ds.to_netcdf(path)
 
 
 def _write_grid_source(path: Path, *, offset: float = 0.0) -> None:
@@ -81,6 +128,59 @@ def test_sources_config_pairs_from_pair_variables(tmp_path: Path) -> None:
     assert set(paired.data_vars) == {"cam_o3", "airnow_o3"}
     assert paired["cam_o3"].attrs["source_label"] == "cam"
     assert paired["airnow_o3"].attrs["source_label"] == "airnow"
+
+
+def test_implicit_auto_pairing_from_mapping_without_pairs(tmp_path: Path) -> None:
+    """A sources config with a model ``mapping:`` and no ``pairs:`` auto-pairs.
+
+    Runs the real user path (``PipelineRunner.run_from_config``). With no
+    explicit ``pairs:`` block, PairingStage synthesizes jobs from the model
+    source's ``mapping:`` and routes them through ``engine.pair_sources`` — the
+    same unified executor as explicit pairs. The pair key keeps the historical
+    ``<model>_<obs>`` form and paired vars are renamed to source labels and
+    role-tagged, proving the unified (not the removed legacy) path produced them.
+    """
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    model_path = tmp_path / "model.nc"
+    obs_path = tmp_path / "obs.nc"
+    _write_grid_source(model_path)
+    _write_point_source(obs_path)
+
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "sources": {
+            "cam": {
+                "type": "generic",
+                "role": "model",
+                "files": str(model_path),
+                "radius_of_influence": 200000,
+                "mapping": {"airnow": {"o3": "O3"}},
+                "variables": {"O3": {"units": "ppb"}},
+            },
+            "airnow": {
+                "type": "pt_sfc",
+                "role": "obs",
+                "filename": str(obs_path),
+                "variables": {"o3": {"units": "ppb"}},
+            },
+        },
+        "stats": {"metrics": ["N", "MB"]},
+    }
+
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+
+    assert result.success
+    assert result.context is not None
+    # Implicit pair key is <model>_<obs>, matching the historical loop.
+    assert set(result.context.paired) == {"cam_airnow"}
+    paired = result.context.paired["cam_airnow"].data
+    # pair_sources renamed both sides to source-label names and tagged roles.
+    assert set(paired.data_vars) == {"cam_o3", "airnow_o3"}
+    assert paired["cam_o3"].attrs["role"] == "model"
+    assert paired["airnow_o3"].attrs["role"] == "obs"
+    assert paired["cam_o3"].attrs["pair_role"] == "comparand"
+    assert paired["airnow_o3"].attrs["pair_role"] == "reference"
 
 
 def test_sources_config_supports_model_model_pair(tmp_path: Path) -> None:
@@ -318,6 +418,14 @@ def test_invalid_sources_pair_unknown_source_fails() -> None:
 
 
 def test_invalid_legacy_pair_missing_source_fails_when_sources_loaded() -> None:
+    """A legacy model/obs/variable pair is migrated then validated.
+
+    The real pipeline auto-converts legacy ``pairs:`` to the unified
+    ``sources:`` form via ``migrate_to_sources`` before pairing runs;
+    PairingStage no longer accepts the legacy pair shape directly. Here the
+    migrated pair still fails because ``airnow`` is not a loaded source.
+    """
+    from davinci_monet.config.migration import migrate_to_sources
     from davinci_monet.core.protocols import DataGeometry
     from davinci_monet.pipeline.stages import (
         PairingStage,
@@ -327,15 +435,17 @@ def test_invalid_legacy_pair_missing_source_fails_when_sources_loaded() -> None:
     )
 
     ctx = PipelineContext(
-        config={
-            "pairs": {
-                "cam_airnow_o3": {
-                    "model": "cam",
-                    "obs": "airnow",
-                    "variable": {"model_var": "O3", "obs_var": "o3"},
+        config=migrate_to_sources(
+            {
+                "pairs": {
+                    "cam_airnow_o3": {
+                        "model": "cam",
+                        "obs": "airnow",
+                        "variable": {"model_var": "O3", "obs_var": "o3"},
+                    }
                 }
             }
-        },
+        ),
         sources={
             "cam": SourceData(
                 data=xr.Dataset({"O3": ("time", np.array([1.0]))}),
@@ -356,6 +466,8 @@ def test_invalid_legacy_pair_missing_source_fails_when_sources_loaded() -> None:
 
 
 def test_invalid_legacy_pair_missing_variable_fails_when_sources_loaded() -> None:
+    """A migrated legacy pair missing a variable mapping fails validation."""
+    from davinci_monet.config.migration import migrate_to_sources
     from davinci_monet.core.protocols import DataGeometry
     from davinci_monet.pipeline.stages import (
         PairingStage,
@@ -365,15 +477,17 @@ def test_invalid_legacy_pair_missing_variable_fails_when_sources_loaded() -> Non
     )
 
     ctx = PipelineContext(
-        config={
-            "pairs": {
-                "cam_airnow_o3": {
-                    "model": "cam",
-                    "obs": "airnow",
-                    "variable": {"model_var": "O3"},
+        config=migrate_to_sources(
+            {
+                "pairs": {
+                    "cam_airnow_o3": {
+                        "model": "cam",
+                        "obs": "airnow",
+                        "variable": {"model_var": "O3"},
+                    }
                 }
             }
-        },
+        ),
         sources={
             "cam": SourceData(
                 data=xr.Dataset({"O3": ("time", np.array([1.0]))}),
@@ -546,3 +660,254 @@ def test_sources_config_supports_obs_obs_grid_pair(tmp_path: Path) -> None:
     assert paired["viirs_O3"].attrs["pair_role"] == "comparand"
     assert paired["modis_O3"].attrs["role"] == "obs"
     assert paired["viirs_O3"].attrs["role"] == "obs"
+
+
+def test_unified_source_applies_resample(tmp_path: Path) -> None:
+    """A `sources:` obs with `resample` is averaged to the target frequency at load."""
+    import pandas as pd
+
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    src = tmp_path / "hf.nc"
+    times = pd.date_range("2024-01-01T00:00", periods=4, freq="15min")
+    ds = xr.Dataset(
+        {"o3": (("time", "site"), np.array([[10.0], [20.0], [30.0], [40.0]]))},
+        coords={
+            "time": times,
+            "site": [0],
+            "latitude": ("site", [40.0]),
+            "longitude": ("site", [-105.0]),
+        },
+        attrs={"geometry": "point"},
+    )
+    ds.to_netcdf(src)
+
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "sources": {
+            "hf": {
+                "type": "generic",
+                "role": "obs",
+                "files": str(src),
+                "resample": "h",
+                "track_obs_count": True,
+                "variables": {"o3": {"units": "ppb"}},
+            }
+        },
+    }
+
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+
+    assert result.success
+    assert result.context is not None
+    loaded = result.context.sources["hf"].data
+    assert loaded.sizes["time"] == 1
+    assert float(loaded["o3"].isel(time=0, site=0)) == 25.0
+    assert "obs_count" in loaded
+    assert int(loaded["obs_count"].isel(time=0, site=0)) == 4
+
+
+def test_sources_config_pairs_swath_onto_grid(tmp_path: Path) -> None:
+    """A SWATH source pairs onto a GRID reference end-to-end via run_from_config.
+
+    Proves the production ``SwathGridStrategy`` (numba binning) is what the
+    engine routes a swath-vs-grid pair through: the swath pixels are binned onto
+    the grid, so the paired output is GRID-geometry ``(time, lon, lat)`` with
+    reference/comparand variables and role tags. Before SwathGridStrategy was
+    registered, the engine used the non-production per-pixel SwathStrategy, whose
+    pair() emits ``(y, x)``/``(pixel,)`` model output and obs-named (not
+    ``obs_``-prefixed) vars, so this assertion set fails (no binned grid).
+    """
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    swath_path = tmp_path / "modis_l2.nc"
+    grid_path = tmp_path / "cam.nc"
+    _write_swath_source(swath_path)
+    _write_grid_aod_source(grid_path)
+
+    config = {
+        "analysis": {
+            "output_dir": str(tmp_path / "out"),
+        },
+        "sources": {
+            "cam": {
+                "type": "generic",
+                "role": "model",
+                "files": str(grid_path),
+                "variables": {"AOD": {"units": "1"}},
+            },
+            "modis": {
+                "type": "satellite_l2",
+                "role": "obs",
+                "files": str(swath_path),
+                "variables": {"aod_550nm": {"units": "1"}},
+            },
+        },
+        "pairs": {
+            "cam_modis_aod": {
+                "sources": ["cam", "modis"],
+                "reference": "modis",
+                "variables": {"cam": "AOD", "modis": "aod_550nm"},
+            }
+        },
+        "stats": {"metrics": ["N", "MB"]},
+    }
+
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+
+    failed = [
+        f"{s.stage_name}: {s.error}" for s in result.stage_results if s.status.name == "FAILED"
+    ]
+    assert result.success, f"Pipeline failed. Errors: {failed}"
+    assert result.context is not None
+    assert set(result.context.sources) == {"cam", "modis"}
+    assert set(result.context.paired) == {"cam_modis_aod"}
+
+    paired = result.context.paired["cam_modis_aod"].data
+    # SwathGridStrategy binned onto the grid: GRID-geometry output, NOT the
+    # per-pixel (scanline, pixel)/(y, x) output the non-production SwathStrategy
+    # would emit.
+    assert set(paired.dims) >= {"time", "lon", "lat"}
+    assert not ({"scanline", "pixel", "y", "x"} & set(paired.dims))
+    # Reference and comparand share the canonical stem (aod_550nm) under their
+    # source-label prefixes, with role + pair_role tags.
+    assert "modis_aod_550nm" in paired.data_vars
+    assert "cam_aod_550nm" in paired.data_vars
+    assert paired["modis_aod_550nm"].attrs["pair_role"] == "reference"
+    assert paired["cam_aod_550nm"].attrs["pair_role"] == "comparand"
+    assert paired["modis_aod_550nm"].attrs["role"] == "obs"
+    assert paired["cam_aod_550nm"].attrs["role"] == "model"
+    # At least one grid cell received binned swath pixels (non-NaN), proving the
+    # numba binning actually ran end-to-end.
+    assert bool(np.isfinite(paired["modis_aod_550nm"].values).any())
+
+
+def test_two_explicit_pairs_both_produced_via_executor(tmp_path: Path) -> None:
+    """Two independent explicit pairs both land in ``context.paired``.
+
+    Exercises the real user path (``PipelineRunner.run_from_config``) with two
+    eager (in-memory, numpy-backed) source pairs. Proves the bounded concurrent
+    executor in PairingStage runs *all* jobs — not just the first — restoring the
+    cross-pair parallelism that the old inline loop had. Both pair keys and their
+    source-label-prefixed variables must be present.
+    """
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    model_a = tmp_path / "cam_a.nc"
+    model_b = tmp_path / "cam_b.nc"
+    obs_path = tmp_path / "airnow.nc"
+    _write_grid_source(model_a, offset=0.0)
+    _write_grid_source(model_b, offset=5.0)
+    _write_point_source(obs_path)
+
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "sources": {
+            "cam_a": {
+                "type": "generic",
+                "role": "model",
+                "files": str(model_a),
+                "radius_of_influence": 200000,
+                "variables": {"O3": {"units": "ppb"}},
+            },
+            "cam_b": {
+                "type": "generic",
+                "role": "model",
+                "files": str(model_b),
+                "radius_of_influence": 200000,
+                "variables": {"O3": {"units": "ppb"}},
+            },
+            "airnow": {
+                "type": "pt_sfc",
+                "role": "obs",
+                "filename": str(obs_path),
+                "variables": {"o3": {"units": "ppb"}},
+            },
+        },
+        "pairs": {
+            "cam_a_airnow_o3": {
+                "sources": ["cam_a", "airnow"],
+                "reference": "airnow",
+                "variables": {"cam_a": "O3", "airnow": "o3"},
+            },
+            "cam_b_airnow_o3": {
+                "sources": ["cam_b", "airnow"],
+                "reference": "airnow",
+                "variables": {"cam_b": "O3", "airnow": "o3"},
+            },
+        },
+        "stats": {"metrics": ["N", "MB"]},
+    }
+
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+
+    assert result.success
+    assert result.context is not None
+    # Both jobs ran: both keys present (the executor did not stop after one).
+    assert set(result.context.paired) == {"cam_a_airnow_o3", "cam_b_airnow_o3"}
+    paired_a = result.context.paired["cam_a_airnow_o3"].data
+    paired_b = result.context.paired["cam_b_airnow_o3"].data
+    assert set(paired_a.data_vars) == {"cam_a_o3", "airnow_o3"}
+    assert set(paired_b.data_vars) == {"cam_b_o3", "airnow_o3"}
+
+
+def test_two_explicit_pairs_with_max_pair_workers(tmp_path: Path) -> None:
+    """``pairing.max_pair_workers: 2`` over 2 eager pairs still produces both.
+
+    Smoke test that the ThreadPoolExecutor path (worker count > 1, > 1 eager job)
+    runs all jobs and writes both into ``context.paired`` from the main thread.
+    """
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    model_a = tmp_path / "cam_a.nc"
+    model_b = tmp_path / "cam_b.nc"
+    obs_path = tmp_path / "airnow.nc"
+    _write_grid_source(model_a, offset=0.0)
+    _write_grid_source(model_b, offset=5.0)
+    _write_point_source(obs_path)
+
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "pairing": {"max_pair_workers": 2},
+        "sources": {
+            "cam_a": {
+                "type": "generic",
+                "role": "model",
+                "files": str(model_a),
+                "radius_of_influence": 200000,
+                "variables": {"O3": {"units": "ppb"}},
+            },
+            "cam_b": {
+                "type": "generic",
+                "role": "model",
+                "files": str(model_b),
+                "radius_of_influence": 200000,
+                "variables": {"O3": {"units": "ppb"}},
+            },
+            "airnow": {
+                "type": "pt_sfc",
+                "role": "obs",
+                "filename": str(obs_path),
+                "variables": {"o3": {"units": "ppb"}},
+            },
+        },
+        "pairs": {
+            "cam_a_airnow_o3": {
+                "sources": ["cam_a", "airnow"],
+                "reference": "airnow",
+                "variables": {"cam_a": "O3", "airnow": "o3"},
+            },
+            "cam_b_airnow_o3": {
+                "sources": ["cam_b", "airnow"],
+                "reference": "airnow",
+                "variables": {"cam_b": "O3", "airnow": "o3"},
+            },
+        },
+        "stats": {"metrics": ["N", "MB"]},
+    }
+
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+
+    assert result.success
+    assert result.context is not None
+    assert set(result.context.paired) == {"cam_a_airnow_o3", "cam_b_airnow_o3"}

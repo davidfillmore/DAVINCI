@@ -432,6 +432,52 @@ class MismatchScenario(Scenario):
         return {var: {} for var in self.variables}
 
 
+def sample_obs_from(
+    model_ds: xr.Dataset,
+    geometry: str = "point",
+    *,
+    scenario: "PerfectMatchScenario | None" = None,
+) -> xr.Dataset:
+    """Generate observations sampled from *model_ds* for a given geometry.
+
+    This is a public convenience wrapper around
+    :meth:`PerfectMatchScenario._generate_point_obs` (and its siblings) so
+    that test helpers can call it without reaching into private methods.
+
+    Parameters
+    ----------
+    model_ds:
+        Model dataset to sample from.
+    geometry:
+        Geometry key: ``"point"`` (default), ``"track"``, ``"profile"``,
+        ``"swath"``, or ``"grid"``.
+    scenario:
+        An existing :class:`PerfectMatchScenario` whose configuration
+        (domain, seed, variables, …) should be used.  If *None*, a default
+        scenario is constructed from the model's domain extents.
+
+    Returns
+    -------
+    xr.Dataset
+        Observation dataset sampled from the model at the requested geometry.
+    """
+    if scenario is None:
+        scenario = PerfectMatchScenario()
+
+    geom_key = geometry.lower()
+    _dispatch: dict[str, Any] = {
+        "point": scenario._generate_point_obs,
+        "track": scenario._generate_track_obs,
+        "profile": scenario._generate_profile_obs,
+        "swath": scenario._generate_swath_obs,
+        "grid": scenario._generate_grid_obs,
+    }
+    if geom_key not in _dispatch:
+        valid = ", ".join(_dispatch)
+        raise ValueError(f"Unknown geometry {geometry!r}. Valid choices: {valid}")
+    return _dispatch[geom_key](model_ds)
+
+
 def create_scenario(
     scenario_type: str,
     geometry: DataGeometry = DataGeometry.POINT,

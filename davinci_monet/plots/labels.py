@@ -1,0 +1,429 @@
+"""Text formatting functions and lookup tables for DAVINCI plots.
+
+Provides:
+- Lookup tables for variable display names, title formula replacements, and unit strings
+- format_plot_title: apply chemical formula subscripts to a title string
+- format_variable_display_name: friendly name from a raw variable identifier
+- get_variable_label: best display label from a dataset variable
+- canonical_variable_name: strip source-label / legacy prefix from a variable name
+- get_variable_units: read units attr from a dataset variable
+- format_units: rewrite raw unit strings to LaTeX form
+- format_label_with_units: combine a label and its units
+- calculate_symmetric_limits / calculate_data_limits: percentile-based axis scaling
+- merge_config_dicts: shallow-merge two config dicts
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+import numpy as np
+
+if TYPE_CHECKING:
+    import xarray as xr
+
+
+# =============================================================================
+# Lookup Tables
+# =============================================================================
+
+# Lookup table for common atmospheric variable display names
+# Maps lowercase variable names (or patterns) to display names with proper formatting
+VARIABLE_DISPLAY_NAMES: dict[str, str] = {
+    # Surface pollutants (using LaTeX math mode for subscripts)
+    "pm25": r"PM$_{2.5}$",
+    "pm2.5": r"PM$_{2.5}$",
+    "pm10": r"PM$_{10}$",
+    "o3": r"O$_3$",
+    "ozone": r"O$_3$",
+    "no2": r"NO$_2$",
+    "no": "NO",
+    "nox": r"NO$_x$",
+    "co": "CO",
+    "co2": r"CO$_2$",
+    "so2": r"SO$_2$",
+    "hcho": "HCHO",
+    "ch2o": "CH$_2$O",
+    "nh3": r"NH$_3$",
+    "hno3": r"HNO$_3$",
+    "n2o": r"N$_2$O",
+    "n2o5": r"N$_2$O$_5$",
+    "ch4": r"CH$_4$",
+    # AOD variables
+    "aod": "AOD",
+    "aod_500nm": "AOD (500 nm)",
+    "aod_550nm": "AOD (550 nm)",
+    "aod_440nm": "AOD (440 nm)",
+    "aodvisdn": "AOD",
+    # Column variables
+    "no2_trop_column": r"Tropospheric NO$_2$ Column",
+    "no2_column": r"NO$_2$ Column",
+    "o3_column": r"O$_3$ Column",
+    "trop_no2": r"Tropospheric NO$_2$",
+    # Model variables (uppercase)
+    "PM25": r"PM$_{2.5}$",
+    "O3": r"O$_3$",
+    "NO2": r"NO$_2$",
+    "CO": "CO",
+    "SO2": r"SO$_2$",
+    "AODVISdn": "AOD",
+    "NO2_column": r"NO$_2$ Column",
+    # ASIA-AQ DC-8 aircraft variables (ICARTT naming convention)
+    "O3_ROZE_STCLAIR": r"O$_3$",
+    "NO2_CANOE_STCLAIR": r"NO$_2$",
+    "CO_DACOM_DISKIN": "CO",
+}
+
+# Patterns for title formatting (case-insensitive replacements)
+# Order matters - longer patterns first to avoid partial matches
+# Uses LaTeX math mode subscripts for matplotlib rendering
+TITLE_FORMULA_REPLACEMENTS: list[tuple[str, str]] = [
+    # Longer patterns first
+    ("PM2.5", r"PM$_{2.5}$"),
+    ("PM25", r"PM$_{2.5}$"),
+    ("PM10", r"PM$_{10}$"),
+    ("N2O5", r"N$_2$O$_5$"),
+    ("HNO3", r"HNO$_3$"),
+    ("N2O", r"N$_2$O"),
+    ("NO2", r"NO$_2$"),
+    ("SO2", r"SO$_2$"),
+    ("CO2", r"CO$_2$"),
+    ("NH3", r"NH$_3$"),
+    ("CH4", r"CH$_4$"),
+    ("CH2O", r"CH$_2$O"),
+    ("NOx", r"NO$_x$"),
+    ("NOX", r"NO$_x$"),
+    ("O3", r"O$_3$"),
+]
+
+
+# Unit string replacements for plot labels. Longer/more-specific patterns
+# first so e.g. "ug/m3" doesn't get partially rewritten by a bare "m3" rule.
+UNIT_REPLACEMENTS: list[tuple[str, str]] = [
+    ("ug/m3", r"$\mu$g/m$^3$"),
+    ("ug m-3", r"$\mu$g m$^{-3}$"),
+    ("ug m^-3", r"$\mu$g m$^{-3}$"),
+    ("mg/m3", r"mg/m$^3$"),
+    ("mg m-3", r"mg m$^{-3}$"),
+    ("kg/m3", r"kg/m$^3$"),
+    ("kg m-3", r"kg m$^{-3}$"),
+    ("g/m3", r"g/m$^3$"),
+    ("m/s2", r"m/s$^2$"),
+    ("m s-2", r"m s$^{-2}$"),
+    ("m/s", "m/s"),
+    ("W/m2", r"W/m$^2$"),
+    ("W m-2", r"W m$^{-2}$"),
+]
+
+
+# =============================================================================
+# Formatting Functions
+# =============================================================================
+
+
+def format_plot_title(title: str) -> str:
+    """Format a plot title with proper chemical formula subscripts.
+
+    Replaces common chemical formulas (NO2, O3, PM2.5, etc.) with
+    LaTeX subscript versions for matplotlib rendering.
+
+    Parameters
+    ----------
+    title
+        Raw title string.
+
+    Returns
+    -------
+    str
+        Title with chemical formulas properly formatted with LaTeX.
+
+    Examples
+    --------
+    >>> format_plot_title("PM2.5 Model vs Observations")
+    'PM$_{2.5}$ Model vs Observations'
+    >>> format_plot_title("NO2 Time Series")
+    'NO$_2$ Time Series'
+    """
+    import re
+
+    result = title
+    for pattern, replacement in TITLE_FORMULA_REPLACEMENTS:
+        # Case-insensitive replacement while preserving surrounding text
+        result = re.sub(re.escape(pattern), replacement, result, flags=re.IGNORECASE)
+    return result
+
+
+def format_variable_display_name(var_name: str, include_prefix: bool = True) -> str:
+    """Format a variable name for display.
+
+    Uses lookup table for known variables, otherwise applies
+    basic formatting (replace underscores, title case).
+
+    Parameters
+    ----------
+    var_name
+        Raw variable name.
+    include_prefix
+        If True, include "Observed"/"Modeled" prefix for obs_/model_ variables.
+        Set to False for shared axes (e.g., time series y-axis).
+
+    Returns
+    -------
+    str
+        Formatted display name.
+    """
+    # Strip obs_/model_ prefixes for lookup
+    base_name = var_name
+    prefix = ""
+    if var_name.startswith("obs_"):
+        base_name = var_name[4:]
+        if include_prefix:
+            prefix = "Observed "
+    elif var_name.startswith("model_"):
+        base_name = var_name[6:]
+        if include_prefix:
+            prefix = "Modeled "
+
+    # Check lookup table (try exact match first, then lowercase)
+    if base_name in VARIABLE_DISPLAY_NAMES:
+        return prefix + VARIABLE_DISPLAY_NAMES[base_name]
+    if base_name.lower() in VARIABLE_DISPLAY_NAMES:
+        return prefix + VARIABLE_DISPLAY_NAMES[base_name.lower()]
+
+    # Basic formatting: replace underscores, apply title case
+    formatted = base_name.replace("_", " ")
+    if formatted.islower() or formatted.isupper():
+        formatted = formatted.title()
+
+    return prefix + formatted
+
+
+def canonical_variable_name(dataset: xr.Dataset, var_name: str) -> str:
+    """Strip a paired variable's prefix to its canonical (unprefixed) name.
+
+    Handles both the source-label naming (``<source_label>_<canonical>``, e.g.
+    ``cam_o3`` -> ``o3``, derived from the variable's ``source_label`` attr) and
+    the legacy ``obs_``/``model_`` prefixes (``obs_o3`` -> ``o3``). Names with no
+    recognised prefix are returned unchanged.
+    """
+    if var_name in dataset:
+        source_label = dataset[var_name].attrs.get("source_label")
+        if source_label and var_name.startswith(f"{source_label}_"):
+            return var_name[len(source_label) + 1 :]
+    for prefix in ("obs_", "model_"):
+        if var_name.startswith(prefix):
+            return var_name[len(prefix) :]
+    return var_name
+
+
+def get_variable_label(
+    dataset: xr.Dataset,
+    var_name: str,
+    custom_label: str | None = None,
+    include_prefix: bool = True,
+) -> str:
+    """Get a display label for a variable.
+
+    Uses custom label if provided, then checks dataset attributes
+    (display_name, long_name, standard_name), then falls back to
+    automatic formatting via lookup table.
+
+    Parameters
+    ----------
+    dataset
+        Dataset containing the variable.
+    var_name
+        Variable name.
+    custom_label
+        Custom label to use (overrides all other sources).
+    include_prefix
+        If True, include "Observed"/"Modeled" prefix for obs_/model_ variables.
+        Set to False for shared axes (e.g., time series y-axis).
+
+    Returns
+    -------
+    str
+        Display label for the variable.
+    """
+    if custom_label:
+        return custom_label
+
+    if var_name in dataset:
+        attrs = dataset[var_name].attrs
+        # Check for display_name first (our custom attribute)
+        if attrs.get("display_name"):
+            return str(attrs["display_name"])
+        if attrs.get("long_name"):
+            return str(attrs["long_name"])
+        if attrs.get("standard_name"):
+            return str(attrs["standard_name"])
+        # Source-label-named paired vars (e.g. ``cam_o3``) carry role/source_label
+        # attrs; translate to the legacy ``obs_``/``model_`` form so the prefix-
+        # based Observed/Modeled formatting + canonical lookup is preserved (R-2).
+        role = attrs.get("role")
+        if role in ("obs", "model"):
+            canonical = canonical_variable_name(dataset, var_name)
+            var_name = f"obs_{canonical}" if role == "obs" else f"model_{canonical}"
+
+    # Fall back to automatic formatting
+    return format_variable_display_name(var_name, include_prefix=include_prefix)
+
+
+def get_variable_units(
+    dataset: xr.Dataset,
+    var_name: str,
+) -> str | None:
+    """Get units for a variable.
+
+    Parameters
+    ----------
+    dataset
+        Dataset containing the variable.
+    var_name
+        Variable name.
+
+    Returns
+    -------
+    str | None
+        Units string, or None if not found.
+    """
+    if var_name in dataset:
+        return dataset[var_name].attrs.get("units")
+    return None
+
+
+def format_units(units: str) -> str:
+    """Rewrite raw unit strings to LaTeX-rendered form.
+
+    Applies UNIT_REPLACEMENTS so e.g. ``"ug/m3"`` becomes the proper
+    ``"$\\mu$g/m$^3$"`` with greek mu and superscripted exponent.
+    """
+    result = units
+    for pattern, replacement in UNIT_REPLACEMENTS:
+        if pattern in result:
+            result = result.replace(pattern, replacement)
+            break
+    return result
+
+
+def format_label_with_units(label: str, units: str | None) -> str:
+    """Format a label with units.
+
+    Parameters
+    ----------
+    label
+        Base label.
+    units
+        Units string (can be None). Dimensionless units ("1") are omitted.
+
+    Returns
+    -------
+    str
+        Formatted label with units in parentheses if provided. The units
+        string is passed through :func:`format_units` so common bare-ASCII
+        forms (``ug/m3``, ``W m-2``, ...) render with proper LaTeX symbols.
+    """
+    if units and units != "1":
+        return f"{label} ({format_units(units)})"
+    return label
+
+
+def calculate_symmetric_limits(
+    data: np.ndarray,
+    percentile: float = 98,
+) -> tuple[float, float]:
+    """Calculate symmetric limits around zero for bias plots.
+
+    Parameters
+    ----------
+    data
+        Data array.
+    percentile
+        Percentile to use for limit calculation.
+
+    Returns
+    -------
+    tuple[float, float]
+        Symmetric (vmin, vmax) limits.
+    """
+    data = np.asarray(data).flatten()
+    data = data[np.isfinite(data)]
+    if len(data) == 0:
+        return (-1.0, 1.0)
+
+    abs_max = np.percentile(np.abs(data), percentile)
+    return (-abs_max, abs_max)
+
+
+def calculate_data_limits(
+    data: np.ndarray,
+    percentile: float = 98,
+    symmetric: bool = False,
+) -> tuple[float, float]:
+    """Calculate data limits for colorbar/axis scaling.
+
+    Parameters
+    ----------
+    data
+        Data array.
+    percentile
+        Percentile to use for limit calculation.
+    symmetric
+        If True, make limits symmetric around zero.
+
+    Returns
+    -------
+    tuple[float, float]
+        (vmin, vmax) limits.
+    """
+    if symmetric:
+        return calculate_symmetric_limits(data, percentile)
+
+    data = np.asarray(data).flatten()
+    data = data[np.isfinite(data)]
+    if len(data) == 0:
+        return (0.0, 1.0)
+
+    vmin = np.percentile(data, 100 - percentile)
+    vmax = np.percentile(data, percentile)
+    return (vmin, vmax)
+
+
+def merge_config_dicts(
+    defaults: dict[str, Any],
+    overrides: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Merge configuration dictionaries with defaults.
+
+    Parameters
+    ----------
+    defaults
+        Default configuration values.
+    overrides
+        Override values (can be None).
+
+    Returns
+    -------
+    dict[str, Any]
+        Merged configuration.
+    """
+    if overrides is None:
+        return defaults.copy()
+    return {**defaults, **overrides}
+
+
+__all__ = [
+    "VARIABLE_DISPLAY_NAMES",
+    "TITLE_FORMULA_REPLACEMENTS",
+    "UNIT_REPLACEMENTS",
+    "format_plot_title",
+    "format_variable_display_name",
+    "canonical_variable_name",
+    "get_variable_label",
+    "get_variable_units",
+    "format_units",
+    "format_label_with_units",
+    "calculate_symmetric_limits",
+    "calculate_data_limits",
+    "merge_config_dicts",
+]

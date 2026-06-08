@@ -8,14 +8,11 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.pipeline import (
     BaseStage,
-    LoadModelsStage,
-    LoadObservationsStage,
+    LoadSourcesStage,
     PairingStage,
-    ParallelExecutor,
-    ParallelPairingExecutor,
-    ParallelResult,
     PipelineBuilder,
     PipelineContext,
     PipelineResult,
@@ -27,8 +24,8 @@ from davinci_monet.pipeline import (
     StageStatus,
     StatisticsStage,
     create_standard_pipeline,
-    parallel_process_files,
 )
+from davinci_monet.pipeline.stages.base import SourceData
 
 # =============================================================================
 # Test Fixtures
@@ -37,20 +34,20 @@ from davinci_monet.pipeline import (
 
 @pytest.fixture
 def sample_context() -> PipelineContext:
-    """Create a sample pipeline context."""
+    """Create a sample pipeline context (unified sources schema)."""
     return PipelineContext(
         config={
-            "model": {
+            "sources": {
                 "test_model": {
+                    "type": "generic",
+                    "role": "model",
                     "files": "/path/to/model.nc",
-                    "mod_type": "generic",
-                }
-            },
-            "obs": {
+                },
                 "test_obs": {
-                    "obs_type": "pt_sfc",
+                    "type": "pt_sfc",
+                    "role": "obs",
                     "filename": "/path/to/obs.nc",
-                }
+                },
             },
         }
     )
@@ -151,43 +148,29 @@ class TestPipelineContext:
         ctx = PipelineContext()
 
         assert ctx.config == {}
-        assert ctx.models == {}
-        assert ctx.observations == {}
+        assert ctx.sources == {}
         assert ctx.paired == {}
         assert ctx.results == {}
 
     def test_context_with_config(self, sample_context: PipelineContext):
         """Test context with configuration."""
-        assert "model" in sample_context.config
-        assert "obs" in sample_context.config
+        assert "sources" in sample_context.config
+        assert "test_model" in sample_context.config["sources"]
+        assert "test_obs" in sample_context.config["sources"]
 
-    def test_get_model(self):
-        """Test getting model from context."""
+    def test_get_source(self):
+        """Test getting a source from context."""
         ctx = PipelineContext()
-        ctx.models["test"] = {"data": "model_data"}
+        ctx.sources["test"] = {"data": "source_data"}
 
-        assert ctx.get_model("test") == {"data": "model_data"}
+        assert ctx.get_source("test") == {"data": "source_data"}
 
-    def test_get_model_not_found(self):
-        """Test getting non-existent model raises error."""
-        ctx = PipelineContext()
-
-        with pytest.raises(KeyError, match="Model 'missing' not found"):
-            ctx.get_model("missing")
-
-    def test_get_observation(self):
-        """Test getting observation from context."""
-        ctx = PipelineContext()
-        ctx.observations["test"] = {"data": "obs_data"}
-
-        assert ctx.get_observation("test") == {"data": "obs_data"}
-
-    def test_get_observation_not_found(self):
-        """Test getting non-existent observation raises error."""
+    def test_get_source_not_found(self):
+        """Test getting non-existent source raises error."""
         ctx = PipelineContext()
 
-        with pytest.raises(KeyError, match="Observation 'missing' not found"):
-            ctx.get_observation("missing")
+        with pytest.raises(KeyError, match="Source 'missing' not found"):
+            ctx.get_source("missing")
 
     def test_get_paired(self, context_with_paired: PipelineContext):
         """Test getting paired data from context."""
@@ -257,65 +240,74 @@ class TestBaseStage:
 # =============================================================================
 
 
-class TestLoadModelsStage:
-    """Tests for LoadModelsStage."""
+class TestLoadSourcesStage:
+    """Tests for the unified LoadSourcesStage (replaces the legacy per-role loaders)."""
 
     def test_name(self):
         """Test stage name."""
-        stage = LoadModelsStage()
-        assert stage.name == "load_models"
+        stage = LoadSourcesStage()
+        assert stage.name == "load_sources"
 
-    def test_validation_with_model_config(self, sample_context: PipelineContext):
-        """Test validation passes with model config."""
-        stage = LoadModelsStage()
-        assert stage.validate(sample_context) is True
+    def test_validation_rejects_legacy_model_config(self):
+        """validate() fails for a legacy model:/obs: config (no longer accepted).
 
-    def test_validation_without_config(self):
-        """Test validation fails without model config."""
-        stage = LoadModelsStage()
-        ctx = PipelineContext()
-
-        assert stage.validate(ctx) is False
-
-    def test_execute_missing_files(self):
-        """Test execute fails with clear error when files are missing."""
-        stage = LoadModelsStage()
-        ctx = PipelineContext(config={"model": {"m1": {"mod_type": "generic"}}})
-
-        result = stage.execute(ctx)
-
-        assert result.status == StageStatus.FAILED
-        assert result.error is not None
-        assert "missing required 'files'" in result.error
-
-    def test_execute_passes_mod_kwargs_to_open_model(self, monkeypatch):
-        """mod_kwargs from config must flow through to the model reader."""
-        captured: dict[str, Any] = {}
-
-        def fake_open_model(**kwargs: Any) -> Any:
-            captured.update(kwargs)
-
-            class _Stub:
-                data = None
-                variables: dict[str, Any] = {}
-
-                def apply_variable_config(self) -> None:
-                    pass
-
-            return _Stub()
-
-        import davinci_monet.models as models_mod
-
-        monkeypatch.setattr(models_mod, "open_model", fake_open_model)
-
-        stage = LoadModelsStage()
+        Legacy control files are rejected at config load; the stage only
+        recognizes the unified ``sources:`` shape (or pre-populated containers).
+        """
+        stage = LoadSourcesStage()
         ctx = PipelineContext(
             config={
-                "model": {
+                "model": {"test_model": {"type": "generic", "files": "/path/to/m.nc"}},
+                "obs": {"test_obs": {"obs_type": "pt_sfc", "filename": "/path/to/o.nc"}},
+            }
+        )
+        assert stage.validate(ctx) is False
+
+    def test_validation_with_sources_config(self):
+        """validate() passes for a native sources: config."""
+        stage = LoadSourcesStage()
+        ctx = PipelineContext(
+            config={"sources": {"cam": {"type": "generic", "files": "/path/to/m.nc"}}}
+        )
+        assert stage.validate(ctx) is True
+
+    def test_validation_without_config(self):
+        """validate() fails when nothing is configured or pre-loaded."""
+        stage = LoadSourcesStage()
+        ctx = PipelineContext()
+        assert stage.validate(ctx) is False
+
+    def test_source_kwargs_flow_through_to_reader(self, monkeypatch):
+        """A unified source's reader-specific kwargs reach the registered reader.
+
+        Exercises the unified loader path: ``_load_unified_source`` passes
+        through-config kwargs (e.g. ``mech``) to the registered reader's
+        ``open()`` while filtering out the loader/schema control keys.
+        """
+        captured: dict[str, Any] = {}
+
+        class _StubReader:
+            geometry = DataGeometry.GRID
+
+            def open(self, file_paths, variables=None, **kwargs):
+                captured["file_paths"] = list(file_paths)
+                captured["variables"] = variables
+                captured.update(kwargs)
+                return xr.Dataset({"O3": ("time", [1.0])}, coords={"time": [0]})
+
+        from davinci_monet.core.registry import source_registry
+
+        monkeypatch.setattr(source_registry, "get", lambda name: _StubReader)
+
+        stage = LoadSourcesStage()
+        ctx = PipelineContext(
+            config={
+                "sources": {
                     "WRF-Chem": {
+                        "type": "wrfchem",
+                        "role": "model",
                         "files": "/path/to/wrfout.nc",
-                        "mod_type": "wrfchem",
-                        "mod_kwargs": {"mech": "racm_esrl_vcp"},
+                        "mech": "racm_esrl_vcp",
                     }
                 }
             }
@@ -325,29 +317,7 @@ class TestLoadModelsStage:
 
         assert result.status == StageStatus.COMPLETED, result.error
         assert captured.get("mech") == "racm_esrl_vcp"
-        assert captured.get("mod_type") == "wrfchem"
-        assert captured.get("label") == "WRF-Chem"
-
-
-class TestLoadObservationsStage:
-    """Tests for LoadObservationsStage."""
-
-    def test_name(self):
-        """Test stage name."""
-        stage = LoadObservationsStage()
-        assert stage.name == "load_observations"
-
-    def test_validation_with_obs_config(self, sample_context: PipelineContext):
-        """Test validation passes with obs config."""
-        stage = LoadObservationsStage()
-        assert stage.validate(sample_context) is True
-
-    def test_validation_without_config(self):
-        """Test validation fails without obs config."""
-        stage = LoadObservationsStage()
-        ctx = PipelineContext()
-
-        assert stage.validate(ctx) is False
+        assert "WRF-Chem" in ctx.sources
 
 
 class TestPairingStage:
@@ -359,11 +329,24 @@ class TestPairingStage:
         assert stage.name == "pairing"
 
     def test_validation_with_data(self):
-        """Test validation passes with models and observations."""
+        """Test validation passes with model-role and obs-role sources."""
         stage = PairingStage()
         ctx = PipelineContext()
-        ctx.models["test"] = "model_data"
-        ctx.observations["test"] = "obs_data"
+        ds = xr.Dataset({"v": ("time", [1.0])}, coords={"time": [0]})
+        ctx.sources["mod"] = SourceData(
+            data=ds,
+            label="mod",
+            source_type="generic",
+            geometry=DataGeometry.GRID,
+            role="model",
+        )
+        ctx.sources["obs"] = SourceData(
+            data=ds,
+            label="obs",
+            source_type="pt_sfc",
+            geometry=DataGeometry.POINT,
+            role="obs",
+        )
 
         assert stage.validate(ctx) is True
 
@@ -907,16 +890,13 @@ class TestPipelineBuilder:
         assert len(runner.stages) == 0
 
     def test_add_standard_stages(self):
-        """Test adding standard stages."""
-        runner = (
-            PipelineBuilder().add_models().add_observations().add_pairing().add_statistics().build()
-        )
+        """Test adding standard stages via the unified builder."""
+        runner = PipelineBuilder().add_sources().add_pairing().add_statistics().build()
 
-        assert len(runner.stages) == 4
-        assert runner.stages[0].name == "load_models"
-        assert runner.stages[1].name == "load_observations"
-        assert runner.stages[2].name == "pairing"
-        assert runner.stages[3].name == "statistics"
+        assert len(runner.stages) == 3
+        assert runner.stages[0].name == "load_sources"
+        assert runner.stages[1].name == "pairing"
+        assert runner.stages[2].name == "statistics"
 
     def test_add_custom_stage(self):
         """Test adding custom stage."""
@@ -943,150 +923,3 @@ class TestPipelineBuilder:
         runner = PipelineBuilder().with_hook("on_start", lambda ctx: called.append("start")).build()
 
         assert "on_start" in runner._hooks
-
-
-# =============================================================================
-# ParallelExecutor Tests
-# =============================================================================
-
-
-class TestParallelExecutor:
-    """Tests for ParallelExecutor."""
-
-    def test_empty_items(self):
-        """Test map with empty items."""
-        executor = ParallelExecutor()
-        result = executor.map(lambda x: x * 2, [])
-
-        assert result.success is True
-        assert result.results == []
-        assert result.errors == []
-
-    def test_map_simple(self):
-        """Test simple parallel map."""
-        executor = ParallelExecutor(max_workers=2)
-        result = executor.map(lambda x: x * 2, [1, 2, 3, 4, 5])
-
-        assert result.success is True
-        assert sorted(result.results) == [2, 4, 6, 8, 10]
-
-    def test_map_with_errors(self):
-        """Test map handles errors."""
-
-        def process(x):
-            if x == 3:
-                raise ValueError("Error on 3")
-            return x * 2
-
-        executor = ParallelExecutor(max_workers=2)
-        result = executor.map(process, [1, 2, 3, 4, 5])
-
-        assert result.success is False
-        assert len(result.errors) == 1
-        assert len(result.results) == 4
-
-    def test_execute_stages(self):
-        """Test executing stages in parallel."""
-
-        class SimpleStage(BaseStage):
-            def __init__(self, name: str, value: int):
-                super().__init__(name)
-                self._value = value
-
-            def execute(self, context: PipelineContext) -> StageResult:
-                return self._create_result(StageStatus.COMPLETED, data=self._value)
-
-        stages = [SimpleStage(f"stage_{i}", i) for i in range(5)]
-        executor = ParallelExecutor(max_workers=2)
-        ctx = PipelineContext()
-
-        results = executor.execute_stages(stages, ctx)
-
-        assert len(results) == 5
-        values = sorted(r.data for r in results)
-        assert values == [0, 1, 2, 3, 4]
-
-
-class TestParallelPairingExecutor:
-    """Tests for ParallelPairingExecutor."""
-
-    def test_pair_all_with_mapping(self) -> None:
-        """Test parallel pairing with explicit variable mapping."""
-        times = np.array([np.datetime64("2024-01-01T00:00:00")])
-        lats = np.array([40.0, 41.0])
-        lons = np.array([-105.0, -104.0])
-
-        model = xr.Dataset(
-            {"temperature": (["time", "lat", "lon"], np.full((1, 2, 2), 290.0))},
-            coords={"time": times, "lat": lats, "lon": lons},
-        )
-
-        obs = xr.Dataset(
-            {"temperature": (["time", "site"], np.full((1, 1), 289.0))},
-            coords={
-                "time": times,
-                "site": np.array([0]),
-                "latitude": ("site", np.array([40.0])),
-                "longitude": ("site", np.array([-105.0])),
-            },
-        )
-
-        executor = ParallelPairingExecutor(max_workers=1)
-        result = executor.pair_all(
-            models={"model": model},
-            observations={"obs": obs},
-            config={"mapping": {"obs": {"temperature": "temperature"}}},
-        )
-
-        assert "model_obs" in result
-        paired = result["model_obs"]
-        ds = paired.data if hasattr(paired, "data") else paired
-
-        assert "obs_temperature" in ds.data_vars
-        assert "model_temperature" in ds.data_vars
-
-
-class TestParallelResult:
-    """Tests for ParallelResult dataclass."""
-
-    def test_success_result(self):
-        """Test successful result."""
-        result = ParallelResult(
-            results=[1, 2, 3],
-            errors=[],
-            success=True,
-        )
-
-        assert result.success is True
-        assert result.results == [1, 2, 3]
-
-    def test_failed_result(self):
-        """Test failed result."""
-        result = ParallelResult(
-            results=[1, 2],
-            errors=["Error 1"],
-            success=False,
-        )
-
-        assert result.success is False
-        assert len(result.errors) == 1
-
-
-class TestParallelProcessFiles:
-    """Tests for parallel_process_files function."""
-
-    def test_process_files(self):
-        """Test processing files in parallel."""
-        files = ["file1.txt", "file2.txt", "file3.txt"]
-
-        def processor(path):
-            return f"processed_{path}"
-
-        result = parallel_process_files(files, processor, max_workers=2)
-
-        assert result.success is True
-        assert sorted(result.results) == [
-            "processed_file1.txt",
-            "processed_file2.txt",
-            "processed_file3.txt",
-        ]

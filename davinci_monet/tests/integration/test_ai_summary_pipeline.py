@@ -6,17 +6,18 @@ stubbed so no network call is made.
 
 from __future__ import annotations
 
-import warnings
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 import davinci_monet.ai.summarizer as summarizer_mod
-from davinci_monet.config.migration import LegacyConfigWarning
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
 from davinci_monet.tests.synthetic.models import create_model_dataset
-from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario
+from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario, sample_obs_from
+
+pytestmark = pytest.mark.integration
 
 
 class _StubClient:
@@ -66,7 +67,7 @@ def _build_config(tmp_path: Path) -> dict:
         noise_level=0.0,
         seed=42,
     )
-    obs_ds = scenario._generate_point_obs(model_ds)
+    obs_ds = sample_obs_from(model_ds, "point", scenario=scenario)
 
     rng = np.random.default_rng(42)
     model_ds["O3"] = model_ds["O3"] + 5.0 + rng.normal(0, 3.0, size=model_ds["O3"].shape)
@@ -83,27 +84,27 @@ def _build_config(tmp_path: Path) -> dict:
             "output_dir": str(tmp_path / "output"),
             "log_dir": str(tmp_path / "logs"),
         },
-        "model": {
+        "sources": {
             "synthetic": {
-                "mod_type": "generic",
+                "type": "generic",
+                "role": "model",
                 "files": str(model_path),
                 "radius_of_influence": 50000,
                 "mapping": {"surface": {"O3": "O3"}},
                 "variables": {"O3": {"units": "ppb"}},
             },
-        },
-        "obs": {
             "surface": {
-                "obs_type": "pt_sfc",
+                "type": "pt_sfc",
+                "role": "obs",
                 "filename": str(obs_path),
                 "variables": {"O3": {"obs_min": 0, "obs_max": 200, "units": "ppb"}},
             },
         },
         "pairs": {
             "synthetic_surface": {
-                "model": "synthetic",
-                "obs": "surface",
-                "variable": {"model_var": "O3", "obs_var": "O3"},
+                "sources": ["synthetic", "surface"],
+                "reference": "surface",
+                "variables": {"synthetic": "O3", "surface": "O3"},
             },
         },
         "plots": {
@@ -127,9 +128,7 @@ def test_summary_stage_writes_file_through_pipeline(monkeypatch, tmp_path: Path)
     config["summary"] = {"enabled": True, "model": "claude-haiku-4-5"}
 
     runner = PipelineRunner(show_progress=False)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", LegacyConfigWarning)
-        result = runner.run_from_config(config)
+    result = runner.run_from_config(config)
 
     assert result.success, "pipeline run failed"
     summary_file = tmp_path / "output" / "AI_summary.md"
@@ -150,9 +149,7 @@ def test_summary_stage_skips_without_api_key(monkeypatch, tmp_path: Path) -> Non
     config["summary"] = {"enabled": True}
 
     runner = PipelineRunner(show_progress=False)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", LegacyConfigWarning)
-        result = runner.run_from_config(config)
+    result = runner.run_from_config(config)
 
     # run still succeeds; summary file is absent (stage skipped non-fatally)
     assert result.success, "pipeline run should still succeed without a key"
@@ -180,9 +177,7 @@ def test_summary_displayed_to_terminal_at_end_of_run(monkeypatch, tmp_path: Path
     config["summary"] = {"enabled": True, "model": "claude-haiku-4-5"}
 
     runner = PipelineRunner(show_progress=True)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", LegacyConfigWarning)
-        result = runner.run_from_config(config)
+    result = runner.run_from_config(config)
 
     assert result.success
     assert displayed, "summary was not displayed at end of run"

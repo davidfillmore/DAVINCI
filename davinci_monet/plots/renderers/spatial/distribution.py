@@ -11,8 +11,10 @@ from typing import TYPE_CHECKING, Any, Literal
 import matplotlib.pyplot as plt
 import numpy as np
 
+from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     PlotConfig,
+    build_series,
     calculate_data_limits,
     format_label_with_units,
     format_plot_title,
@@ -20,7 +22,11 @@ from davinci_monet.plots.base import (
     get_variable_units,
 )
 from davinci_monet.plots.registry import register_plotter
-from davinci_monet.plots.renderers.spatial.base import BaseSpatialPlotter, MapConfig
+from davinci_monet.plots.renderers.spatial.base import (
+    BaseSpatialPlotter,
+    MapConfig,
+    detect_spatial_geometry,
+)
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -56,63 +62,50 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
     name: str = "spatial_distribution"
     default_figsize: tuple[float, float] = (8, 5)  # Wide for geographic extent
 
-    def plot(
+    def render(
         self,
-        paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
-        show_var: Literal["obs", "model", "both"] = "obs",
-        lat_var: str = "latitude",
-        lon_var: str = "longitude",
-        time_average: bool = True,
-        cmap: str = "viridis",
-        marker_size: float | None = None,
-        plot_type: Literal["auto", "scatter", "pcolormesh"] = "auto",
-        alpha: float | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Generate a spatial distribution plot.
+        """Render a spatial distribution map from a list of two PlotSeries.
 
         Parameters
         ----------
-        paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+        series
+            Exactly 2 series: one reference (obs) and one comparand (model).
         ax
-            Optional GeoAxes to plot on.
-        show_var
-            Which variable to show ('obs', 'model', or 'both').
-        lat_var
-            Name of latitude coordinate/variable.
-        lon_var
-            Name of longitude coordinate/variable.
-        time_average
-            If True, average over time dimension.
-        cmap
-            Colormap name.
-        marker_size
-            Override marker size.
-        plot_type
-            How to render the distribution field.  ``"auto"`` (default)
-            chooses ``"pcolormesh"`` for gridded data (1-D lat/lon axes
-            with a 2-D+ field, or 2-D curvilinear coordinates) and
-            ``"scatter"`` for point/site data (lat/lon share a single
-            observation dimension).  Pass ``"scatter"`` or
-            ``"pcolormesh"`` to override the automatic selection.
-        alpha
-            Override alpha.
+            Optional GeoAxes to plot on. If None, creates new figure.
         **kwargs
-            Additional plotting arguments.
+            Forwarded to the distribution rendering logic; same kwargs as
+            ``plot()`` (including ``show_var`` which controls which side
+            is shown).
 
         Returns
         -------
         matplotlib.figure.Figure
             The generated figure.
         """
+        if len(series) != 2:
+            raise NotImplementedError(
+                f"SpatialDistributionPlotter.render requires exactly 2 series;"
+                f" got {len(series)}."
+            )
+        ref = next((s for s in series if s.pair_role == "reference"), series[0])
+        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
+        paired_data = ref.dataset
+        obs_var = ref.var_name
+        model_var = comp.var_name
+
+        show_var: str = kwargs.pop("show_var", "obs")
+        lat_var: str = kwargs.pop("lat_var", "latitude")
+        lon_var: str = kwargs.pop("lon_var", "longitude")
+        time_average: bool = kwargs.pop("time_average", True)
+        cmap: str = kwargs.pop("cmap", "viridis")
+        marker_size: float | None = kwargs.pop("marker_size", None)
+        plot_type: str = kwargs.pop("plot_type", "auto")
+        alpha: float | None = kwargs.pop("alpha", None)
+
         import cartopy.crs as ccrs
 
         # Create figure if needed
@@ -180,23 +173,15 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         lat_da = paired_data[resolved_lat]
         lon_da = paired_data[resolved_lon]
         # Reference DataArray for geometry detection — use obs_data dims.
-        ref_da = obs_data
-        is_point_data = (
-            lat_da.ndim == 1
-            and lon_da.ndim == 1
-            and lat_da.dims == lon_da.dims
-            and lat_da.dims[0] in ref_da.dims
-        )
+        _geometry = detect_spatial_geometry(lat_da, lon_da, obs_data)
 
         # Resolve "auto" to a concrete method based on data geometry: gridded
         # data (1-D lat/lon axes with a 2-D+ field, or 2-D curvilinear coords)
         # renders as a filled pcolormesh field; point/site data uses scatter.
         effective_plot_type = plot_type
         if plot_type == "auto":
-            is_regular_grid = (not is_point_data) and lats.ndim == 1 and ref_da.ndim >= 2
-            is_curvilinear_grid = lats.ndim == 2
             effective_plot_type = (
-                "pcolormesh" if (is_regular_grid or is_curvilinear_grid) else "scatter"
+                "pcolormesh" if _geometry in ("regular_grid", "curvilinear_grid") else "scatter"
             )
 
         # Calculate common limits
@@ -287,6 +272,77 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
 
         plt.tight_layout()
         return fig
+
+    def plot(
+        self,
+        paired_data: xr.Dataset,
+        obs_var: str,
+        model_var: str,
+        ax: matplotlib.axes.Axes | None = None,
+        show_var: Literal["obs", "model", "both"] = "obs",
+        lat_var: str = "latitude",
+        lon_var: str = "longitude",
+        time_average: bool = True,
+        cmap: str = "viridis",
+        marker_size: float | None = None,
+        plot_type: Literal["auto", "scatter", "pcolormesh"] = "auto",
+        alpha: float | None = None,
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Generate a spatial distribution plot.
+
+        Parameters
+        ----------
+        paired_data
+            Paired dataset with model and observation variables.
+        obs_var
+            Name of observation variable.
+        model_var
+            Name of model variable.
+        ax
+            Optional GeoAxes to plot on.
+        show_var
+            Which variable to show ('obs', 'model', or 'both').
+        lat_var
+            Name of latitude coordinate/variable.
+        lon_var
+            Name of longitude coordinate/variable.
+        time_average
+            If True, average over time dimension.
+        cmap
+            Colormap name.
+        marker_size
+            Override marker size.
+        plot_type
+            How to render the distribution field.  ``"auto"`` (default)
+            chooses ``"pcolormesh"`` for gridded data (1-D lat/lon axes
+            with a 2-D+ field, or 2-D curvilinear coordinates) and
+            ``"scatter"`` for point/site data (lat/lon share a single
+            observation dimension).  Pass ``"scatter"`` or
+            ``"pcolormesh"`` to override the automatic selection.
+        alpha
+            Override alpha.
+        **kwargs
+            Additional plotting arguments.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated figure.
+        """
+        return self.render(
+            build_series(paired_data, obs_var, model_var),
+            ax=ax,
+            show_var=show_var,
+            lat_var=lat_var,
+            lon_var=lon_var,
+            time_average=time_average,
+            cmap=cmap,
+            marker_size=marker_size,
+            plot_type=plot_type,
+            alpha=alpha,
+            **kwargs,
+        )
 
     def _plot_data(
         self,

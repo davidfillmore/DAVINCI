@@ -86,7 +86,7 @@ CESM uses hybrid sigma-pressure coordinates where **pressure increases with leve
 
 **Common symptom**: Model O3 values of 5000-10000 ppb (stratospheric) instead of 30-80 ppb (surface).
 
-**The fix** (implemented in `_extract_surface()` in `base.py`):
+**The fix** (implemented in `_extract_surface()` in `pairing/strategies/base.py` — the live pairing path; a duplicate currently exists in `models/base.py` and is slated for consolidation):
 ```python
 # Auto-detect if pressure increases with index
 if vert_vals[-1] > vert_vals[0]:
@@ -205,6 +205,7 @@ davinci_monet/
 │   └── renderers/  # Individual plot types
 ├── stats/          # Statistics calculation
 ├── pipeline/       # Execution orchestration
+├── ai/             # AI analysis summary (optional; Anthropic/OpenRouter)
 ├── io/             # File readers/writers
 ├── cli/            # Command-line interface
 ├── logging/        # Structured logging
@@ -215,7 +216,7 @@ davinci_monet/
 
 ## Implementation Status
 
-**STATUS: COMPLETE** — 961 tests passing. CI via GitHub Actions (pytest, mypy, black/isort).
+**STATUS: COMPLETE** — 1,335 tests passing. CI via GitHub Actions (pytest, mypy, black/isort).
 
 ## Running Analyses
 

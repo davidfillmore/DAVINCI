@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "davinci-monet"
-version = "26.03"
+version = "26.06"
 description = "Data Analysis and Visual Intelligence for Climate - A modern refactor of MELODIES-MONET"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -56,6 +56,9 @@ dev = [
     "mypy>=1.0",
     "black>=23.0",
     "isort>=5.12",
+    "anthropic>=0.40",
+    "httpx>=0.24",
+    "pillow>=10.0",
 ]
 docs = [
     "sphinx>=6.0",
@@ -135,6 +138,9 @@ testpaths = ["davinci_monet/tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+markers = [
+    "integration: end-to-end tests that run PipelineRunner.run_from_config",
+]
 filterwarnings = [
     "error::UserWarning",
     "ignore::DeprecationWarning:matplotlib.*",

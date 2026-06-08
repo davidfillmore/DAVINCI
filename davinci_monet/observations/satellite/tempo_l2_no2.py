@@ -24,7 +24,11 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
+from davinci_monet.io.reader_utils import (
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 # Standard variable name mappings for TEMPO NO2
 TEMPO_NO2_VARIABLE_MAPPING: dict[str, str] = {
@@ -89,14 +93,7 @@ class TEMPOL2NO2Reader:
         xr.Dataset
             TEMPO observations with swath dimensions.
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No TEMPO files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"TEMPO files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="TEMPO")
 
         # Try monetio first
         try:
@@ -143,12 +140,7 @@ class TEMPOL2NO2Reader:
 
             ds = xr.concat(ds_list, dim="time")
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _open_with_xarray(
         self,
@@ -179,12 +171,7 @@ class TEMPOL2NO2Reader:
         else:
             ds = ds_list[0]
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _apply_qa_filter(self, ds: xr.Dataset, qa_threshold: float) -> xr.Dataset:
         """Apply QA value filtering to dataset."""
@@ -214,71 +201,8 @@ class TEMPOL2NO2Reader:
         if coord_renames:
             ds = ds.rename(coord_renames)
 
-        ds.attrs["geometry"] = DataGeometry.SWATH.value
-
-        return ds
+        return set_geometry_attr(ds, DataGeometry.SWATH)
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return TEMPO NO2 variable name mapping."""
         return TEMPO_NO2_VARIABLE_MAPPING
-
-
-def open_tempo_l2_no2(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "tempo_no2",
-    qa_threshold: float | None = 0.75,
-    **kwargs: Any,
-) -> ObservationData:
-    """Open TEMPO L2 NO2 observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    qa_threshold
-        QA filtering threshold.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        TEMPO observation data container with SWATH geometry.
-
-    Note
-    ----
-    Full functionality requires monetio. Without monetio, TEMPO-specific
-    handling may be incomplete.
-    """
-    from glob import glob
-
-    reader = TEMPOL2NO2Reader()
-
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, qa_threshold=qa_threshold, **kwargs)
-
-    obs = create_observation_data(
-        label=label,
-        obs_type="satellite",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )
-    obs.geometry = DataGeometry.SWATH
-
-    return obs

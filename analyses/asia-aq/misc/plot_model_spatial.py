@@ -11,7 +11,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import xarray as xr
 
-from davinci_monet.models.cesm import open_cesm
+from davinci_monet.models.cesm import CESMFVReader
 from davinci_monet.plots import (
     SpatialDistributionPlotter,
     PlotConfig,
@@ -66,12 +66,7 @@ def plot_with_davinci_plotter():
     """Use DAVINCI-MONET spatial plotter for model visualization."""
     print("Loading CESM data...")
     files = sorted(DATA_DIR.glob(FILE_PATTERN))[:12]  # First 12 hours
-    model_data = open_cesm(
-        files=files,
-        variables=["O3", "NO2", "CO", "PM25"],
-        label="cesm_asiaq",
-    )
-    ds = model_data.data
+    ds = CESMFVReader().open(files, variables=["O3", "NO2", "CO", "PM25"])
 
     # Configure map
     map_config = MapConfig(
@@ -145,8 +140,7 @@ def plot_single_variable_example():
     print("\nCreating single-variable example...")
 
     files = sorted(DATA_DIR.glob(FILE_PATTERN))[:12]
-    model_data = open_cesm(files=files, variables=["O3"], label="cesm_asiaq")
-    ds = model_data.data
+    ds = CESMFVReader().open(files, variables=["O3"])
 
     # Prepare data
     paired = prepare_model_as_paired(ds, "O3", scale=1e9)

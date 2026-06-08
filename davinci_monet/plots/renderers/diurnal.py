@@ -12,9 +12,11 @@ from typing import TYPE_CHECKING, Any, Literal
 import matplotlib.pyplot as plt
 import numpy as np
 
+from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
+    build_series,
     format_label_with_units,
     get_role_color,
     get_series_label,
@@ -55,52 +57,45 @@ class DiurnalPlotter(BasePlotter):
     name: str = "diurnal"
     default_figsize: tuple[float, float] = (9, 4)  # Wide for temporal data
 
-    def plot(
+    def render(
         self,
-        paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
-        time_dim: str = "time",
-        show_spread: Literal["none", "std", "iqr", "range"] = "iqr",
-        aggregate_dim: str | None = None,
-        obs_label: str | None = None,
-        model_label: str | None = None,
-        utc_offset: int = 0,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Generate a diurnal cycle plot.
+        """Render a diurnal cycle plot from a list of two PlotSeries.
 
         Parameters
         ----------
-        paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+        series
+            Exactly 2 series: one reference (obs) and one comparand (model).
         ax
             Optional axes to plot on. If None, creates new figure.
-        time_dim
-            Name of time dimension.
-        show_spread
-            Type of spread to show ('none', 'std', 'iqr', 'range').
-        aggregate_dim
-            Optional additional dimension to aggregate (e.g., 'site').
-        obs_label
-            Custom label for observations.
-        model_label
-            Custom label for model.
-        utc_offset
-            Offset from UTC for local time (hours).
         **kwargs
-            Additional plotting arguments.
+            Forwarded to the diurnal rendering logic.
 
         Returns
         -------
         matplotlib.figure.Figure
             The generated figure.
         """
+        if len(series) != 2:
+            raise NotImplementedError(
+                f"DiurnalPlotter.render requires exactly 2 series; got {len(series)}."
+            )
+        ref = next((s for s in series if s.pair_role == "reference"), series[0])
+        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
+        paired_data = ref.dataset
+        obs_var = ref.var_name
+        model_var = comp.var_name
+
+        time_dim: str = kwargs.pop("time_dim", "time")
+        show_spread: Literal["none", "std", "iqr", "range"] = kwargs.pop("show_spread", "iqr")
+        aggregate_dim: str | None = kwargs.pop("aggregate_dim", None)
+        obs_label: str | None = kwargs.pop("obs_label", None)
+        model_label: str | None = kwargs.pop("model_label", None)
+        utc_offset: int = kwargs.pop("utc_offset", 0)
+
         # Create figure if needed
         if ax is None:
             fig, ax = self.create_figure()
@@ -209,6 +204,64 @@ class DiurnalPlotter(BasePlotter):
         ax.grid(True, alpha=0.3)
 
         return fig
+
+    def plot(
+        self,
+        paired_data: xr.Dataset,
+        obs_var: str,
+        model_var: str,
+        ax: matplotlib.axes.Axes | None = None,
+        time_dim: str = "time",
+        show_spread: Literal["none", "std", "iqr", "range"] = "iqr",
+        aggregate_dim: str | None = None,
+        obs_label: str | None = None,
+        model_label: str | None = None,
+        utc_offset: int = 0,
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Generate a diurnal cycle plot.
+
+        Parameters
+        ----------
+        paired_data
+            Paired dataset with model and observation variables.
+        obs_var
+            Name of observation variable.
+        model_var
+            Name of model variable.
+        ax
+            Optional axes to plot on. If None, creates new figure.
+        time_dim
+            Name of time dimension.
+        show_spread
+            Type of spread to show ('none', 'std', 'iqr', 'range').
+        aggregate_dim
+            Optional additional dimension to aggregate (e.g., 'site').
+        obs_label
+            Custom label for observations.
+        model_label
+            Custom label for model.
+        utc_offset
+            Offset from UTC for local time (hours).
+        **kwargs
+            Additional plotting arguments.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated figure.
+        """
+        return self.render(
+            build_series(paired_data, obs_var, model_var),
+            ax=ax,
+            time_dim=time_dim,
+            show_spread=show_spread,
+            aggregate_dim=aggregate_dim,
+            obs_label=obs_label,
+            model_label=model_label,
+            utc_offset=utc_offset,
+            **kwargs,
+        )
 
     def _add_spread_bands(
         self,

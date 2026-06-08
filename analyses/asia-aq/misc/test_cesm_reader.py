@@ -11,8 +11,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Import DAVINCI-MONET modules
-from davinci_monet.models.cesm import open_cesm
+# Import DAVINCI modules
+from davinci_monet.models.cesm import CESMFVReader
 
 # Data paths
 DATA_DIR = Path.home() / "Data" / "ASIA-AQ"
@@ -36,20 +36,17 @@ def test_cesm_reader() -> None:
         print("ERROR: No files found!")
         return
 
-    # Load data using DAVINCI-MONET
-    print("\nLoading with open_cesm()...")
-    model_data = open_cesm(
-        files=files,
+    # Load data using the CESM finite-volume reader
+    print("\nLoading with CESMFVReader().open()...")
+    ds = CESMFVReader().open(
+        files,
         variables=["O3", "NO2", "CO", "PM25", "AODVISdn", "PS", "Z3", "PMID"],
-        label="cesm_asiaq",
-        grid_type="fv",
     )
 
-    print(f"\nModelData created:")
-    print(f"  Label: {model_data.label}")
-    print(f"  Model type: {model_data.mod_type}")
+    print(f"\nDataset loaded:")
+    print(f"  Label: cesm_asiaq")
+    print(f"  Model type: cesm_fv")
 
-    ds = model_data.data
     print(f"\n--- Dataset Structure ---")
     print(f"  Dimensions: {dict(ds.sizes)}")
     print(f"  Coordinates: {list(ds.coords)}")
@@ -94,12 +91,11 @@ def test_cesm_reader() -> None:
             print(f"  {var}: {ppb.min():.1f} - {ppb.max():.1f} ppb "
                   f"(mean: {ppb.mean():.1f})")
 
-    return model_data
+    return ds
 
 
-def plot_surface_snapshot(model_data) -> None:
+def plot_surface_snapshot(ds) -> None:
     """Create a quick-look surface plot."""
-    ds = model_data.data
 
     # Get coordinate arrays (handle different naming conventions)
     lat_coord = "latitude" if "latitude" in ds.coords else "lat"
@@ -170,9 +166,8 @@ def plot_surface_snapshot(model_data) -> None:
     plt.close()
 
 
-def plot_time_series(model_data) -> None:
+def plot_time_series(ds) -> None:
     """Create time series at key locations."""
-    ds = model_data.data
 
     # Get coordinate arrays (handle different naming conventions)
     lat_coord = "latitude" if "latitude" in ds.coords else "lat"
@@ -242,14 +237,14 @@ def plot_time_series(model_data) -> None:
 def main():
     """Main entry point."""
     # Test the reader
-    model_data = test_cesm_reader()
+    ds = test_cesm_reader()
 
-    if model_data is not None:
+    if ds is not None:
         # Create plots
         print("\n" + "=" * 60)
         print("Creating diagnostic plots...")
-        plot_surface_snapshot(model_data)
-        plot_time_series(model_data)
+        plot_surface_snapshot(ds)
+        plot_time_series(ds)
 
     print("\n" + "=" * 60)
     print("Test complete.")

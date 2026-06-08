@@ -14,10 +14,14 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
+from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
+from davinci_monet.io.reader_utils import (
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 # Standard variable name mappings for Pandora
 PANDORA_VARIABLE_MAPPING: dict[str, str] = {
@@ -211,14 +215,7 @@ class PandoraReader:
         xr.Dataset
             Pandora observations with dimensions (time, site).
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No Pandora files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"Pandora files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="Pandora")
 
         # Parse time bounds
         if start_time is not None:
@@ -273,12 +270,7 @@ class PandoraReader:
         ds = self._dataframe_to_dataset(combined_df)
 
         # Select variables if specified
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _dataframe_to_dataset(self, df: pd.DataFrame) -> xr.Dataset:
         """Convert Pandora DataFrame to xarray Dataset.
@@ -328,7 +320,7 @@ class PandoraReader:
 
         # Add attributes
         ds.attrs["source"] = "Pandora"
-        ds.attrs["geometry"] = DataGeometry.POINT.value
+        set_geometry_attr(ds, DataGeometry.POINT)
         ds.attrs["description"] = "Pandora spectrometer column NO2 measurements"
 
         # Variable attributes
@@ -348,73 +340,3 @@ class PandoraReader:
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return Pandora variable name mapping."""
         return PANDORA_VARIABLE_MAPPING
-
-
-def open_pandora(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "pandora",
-    quality_flag_max: int = 1,
-    solar_zenith_max: float = 80.0,
-    start_time: datetime | str | None = None,
-    end_time: datetime | str | None = None,
-    **kwargs: Any,
-) -> ObservationData:
-    """Convenience function to open Pandora observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    quality_flag_max
-        Maximum quality flag (0=high only, 1=high+medium).
-    solar_zenith_max
-        Maximum solar zenith angle [deg].
-    start_time
-        Start time for filtering.
-    end_time
-        End time for filtering.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        Pandora observation data container.
-    """
-    from glob import glob
-
-    reader = PandoraReader()
-
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(
-        file_paths,
-        variables,
-        quality_flag_max=quality_flag_max,
-        solar_zenith_max=solar_zenith_max,
-        start_time=start_time,
-        end_time=end_time,
-        **kwargs,
-    )
-
-    return create_observation_data(
-        label=label,
-        obs_type="pt_sfc",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )

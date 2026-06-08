@@ -211,6 +211,39 @@ class TestRenderDefault:
         assert fig is not None
         plt.close("all")
 
+    def test_render_uses_reference_series_dataset(self) -> None:
+        """render() must pass ref.dataset (not series[0].dataset) so that
+        when pair_role ordering flips the positional assumption, the correct
+        paired dataset is still forwarded to plot()."""
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        from davinci_monet.plots.base import BasePlotter, build_series
+
+        received_datasets: list = []
+
+        class StubPlotter(BasePlotter):
+            name = "stub_ref_ds"
+
+            def plot(self, paired_data, obs_var, model_var, ax=None, **kwargs):
+                received_datasets.append(id(paired_data))
+                fig, _ax = self.create_figure()
+                return fig
+
+        ds = _paired(
+            ("airnow_o3", "obs", "reference", "airnow"),
+            ("cam_o3", "model", "comparand", "cam"),
+        )
+        # Build series comparand-first so series[0] is NOT the reference.
+        series = build_series(ds, "cam_o3", "airnow_o3")
+        ref = next(s for s in series if s.pair_role == "reference")
+        StubPlotter().render(series)
+        # plot() must receive ref.dataset, not series[0].dataset
+        assert received_datasets == [id(ref.dataset)]
+        plt.close("all")
+
 
 # ---------------------------------------------------------------------------
 # Registry alias support

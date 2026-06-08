@@ -20,6 +20,7 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
+from davinci_monet.io.reader_utils import set_geometry_attr, validate_file_list
 from davinci_monet.observations.satellite.catalog import ProductEntry, get_catalog
 
 _DATE_TOKEN = re.compile(r"\.A(\d{7})\.")  # ".A2024032." -> 2024032
@@ -89,12 +90,7 @@ class MODISVIIRSReader:
                 f"modis_viirs slice supports GRID products only; " f"{product} is {entry.geometry}."
             )
 
-        files = [Path(f) for f in file_paths]
-        if not files:
-            raise DataNotFoundError("No MODIS/VIIRS files provided")
-        missing = [f for f in files if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"MODIS/VIIRS files not found: {missing}")
+        files = validate_file_list(file_paths, source_label="MODIS/VIIRS")
 
         total = len(files)
         per_file: list[xr.Dataset | None] = []
@@ -110,7 +106,7 @@ class MODISVIIRSReader:
 
         ds = xr.concat(valid, dim="time").sortby("time")
         self.geometry = DataGeometry.GRID
-        ds.attrs["geometry"] = DataGeometry.GRID.value
+        set_geometry_attr(ds, DataGeometry.GRID)
         ds.attrs.update(
             product_id=entry.product_id,
             instrument=entry.instrument,

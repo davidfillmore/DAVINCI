@@ -23,7 +23,11 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
+from davinci_monet.io.reader_utils import (
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 # Standard variable name mappings for MOPITT CO
 MOPITT_CO_VARIABLE_MAPPING: dict[str, str] = {
@@ -86,14 +90,7 @@ class MOPITTL3COReader:
         xr.Dataset
             MOPITT observations with grid dimensions.
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No MOPITT files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"MOPITT files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="MOPITT")
 
         # Try monetio first
         try:
@@ -136,12 +133,7 @@ class MOPITTL3COReader:
 
             ds = xr.concat(ds_list, dim="time")
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _open_with_xarray(
         self,
@@ -168,12 +160,7 @@ class MOPITTL3COReader:
         else:
             ds = ds_list[0]
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
-
-        return ds
+        return select_variables(ds, variables)
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize MOPITT dataset dimensions and coordinates."""
@@ -187,71 +174,8 @@ class MOPITTL3COReader:
         if coord_renames:
             ds = ds.rename(coord_renames)
 
-        ds.attrs["geometry"] = DataGeometry.GRID.value
-
-        return ds
+        return set_geometry_attr(ds, DataGeometry.GRID)
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return MOPITT CO variable name mapping."""
         return MOPITT_CO_VARIABLE_MAPPING
-
-
-def open_mopitt_l3_co(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "mopitt_co",
-    day_night: str = "day",
-    **kwargs: Any,
-) -> ObservationData:
-    """Open MOPITT L3 CO observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    day_night
-        'day', 'night', or 'both' for day/night retrievals.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        MOPITT observation data container with GRID geometry.
-
-    Note
-    ----
-    Full functionality requires monetio. Without monetio, MOPITT-specific
-    handling may be incomplete.
-    """
-    from glob import glob
-
-    reader = MOPITTL3COReader()
-
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, day_night=day_night, **kwargs)
-
-    obs = create_observation_data(
-        label=label,
-        obs_type="gridded",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )
-    obs.geometry = DataGeometry.GRID
-
-    return obs

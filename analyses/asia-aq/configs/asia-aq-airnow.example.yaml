@@ -30,9 +30,10 @@ analysis:
     Manila: [14.6, 121.0]
     Bangkok: [13.75, 100.5]
 
-model:
+sources:
   cesm_asiaq:
-    mod_type: generic
+    role: model
+    type: generic
     files: ${ASIA_AQ_DATA}/CAM/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc
     radius_of_influence: 15000
 
@@ -73,9 +74,9 @@ model:
         vmax_plot: 150
         vdiff_plot: 50
 
-obs:
   airnow:
-    obs_type: pt_sfc
+    role: obs
+    type: pt_sfc
     filename: ${ASIA_AQ_ANALYSIS}/data/airnow_asiaq_2024-02-01_2024-02-29.nc
     variables:
       pm25:
@@ -98,32 +99,32 @@ obs:
 
 pairs:
   cesm_airnow_pm25:
-    model: cesm_asiaq
-    obs: airnow
-    variable:
-      model_var: PM25
-      obs_var: pm25
+    sources: [cesm_asiaq, airnow]
+    reference: airnow
+    variables:
+      cesm_asiaq: PM25
+      airnow: pm25
 
   cesm_airnow_o3:
-    model: cesm_asiaq
-    obs: airnow
-    variable:
-      model_var: O3
-      obs_var: ozone
+    sources: [cesm_asiaq, airnow]
+    reference: airnow
+    variables:
+      cesm_asiaq: O3
+      airnow: ozone
 
   cesm_airnow_no2:
-    model: cesm_asiaq
-    obs: airnow
-    variable:
-      model_var: NO2
-      obs_var: no2
+    sources: [cesm_asiaq, airnow]
+    reference: airnow
+    variables:
+      cesm_asiaq: NO2
+      airnow: no2
 
   cesm_airnow_co:
-    model: cesm_asiaq
-    obs: airnow
-    variable:
-      model_var: CO
-      obs_var: co
+    sources: [cesm_asiaq, airnow]
+    reference: airnow
+    variables:
+      cesm_asiaq: CO
+      airnow: co
 
 plots:
   airnow_pm25_scatter:

@@ -55,13 +55,13 @@ class PairingEngine:
     """Unified pairing engine that dispatches to geometry-specific strategies.
 
     The engine automatically selects the appropriate pairing strategy based
-    on the observation data's geometry attribute.
+    on the reference data's geometry attribute.
 
     Examples
     --------
     >>> engine = PairingEngine()
-    >>> paired = engine.pair(model_data, obs_data,
-    ...                      obs_vars=['O3'], model_vars=['OZONE'])
+    >>> paired = engine.pair_sources(reference=obs_data, comparand=model_data,
+    ...                              reference_vars=['O3'], comparand_vars=['OZONE'])
     """
 
     def __init__(self, register_defaults: bool = True) -> None:
@@ -84,14 +84,17 @@ class PairingEngine:
             GridStrategy,
             PointStrategy,
             ProfileStrategy,
-            SwathStrategy,
+            SwathGridStrategy,
             TrackStrategy,
         )
 
         self.register_strategy(PointStrategy())
         self.register_strategy(TrackStrategy())
         self.register_strategy(ProfileStrategy())
-        self.register_strategy(SwathStrategy())
+        # SwathGridStrategy (numba binning onto a target grid) is the production
+        # SWATH handler. SwathStrategy (per-pixel nearest-neighbor) is preserved
+        # for direct use but is intentionally NOT the engine default.
+        self.register_strategy(SwathGridStrategy())
         self.register_strategy(GridStrategy())
 
     def register_strategy(self, strategy: PairingStrategy) -> None:
@@ -167,104 +170,6 @@ class PairingEngine:
                 f"{[g.name for g in self._strategies.keys()]} reference."
             )
         return self.get_strategy(reference_geometry)
-
-    def pair(
-        self,
-        model: xr.Dataset,
-        obs: xr.Dataset,
-        obs_vars: Sequence[str],
-        model_vars: Sequence[str],
-        config: PairingConfig | None = None,
-        **kwargs: Any,
-    ) -> PairedData:
-        """Pair model output with observations.
-
-        Automatically detects observation geometry and dispatches to
-        the appropriate strategy.
-
-        Parameters
-        ----------
-        model
-            Model Dataset with dims (time, level, lat, lon) or similar.
-        obs
-            Observation Dataset with geometry-specific dimensions.
-        obs_vars
-            List of observation variable names to pair.
-        model_vars
-            List of model variable names (same order as obs_vars).
-        config
-            Pairing configuration. If None, uses defaults.
-        **kwargs
-            Additional strategy-specific options.
-
-        Returns
-        -------
-        PairedData
-            Paired data container with aligned model and observation variables.
-
-        Raises
-        ------
-        PairingError
-            If pairing fails.
-        GeometryMismatchError
-            If observation geometry not recognized.
-        NoOverlapError
-            If no temporal/spatial overlap exists.
-        """
-        if config is None:
-            config = PairingConfig()
-
-        # Detect observation geometry
-        geometry = self._detect_geometry(obs)
-
-        # Check temporal overlap if required
-        if config.require_overlap:
-            self._check_temporal_overlap(model, obs)
-
-        # Get appropriate strategy via the role-neutral (reference, comparand)
-        # dispatch. The model→obs path maps to: reference = obs (the detected
-        # geometry), comparand = model (GRID). This preserves today's behavior
-        # while routing through the unified dispatch + pair_sources entrypoint.
-        strategy = self.get_strategy_for(geometry, DataGeometry.GRID)
-
-        # Perform pairing (reference = obs, comparand = model).
-        paired_ds = strategy.pair_sources(
-            reference=obs,
-            comparand=model,
-            radius_of_influence=config.radius_of_influence,
-            time_tolerance=config.time_tolerance,
-            vertical_method=config.vertical_method,
-            horizontal_method=config.horizontal_method,
-            time_method=config.time_method,
-            **kwargs,
-        )
-
-        # Assemble paired dataset with obs_/model_ prefixes.
-        # Strategy outputs may already prefix model variables to avoid collisions,
-        # so we resolve variables flexibly instead of assuming raw names.
-        result_ds = self._assemble_paired_dataset(paired_ds, obs_vars, model_vars)
-
-        # Get labels from attributes if available
-        model_label = model.attrs.get("label", "model")
-        obs_label = obs.attrs.get("label", "obs")
-
-        return PairedData(
-            data=result_ds,
-            model_label=model_label,
-            obs_label=obs_label,
-            geometry=geometry,
-            pairing_info={
-                "reference_label": obs_label,
-                "comparand_label": model_label,
-                "reference_geometry": geometry.name,
-                "comparand_geometry": DataGeometry.GRID.name,
-                "radius_of_influence": config.radius_of_influence,
-                "time_tolerance": config.time_tolerance,
-                "vertical_method": config.vertical_method,
-                "horizontal_method": config.horizontal_method,
-                "strategy": strategy.__class__.__name__,
-            },
-        )
 
     def pair_sources(
         self,
@@ -472,14 +377,15 @@ def create_default_engine() -> PairingEngine:
     from davinci_monet.pairing.strategies.grid import GridStrategy
     from davinci_monet.pairing.strategies.point import PointStrategy
     from davinci_monet.pairing.strategies.profile import ProfileStrategy
-    from davinci_monet.pairing.strategies.swath import SwathStrategy
+    from davinci_monet.pairing.strategies.swath_grid import SwathGridStrategy
     from davinci_monet.pairing.strategies.track import TrackStrategy
 
     engine = PairingEngine()
     engine.register_strategy(PointStrategy())
     engine.register_strategy(TrackStrategy())
     engine.register_strategy(ProfileStrategy())
-    engine.register_strategy(SwathStrategy())
+    # Production SWATH handler: bin onto a grid (see _register_default_strategies).
+    engine.register_strategy(SwathGridStrategy())
     engine.register_strategy(GridStrategy())
 
     return engine

@@ -21,17 +21,15 @@ from __future__ import annotations
 import csv
 import os
 import shutil
-import warnings
 from pathlib import Path
 
 import numpy as np
 import pytest
 import xarray as xr
 
-from davinci_monet.config.migration import LegacyConfigWarning
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
-from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario
+from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario, sample_obs_from
 
 # =============================================================================
 # Helpers
@@ -81,6 +79,7 @@ def _assert_plots(output_dir: Path, min_count: int) -> list[Path]:
 # =============================================================================
 
 
+@pytest.mark.integration
 class TestPointPipeline:
     """End-to-end paired pipeline: model + surface obs → 8 plot types."""
 
@@ -116,7 +115,7 @@ class TestPointPipeline:
             noise_level=0.0,
             seed=42,
         )
-        obs_ds = scenario._generate_point_obs(model_ds)
+        obs_ds = sample_obs_from(model_ds, "point", scenario=scenario)
 
         # Add model bias + noise (obs stay clean)
         rng = np.random.default_rng(42)
@@ -145,9 +144,10 @@ class TestPointPipeline:
                 "output_dir": str(output_dir),
                 "log_dir": str(log_dir),
             },
-            "model": {
+            "sources": {
                 "synthetic": {
-                    "mod_type": "generic",
+                    "type": "generic",
+                    "role": "model",
                     "files": str(model_path),
                     "radius_of_influence": 50000,
                     "mapping": {"surface": {"O3": "O3"}},
@@ -160,19 +160,18 @@ class TestPointPipeline:
                         },
                     },
                 },
-            },
-            "obs": {
                 "surface": {
-                    "obs_type": "pt_sfc",
+                    "type": "pt_sfc",
+                    "role": "obs",
                     "filename": str(obs_path),
                     "variables": {"O3": {"obs_min": 0, "obs_max": 200, "units": "ppb"}},
                 },
             },
             "pairs": {
                 "synthetic_surface": {
-                    "model": "synthetic",
-                    "obs": "surface",
-                    "variable": {"model_var": "O3", "obs_var": "O3"},
+                    "sources": ["synthetic", "surface"],
+                    "reference": "surface",
+                    "variables": {"synthetic": "O3", "surface": "O3"},
                 },
             },
             "plots": {
@@ -223,9 +222,7 @@ class TestPointPipeline:
         }
 
         runner = PipelineRunner(show_progress=False)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", LegacyConfigWarning)
-            result = runner.run_from_config(config)
+        result = runner.run_from_config(config)
         _assert_pipeline_success(result)
 
         # Verify stats
@@ -246,6 +243,7 @@ class TestPointPipeline:
 # =============================================================================
 
 
+@pytest.mark.integration
 class TestTrackPipeline:
     """End-to-end paired pipeline: model + aircraft track → 3 plot types."""
 
@@ -306,27 +304,27 @@ class TestTrackPipeline:
                 "output_dir": str(output_dir),
                 "log_dir": str(log_dir),
             },
-            "model": {
+            "sources": {
                 "synthetic": {
-                    "mod_type": "generic",
+                    "type": "generic",
+                    "role": "model",
                     "files": str(model_path),
                     "radius_of_influence": 100000,
                     "mapping": {"aircraft": {"O3": "O3"}},
                     "variables": {"O3": {"units": "ppb"}},
                 },
-            },
-            "obs": {
                 "aircraft": {
-                    "obs_type": "aircraft",
+                    "type": "aircraft",
+                    "role": "obs",
                     "filename": str(obs_path),
                     "variables": {"O3": {"units": "ppb"}},
                 },
             },
             "pairs": {
                 "synthetic_aircraft": {
-                    "model": "synthetic",
-                    "obs": "aircraft",
-                    "variable": {"model_var": "O3", "obs_var": "O3"},
+                    "sources": ["synthetic", "aircraft"],
+                    "reference": "aircraft",
+                    "variables": {"synthetic": "O3", "aircraft": "O3"},
                 },
             },
             "plots": {
@@ -352,9 +350,7 @@ class TestTrackPipeline:
         }
 
         runner = PipelineRunner(show_progress=False)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", LegacyConfigWarning)
-            result = runner.run_from_config(config)
+        result = runner.run_from_config(config)
         _assert_pipeline_success(result)
         _assert_plots(output_dir, min_count=3)
         assert list(log_dir.glob("pipeline_*.md")), "No pipeline log"
@@ -366,6 +362,7 @@ class TestTrackPipeline:
 # =============================================================================
 
 
+@pytest.mark.integration
 class TestObsOnlyPipeline:
     """End-to-end obs-only pipeline: aircraft data → 4 obs plot types."""
 
@@ -412,7 +409,7 @@ class TestObsOnlyPipeline:
         output_dir = tmp_path / "output"
         log_dir = tmp_path / "logs"
 
-        # No model section triggers the obs-only pipeline.
+        # A single obs-role source with no pairs triggers the obs-only pipeline.
         config = {
             "analysis": {
                 "start_time": "2012-05-29",
@@ -420,9 +417,10 @@ class TestObsOnlyPipeline:
                 "output_dir": str(output_dir),
                 "log_dir": str(log_dir),
             },
-            "obs": {
+            "sources": {
                 "dc8": {
-                    "obs_type": "aircraft",
+                    "type": "aircraft",
+                    "role": "obs",
                     "filename": str(obs_path),
                     "variables": {
                         "O3": {"units": "ppbv"},
@@ -459,217 +457,8 @@ class TestObsOnlyPipeline:
         }
 
         runner = PipelineRunner(show_progress=False)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", LegacyConfigWarning)
-            result = runner.run_from_config(config)
+        result = runner.run_from_config(config)
         _assert_pipeline_success(result)
         _assert_plots(output_dir, min_count=4)
         assert list(log_dir.glob("pipeline_*.md")), "No pipeline log"
         _copy_artifacts(output_dir, log_dir, prefix="obsonly_")
-
-
-# =============================================================================
-# 4. Swath-to-Grid Pipeline (satellite L2)
-# =============================================================================
-
-
-class TestSwathGridPipeline:
-    """End-to-end satellite evaluation: swath binning → grid pairing → pcolormesh plots.
-
-    Tests the numba-accelerated binning of synthetic swath pixels onto a model
-    grid, then feeds the binned result through the pipeline via load_binned.
-    Skips HDF4 I/O (no pyhdf dependency needed).
-    """
-
-    def test_swath_pipeline(self, tmp_path: Path) -> None:
-        from davinci_monet.pairing.grid_binning import (
-            bin_swath_to_grid,
-            edges_from_centers,
-            normalize_grid,
-        )
-        from davinci_monet.pipeline.runner import PipelineRunner
-        from davinci_monet.tests.synthetic.models import create_model_dataset
-
-        rng = np.random.default_rng(77)
-
-        # --- Model: small global-ish grid with AOD-like values ---
-        domain = Domain(
-            lon_min=100.0,
-            lon_max=160.0,
-            lat_min=-50.0,
-            lat_max=0.0,
-            n_lon=24,
-            n_lat=20,
-        )
-        time_cfg = TimeConfig(start="2019-12-21", end="2019-12-22", freq="1D")
-
-        # Build model AOD field directly: low background + Gaussian hotspot
-        # Model overestimates the plume but underestimates background → spatial bias pattern
-        lat_centers = np.linspace(domain.lat_min, domain.lat_max, domain.n_lat)
-        lon_centers = np.linspace(domain.lon_min, domain.lon_max, domain.n_lon)
-        time_vals = np.array(["2019-12-21"], dtype="datetime64[ns]")
-
-        aod_field = np.full((1, domain.n_lat, domain.n_lon), 0.08)  # low background
-        for i, la in enumerate(lat_centers):
-            for j, lo in enumerate(lon_centers):
-                dist = np.sqrt((la - (-25.0)) ** 2 + (lo - 120.0) ** 2)
-                aod_field[0, i, j] += 2.0 * np.exp(-(dist**2) / 150)  # stronger, tighter plume
-        aod_field += rng.normal(0, 0.03, aod_field.shape)
-        aod_field = np.clip(aod_field, 0, 5)
-
-        model_ds = xr.Dataset(
-            {"AOD": (["time", "lat", "lon"], aod_field)},
-            coords={"time": time_vals, "lat": lat_centers, "lon": lon_centers},
-        )
-
-        model_path = tmp_path / "model_aod.nc"
-        model_ds.to_netcdf(model_path)
-
-        # --- Synthetic swath: 500 scanlines × 20 pixels ---
-        n_scan, n_pix = 500, 20
-        scan_lats = np.linspace(-48.0, -2.0, n_scan)
-        pix_offsets = np.linspace(-3.0, 3.0, n_pix)
-        swath_lat = scan_lats[:, np.newaxis] + pix_offsets[np.newaxis, :] * 0.1
-        swath_lon = np.linspace(102.0, 158.0, n_scan)[:, np.newaxis] + pix_offsets[np.newaxis, :]
-
-        # AOD values: base field + hotspot + noise
-        swath_aod = np.full((n_scan, n_pix), 0.15)
-        for i in range(n_scan):
-            for j in range(n_pix):
-                dist = np.sqrt((swath_lat[i, j] - (-25.0)) ** 2 + (swath_lon[i, j] - 120.0) ** 2)
-                swath_aod[i, j] += 1.2 * np.exp(-(dist**2) / 200)
-        swath_aod += rng.normal(0, 0.05, (n_scan, n_pix))
-        swath_aod = np.clip(swath_aod, 0, 5)
-
-        # --- Bin swath onto model grid using numba ---
-        lat_centers = model_ds.lat.values.astype(np.float64)
-        lon_centers = model_ds.lon.values.astype(np.float64)
-        lat_edges = edges_from_centers(lat_centers)
-        lon_edges = edges_from_centers(lon_centers)
-
-        # Single time step
-        time_center = np.array([model_ds.time.values[0].astype("datetime64[s]").astype(np.float64)])
-        time_edges = edges_from_centers(time_center)
-
-        ntime, nlon, nlat = 1, len(lon_centers), len(lat_centers)
-        count_grid = np.zeros((ntime, nlon, nlat), dtype=np.int64)
-        data_grid = np.zeros((ntime, nlon, nlat), dtype=np.float64)
-
-        # Flatten swath and assign all pixels to the single time bin
-        flat_aod = swath_aod.ravel().astype(np.float64)
-        flat_lat = swath_lat.ravel().astype(np.float64)
-        flat_lon = swath_lon.ravel().astype(np.float64)
-        flat_time = np.full(len(flat_aod), time_center[0], dtype=np.float64)
-
-        bin_swath_to_grid(
-            time_edges,
-            lon_edges,
-            lat_edges,
-            flat_time,
-            flat_lon,
-            flat_lat,
-            flat_aod,
-            count_grid,
-            data_grid,
-        )
-        normalize_grid(count_grid, data_grid)
-
-        # Verify binning produced data
-        assert np.any(count_grid > 0), "Binning produced no data"
-        assert np.nanmax(data_grid) > 0.5, "Binning lost the hotspot signal"
-
-        # --- Write binned result as NetCDF (same format as MODIS cache) ---
-        binned_ds = xr.Dataset(
-            {
-                "AOD": (["time", "lon", "lat"], data_grid),
-                "pixel_count": (["time", "lon", "lat"], count_grid.astype(np.float64)),
-            },
-            coords={
-                "time": model_ds.time.values[:1],
-                "lon": lon_centers,
-                "lat": lat_centers,
-            },
-        )
-        binned_path = tmp_path / "swath_binned.nc"
-        binned_ds.to_netcdf(binned_path)
-
-        # --- Run pipeline with load_binned ---
-        output_dir = tmp_path / "output"
-        log_dir = tmp_path / "logs"
-
-        config = {
-            "analysis": {
-                "start_time": "2019-12-21",
-                "end_time": "2019-12-22",
-                "output_dir": str(output_dir),
-                "log_dir": str(log_dir),
-            },
-            "model": {
-                "cam6": {
-                    "mod_type": "generic",
-                    "files": str(model_path),
-                    "radius_of_influence": 50000,
-                    "mapping": {"satellite": {"AOD": "AOD"}},
-                    "variables": {
-                        "AOD": {
-                            "units": "1",
-                            "ylabel_plot": "AOD (550 nm)",
-                            "vmin_plot": 0,
-                            "vmax_plot": 2.0,
-                            "vdiff_plot": 0.5,
-                        },
-                    },
-                },
-            },
-            "obs": {
-                "satellite": {
-                    "obs_type": "sat_swath_clm",
-                    "sat_type": "modis_l2",
-                    "grid_source": "cam6",
-                    "load_binned": True,
-                    "binned_file": str(binned_path),
-                    "variables": {
-                        "AOD": {"units": "1"},
-                    },
-                },
-            },
-            "pairs": {
-                "cam6_satellite": {
-                    "model": "cam6",
-                    "obs": "satellite",
-                    "variable": {"model_var": "AOD", "obs_var": "AOD"},
-                },
-            },
-            "plots": {
-                "aod_scatter": {
-                    "type": "scatter",
-                    "pairs": ["cam6_satellite"],
-                    "title": "AOD: Model vs Satellite",
-                    "show_density": True,
-                },
-                "aod_obs_map": {
-                    "type": "spatial_distribution",
-                    "pairs": ["cam6_satellite"],
-                    "title": "Satellite AOD",
-                    "show_var": "obs",
-                    "plot_type": "pcolormesh",
-                    "cmap": "turbo",
-                },
-                "aod_bias_map": {
-                    "type": "spatial_bias",
-                    "pairs": ["cam6_satellite"],
-                    "title": "AOD Bias (Model − Satellite)",
-                    "plot_type": "pcolormesh",
-                },
-            },
-            "stats": {"metrics": ["N", "MB", "RMSE", "R", "NMB", "NME"]},
-        }
-
-        runner = PipelineRunner(show_progress=False)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", LegacyConfigWarning)
-            result = runner.run_from_config(config)
-        _assert_pipeline_success(result)
-        _assert_plots(output_dir, min_count=3)
-        assert list(log_dir.glob("pipeline_*.md")), "No pipeline log"
-        _copy_artifacts(output_dir, log_dir, prefix="swath_")

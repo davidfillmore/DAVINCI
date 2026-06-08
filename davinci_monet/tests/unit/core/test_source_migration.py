@@ -15,7 +15,7 @@ import pytest
 import davinci_monet.models  # noqa: F401
 import davinci_monet.observations  # noqa: F401
 from davinci_monet.core.protocols import DataGeometry, SourceReader
-from davinci_monet.core.registry import model_registry, observation_registry, source_registry
+from davinci_monet.core.registry import source_registry
 from davinci_monet.models.cesm import CESMFVReader, CESMSEReader
 from davinci_monet.models.cmaq import CMAQReader
 from davinci_monet.models.generic import GenericReader
@@ -87,16 +87,10 @@ class TestUnifiedSourceRegistry:
     def test_type_registered_in_source_registry(self, type_id: str) -> None:
         assert type_id in source_registry
 
-    def test_model_registry_is_deprecated_alias(self) -> None:
-        assert model_registry is source_registry
-
-    def test_observation_registry_is_deprecated_alias(self) -> None:
-        assert observation_registry is source_registry
-
-    def test_model_and_obs_lookups_resolve_via_alias(self) -> None:
-        # Backward-compatible access through the deprecated aliases still works.
-        assert model_registry.get("cmaq") is source_registry.get("cmaq")
-        assert observation_registry.get("airnow") is source_registry.get("airnow")
+    def test_model_and_obs_lookups_in_source_registry(self) -> None:
+        # Both model and obs readers are registered directly on source_registry.
+        assert source_registry.get("cmaq") is not None
+        assert source_registry.get("airnow") is not None
 
     @pytest.mark.parametrize("type_id", OBS_READER_TYPES)
     def test_observation_reader_satisfies_source_reader(self, type_id: str) -> None:

@@ -9,9 +9,6 @@ from davinci_monet.core.registry import (
     ComponentNotFoundError,
     Registry,
     RegistryError,
-    model_registry,
-    observation_registry,
-    pairing_registry,
     plotter_registry,
     reader_registry,
     source_registry,
@@ -266,19 +263,6 @@ class TestPreConfiguredRegistries:
         """Test source_registry is properly configured."""
         assert source_registry.name == "source"
         assert isinstance(source_registry, Registry)
-
-    def test_model_registry_is_deprecated_alias(self) -> None:
-        """model_registry is a deprecated alias of source_registry (Phase 2)."""
-        assert model_registry is source_registry
-
-    def test_observation_registry_is_deprecated_alias(self) -> None:
-        """observation_registry is a deprecated alias of source_registry (Phase 2)."""
-        assert observation_registry is source_registry
-
-    def test_pairing_registry_exists(self) -> None:
-        """Test pairing_registry is properly configured."""
-        assert pairing_registry.name == "pairing"
-        assert isinstance(pairing_registry, Registry)
 
     def test_plotter_registry_exists(self) -> None:
         """Test plotter_registry is properly configured."""

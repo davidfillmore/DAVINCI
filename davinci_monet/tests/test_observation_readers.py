@@ -26,7 +26,7 @@ import davinci_monet.observations.surface.airnow  # noqa: F401
 import davinci_monet.observations.surface.aqs  # noqa: F401
 import davinci_monet.observations.surface.openaq  # noqa: F401
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import observation_registry
+from davinci_monet.core.registry import source_registry as observation_registry
 
 # =============================================================================
 # Helper functions for creating synthetic observation data
@@ -443,7 +443,7 @@ class TestTROPOMIReader:
 
         reader = TROPOMIReader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.SWATH.value
+        assert result.attrs.get("geometry") == DataGeometry.SWATH.name.lower()
 
 
 class TestGOESL3AODReader:
@@ -486,7 +486,7 @@ class TestGOESL3AODReader:
 
         reader = GOESL3AODReader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.GRID.value
+        assert result.attrs.get("geometry") == DataGeometry.GRID.name.lower()
 
     def test_backward_compatibility_alias(self):
         """Test GOESReader alias still works."""
@@ -521,7 +521,7 @@ class TestTEMPOL2NO2Reader:
         ds = create_synthetic_satellite_swath()
         reader = TEMPOL2NO2Reader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.SWATH.value
+        assert result.attrs.get("geometry") == DataGeometry.SWATH.name.lower()
 
 
 class TestMODISL2AODReader:
@@ -549,7 +549,7 @@ class TestMODISL2AODReader:
         ds = create_synthetic_satellite_swath()
         reader = MODISL2AODReader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.SWATH.value
+        assert result.attrs.get("geometry") == DataGeometry.SWATH.name.lower()
 
 
 class TestMOPITTL3COReader:
@@ -577,7 +577,7 @@ class TestMOPITTL3COReader:
         ds = create_synthetic_gridded_obs()
         reader = MOPITTL3COReader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.GRID.value
+        assert result.attrs.get("geometry") == DataGeometry.GRID.name.lower()
 
 
 class TestOMPSL3O3Reader:
@@ -605,7 +605,7 @@ class TestOMPSL3O3Reader:
         ds = create_synthetic_gridded_obs()
         reader = OMPSL3O3Reader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.GRID.value
+        assert result.attrs.get("geometry") == DataGeometry.GRID.name.lower()
 
 
 # =============================================================================
@@ -648,52 +648,45 @@ class TestOzonesondeReader:
 
 
 # =============================================================================
-# Convenience Function Tests
+# Reader open() Tests
 # =============================================================================
 
 
-class TestConvenienceFunctions:
-    """Test convenience functions."""
+class TestReaderOpen:
+    """Reader ``open()`` returns a plain ``xr.Dataset`` with the right geometry.
 
-    def test_open_aqs(self):
-        """Test open_aqs function."""
-        from davinci_monet.observations import open_aqs
+    The per-reader ``open_*`` convenience functions and the
+    ``create_observation_data`` factory were removed; sources load through
+    registered reader classes' ``open()``.
+    """
+
+    def test_aqs_open_returns_point_dataset(self):
+        """AQSReader.open() returns a POINT-geometry Dataset."""
+        from davinci_monet.observations.surface.aqs import AQSReader
 
         ds = create_synthetic_surface_obs()
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             ds.to_netcdf(f.name)
-            obs = open_aqs(f.name, label="test_aqs")
-            assert obs.label == "test_aqs"
-            assert obs.geometry == DataGeometry.POINT
+            reader = AQSReader()
+            result = reader.open([f.name])
+            assert isinstance(result, xr.Dataset)
+            assert result.attrs.get("geometry") == DataGeometry.POINT.name.lower()
             Path(f.name).unlink()
 
-    def test_open_ozonesonde(self):
-        """Test open_ozonesonde function."""
-        from davinci_monet.observations import open_ozonesonde
+    def test_ozonesonde_open_returns_profile_dataset(self):
+        """OzonesondeReader.open() returns a PROFILE-geometry Dataset."""
+        from davinci_monet.observations.sonde.ozonesonde import OzonesondeReader
 
         ds = create_synthetic_profile_obs()
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             ds.to_netcdf(f.name)
-            obs = open_ozonesonde(f.name, label="test_sonde")
-            assert obs.label == "test_sonde"
-            assert obs.geometry == DataGeometry.PROFILE
+            reader = OzonesondeReader()
+            result = reader.open([f.name])
+            assert isinstance(result, xr.Dataset)
+            assert result.attrs.get("geometry") == DataGeometry.PROFILE.name.lower()
             Path(f.name).unlink()
-
-    def test_create_observation_data_with_data(self):
-        """Test create_observation_data with pre-loaded data."""
-        from davinci_monet.observations import create_observation_data
-
-        ds = create_synthetic_surface_obs()
-        obs = create_observation_data(
-            label="test_obs",
-            obs_type="pt_sfc",
-            data=ds,
-        )
-        assert obs.label == "test_obs"
-        assert obs.data is not None
-        assert obs.geometry == DataGeometry.POINT
 
 
 # =============================================================================
@@ -714,7 +707,7 @@ class TestGeometryAttributes:
             ds.to_netcdf(f.name)
             reader = AQSReader()
             result = reader.open([f.name])
-            assert result.attrs.get("geometry") == DataGeometry.POINT.value
+            assert result.attrs.get("geometry") == DataGeometry.POINT.name.lower()
             Path(f.name).unlink()
 
     def test_satellite_swath_geometry(self):
@@ -724,7 +717,7 @@ class TestGeometryAttributes:
         ds = create_synthetic_satellite_swath()
         reader = TROPOMIReader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.SWATH.value
+        assert result.attrs.get("geometry") == DataGeometry.SWATH.name.lower()
 
     def test_gridded_geometry(self):
         """Test gridded readers set GRID geometry via standardization."""
@@ -733,7 +726,7 @@ class TestGeometryAttributes:
         ds = create_synthetic_gridded_obs()
         reader = GOESL3AODReader()
         result = reader._standardize_dataset(ds)
-        assert result.attrs.get("geometry") == DataGeometry.GRID.value
+        assert result.attrs.get("geometry") == DataGeometry.GRID.name.lower()
 
     def test_profile_geometry(self):
         """Test profile readers set PROFILE geometry."""
@@ -745,5 +738,5 @@ class TestGeometryAttributes:
             ds.to_netcdf(f.name)
             reader = OzonesondeReader()
             result = reader.open([f.name])
-            assert result.attrs.get("geometry") == DataGeometry.PROFILE.value
+            assert result.attrs.get("geometry") == DataGeometry.PROFILE.name.lower()
             Path(f.name).unlink()

@@ -827,28 +827,28 @@ class TestGridStrategy:
 
 
 # =============================================================================
-# Integration tests
+# Pairing Workflow Tests
 # =============================================================================
 
 
-class TestPairingIntegration:
-    """Integration tests for full pairing workflow."""
+class TestPairingWorkflow:
+    """Full pairing workflow tests (calls internal APIs directly, not PipelineRunner)."""
 
     def test_engine_pair_point(self, model_2d: xr.Dataset, point_obs: xr.Dataset) -> None:
         """Test full pairing workflow through engine for point data."""
         engine = PairingEngine()
         config = PairingConfig(radius_of_influence=200000.0)
 
-        paired = engine.pair(
-            model=model_2d,
-            obs=point_obs,
-            obs_vars=["temperature"],
-            model_vars=["temperature"],
+        paired = engine.pair_sources(
+            reference=point_obs,
+            comparand=model_2d,
+            reference_vars=["temperature"],
+            comparand_vars=["temperature"],
             config=config,
         )
 
         assert paired is not None
-        # Engine prefixes obs vars with "obs_" and model vars with "model_"
+        # Engine prefixes reference vars with "obs_" and comparand vars with "model_"
         assert "obs_temperature" in paired.data.data_vars
         assert "model_temperature" in paired.data.data_vars
 
@@ -857,11 +857,11 @@ class TestPairingIntegration:
         engine = PairingEngine()
         config = PairingConfig(radius_of_influence=200000.0)
 
-        paired = engine.pair(
-            model=model_3d,
-            obs=track_obs,
-            obs_vars=["ozone"],
-            model_vars=["ozone"],
+        paired = engine.pair_sources(
+            reference=track_obs,
+            comparand=model_3d,
+            reference_vars=["ozone"],
+            comparand_vars=["ozone"],
             config=config,
         )
 
@@ -874,11 +874,11 @@ class TestPairingIntegration:
         engine = PairingEngine()
         config = PairingConfig()
 
-        paired = engine.pair(
-            model=model_2d,
-            obs=gridded_obs,
-            obs_vars=["temperature"],
-            model_vars=["temperature"],
+        paired = engine.pair_sources(
+            reference=gridded_obs,
+            comparand=model_2d,
+            reference_vars=["temperature"],
+            comparand_vars=["temperature"],
             config=config,
         )
 
@@ -932,11 +932,11 @@ def test_grid_pairing_preserves_model_when_times_offset() -> None:
 
     paired = (
         PairingEngine()
-        .pair(
-            model,
-            obs,
-            obs_vars=["aod_550nm"],
-            model_vars=["TOTEXTTAU"],
+        .pair_sources(
+            reference=obs,
+            comparand=model,
+            reference_vars=["aod_550nm"],
+            comparand_vars=["TOTEXTTAU"],
             config=PairingConfig(time_tolerance=timedelta(hours=1), time_method="nearest"),
         )
         .data

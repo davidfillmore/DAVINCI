@@ -1408,12 +1408,12 @@ class TestSpatialPlotters:
 
 
 # =============================================================================
-# Integration Tests
+# End-to-End Plotter Tests
 # =============================================================================
 
 
-class TestPlotterIntegration:
-    """Integration tests for the plotting system."""
+class TestPlotterEndToEnd:
+    """End-to-end tests for the plotting system (calls internal APIs directly)."""
 
     def test_all_plotters_instantiate(self):
         """Test that all registered plotters can be instantiated."""

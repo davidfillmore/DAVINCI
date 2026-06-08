@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 import xarray as xr
 
 from davinci_monet.core.base import PairedData, iter_paired_variable_pairs
@@ -87,6 +88,7 @@ class TestSourceLabelRename:
         assert ds["obs_o3"].attrs["source_label"] == "obs"
 
 
+@pytest.mark.integration
 class TestPairedSourceLabelPipeline:
     """Integration test: the pipeline emits source-label paired names only.
 
@@ -100,7 +102,10 @@ class TestPairedSourceLabelPipeline:
         from davinci_monet.pipeline.runner import PipelineRunner
         from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
         from davinci_monet.tests.synthetic.models import create_model_dataset
-        from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario
+        from davinci_monet.tests.synthetic.scenarios import (
+            PerfectMatchScenario,
+            sample_obs_from,
+        )
 
         domain = Domain(
             lon_min=-105.0,
@@ -124,7 +129,7 @@ class TestPairedSourceLabelPipeline:
             noise_level=0.0,
             seed=42,
         )
-        obs_ds = scenario._generate_point_obs(model_ds)
+        obs_ds = sample_obs_from(model_ds, "point", scenario=scenario)
 
         model_path = tmp_path / "model.nc"
         obs_path = tmp_path / "obs.nc"
@@ -210,7 +215,7 @@ class TestPairedHelperRobustness:
         ds["obs_O3"].attrs["role"] = "obs"
         assert iter_paired_variable_pairs(ds) == [("obs_O3", "Model_O3", "O3")]
 
-    def test_get_obs_get_model_resolve_canonical(self) -> None:
+    def test_reference_comparand_resolve_canonical(self) -> None:
         ds = xr.Dataset(
             {"airnow_o3": ("time", np.ones(3)), "cam_o3": ("time", np.zeros(3))},
             coords={"time": np.arange(3)},
@@ -218,8 +223,8 @@ class TestPairedHelperRobustness:
         ds["airnow_o3"].attrs.update({"role": "obs", "source_label": "airnow"})
         ds["cam_o3"].attrs.update({"role": "model", "source_label": "cam"})
         pd = PairedData(data=ds, model_label="cam", obs_label="airnow", geometry=DataGeometry.POINT)
-        np.testing.assert_array_equal(pd.get_obs("o3").values, np.ones(3))
-        np.testing.assert_array_equal(pd.get_model("o3").values, np.zeros(3))
+        np.testing.assert_array_equal(pd.get_reference("o3").values, np.ones(3))
+        np.testing.assert_array_equal(pd.get_comparand("o3").values, np.zeros(3))
 
     def test_reference_comparand_accessors_are_canonical(self) -> None:
         ds = xr.Dataset(
@@ -248,7 +253,7 @@ class TestPairedHelperRobustness:
         np.testing.assert_array_equal(pd.get_comparand("o3").values, np.zeros(3))
 
     def test_legacy_fallback_respects_role(self) -> None:
-        # get_model must not return a legacy-named var whose role attr is 'obs'.
+        # get_comparand must not return a legacy-named var whose role attr is 'obs'.
         ds = xr.Dataset(
             {"model_o3": ("time", np.zeros(3)), "obs_o3": ("time", np.ones(3))},
             coords={"time": np.arange(3)},
@@ -256,5 +261,5 @@ class TestPairedHelperRobustness:
         ds["model_o3"].attrs["role"] = "model"
         ds["obs_o3"].attrs["role"] = "obs"
         pd = PairedData(data=ds, model_label="cam", obs_label="airnow", geometry=DataGeometry.POINT)
-        np.testing.assert_array_equal(pd.get_model("o3").values, np.zeros(3))
-        np.testing.assert_array_equal(pd.get_obs("o3").values, np.ones(3))
+        np.testing.assert_array_equal(pd.get_comparand("o3").values, np.zeros(3))
+        np.testing.assert_array_equal(pd.get_reference("o3").values, np.ones(3))

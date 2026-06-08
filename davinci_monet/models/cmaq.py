@@ -12,16 +12,16 @@ from typing import Any, Mapping, Sequence
 
 import xarray as xr
 
-from davinci_monet.core.exceptions import (
-    DataFormatError,
-    DataNotFoundError,
-    cleanup_netcdf_state,
-    is_transient_error,
-    write_error_log,
-)
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.models.base import ModelData, create_model_data
+from davinci_monet.io.reader_utils import (
+    alias_coord,
+    promote_to_coords,
+    retry_transient_open,
+    select_variables,
+    standardize_dims,
+    validate_file_list,
+)
 
 # Standard variable name mappings for CMAQ
 CMAQ_VARIABLE_MAPPING: dict[str, str] = {
@@ -97,15 +97,7 @@ class CMAQReader:
         xr.Dataset
             CMAQ data with standardized dimensions (time, z, lat, lon).
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No CMAQ files provided")
-
-        # Check files exist
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"CMAQ files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="CMAQ")
 
         # Try to use monetio if available
         try:
@@ -197,48 +189,21 @@ class CMAQReader:
             if k not in ("fname_vert", "fname_surf", "concatenate_forecasts", "surf_only")
         }
 
-        max_retries = 3
-        last_error: Exception | None = None
+        def _open() -> xr.Dataset:
+            if len(file_paths) > 1:
+                ds = xr.open_mfdataset(
+                    [str(f) for f in file_paths],
+                    combine="by_coords",
+                    parallel=True,
+                    **xr_kwargs,
+                )
+            else:
+                ds = xr.open_dataset(str(file_paths[0]), **xr_kwargs)
 
-        for attempt in range(max_retries):
-            try:
-                if len(file_paths) > 1:
-                    ds = xr.open_mfdataset(
-                        [str(f) for f in file_paths],
-                        combine="by_coords",
-                        parallel=True,
-                        **xr_kwargs,
-                    )
-                else:
-                    ds = xr.open_dataset(str(file_paths[0]), **xr_kwargs)
+            # Select variables if specified
+            return select_variables(ds, variables)
 
-                # Select variables if specified
-                if variables is not None:
-                    available = [v for v in variables if v in ds.data_vars]
-                    if available:
-                        ds = ds[available]
-
-                return ds
-
-            except Exception as e:
-                last_error = e
-                if attempt < max_retries - 1 and is_transient_error(e):
-                    warnings.warn(
-                        f"Transient NetCDF error (attempt {attempt + 1}/{max_retries}), "
-                        f"retrying: {e}",
-                        UserWarning,
-                    )
-                    cleanup_netcdf_state()
-                    continue
-                error_file = write_error_log(e, "Opening CMAQ files")
-                msg = f"Failed to open CMAQ files: {e}"
-                if error_file:
-                    msg += f" (details: {error_file})"
-                raise DataFormatError(msg) from e
-
-        raise DataFormatError(
-            f"Failed to open CMAQ files after {max_retries} attempts"
-        ) from last_error
+        return retry_transient_open(_open, context="Opening CMAQ files")
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize CMAQ dataset dimensions and coordinates.
@@ -254,32 +219,15 @@ class CMAQReader:
             Standardized dataset with dims (time, z, lat, lon).
         """
         # Common CMAQ dimension renames
-        dim_renames: dict[str, str] = {}
-
-        if "TSTEP" in ds.dims:
-            dim_renames["TSTEP"] = "time"
-        if "LAY" in ds.dims:
-            dim_renames["LAY"] = "z"
-        if "ROW" in ds.dims:
-            dim_renames["ROW"] = "y"
-        if "COL" in ds.dims:
-            dim_renames["COL"] = "x"
-
-        if dim_renames:
-            ds = ds.rename(dim_renames)
+        ds = standardize_dims(ds, {"TSTEP": "time", "LAY": "z", "ROW": "y", "COL": "x"})
 
         # Ensure latitude and longitude are proper coordinates
         # CMAQ often has these as data variables
-        if "latitude" in ds.data_vars and "latitude" not in ds.coords:
-            ds = ds.set_coords("latitude")
-        if "longitude" in ds.data_vars and "longitude" not in ds.coords:
-            ds = ds.set_coords("longitude")
+        ds = promote_to_coords(ds, ("latitude", "longitude"))
 
         # Create lat/lon aliases if needed
-        if "latitude" in ds.coords and "lat" not in ds.coords:
-            ds = ds.assign_coords(lat=ds["latitude"])
-        if "longitude" in ds.coords and "lon" not in ds.coords:
-            ds = ds.assign_coords(lon=ds["longitude"])
+        ds = alias_coord(ds, "latitude", "lat")
+        ds = alias_coord(ds, "longitude", "lon")
 
         return ds
 
@@ -292,54 +240,3 @@ class CMAQReader:
             Standard name to CMAQ name mapping.
         """
         return CMAQ_VARIABLE_MAPPING
-
-
-def open_cmaq(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "cmaq",
-    **kwargs: Any,
-) -> ModelData:
-    """Convenience function to open CMAQ model data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Model label.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ModelData
-        CMAQ model data container.
-    """
-    reader = CMAQReader()
-
-    # Handle glob pattern
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            from glob import glob
-
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, **kwargs)
-
-    return create_model_data(
-        label=label,
-        mod_type="cmaq",
-        data=ds,
-        files=file_paths,
-    )

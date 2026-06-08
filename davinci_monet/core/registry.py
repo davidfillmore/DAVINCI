@@ -4,23 +4,23 @@ This module provides a generic, type-safe registry for pluggable components.
 Components are registered via decorators and can be looked up by name.
 
 Example usage:
-    # Create a registry for model readers
-    model_registry: Registry[ModelReader] = Registry("model")
+    # Create a registry for source readers
+    source_registry: Registry[SourceReader] = Registry("source")
 
     # Register a component using decorator
-    @model_registry.register("cmaq")
+    @source_registry.register("cmaq")
     class CMAQReader:
         ...
 
     # Or register programmatically
-    model_registry.register("wrfchem")(WRFChemReader)
+    source_registry.register("wrfchem")(WRFChemReader)
 
     # Look up a component
-    reader_cls = model_registry.get("cmaq")
+    reader_cls = source_registry.get("cmaq")
     reader = reader_cls()
 
     # List all registered components
-    for name in model_registry:
+    for name in source_registry:
         print(name)
 """
 
@@ -79,12 +79,12 @@ class Registry(Generic[T]):
 
     Examples
     --------
-    >>> from davinci_monet.core import ModelReader
-    >>> model_registry: Registry[type[ModelReader]] = Registry("model")
-    >>> @model_registry.register("cmaq")
+    >>> from davinci_monet.core import SourceReader
+    >>> source_registry: Registry[type[SourceReader]] = Registry("source")
+    >>> @source_registry.register("cmaq")
     ... class CMAQReader:
     ...     pass
-    >>> model_registry.get("cmaq")
+    >>> source_registry.get("cmaq")
     <class 'CMAQReader'>
     """
 
@@ -303,19 +303,6 @@ source_registry: Registry[type] = Registry("source")
 Models and observations both register here, keyed by a single ``type`` id and
 distinguished by reader module, declared geometry, and source role metadata.
 This is the single source of truth for reader registration."""
-
-# Deprecated aliases: the former model/observation registries now point at the
-# unified source_registry. All readers register on source_registry; these names
-# are retained for backward-compatible lookups. They are plain aliases (no
-# runtime warning) so strict warning filters stay green.
-model_registry: Registry[type] = source_registry
-"""Deprecated alias of :data:`source_registry` retained for compatibility."""
-
-observation_registry: Registry[type] = source_registry
-"""Deprecated alias of :data:`source_registry` retained for compatibility."""
-
-pairing_registry: Registry[type] = Registry("pairing")
-"""Registry for pairing strategy classes (point, track, profile, swath, grid)."""
 
 plotter_registry: Registry[type] = Registry("plotter")
 """Registry for plotter classes (timeseries, scatter, spatial, etc.)."""

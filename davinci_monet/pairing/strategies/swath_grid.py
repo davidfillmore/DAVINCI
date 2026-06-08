@@ -162,8 +162,9 @@ class SwathGridStrategy(BasePairingStrategy):
         if lon_edges[0] >= 0 and np.any(lon_flat < 0):
             lon_flat = np.where(lon_flat < 0, lon_flat + 360.0, lon_flat)
 
-        # Get observation timestamps as epoch seconds
-        time_flat = self._get_obs_timestamps(obs, len(data_flat))
+        # Get observation timestamps as epoch seconds, aligned to the same
+        # flattening order as ``data_flat`` (i.e. the binned obs variable).
+        time_flat = self._get_obs_timestamps(obs, len(data_flat), align_var=obs_var)
 
         # Allocate accumulation arrays
         count_grid = np.zeros((ntime, nlon, nlat), dtype=np.int32)
@@ -298,7 +299,9 @@ class SwathGridStrategy(BasePairingStrategy):
 
         return time_edges, lon_edges, lat_edges, time_centers_epoch, lon_centers, lat_centers
 
-    def _get_obs_timestamps(self, obs: xr.Dataset, n_pixels: int) -> np.ndarray:
+    def _get_obs_timestamps(
+        self, obs: xr.Dataset, n_pixels: int, align_var: str | None = None
+    ) -> np.ndarray:
         """Extract observation timestamps as flat epoch-second array.
 
         Parameters
@@ -307,6 +310,11 @@ class SwathGridStrategy(BasePairingStrategy):
             Observation dataset.
         n_pixels
             Total number of pixels (for broadcasting).
+        align_var
+            Name of the data variable whose pixel order ``data_flat`` follows.
+            The time coordinate is broadcast against this variable so per-pixel
+            timestamps line up with the binned values. Defaults to the first
+            data variable.
 
         Returns
         -------
@@ -314,18 +322,29 @@ class SwathGridStrategy(BasePairingStrategy):
             Flat float64 array of epoch seconds, one per pixel.
         """
         if "time" in obs.coords:
-            time_vals = obs["time"].values
+            time_da = obs["time"]
+            time_vals = time_da.values
             if np.issubdtype(time_vals.dtype, np.datetime64):
                 epoch = time_vals.astype("datetime64[s]").astype(np.float64)
                 if epoch.ndim == 0:
                     # Scalar time → broadcast to all pixels
                     return np.full(n_pixels, float(epoch), dtype=np.float64)
-                else:
-                    # May need broadcasting to match pixel count
-                    epoch_flat = np.broadcast_to(epoch, obs[list(obs.data_vars)[0]].shape).flatten()
+                # Dim-aware broadcast: a swath ``time`` is commonly per-scanline
+                # (dims ``(scanline,)``) while data is per-pixel (dims
+                # ``(scanline, pixel)``). broadcast_like expands ``time`` along
+                # the data var's dims regardless of axis order, where positional
+                # ``np.broadcast_to`` would fail (trailing-axis rule).
+                var_name = align_var if align_var in obs.data_vars else None
+                if var_name is None and obs.data_vars:
+                    var_name = str(list(obs.data_vars)[0])
+                if var_name is not None:
+                    epoch_da = time_da.astype("datetime64[s]").astype(np.float64)
+                    broadcast = epoch_da.broadcast_like(obs[var_name])
+                    # Match the C-order .flatten() used for the data values.
+                    epoch_flat = broadcast.transpose(*obs[var_name].dims).values.flatten()
                     if len(epoch_flat) == n_pixels:
                         return epoch_flat.astype(np.float64)
-                    return np.full(n_pixels, epoch.mean(), dtype=np.float64)
+                return np.full(n_pixels, float(epoch.mean()), dtype=np.float64)
             else:
                 return np.full(n_pixels, float(time_vals.flat[0]), dtype=np.float64)
 

@@ -6,17 +6,18 @@ stubbed so no network call is made.
 
 from __future__ import annotations
 
-import warnings
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 import davinci_monet.ai.openrouter as orouter
-from davinci_monet.config.migration import LegacyConfigWarning
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
 from davinci_monet.tests.synthetic.models import create_model_dataset
-from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario
+from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario, sample_obs_from
+
+pytestmark = pytest.mark.integration
 
 
 def _build_config(tmp_path: Path) -> dict:
@@ -33,7 +34,7 @@ def _build_config(tmp_path: Path) -> dict:
         noise_level=0.0,
         seed=42,
     )
-    obs_ds = scenario._generate_point_obs(model_ds)
+    obs_ds = sample_obs_from(model_ds, "point", scenario=scenario)
 
     rng = np.random.default_rng(42)
     model_ds["O3"] = model_ds["O3"] + 5.0 + rng.normal(0, 3.0, size=model_ds["O3"].shape)
@@ -50,27 +51,27 @@ def _build_config(tmp_path: Path) -> dict:
             "output_dir": str(tmp_path / "output"),
             "log_dir": str(tmp_path / "logs"),
         },
-        "model": {
+        "sources": {
             "synthetic": {
-                "mod_type": "generic",
+                "type": "generic",
+                "role": "model",
                 "files": str(model_path),
                 "radius_of_influence": 50000,
                 "mapping": {"surface": {"O3": "O3"}},
                 "variables": {"O3": {"units": "ppb"}},
             },
-        },
-        "obs": {
             "surface": {
-                "obs_type": "pt_sfc",
+                "type": "pt_sfc",
+                "role": "obs",
                 "filename": str(obs_path),
                 "variables": {"O3": {"obs_min": 0, "obs_max": 200, "units": "ppb"}},
             },
         },
         "pairs": {
             "synthetic_surface": {
-                "model": "synthetic",
-                "obs": "surface",
-                "variable": {"model_var": "O3", "obs_var": "O3"},
+                "sources": ["synthetic", "surface"],
+                "reference": "surface",
+                "variables": {"synthetic": "O3", "surface": "O3"},
             },
         },
         "plots": {
@@ -114,9 +115,7 @@ def test_openrouter_summary_writes_file(monkeypatch, tmp_path: Path) -> None:
     }
 
     runner = PipelineRunner(show_progress=False)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", LegacyConfigWarning)
-        result = runner.run_from_config(config)
+    result = runner.run_from_config(config)
 
     assert result.success
     summary_file = tmp_path / "output" / "AI_summary.md"
@@ -141,9 +140,7 @@ def test_openrouter_summary_skips_without_key(monkeypatch, tmp_path: Path) -> No
     }
 
     runner = PipelineRunner(show_progress=False)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", LegacyConfigWarning)
-        result = runner.run_from_config(config)
+    result = runner.run_from_config(config)
 
     assert result.success  # non-fatal: run still succeeds
     assert not (tmp_path / "output" / "AI_summary.md").exists()
@@ -182,9 +179,7 @@ def test_openrouter_summary_displays_tokens_and_credits(monkeypatch, tmp_path: P
     }
 
     runner = PipelineRunner(show_progress=True)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", LegacyConfigWarning)
-        result = runner.run_from_config(config)
+    result = runner.run_from_config(config)
 
     assert result.success
     assert captured, "summary was not displayed"

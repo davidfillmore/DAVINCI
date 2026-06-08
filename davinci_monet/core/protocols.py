@@ -49,173 +49,14 @@ class DataGeometry(Enum):
 
 
 # =============================================================================
-# Legacy Compatibility Protocols
-# =============================================================================
-#
-# New source readers should implement SourceReader. The model/observation
-# protocols are retained for downstream type imports and legacy adapters.
-
-
-@runtime_checkable
-class ModelReader(Protocol):
-    """Compatibility protocol for model output readers.
-
-    Model readers are responsible for loading atmospheric model output
-    (CMAQ, WRF-Chem, UFS, CESM, etc.) into standardized xarray Datasets.
-
-    The output Dataset should have dimensions (time, level, lat, lon) with
-    consistent coordinate names and units.
-    """
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Unique identifier for this model type (e.g., 'cmaq', 'wrfchem')."""
-        ...
-
-    @abstractmethod
-    def open(
-        self,
-        file_paths: Sequence[str | Path],
-        variables: Sequence[str] | None = None,
-        **kwargs: Any,
-    ) -> xr.Dataset:
-        """Open model output files and return a standardized Dataset.
-
-        Parameters
-        ----------
-        file_paths
-            Paths to model output files (can include glob patterns).
-        variables
-            Optional list of variables to load. If None, load all.
-        **kwargs
-            Additional reader-specific options.
-
-        Returns
-        -------
-        xr.Dataset
-            Model output with dims (time, level, lat, lon).
-        """
-        ...
-
-    @abstractmethod
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return mapping from standard variable names to model-specific names.
-
-        Returns
-        -------
-        Mapping[str, str]
-            Dict mapping standard names (e.g., 'ozone') to model names (e.g., 'O3').
-        """
-        ...
-
-
-@runtime_checkable
-class ModelProcessor(Protocol):
-    """Protocol for model data post-processing operations.
-
-    Processors handle operations like unit conversion, variable derivation,
-    spatial subsetting, and temporal aggregation.
-    """
-
-    @abstractmethod
-    def process(self, dataset: xr.Dataset, **kwargs: Any) -> xr.Dataset:
-        """Apply processing to a model Dataset.
-
-        Parameters
-        ----------
-        dataset
-            Input model Dataset.
-        **kwargs
-            Processing options.
-
-        Returns
-        -------
-        xr.Dataset
-            Processed Dataset.
-        """
-        ...
-
-
-@runtime_checkable
-class ObservationReader(Protocol):
-    """Compatibility protocol for observation data readers.
-
-    Observation readers load observational data from various sources
-    (surface networks, aircraft campaigns, satellites) into xarray Datasets
-    with geometry metadata.
-    """
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Unique identifier for this observation type."""
-        ...
-
-    @property
-    @abstractmethod
-    def geometry(self) -> DataGeometry:
-        """The data geometry type for this observation source."""
-        ...
-
-    @abstractmethod
-    def open(
-        self,
-        file_paths: Sequence[str | Path],
-        variables: Sequence[str] | None = None,
-        time_range: tuple[Any, Any] | None = None,
-        **kwargs: Any,
-    ) -> xr.Dataset:
-        """Open observation files and return a standardized Dataset.
-
-        Parameters
-        ----------
-        file_paths
-            Paths to observation files.
-        variables
-            Optional list of variables to load.
-        time_range
-            Optional (start, end) time range to subset.
-        **kwargs
-            Additional reader-specific options.
-
-        Returns
-        -------
-        xr.Dataset
-            Observation data with geometry-appropriate dimensions and
-            'geometry' attribute set.
-        """
-        ...
-
-    @abstractmethod
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return mapping from standard variable names to observation-specific names."""
-        ...
-
-
-@runtime_checkable
-class ObservationProcessor(Protocol):
-    """Protocol for observation data post-processing.
-
-    Handles filtering, QA/QC, unit conversion, resampling, etc.
-    """
-
-    @abstractmethod
-    def process(self, dataset: xr.Dataset, **kwargs: Any) -> xr.Dataset:
-        """Apply processing to an observation Dataset."""
-        ...
-
-
-# =============================================================================
 # Unified Source Protocols
 # =============================================================================
 #
 # A data source is just data of a given geometry (point, track, profile,
 # swath, grid). Models and observations are both data sources; the only thing
-# that distinguishes them is topology, not origin. These protocols unify the
-# legacy ModelReader/ModelProcessor and ObservationReader/ObservationProcessor
-# pairs. A model/obs "role" may travel as metadata for labeling and styling,
-# but it never appears in these contracts.
+# that distinguishes them is topology, not origin. A model/obs "role" may
+# travel as metadata for labeling and styling, but it never appears in these
+# contracts.
 
 
 @runtime_checkable
@@ -298,52 +139,15 @@ class SourceProcessor(Protocol):
 class PairingStrategy(Protocol):
     """Protocol for source-pairing strategies.
 
-    ``pair_sources`` is the canonical role-neutral API. ``pair`` remains as a
-    legacy model/observation adapter for existing strategies and callers.
+    ``pair_sources`` is the canonical role-neutral API. Concrete strategy
+    classes may keep an internal ``pair(model, obs, ...)`` method that
+    ``pair_sources`` delegates to, but it is not part of this public contract.
     """
 
     @property
     @abstractmethod
     def geometry(self) -> DataGeometry:
         """The data geometry this strategy handles."""
-        ...
-
-    @abstractmethod
-    def pair(
-        self,
-        model: xr.Dataset,
-        obs: xr.Dataset,
-        radius_of_influence: float | None = None,
-        time_tolerance: Any | None = None,
-        vertical_method: str = "nearest",
-        horizontal_method: str = "nearest",
-        **kwargs: Any,
-    ) -> xr.Dataset:
-        """Pair model output with observations through the legacy adapter.
-
-        Parameters
-        ----------
-        model
-            Model Dataset with dims (time, level, lat, lon).
-        obs
-            Observation Dataset with geometry-specific dimensions.
-        radius_of_influence
-            Spatial search radius in meters.
-        time_tolerance
-            Maximum time difference for matching (e.g., '1h', timedelta).
-        vertical_method
-            Vertical interpolation method ('nearest', 'linear', 'log').
-        horizontal_method
-            Horizontal interpolation method ('nearest', 'bilinear').
-        **kwargs
-            Strategy-specific options.
-
-        Returns
-        -------
-        xr.Dataset
-            Paired Dataset with aligned model and observation variables.
-            Contains both 'model_<var>' and 'obs_<var>' data variables.
-        """
         ...
 
     @abstractmethod
@@ -355,8 +159,7 @@ class PairingStrategy(Protocol):
     ) -> xr.Dataset:
         """Pair two role-neutral sources.
 
-        The comparand is sampled onto the reference geometry. Legacy
-        implementations can map this to ``pair(model=comparand, obs=reference)``.
+        The comparand is sampled onto the reference geometry.
         """
         ...
 
@@ -366,7 +169,7 @@ class PairingEngine(Protocol):
     """Protocol for the main pairing orchestrator.
 
     The pairing engine selects the appropriate strategy based on
-    observation geometry and coordinates the pairing process.
+    reference geometry and coordinates the pairing process.
     """
 
     @abstractmethod
@@ -375,16 +178,15 @@ class PairingEngine(Protocol):
         ...
 
     @abstractmethod
-    def pair(
+    def pair_sources(
         self,
-        model: xr.Dataset,
-        obs: xr.Dataset,
+        reference: xr.Dataset,
+        comparand: xr.Dataset,
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Pair model and observations using the appropriate strategy.
+        """Pair two role-neutral sources using the appropriate strategy.
 
-        The strategy is selected based on the observation Dataset's
-        'geometry' attribute.
+        The strategy is selected based on the reference Dataset's geometry.
         """
         ...
 

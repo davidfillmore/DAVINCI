@@ -1,9 +1,8 @@
 """Tests for the unified data-source pipeline plumbing.
 
-``LoadSourcesStage`` unifies model/observation loading into a single
-``context.sources`` view (tagging each dataset with role/source_label/geometry)
-while keeping the legacy ``models``/``observations`` context dicts available for
-existing accessors.
+``LoadSourcesStage`` loads all data sources into a single ``context.sources``
+view (tagging each dataset with role/source_label/geometry). Models and
+observations are both sources, distinguished only by optional ``role`` metadata.
 
 These are unit tests: they construct data containers directly and exercise the
 context API and stage logic, per the repo's existing pipeline-stage test pattern
@@ -17,9 +16,12 @@ import pytest
 import xarray as xr
 
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.models.base import ModelData
-from davinci_monet.observations.base import ObservationData
-from davinci_monet.pipeline.stages import LoadSourcesStage, PipelineContext, StageStatus
+from davinci_monet.pipeline.stages import (
+    LoadSourcesStage,
+    PipelineContext,
+    SourceData,
+    StageStatus,
+)
 
 
 def _point_obs_dataset() -> xr.Dataset:
@@ -54,17 +56,24 @@ def _grid_model_dataset() -> xr.Dataset:
 
 
 @pytest.fixture
-def model_data() -> ModelData:
-    return ModelData(data=_grid_model_dataset(), label="cam", mod_type="generic")
+def model_data() -> SourceData:
+    return SourceData(
+        data=_grid_model_dataset(),
+        label="cam",
+        source_type="generic",
+        geometry=DataGeometry.GRID,
+        role="model",
+    )
 
 
 @pytest.fixture
-def obs_data() -> ObservationData:
-    return ObservationData(
+def obs_data() -> SourceData:
+    return SourceData(
         data=_point_obs_dataset(),
         label="airnow",
-        obs_type="pt_sfc",
-        _geometry=DataGeometry.POINT,
+        source_type="pt_sfc",
+        geometry=DataGeometry.POINT,
+        role="obs",
     )
 
 
@@ -73,7 +82,7 @@ class TestPipelineContextSources:
         ctx = PipelineContext()
         assert ctx.sources == {}
 
-    def test_get_source_returns_registered(self, obs_data: ObservationData) -> None:
+    def test_get_source_returns_registered(self, obs_data: SourceData) -> None:
         ctx = PipelineContext(sources={"airnow": obs_data})
         assert ctx.get_source("airnow") is obs_data
 
@@ -85,13 +94,12 @@ class TestPipelineContextSources:
 
 class TestLoadSourcesStage:
     def test_unifies_models_and_observations_with_tags(
-        self, model_data: ModelData, obs_data: ObservationData
+        self, model_data: SourceData, obs_data: SourceData
     ) -> None:
-        # No model/obs config blocks -> delegate loaders are skipped; the stage
-        # unifies the already-populated containers into context.sources.
+        # Pre-populated sources (no config) are tagged into the unified view,
+        # picking up role from each SourceData.role.
         ctx = PipelineContext(
-            models={"cam": model_data},
-            observations={"airnow": obs_data},
+            sources={"cam": model_data, "airnow": obs_data},
         )
         result = LoadSourcesStage().execute(ctx)
 
@@ -112,17 +120,18 @@ class TestLoadSourcesStage:
         assert air_attrs["source_label"] == "airnow"
         assert air_attrs["geometry"] == "point"
 
-    def test_legacy_context_dicts_preserved(
-        self, model_data: ModelData, obs_data: ObservationData
+    def test_prepopulated_sources_resolve_via_get_source(
+        self, model_data: SourceData, obs_data: SourceData
     ) -> None:
         ctx = PipelineContext(
-            models={"cam": model_data},
-            observations={"airnow": obs_data},
+            sources={"cam": model_data, "airnow": obs_data},
         )
         LoadSourcesStage().execute(ctx)
-        # Backward-compatible accessors still work unchanged.
-        assert ctx.get_model("cam") is model_data
-        assert ctx.get_observation("airnow") is obs_data
+        # The unified accessor resolves both sources regardless of role.
+        assert ctx.get_source("cam") is model_data
+        assert ctx.get_source("airnow") is obs_data
+        assert ctx.get_source_role("cam") == "model"
+        assert ctx.get_source_role("airnow") == "obs"
 
     def test_unified_observation_source_infers_role_from_reader(self, tmp_path) -> None:
         obs_path = tmp_path / "airnow.nc"
@@ -143,8 +152,7 @@ class TestLoadSourcesStage:
 
         assert result.status is StageStatus.COMPLETED
         assert set(ctx.sources) == {"airnow"}
-        assert set(ctx.observations) == {"airnow"}
-        assert ctx.models == {}
+        assert ctx.get_source_role("airnow") == "obs"
         assert ctx.sources["airnow"].role == "obs"
         assert ctx.sources["airnow"].data.attrs["role"] == "obs"
 

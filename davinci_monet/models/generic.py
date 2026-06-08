@@ -9,21 +9,18 @@ from __future__ import annotations
 import gc
 import os
 import sys
-import warnings
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 import xarray as xr
 
-from davinci_monet.core.exceptions import (
-    DataFormatError,
-    DataNotFoundError,
-    cleanup_netcdf_state,
-    is_transient_error,
-)
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.models.base import ModelData, create_model_data
+from davinci_monet.io.reader_utils import (
+    retry_transient_open,
+    select_variables,
+    validate_file_list,
+)
 
 # Common coordinate name aliases for standardization
 COMMON_COORDINATE_ALIASES: dict[str, list[str]] = {
@@ -145,15 +142,7 @@ class GenericReader:
         xr.Dataset
             Model data with optionally standardized dimensions.
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No files provided")
-
-        # Check files exist
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"Files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="")
 
         # Extract our custom kwargs
         standardize = kwargs.pop("standardize", True)
@@ -166,70 +155,48 @@ class GenericReader:
             if engine:
                 kwargs["engine"] = engine
 
-        # Open files with retry for transient NetCDF errors
-        max_retries = 3
-        last_error: Exception | None = None
+        # Open files with retry for transient NetCDF errors. On terminal
+        # failure, suppress the noisy CachingFileManager.__del__ tracebacks
+        # via _cleanup_with_suppressed_errors (passed as the on_failure hook).
+        def _open() -> xr.Dataset:
+            if len(file_list) > 1:
+                if progress_callback is not None:
+                    # Sequential open so the preprocess counter is ordered.
+                    total = len(file_list)
+                    counter: list[int] = [0]
 
-        for attempt in range(max_retries):
-            try:
-                if len(file_list) > 1:
-                    if progress_callback is not None:
-                        # Sequential open so the preprocess counter is ordered.
-                        total = len(file_list)
-                        counter: list[int] = [0]
+                    def _progress_preprocess(ds: xr.Dataset) -> xr.Dataset:
+                        counter[0] += 1
+                        source = ds.encoding.get("source", "")
+                        name = Path(source).name if source else ""
+                        progress_callback(counter[0], total, name)
+                        return ds
 
-                        def _progress_preprocess(ds: xr.Dataset) -> xr.Dataset:
-                            counter[0] += 1
-                            source = ds.encoding.get("source", "")
-                            name = Path(source).name if source else ""
-                            progress_callback(counter[0], total, name)
-                            return ds
-
-                        ds = xr.open_mfdataset(
-                            [str(f) for f in file_list],
-                            combine=combine,
-                            data_vars="all",
-                            parallel=False,
-                            preprocess=_progress_preprocess,
-                            **kwargs,
-                        )
-                    else:
-                        ds = xr.open_mfdataset(
-                            [str(f) for f in file_list],
-                            combine=combine,
-                            data_vars="all",
-                            parallel=True,
-                            **kwargs,
-                        )
-                else:
-                    ds = xr.open_dataset(str(file_list[0]), **kwargs)
-                break  # Success - exit retry loop
-            except Exception as e:
-                last_error = e
-                if attempt < max_retries - 1 and is_transient_error(e):
-                    # Transient error - clean up and retry
-                    warnings.warn(
-                        f"Transient NetCDF error (attempt {attempt + 1}/{max_retries}), "
-                        f"retrying: {e}",
-                        UserWarning,
+                    return xr.open_mfdataset(
+                        [str(f) for f in file_list],
+                        combine=combine,
+                        data_vars="all",
+                        parallel=False,
+                        preprocess=_progress_preprocess,
+                        **kwargs,
                     )
-                    cleanup_netcdf_state()
-                    continue
-                # Non-transient error or max retries reached
-                _cleanup_with_suppressed_errors()
-                raise DataFormatError(f"Failed to open files: {e}") from e
-        else:
-            # All retries exhausted
-            _cleanup_with_suppressed_errors()
-            raise DataFormatError(
-                f"Failed to open files after {max_retries} attempts: {last_error}"
-            ) from last_error
+                return xr.open_mfdataset(
+                    [str(f) for f in file_list],
+                    combine=combine,
+                    data_vars="all",
+                    parallel=True,
+                    **kwargs,
+                )
+            return xr.open_dataset(str(file_list[0]), **kwargs)
+
+        ds = retry_transient_open(
+            _open,
+            context="Opening files",
+            on_failure=_cleanup_with_suppressed_errors,
+        )
 
         # Select variables if specified
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
+        ds = select_variables(ds, variables)
 
         # Standardize dimensions
         if standardize:
@@ -310,84 +277,3 @@ class GenericReader:
             Empty mapping.
         """
         return {}
-
-
-def open_model(
-    files: str | Path | Sequence[str | Path],
-    mod_type: str | None = None,
-    variables: Sequence[str] | None = None,
-    label: str = "model",
-    **kwargs: Any,
-) -> ModelData:
-    """Universal function to open any model type.
-
-    Automatically selects the appropriate reader based on mod_type,
-    or uses the generic reader if no specific reader matches.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    mod_type
-        Model type ('cmaq', 'wrfchem', 'ufs', 'cesm_fv', 'cesm_se', or None for generic).
-    variables
-        Variables to load.
-    label
-        Model label.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ModelData
-        Model data container.
-
-    Examples
-    --------
-    >>> data = open_model("output/*.nc", mod_type="cmaq", label="CMAQ_run1")
-    >>> data = open_model("wrfout_d01_*", mod_type="wrfchem")
-    >>> data = open_model("generic_output.nc")  # Uses generic reader
-    """
-    from davinci_monet.core.registry import source_registry
-
-    # Handle glob pattern
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            from glob import glob
-
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    # Get appropriate reader
-    if mod_type is not None:
-        mod_type_lower = mod_type.lower()
-        try:
-            reader_cls = source_registry.get(mod_type_lower)
-            reader = reader_cls()
-        except (KeyError, Exception):
-            warnings.warn(
-                f"Unknown model type '{mod_type}', using generic reader.",
-                UserWarning,
-            )
-            reader = GenericReader()
-            mod_type_lower = "generic"
-    else:
-        reader = GenericReader()
-        mod_type_lower = "generic"
-
-    # Open files
-    ds = reader.open(file_paths, variables, **kwargs)
-
-    return create_model_data(
-        label=label,
-        mod_type=mod_type_lower,
-        data=ds,
-        files=file_paths,
-    )

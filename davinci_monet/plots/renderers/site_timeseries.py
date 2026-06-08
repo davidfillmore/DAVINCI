@@ -14,9 +14,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
+    build_series,
     format_label_with_units,
     format_plot_title,
     get_role_color,
@@ -58,58 +60,51 @@ class SiteTimeSeriesPlotter(BasePlotter):
     name: str = "site_timeseries"
     default_figsize: tuple[float, float] = (9, 4)  # Wide for temporal data
 
-    def plot(
+    def render(
         self,
-        paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
-        ncols: int = 3,
-        min_points: int = 20,
-        time_dim: str = "time",
-        site_dim: str = "site",
-        show_stats: bool = True,
-        scale_factor: float = 1.0,
-        obs_style: str = "scatter",
-        model_style: str = "line",
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Generate site-by-site time series panels.
+        """Render site-by-site time series panels from a list of two PlotSeries.
 
         Parameters
         ----------
-        paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+        series
+            Exactly 2 series: one reference (obs) and one comparand (model).
         ax
             Ignored for this plot type (creates own figure).
-        ncols
-            Number of columns in subplot grid.
-        min_points
-            Minimum valid data points required to include a site.
-        time_dim
-            Name of time dimension.
-        site_dim
-            Name of site dimension.
-        show_stats
-            If True, show N, NMB, R statistics on each panel.
-        scale_factor
-            Scale factor for display (e.g., 1e4 for mol/m2 -> 10^-4 mol/m2).
-        obs_style
-            Style for observations: 'scatter' or 'line'.
-        model_style
-            Style for model: 'line' or 'scatter'.
         **kwargs
-            Additional options.
+            Forwarded kwargs; renderer-specific ones:
+            ncols (int, default 3), min_points (int, default 20),
+            time_dim (str, default "time"), site_dim (str, default "site"),
+            show_stats (bool, default True), scale_factor (float, default 1.0),
+            obs_style (str, default "scatter"), model_style (str, default "line").
 
         Returns
         -------
         matplotlib.figure.Figure
             The generated figure.
         """
+        if len(series) != 2:
+            raise NotImplementedError(
+                f"SiteTimeSeriesPlotter.render requires exactly 2 series; got {len(series)}."
+            )
+        ref = next((s for s in series if s.pair_role == "reference"), series[0])
+        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
+        paired_data = ref.dataset
+        obs_var = ref.var_name
+        model_var = comp.var_name
+
+        ncols: int = kwargs.pop("ncols", 3)
+        min_points: int = kwargs.pop("min_points", 20)
+        time_dim: str = kwargs.pop("time_dim", "time")
+        site_dim: str = kwargs.pop("site_dim", "site")
+        show_stats: bool = kwargs.pop("show_stats", True)
+        scale_factor: float = kwargs.pop("scale_factor", 1.0)
+        obs_style: str = kwargs.pop("obs_style", "scatter")
+        model_style: str = kwargs.pop("model_style", "line")
+
         style = self.config.style
 
         # Get sites and filter by data availability
@@ -148,7 +143,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
 
         # Plot each site
         for idx, site in enumerate(valid_sites):
-            ax = axes_flat[idx]
+            panel_ax = axes_flat[idx]
             site_data = paired_data.sel({site_dim: site})
 
             # Get data
@@ -175,7 +170,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
 
             # Plot observations
             if obs_style == "scatter":
-                ax.scatter(
+                panel_ax.scatter(
                     times[valid_obs],
                     obs_vals[valid_obs],
                     s=8,
@@ -185,7 +180,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
                     zorder=3,
                 )
             else:
-                ax.plot(
+                panel_ax.plot(
                     times[valid_obs],
                     obs_vals[valid_obs],
                     "o-",
@@ -199,7 +194,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
 
             # Plot model
             if model_style == "line":
-                ax.plot(
+                panel_ax.plot(
                     times,
                     mod_vals,
                     color=model_color,
@@ -209,7 +204,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
                     zorder=2,
                 )
             else:
-                ax.scatter(
+                panel_ax.scatter(
                     times[valid_both],
                     mod_vals[valid_both],
                     s=8,
@@ -235,11 +230,11 @@ class SiteTimeSeriesPlotter(BasePlotter):
                     stats_text += f"\nR={r:.2f}"
 
                 # Multi-panel font sizes (smaller for dense panels)
-                ax.text(
+                panel_ax.text(
                     0.97,
                     0.97,
                     stats_text,
-                    transform=ax.transAxes,
+                    transform=panel_ax.transAxes,
                     fontsize=self.config.text.annotation_small,
                     verticalalignment="top",
                     horizontalalignment="right",
@@ -250,18 +245,19 @@ class SiteTimeSeriesPlotter(BasePlotter):
             if has_coords:
                 lat = float(paired_data["latitude"].sel({site_dim: site}).values)
                 lon = float(paired_data["longitude"].sel({site_dim: site}).values)
-                ax.set_title(
-                    f"{site} ({lat:.1f}°N, {lon:.1f}°E)", fontsize=self.config.text.annotation_small
+                panel_ax.set_title(
+                    f"{site} ({lat:.1f}°N, {lon:.1f}°E)",
+                    fontsize=self.config.text.annotation_small,
                 )
             else:
-                ax.set_title(str(site), fontsize=self.config.text.annotation_small)
+                panel_ax.set_title(str(site), fontsize=self.config.text.annotation_small)
 
-            ax.set_ylim(bottom=0)
-            ax.grid(True, alpha=0.3)
+            panel_ax.set_ylim(bottom=0)
+            panel_ax.grid(True, alpha=0.3)
 
             # Legend on first panel only
             if idx == 0:
-                ax.legend(loc="upper left", fontsize=self.config.text.legend_small)
+                panel_ax.legend(loc="upper left", fontsize=self.config.text.legend_small)
 
             # Y-axis label on left column - use automatic variable display name (no prefix)
             if idx % ncols == 0:
@@ -276,7 +272,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
                     )
                 else:
                     ylabel = format_label_with_units(ylabel, units)
-                ax.set_ylabel(ylabel, fontsize=self.config.text.legend_small)
+                panel_ax.set_ylabel(ylabel, fontsize=self.config.text.legend_small)
 
         # Set x-axis limits to actual data range (avoid extra ticks beyond data)
         all_times = pd.to_datetime(paired_data[time_dim].values)
@@ -285,10 +281,10 @@ class SiteTimeSeriesPlotter(BasePlotter):
         # Format x-axis on bottom row
         for idx in range(n_sites):
             if idx >= n_sites - ncols:  # Bottom row
-                ax = axes_flat[idx]
-                ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
-                ax.xaxis.set_major_locator(mdates.DayLocator(interval=2))
-                ax.tick_params(axis="x", rotation=45)
+                bottom_ax = axes_flat[idx]
+                bottom_ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+                bottom_ax.xaxis.set_major_locator(mdates.DayLocator(interval=2))
+                bottom_ax.tick_params(axis="x", rotation=45)
 
         # Hide unused subplots
         for idx in range(n_sites, len(axes_flat)):
@@ -302,6 +298,74 @@ class SiteTimeSeriesPlotter(BasePlotter):
 
         plt.tight_layout()
         return fig
+
+    def plot(
+        self,
+        paired_data: xr.Dataset,
+        obs_var: str,
+        model_var: str,
+        ax: matplotlib.axes.Axes | None = None,
+        ncols: int = 3,
+        min_points: int = 20,
+        time_dim: str = "time",
+        site_dim: str = "site",
+        show_stats: bool = True,
+        scale_factor: float = 1.0,
+        obs_style: str = "scatter",
+        model_style: str = "line",
+        **kwargs: Any,
+    ) -> matplotlib.figure.Figure:
+        """Generate site-by-site time series panels.
+
+        Thin wrapper around :meth:`render`. See that method for parameter docs.
+
+        Parameters
+        ----------
+        paired_data
+            Paired dataset with model and observation variables.
+        obs_var
+            Name of observation variable.
+        model_var
+            Name of model variable.
+        ax
+            Ignored for this plot type (creates own figure).
+        ncols
+            Number of columns in subplot grid.
+        min_points
+            Minimum valid data points required to include a site.
+        time_dim
+            Name of time dimension.
+        site_dim
+            Name of site dimension.
+        show_stats
+            If True, show N, NMB, R statistics on each panel.
+        scale_factor
+            Scale factor for display (e.g., 1e4 for mol/m2 -> 10^-4 mol/m2).
+        obs_style
+            Style for observations: 'scatter' or 'line'.
+        model_style
+            Style for model: 'line' or 'scatter'.
+        **kwargs
+            Additional options.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated figure.
+        """
+        return self.render(
+            build_series(paired_data, obs_var, model_var),
+            ax=ax,
+            ncols=ncols,
+            min_points=min_points,
+            time_dim=time_dim,
+            site_dim=site_dim,
+            show_stats=show_stats,
+            scale_factor=scale_factor,
+            obs_style=obs_style,
+            model_style=model_style,
+            **kwargs,
+        )
 
 
 def _superscript(n: int) -> str:

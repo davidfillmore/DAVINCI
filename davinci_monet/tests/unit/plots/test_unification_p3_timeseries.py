@@ -103,8 +103,12 @@ class TestObsTimeseriesAlias:
 class TestUnifiedStageRoutesTimeseriesThroughRender:
     def test_obs_timeseries_spec_renders_single_line(self, tmp_path: Any) -> None:
         from davinci_monet.core.protocols import DataGeometry
-        from davinci_monet.observations.base import ObservationData
-        from davinci_monet.pipeline.stages import PipelineContext, PlottingStage, StageStatus
+        from davinci_monet.pipeline.stages import (
+            PipelineContext,
+            PlottingStage,
+            SourceData,
+            StageStatus,
+        )
 
         rng = np.random.default_rng(0)
         times = np.datetime64("2024-02-01") + np.arange(12) * np.timedelta64(1, "h")
@@ -112,8 +116,12 @@ class TestUnifiedStageRoutesTimeseriesThroughRender:
             {"o3": (("time", "site"), rng.uniform(10, 60, (12, 6)), {"units": "ppb"})},
             coords={"time": times, "site": np.arange(6)},
         )
-        obs = ObservationData(
-            data=ds, label="airnow", obs_type="surface", _geometry=DataGeometry.POINT
+        obs = SourceData(
+            data=ds,
+            label="airnow",
+            source_type="pt_sfc",
+            geometry=DataGeometry.POINT,
+            role="obs",
         )
         ctx = PipelineContext(
             config={
@@ -127,7 +135,7 @@ class TestUnifiedStageRoutesTimeseriesThroughRender:
                     }
                 },
             },
-            observations={"airnow": obs},
+            sources={"airnow": obs},
         )
         res = PlottingStage().execute(ctx)
         assert res.status == StageStatus.COMPLETED

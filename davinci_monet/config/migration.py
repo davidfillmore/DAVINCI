@@ -365,6 +365,25 @@ LEGACY_SATELLITE_SOURCE_TYPES = {
     "sat_grid_clm": "satellite_l3",
 }
 
+# Legacy geometry-only obs_type aliases -> their registered generic reader type.
+# These mirror the legacy obs_type->geometry mapping: the old loader stage opened
+# a plain NetCDF and set geometry from the obs_type string. The unified path loads
+# through a registered reader, so map each alias to the generic reader of the same
+# geometry (registered in observations/base.py). Names that are themselves
+# registered reader types (e.g. ``aircraft``, ``profile``, ``gridded``,
+# ``pt_sfc``, ``ozonesonde``) pass through unchanged.
+LEGACY_GEOMETRY_SOURCE_TYPES = {
+    "surface": "pt_sfc",
+    "ground": "pt_sfc",
+    "point": "pt_sfc",
+    "mobile": "aircraft",
+    "ship": "aircraft",
+    "track": "aircraft",
+    "sonde": "profile",
+    "grid": "gridded",
+    "reanalysis": "gridded",
+}
+
 
 def _migrated_obs_source_type(label: str, entry: dict[str, Any]) -> Any:
     """Return the unified source type for a legacy observation entry."""
@@ -376,7 +395,10 @@ def _migrated_obs_source_type(label: str, entry: dict[str, Any]) -> Any:
             "MODIS L2 gridding migration is unsupported and requires manual conversion."
         )
     if isinstance(obs_type, str):
-        return LEGACY_SATELLITE_SOURCE_TYPES.get(obs_type.lower(), obs_type)
+        key = obs_type.lower()
+        if key in LEGACY_SATELLITE_SOURCE_TYPES:
+            return LEGACY_SATELLITE_SOURCE_TYPES[key]
+        return LEGACY_GEOMETRY_SOURCE_TYPES.get(key, obs_type)
     return obs_type
 
 
@@ -431,8 +453,24 @@ def migrate_to_sources(config: dict[str, Any]) -> dict[str, Any]:
     pairs = cfg.get("pairs")
     if isinstance(pairs, dict):
         migrated_pairs: dict[str, Any] = {}
+        # Keys this function derives from the legacy model/obs/variable fields.
+        # They must NOT be overwritten by schema-default values when copying
+        # through "other" pair keys (a model_dump()'d legacy pair carries empty
+        # ``sources: []`` / ``reference: None`` / ``variables: {}`` defaults
+        # alongside the legacy keys).
+        _derived = ("sources", "reference", "variables")
         for pname, p in pairs.items():
-            if not isinstance(p, dict) or "model" not in p or "obs" not in p:
+            if not isinstance(p, dict):
+                migrated_pairs[pname] = p
+                continue
+            # Already unified: a truthy ``sources`` means this pair is in the new
+            # form; pass it through (dropping any empty legacy-key defaults).
+            if p.get("sources"):
+                migrated_pairs[pname] = {
+                    k: v for k, v in p.items() if k not in ("model", "obs", "variable")
+                }
+                continue
+            if not p.get("model") or not p.get("obs"):
                 migrated_pairs[pname] = p
                 continue
             model_label = p["model"]
@@ -450,7 +488,7 @@ def migrate_to_sources(config: dict[str, Any]) -> dict[str, Any]:
             if vmap:
                 new_pair["variables"] = vmap
             for k, v in p.items():
-                if k not in ("model", "obs", "variable"):
+                if k not in ("model", "obs", "variable") and k not in _derived:
                     new_pair[k] = v
             migrated_pairs[pname] = new_pair
         cfg["pairs"] = migrated_pairs
@@ -467,100 +505,6 @@ class LegacyConfigWarning(DeprecationWarning):
     escalated by strict warning filters. Run ``davinci-monet migrate-config`` to
     convert a control file.
     """
-
-
-#: Reader ``type`` ids that produce gridded model data (used to infer the
-#: model/obs side of a source when no explicit ``role`` is given).
-MODEL_SOURCE_TYPES = frozenset(
-    {"cmaq", "wrfchem", "ufs", "rrfs", "cesm_fv", "cesm_se", "generic", "raqms"}
-)
-
-
-def expand_sources_to_legacy(config: dict[str, Any]) -> dict[str, Any]:
-    """Expand a unified ``sources:`` config back to the legacy ``model:``/``obs:``
-    form so it can run through the existing load/pair path (Phase 6, CFG-3).
-
-    This is the inverse of :func:`migrate_to_sources`. Each source is routed to
-    the model or obs block by its ``role`` (``model``/``obs``); when ``role`` is
-    absent, the side is inferred from ``type`` (see :data:`MODEL_SOURCE_TYPES`,
-    defaulting to obs). Binary ``pairs`` (``sources``/``reference``/``variables``)
-    are rewritten to the legacy ``model``/``obs``/``variable`` form. Configs with
-    no ``sources`` block are returned unchanged.
-
-    Parameters
-    ----------
-    config
-        Configuration dictionary, possibly using the unified ``sources:`` form.
-
-    Returns
-    -------
-    dict
-        Configuration in the legacy ``model:``/``obs:`` form.
-    """
-    cfg = copy.deepcopy(config)
-    sources = cfg.pop("sources", None)
-    if not sources:
-        return cfg
-
-    model: dict[str, Any] = dict(cfg.get("model") or {})
-    obs: dict[str, Any] = dict(cfg.get("obs") or {})
-    side: dict[str, str] = {}
-
-    for label, raw in sources.items():
-        entry = dict(raw) if isinstance(raw, dict) else {}
-        role = entry.pop("role", None)
-        stype = entry.pop("type", None)
-        is_model = role == "model" or (role is None and stype in MODEL_SOURCE_TYPES)
-        if is_model:
-            if stype is not None:
-                entry["mod_type"] = stype
-            model[label] = entry
-            side[label] = "model"
-        else:
-            if stype is not None:
-                entry["obs_type"] = stype
-            obs[label] = entry
-            side[label] = "obs"
-
-    if model:
-        cfg["model"] = model
-    if obs:
-        cfg["obs"] = obs
-
-    pairs = cfg.get("pairs")
-    if isinstance(pairs, dict):
-        legacy_pairs: dict[str, Any] = {}
-        for pname, p in pairs.items():
-            srcs = p.get("sources") if isinstance(p, dict) else None
-            if isinstance(srcs, list) and len(srcs) == 2:
-                a, b = srcs
-                if side.get(a) == "model" and side.get(b) == "obs":
-                    model_label, obs_label = a, b
-                elif side.get(b) == "model" and side.get(a) == "obs":
-                    model_label, obs_label = b, a
-                else:
-                    # Fall back to the explicit reference as the obs side.
-                    ref = p.get("reference")
-                    obs_label = ref if ref in (a, b) else b
-                    model_label = a if obs_label == b else b
-                vmap = p.get("variables") or {}
-                legacy_pair: dict[str, Any] = {
-                    "model": model_label,
-                    "obs": obs_label,
-                    "variable": {
-                        "model_var": vmap.get(model_label),
-                        "obs_var": vmap.get(obs_label),
-                    },
-                }
-                for k, v in p.items():
-                    if k not in ("sources", "reference", "variables"):
-                        legacy_pair[k] = v
-                legacy_pairs[pname] = legacy_pair
-            else:
-                legacy_pairs[pname] = p
-        cfg["pairs"] = legacy_pairs
-
-    return cfg
 
 
 # Singleton instance for convenient access

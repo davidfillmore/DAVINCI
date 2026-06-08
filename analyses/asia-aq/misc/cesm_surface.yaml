@@ -8,15 +8,16 @@ analysis:
   output_dir: ../output/cesm_surface
   debug: false
 
-model:
+sources:
   cesm_asiaq:
-    mod_type: cesm_fv
+    role: model
+    type: cesm_fv
     files: ~/Data/ASIA-AQ/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.*.nc
     # Model output is hourly, 0.1 deg resolution
     radius_of_influence: 15000  # 15 km for 0.1 deg grid
     # Variable mapping from obs standard names to CESM variable names
     mapping:
-      openaq:
+      openaq_asia:
         o3: O3
         no2: NO2
         co: CO
@@ -52,9 +53,9 @@ model:
 
 # Observation data - placeholder for when data is acquired
 # Options: OpenAQ (surface), ICARTT (aircraft), TROPOMI (satellite)
-obs:
   openaq_asia:
-    obs_type: openaq
+    role: obs
+    type: openaq
     # Will need to download OpenAQ data for ASIA-AQ domain
     filename: ../data/openaq_asiaq_202402.nc
     variables:
@@ -70,6 +71,36 @@ obs:
       pm25:
         obs_min: 0
         obs_max: 500
+
+# One binary pair per variable. The plots below reference the O3 pair.
+pairs:
+  cesm_asiaq_openaq_asia:
+    sources: [cesm_asiaq, openaq_asia]
+    reference: openaq_asia
+    variables:
+      cesm_asiaq: O3
+      openaq_asia: o3
+
+  cesm_asiaq_openaq_asia_no2:
+    sources: [cesm_asiaq, openaq_asia]
+    reference: openaq_asia
+    variables:
+      cesm_asiaq: NO2
+      openaq_asia: no2
+
+  cesm_asiaq_openaq_asia_co:
+    sources: [cesm_asiaq, openaq_asia]
+    reference: openaq_asia
+    variables:
+      cesm_asiaq: CO
+      openaq_asia: co
+
+  cesm_asiaq_openaq_asia_pm25:
+    sources: [cesm_asiaq, openaq_asia]
+    reference: openaq_asia
+    variables:
+      cesm_asiaq: PM25
+      openaq_asia: pm25
 
 # Plotting configuration
 plots:

@@ -16,117 +16,15 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 import xarray as xr
 
-from davinci_monet.core.exceptions import (
-    DataFormatError,
-    DataNotFoundError,
-    cleanup_netcdf_state,
-    is_transient_error,
-    write_error_log,
-)
+from davinci_monet.core.exceptions import DataFormatError, write_error_log
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.models.base import ModelData, create_model_data
-
-# Physical constants for column integration
-_P0_DEFAULT = 100000.0  # Pa, reference pressure for CESM hybrid coords
-_G = 9.80665  # m/s^2, gravitational acceleration
-_M_AIR = 0.0289644  # kg/mol, molar mass of dry air
-
-
-def compute_tropospheric_column(
-    ds: xr.Dataset,
-    var_name: str,
-    ps_name: str = "PS",
-    hyai_name: str = "hyai",
-    hybi_name: str = "hybi",
-    p0: float | None = None,
-    z_dim: str = "z",
-) -> xr.DataArray:
-    """Compute tropospheric column from mixing ratio on hybrid coordinates.
-
-    Integrates a tracer mixing ratio vertically using CESM hybrid sigma-pressure
-    coordinates to produce a total column in mol/m².
-
-    Parameters
-    ----------
-    ds
-        Dataset containing the tracer, surface pressure, and hybrid coefficients.
-    var_name
-        Name of the tracer variable (mixing ratio in mol/mol).
-    ps_name
-        Name of surface pressure variable (Pa).
-    hyai_name
-        Name of hybrid A coefficient at interfaces.
-    hybi_name
-        Name of hybrid B coefficient at interfaces.
-    p0
-        Reference pressure (Pa). If None, uses 100000 Pa or P0 from dataset.
-    z_dim
-        Name of the vertical dimension.
-
-    Returns
-    -------
-    xr.DataArray
-        Tropospheric column with dimensions (time, lat, lon) in mol/m².
-
-    Notes
-    -----
-    The column is computed as:
-        Column = Σ (χ * ΔP / g / M_air)
-    where χ is mixing ratio (mol/mol), ΔP is layer pressure thickness (Pa),
-    g is gravitational acceleration, and M_air is molar mass of air.
-    """
-    # Get reference pressure
-    if p0 is None:
-        if "P0" in ds:
-            p0 = float(ds["P0"].values)
-        else:
-            p0 = _P0_DEFAULT
-
-    # Get required variables
-    tracer = ds[var_name]
-    ps = ds[ps_name]
-    hyai = ds[hyai_name]
-    hybi = ds[hybi_name]
-
-    # Determine dimension names
-    # Handle both 'z' and 'lev' naming
-    if z_dim not in tracer.dims:
-        if "lev" in tracer.dims:
-            z_dim = "lev"
-        else:
-            raise ValueError(f"Could not find vertical dimension in {tracer.dims}")
-
-    z_int_dim = f"{z_dim}_interface" if f"{z_dim}_interface" in ds.dims else "ilev"
-
-    # Compute pressure at interfaces: P = hyai * P0 + hybi * PS
-    # hyai and hybi have shape (n_interfaces,), PS has shape (time, lat, lon)
-    # Result should be (n_interfaces, time, lat, lon)
-    p_int = hyai * p0 + hybi * ps
-
-    # Compute layer pressure thickness: ΔP = P(k+1) - P(k)
-    # diff along the interface dimension gives layer thicknesses
-    dp = p_int.diff(dim=z_int_dim if z_int_dim in p_int.dims else hyai.dims[0])
-
-    # Rename the resulting dimension to match tracer's z dimension
-    if dp.dims[0] != z_dim:
-        dp = dp.rename({dp.dims[0]: z_dim})
-
-    # Compute air column per layer [mol/m²]: dn = ΔP / g / M_air
-    dn_air = dp / _G / _M_AIR
-
-    # Compute tracer column [mol/m²]: sum(tracer * dn_air) over vertical
-    column = (tracer * dn_air).sum(dim=z_dim)
-
-    # Add attributes
-    column.attrs = {
-        "long_name": f"{var_name} tropospheric column",
-        "units": "mol/m2",
-        "derived_from": var_name,
-    }
-
-    return column
-
+from davinci_monet.io.reader_utils import (
+    retry_transient_open,
+    select_variables,
+    standardize_dims,
+    validate_file_list,
+)
 
 # Standard variable name mappings for CESM/CAM-chem
 CESM_VARIABLE_MAPPING: dict[str, str] = {
@@ -205,14 +103,7 @@ class CESMFVReader:
         xr.Dataset
             CESM data with standardized dimensions (time, z, lat, lon).
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No CESM files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"CESM files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="CESM")
 
         # Try monetio first
         try:
@@ -256,65 +147,26 @@ class CESMFVReader:
         **kwargs: Any,
     ) -> xr.Dataset:
         """Open CESM-FV files using xarray."""
-        max_retries = 3
-        last_error: Exception | None = None
 
-        for attempt in range(max_retries):
-            try:
-                if len(file_paths) > 1:
-                    ds = xr.open_mfdataset(
-                        [str(f) for f in file_paths],
-                        combine="by_coords",
-                        parallel=True,
-                        **kwargs,
-                    )
-                else:
-                    ds = xr.open_dataset(str(file_paths[0]), **kwargs)
+        def _open() -> xr.Dataset:
+            if len(file_paths) > 1:
+                ds = xr.open_mfdataset(
+                    [str(f) for f in file_paths],
+                    combine="by_coords",
+                    parallel=True,
+                    **kwargs,
+                )
+            else:
+                ds = xr.open_dataset(str(file_paths[0]), **kwargs)
 
-                if variables is not None:
-                    available = [v for v in variables if v in ds.data_vars]
-                    if available:
-                        ds = ds[available]
+            return select_variables(ds, variables)
 
-                return ds
-
-            except Exception as e:
-                last_error = e
-                if attempt < max_retries - 1 and is_transient_error(e):
-                    # Transient error - clean up and retry
-                    warnings.warn(
-                        f"Transient NetCDF error (attempt {attempt + 1}/{max_retries}), "
-                        f"retrying: {e}",
-                        UserWarning,
-                    )
-                    cleanup_netcdf_state()
-                    continue
-                # Non-transient error or max retries reached
-                error_file = write_error_log(e, "Opening CESM-FV files")
-                msg = f"Failed to open CESM-FV files: {e}"
-                if error_file:
-                    msg += f" (details: {error_file})"
-                raise DataFormatError(msg) from e
-
-        # Should not reach here, but just in case
-        raise DataFormatError(
-            f"Failed to open CESM-FV files after {max_retries} attempts"
-        ) from last_error
+        return retry_transient_open(_open, context="Opening CESM-FV files")
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize CESM-FV dataset dimensions."""
-        dim_renames: dict[str, str] = {}
-
         # CESM standard dimension names
-        if "lev" in ds.dims:
-            dim_renames["lev"] = "z"
-        if "ilev" in ds.dims:
-            dim_renames["ilev"] = "z_interface"
-
-        if dim_renames:
-            ds = ds.rename(dim_renames)
-
-        return ds
+        return standardize_dims(ds, {"lev": "z", "ilev": "z_interface"})
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return CESM variable name mapping."""
@@ -371,14 +223,7 @@ class CESMSEReader:
         xr.Dataset
             CESM data with unstructured grid dimensions.
         """
-        file_list = [Path(f) for f in file_paths]
-
-        if not file_list:
-            raise DataNotFoundError("No CESM files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"CESM files not found: {missing}")
+        file_list = validate_file_list(file_paths, source_label="CESM")
 
         # Try monetio first
         try:
@@ -430,141 +275,45 @@ class CESMSEReader:
         # Remove our custom kwargs
         xr_kwargs = {k: v for k, v in kwargs.items() if k != "scrip_file"}
 
-        max_retries = 3
-        last_error: Exception | None = None
+        def _open() -> xr.Dataset:
+            if len(file_paths) > 1:
+                ds = xr.open_mfdataset(
+                    [str(f) for f in file_paths],
+                    combine="by_coords",
+                    parallel=True,
+                    **xr_kwargs,
+                )
+            else:
+                ds = xr.open_dataset(str(file_paths[0]), **xr_kwargs)
 
-        for attempt in range(max_retries):
-            try:
-                if len(file_paths) > 1:
-                    ds = xr.open_mfdataset(
-                        [str(f) for f in file_paths],
-                        combine="by_coords",
-                        parallel=True,
-                        **xr_kwargs,
-                    )
-                else:
-                    ds = xr.open_dataset(str(file_paths[0]), **xr_kwargs)
+            # If SCRIP file provided, add coordinates
+            if "scrip_file" in kwargs:
+                scrip_path = kwargs["scrip_file"]
+                if Path(scrip_path).exists():
+                    try:
+                        scrip = xr.open_dataset(scrip_path)
+                    except Exception as e:
+                        error_file = write_error_log(e, f"Opening SCRIP file '{scrip_path}'")
+                        msg = f"Failed to open SCRIP file '{scrip_path}': {e}"
+                        if error_file:
+                            msg += f" (details: {error_file})"
+                        raise DataFormatError(msg) from e
+                    if "grid_center_lat" in scrip:
+                        ds = ds.assign_coords(lat=("ncol", scrip["grid_center_lat"].values))
+                    if "grid_center_lon" in scrip:
+                        ds = ds.assign_coords(lon=("ncol", scrip["grid_center_lon"].values))
 
-                # If SCRIP file provided, add coordinates
-                if "scrip_file" in kwargs:
-                    scrip_path = kwargs["scrip_file"]
-                    if Path(scrip_path).exists():
-                        try:
-                            scrip = xr.open_dataset(scrip_path)
-                        except Exception as e:
-                            error_file = write_error_log(e, f"Opening SCRIP file '{scrip_path}'")
-                            msg = f"Failed to open SCRIP file '{scrip_path}': {e}"
-                            if error_file:
-                                msg += f" (details: {error_file})"
-                            raise DataFormatError(msg) from e
-                        if "grid_center_lat" in scrip:
-                            ds = ds.assign_coords(lat=("ncol", scrip["grid_center_lat"].values))
-                        if "grid_center_lon" in scrip:
-                            ds = ds.assign_coords(lon=("ncol", scrip["grid_center_lon"].values))
+            return select_variables(ds, variables)
 
-                if variables is not None:
-                    available = [v for v in variables if v in ds.data_vars]
-                    if available:
-                        ds = ds[available]
-
-                return ds
-
-            except DataFormatError:
-                # Re-raise DataFormatError (from SCRIP file) without retry
-                raise
-            except Exception as e:
-                last_error = e
-                if attempt < max_retries - 1 and is_transient_error(e):
-                    warnings.warn(
-                        f"Transient NetCDF error (attempt {attempt + 1}/{max_retries}), "
-                        f"retrying: {e}",
-                        UserWarning,
-                    )
-                    cleanup_netcdf_state()
-                    continue
-                error_file = write_error_log(e, "Opening CESM-SE files")
-                msg = f"Failed to open CESM-SE files: {e}"
-                if error_file:
-                    msg += f" (details: {error_file})"
-                raise DataFormatError(msg) from e
-
-        raise DataFormatError(
-            f"Failed to open CESM-SE files after {max_retries} attempts"
-        ) from last_error
+        # A DataFormatError from a bad SCRIP file must propagate without retry.
+        return retry_transient_open(
+            _open, context="Opening CESM-SE files", reraise=(DataFormatError,)
+        )
 
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize CESM-SE dataset dimensions."""
-        dim_renames: dict[str, str] = {}
-
-        if "lev" in ds.dims:
-            dim_renames["lev"] = "z"
-        if "ilev" in ds.dims:
-            dim_renames["ilev"] = "z_interface"
-
-        if dim_renames:
-            ds = ds.rename(dim_renames)
-
-        return ds
+        return standardize_dims(ds, {"lev": "z", "ilev": "z_interface"})
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return CESM variable name mapping."""
         return CESM_VARIABLE_MAPPING
-
-
-def open_cesm(
-    files: str | Path | Sequence[str | Path],
-    variables: Sequence[str] | None = None,
-    label: str = "cesm",
-    grid_type: str = "fv",
-    **kwargs: Any,
-) -> ModelData:
-    """Convenience function to open CESM model data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Model label.
-    grid_type
-        Grid type: 'fv' for finite volume, 'se' for spectral element.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ModelData
-        CESM model data container.
-    """
-    if grid_type.lower() == "se":
-        reader: CESMFVReader | CESMSEReader = CESMSEReader()
-        mod_type = "cesm_se"
-    else:
-        reader = CESMFVReader()
-        mod_type = "cesm_fv"
-
-    # Handle glob pattern
-    if isinstance(files, (str, Path)):
-        file_str = str(files)
-        if "*" in file_str or "?" in file_str:
-            from glob import glob
-
-            file_list = sorted(glob(file_str))
-            if not file_list:
-                raise DataNotFoundError(f"No files match pattern: {files}")
-            file_paths: Sequence[str | Path] = file_list
-        else:
-            file_paths = [files]
-    else:
-        file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, **kwargs)
-
-    return create_model_data(
-        label=label,
-        mod_type=mod_type,
-        data=ds,
-        files=file_paths,
-    )

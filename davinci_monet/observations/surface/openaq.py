@@ -18,7 +18,12 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataFormatError, DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.base import ObservationData, create_observation_data
+from davinci_monet.io.reader_utils import (
+    retry_transient_open,
+    select_variables,
+    set_geometry_attr,
+    validate_file_list,
+)
 
 # Standard variable name mappings for OpenAQ
 OPENAQ_VARIABLE_MAPPING: dict[str, str] = {
@@ -114,16 +119,9 @@ class OpenAQReader:
         **kwargs: Any,
     ) -> xr.Dataset:
         """Open OpenAQ data from files."""
-        file_list = [Path(f) for f in file_paths]
+        file_list = validate_file_list(file_paths, source_label="OpenAQ")
 
-        if not file_list:
-            raise DataNotFoundError("No OpenAQ files provided")
-
-        missing = [f for f in file_list if not f.exists()]
-        if missing:
-            raise DataNotFoundError(f"OpenAQ files not found: {missing}")
-
-        try:
+        def _open() -> xr.Dataset:
             if len(file_list) > 1:
                 ds = xr.open_mfdataset(
                     [str(f) for f in file_list],
@@ -133,13 +131,9 @@ class OpenAQReader:
                 )
             else:
                 ds = xr.open_dataset(str(file_list[0]), **kwargs)
-        except Exception as e:
-            raise DataFormatError(f"Failed to open OpenAQ files: {e}") from e
+            return select_variables(ds, variables)
 
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
+        ds = retry_transient_open(_open, context="Opening OpenAQ files")
 
         return self._standardize_dataset(ds)
 
@@ -201,11 +195,7 @@ class OpenAQReader:
             raise DataNotFoundError(f"No OpenAQ data found for {start_date} to {end_date}")
 
         ds: xr.Dataset = self._dataframe_to_dataset(df)
-
-        if variables is not None:
-            available = [v for v in variables if v in ds.data_vars]
-            if available:
-                ds = ds[available]
+        ds = select_variables(ds, variables)
 
         return self._standardize_dataset(ds)
 
@@ -234,68 +224,8 @@ class OpenAQReader:
         if coord_renames:
             ds = ds.rename(coord_renames)
 
-        ds.attrs["geometry"] = DataGeometry.POINT.value
-
-        return ds
+        return set_geometry_attr(ds, DataGeometry.POINT)
 
     def get_variable_mapping(self) -> Mapping[str, str]:
         """Return OpenAQ variable name mapping."""
         return OPENAQ_VARIABLE_MAPPING
-
-
-def open_openaq(
-    files: str | Path | Sequence[str | Path] | None = None,
-    variables: Sequence[str] | None = None,
-    label: str = "openaq",
-    dates: Sequence[datetime | str] | None = None,
-    country: str | None = None,
-    **kwargs: Any,
-) -> ObservationData:
-    """Convenience function to open OpenAQ observation data.
-
-    Parameters
-    ----------
-    files
-        File path(s) or glob pattern.
-    variables
-        Variables to load.
-    label
-        Observation label.
-    dates
-        Date range for API query [start, end].
-    country
-        Country code filter.
-    **kwargs
-        Additional reader options.
-
-    Returns
-    -------
-    ObservationData
-        OpenAQ observation data container.
-    """
-    from glob import glob
-
-    reader = OpenAQReader()
-
-    file_paths: Sequence[str | Path] | None = None
-    if files is not None:
-        if isinstance(files, (str, Path)):
-            file_str = str(files)
-            if "*" in file_str or "?" in file_str:
-                file_list = sorted(glob(file_str))
-                if not file_list:
-                    raise DataNotFoundError(f"No files match pattern: {files}")
-                file_paths = file_list
-            else:
-                file_paths = [files]
-        else:
-            file_paths = list(files)
-
-    ds = reader.open(file_paths, variables, dates=dates, country=country, **kwargs)
-
-    return create_observation_data(
-        label=label,
-        obs_type="pt_sfc",
-        data=ds,
-        variables=dict.fromkeys(variables) if variables else {},
-    )
