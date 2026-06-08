@@ -348,9 +348,16 @@ def run(
 ) -> None:
     """Run DAVINCI analysis as described in the control file."""
     from davinci_monet.cli.commands.run import run_analysis
+    from davinci_monet.logging import configure_logging
 
     global DEBUG
     DEBUG = debug
+
+    # Configure structured logging for CLI runs. propagate=True keeps the
+    # davinci_monet hierarchy connected to the root logger (needed by pytest
+    # caplog in any test that invokes this path).
+    log_level = "DEBUG" if debug else "INFO"
+    configure_logging(level=log_level, propagate=True)
 
     run_analysis(control, debug=debug, show_plots=show_plots, preview_format=preview_format)
 

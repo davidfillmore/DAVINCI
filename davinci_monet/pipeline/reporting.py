@@ -47,8 +47,6 @@ class LogCollector:
         self._item_start_times: dict[str, float] = {}
         # Additional data extracted from context
         self.source_details: dict[str, dict[str, Any]] = {}
-        self.model_details: dict[str, dict[str, Any]] = {}
-        self.obs_details: dict[str, dict[str, Any]] = {}
         self.pair_details: dict[str, dict[str, Any]] = {}
         self.statistics: dict[str, dict[str, Any]] = {}
         # Error tracking
@@ -235,42 +233,6 @@ class LogCollector:
             role = _source_role(source_data)
             self.source_details[label] = _source_detail(label, source_data, role=role)
 
-        # Legacy role-split detail maps, populated from the unified source view.
-        # These only feed the fallback markdown tables rendered when
-        # ``source_details`` is empty; they are kept in sync here so that
-        # fallback path stays correct.
-        for label, source_data in context.sources.items():
-            role = _source_role(source_data)
-            if role == "model":
-                details: dict[str, Any] = {}
-                if hasattr(source_data, "data") and source_data.data is not None:
-                    ds = source_data.data
-                    details["variables"] = len(ds.data_vars)
-                    if "time" in ds.sizes:
-                        details["time_steps"] = ds.sizes["time"]
-                    # Calculate approximate size
-                    total_size = sum(ds[v].size for v in ds.data_vars)
-                    details["data_points"] = total_size
-                self.model_details[label] = details
-            elif role == "obs":
-                obs_details: dict[str, Any] = {}
-                if hasattr(source_data, "data") and source_data.data is not None:
-                    ds = source_data.data
-                    obs_details["variables"] = len(ds.data_vars)
-                    if "time" in ds.sizes:
-                        obs_details["time_steps"] = ds.sizes["time"]
-                    elif "obs_time" in ds.sizes:
-                        obs_details["time_steps"] = ds.sizes["obs_time"]
-                    # Get observation type
-                    if hasattr(source_data, "obs_type"):
-                        obs_details["type"] = source_data.obs_type
-                    # Count sites/points
-                    if "site" in ds.sizes:
-                        obs_details["sites"] = ds.sizes["site"]
-                    elif "x" in ds.sizes:
-                        obs_details["points"] = ds.sizes["x"]
-                self.obs_details[label] = obs_details
-
         # Extract pair details
         for pair_key, paired_data in context.paired.items():
             details = {}
@@ -363,49 +325,6 @@ class LogCollector:
                 data_str = self._format_number(data_points) if data_points else "-"
                 lines.append(
                     f"| {name} | {role} | {source_type} | {vars_count} | {records} | {data_str} |"
-                )
-            lines.append("")
-
-        # Legacy model/observation tables with details
-        models = [e for e in self.entries if e.category == "model"]
-        if models and not self.source_details:
-            lines.append("## Models Loaded")
-            lines.append("")
-            lines.append("| Model | Variables | Time Steps | Data Points | Duration |")
-            lines.append("|-------|-----------|------------|-------------|----------|")
-            for entry in models:
-                details = self.model_details.get(entry.name, {})
-                vars_count = details.get("variables", "-")
-                time_steps = details.get("time_steps", "-")
-                data_points = details.get("data_points")
-                data_str = self._format_number(data_points) if data_points else "-"
-                lines.append(
-                    f"| {entry.name} | {vars_count} | {time_steps} | {data_str} | {entry.duration:.1f}s |"
-                )
-            lines.append("")
-
-        # Observations table with details
-        observations = [e for e in self.entries if e.category == "observation"]
-        if observations and not self.source_details:
-            lines.append("## Observations Loaded")
-            lines.append("")
-            lines.append("| Observation | Type | Variables | Records | Duration |")
-            lines.append("|-------------|------|-----------|---------|----------|")
-            for entry in observations:
-                details = self.obs_details.get(entry.name, {})
-                obs_type = details.get("type", "-")
-                vars_count = details.get("variables", "-")
-                # Get record count (sites, points, or time steps)
-                records = (
-                    details.get("sites")
-                    or details.get("points")
-                    or details.get("time_steps")
-                    or "-"
-                )
-                if isinstance(records, int):
-                    records = self._format_number(records)
-                lines.append(
-                    f"| {entry.name} | {obs_type} | {vars_count} | {records} | {entry.duration:.1f}s |"
                 )
             lines.append("")
 
