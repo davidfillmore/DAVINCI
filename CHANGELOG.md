@@ -1,5 +1,59 @@
 # Changelog
 
+## 26.06 (2026-06-08)
+
+**Breaking release.** Completes the model/obs → unified data-source migration and
+removes the legacy `model:`/`obs:` config and runtime. Convert existing control files
+with `davinci-monet migrate-config <old.yaml> -o <new.yaml>`.
+
+### Breaking changes
+
+- Legacy `model:`/`obs:` configuration is no longer accepted: a config containing a
+  non-empty `model:`/`obs:` block now raises `ConfigurationError` pointing to
+  `migrate-config`. Use the unified `sources:`/`pairs:` schema.
+- Removed legacy Python APIs: `ModelConfig`/`ObservationConfig`; the
+  `ModelData`/`ObservationData` containers (+ `create_model_data`/`create_observation_data`
+  and the `open_*` convenience functions — reader classes return `xr.Dataset` directly);
+  `LoadModelsStage`/`LoadObservationsStage`; `PairingEngine.pair()` (use `pair_sources`);
+  the `ModelReader`/`ObservationReader` protocols; the `model_registry`/`observation_registry`
+  aliases (use `source_registry`); `expand_sources_to_legacy`; `PipelineContext.models`/
+  `observations` + `get_model`/`get_observation`; and the `PairedData`
+  `get_obs`/`get_model`/`model_variables`/`obs_variables` aliases (use the
+  reference/comparand accessors).
+
+### Fixed
+
+- The production `SwathGridStrategy` is now the engine's SWATH handler — swath L2 paired
+  via `sources:` was silently using a non-production per-pixel strategy; also fixed a
+  per-scanline time-broadcast crash.
+- The unified `sources:` loader now applies `resample`/`min_obs_count`/`track_obs_count`
+  (previously silently dropped on the unified path).
+- Consistent `geometry` attribute encoding across observation readers (several wrote an
+  integer the consumers silently ignored).
+- Stats metric failures are logged rather than silently coerced to NaN;
+  `PipelineResult.stage_errors` surfaces per-stage errors; HDF5 file locking is disabled
+  by default to pre-empt the documented thread-safety segfaults.
+
+### Changed
+
+- One `render(series)` contract for all 18 plot renderers; the pipeline routes both
+  paired and single-source plotting through it.
+- Pairing runs through a single `pair_sources` path with an HDF5-safe bounded cross-pair
+  executor (eager pairs run bounded-parallel; dask-backed pairs serial by default; tune
+  via `pairing.max_pair_workers` / `pairing.dask_pair_workers`).
+- Shared reader plumbing (`io/reader_utils.py`) deduplicates the model and observation
+  readers.
+- Large modules split for maintainability: `stages.py` → `pipeline/stages/` package;
+  `runner.py` → `runner.py` + `display.py` + `reporting.py`; `plots/base.py` →
+  `base.py` + `plot_config.py` + `labels.py` + `series.py`.
+- The structured `logging/` subsystem is now activated at the CLI entry; dead `io/`
+  helpers and stale compiled-bytecode directories removed.
+
+### Quality
+
+- 1262 tests passing; mypy clean (225 source files); black/isort clean. CI typecheck now
+  installs the package and runs the test suite on a 3.11/3.12 matrix.
+
 ## 26.03 (2026-03-23)
 
 Initial public release for JOSS submission. Calendar versioned (YY.MM).

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "davinci-monet"
-version = "26.03"
+version = "26.06"
 description = "Data Analysis and Visual Intelligence for Climate - A modern refactor of MELODIES-MONET"
 readme = "README.md"
 license = {text = "Apache-2.0"}
