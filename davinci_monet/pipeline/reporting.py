@@ -223,47 +223,53 @@ class LogCollector:
                 details["data_points"] = total_size
             return details
 
-        if context.sources:
-            for label, source_data in context.sources.items():
-                self.source_details[label] = _source_detail(label, source_data)
-        else:
-            for label, model_data in context.models.items():
-                self.source_details[label] = _source_detail(label, model_data, role="model")
-            for label, obs_data in context.observations.items():
-                self.source_details[label] = _source_detail(label, obs_data, role="obs")
+        def _source_role(source_data: Any) -> str | None:
+            role = getattr(source_data, "role", None)
+            if role is None:
+                ds = source_data.data if hasattr(source_data, "data") else source_data
+                if hasattr(ds, "attrs"):
+                    role = ds.attrs.get("role")
+            return str(role) if role else None
 
-        # Extract model details
-        for label, model_data in context.models.items():
-            details: dict[str, Any] = {}
-            if hasattr(model_data, "data") and model_data.data is not None:
-                ds = model_data.data
-                details["variables"] = len(ds.data_vars)
-                if "time" in ds.sizes:
-                    details["time_steps"] = ds.sizes["time"]
-                # Calculate approximate size
-                total_size = sum(ds[v].size for v in ds.data_vars)
-                details["data_points"] = total_size
-            self.model_details[label] = details
+        for label, source_data in context.sources.items():
+            role = _source_role(source_data)
+            self.source_details[label] = _source_detail(label, source_data, role=role)
 
-        # Extract observation details
-        for label, obs_data in context.observations.items():
-            details = {}
-            if hasattr(obs_data, "data") and obs_data.data is not None:
-                ds = obs_data.data
-                details["variables"] = len(ds.data_vars)
-                if "time" in ds.sizes:
-                    details["time_steps"] = ds.sizes["time"]
-                elif "obs_time" in ds.sizes:
-                    details["time_steps"] = ds.sizes["obs_time"]
-                # Get observation type
-                if hasattr(obs_data, "obs_type"):
-                    details["type"] = obs_data.obs_type
-                # Count sites/points
-                if "site" in ds.sizes:
-                    details["sites"] = ds.sizes["site"]
-                elif "x" in ds.sizes:
-                    details["points"] = ds.sizes["x"]
-            self.obs_details[label] = details
+        # Legacy role-split detail maps, populated from the unified source view.
+        # These only feed the fallback markdown tables rendered when
+        # ``source_details`` is empty; they are kept in sync here so that
+        # fallback path stays correct.
+        for label, source_data in context.sources.items():
+            role = _source_role(source_data)
+            if role == "model":
+                details: dict[str, Any] = {}
+                if hasattr(source_data, "data") and source_data.data is not None:
+                    ds = source_data.data
+                    details["variables"] = len(ds.data_vars)
+                    if "time" in ds.sizes:
+                        details["time_steps"] = ds.sizes["time"]
+                    # Calculate approximate size
+                    total_size = sum(ds[v].size for v in ds.data_vars)
+                    details["data_points"] = total_size
+                self.model_details[label] = details
+            elif role == "obs":
+                obs_details: dict[str, Any] = {}
+                if hasattr(source_data, "data") and source_data.data is not None:
+                    ds = source_data.data
+                    obs_details["variables"] = len(ds.data_vars)
+                    if "time" in ds.sizes:
+                        obs_details["time_steps"] = ds.sizes["time"]
+                    elif "obs_time" in ds.sizes:
+                        obs_details["time_steps"] = ds.sizes["obs_time"]
+                    # Get observation type
+                    if hasattr(source_data, "obs_type"):
+                        obs_details["type"] = source_data.obs_type
+                    # Count sites/points
+                    if "site" in ds.sizes:
+                        obs_details["sites"] = ds.sizes["site"]
+                    elif "x" in ds.sizes:
+                        obs_details["points"] = ds.sizes["x"]
+                self.obs_details[label] = obs_details
 
         # Extract pair details
         for pair_key, paired_data in context.paired.items():

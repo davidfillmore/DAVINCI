@@ -63,9 +63,10 @@ def obs_context(obs_data: SourceData, tmp_path: Any) -> PipelineContext:
     """PipelineContext with observation data and obs-only config."""
     return PipelineContext(
         config={
-            "obs": {
+            "sources": {
                 "dc8": {
-                    "obs_type": "aircraft",
+                    "type": "aircraft",
+                    "role": "obs",
                     "filename": "/fake/path.nc",
                 }
             },
@@ -81,7 +82,7 @@ def obs_context(obs_data: SourceData, tmp_path: Any) -> PipelineContext:
                 },
             },
         },
-        observations={"dc8": obs_data},
+        sources={"dc8": obs_data},
     )
 
 

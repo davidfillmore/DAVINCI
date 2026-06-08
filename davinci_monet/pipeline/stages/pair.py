@@ -37,7 +37,7 @@ class PairingStage(BaseStage):
         super().__init__("pairing")
 
     def validate(self, context: PipelineContext) -> bool:
-        """Validate that models and observations are loaded."""
+        """Validate that sources are loaded and pairable."""
         pairs_config = context.config.get("pairs")
         if isinstance(pairs_config, dict) and any(
             isinstance(pair, dict) and bool(pair.get("sources")) for pair in pairs_config.values()
@@ -45,7 +45,10 @@ class PairingStage(BaseStage):
             return True
         if pairs_config and len(context.sources) >= 2:
             return True
-        return bool(context.models) and bool(context.observations)
+        # Implicit auto-pairing needs at least one model-role and one obs-role
+        # source available in the unified view.
+        roles = {self._source_role(obj) for _, obj in context.sources.items()}
+        return "model" in roles and "obs" in roles
 
     def execute(self, context: PipelineContext) -> StageResult:
         """Pair source data through the unified role-neutral engine.
@@ -211,22 +214,14 @@ class PairingStage(BaseStage):
         through the same unified executor (``engine.pair_sources``) as ``pairs:``
         jobs — there is no separate legacy ``engine.pair`` loop.
 
-        ``mapping:`` is read from the source's loaded config (``SourceData.config``)
-        and, for pre-populated ``context.models`` that bypassed
-        :class:`LoadSourcesStage`, falls back to the legacy ``model:`` config block.
+        ``mapping:`` is read from each source's loaded config
+        (``SourceData.config``).
         """
         jobs: list[SourcePairJob] = []
         pair_index = 0
-        legacy_model_cfg = context.config.get("model", {})
-        if not isinstance(legacy_model_cfg, dict):
-            legacy_model_cfg = {}
 
         for model_label, model_obj in self._model_role_sources(context):
             mapping = self._source_mapping(model_obj)
-            if not mapping:
-                legacy_entry = legacy_model_cfg.get(model_label, {})
-                if isinstance(legacy_entry, dict):
-                    mapping = legacy_entry.get("mapping", {}) or {}
             if not isinstance(mapping, dict) or not mapping:
                 continue
 
@@ -258,28 +253,17 @@ class PairingStage(BaseStage):
 
     @staticmethod
     def _model_role_sources(context: PipelineContext) -> list[tuple[str, Any]]:
-        """Return (label, obj) for model-role sources, preferring ``sources``.
-
-        Falls back to the legacy ``context.models`` mirror for direct stage use
-        that bypassed :class:`LoadSourcesStage`.
-        """
-        items: list[tuple[str, Any]] = []
-        if context.sources:
-            for label, obj in context.sources.items():
-                if PairingStage._source_role(obj) == "model":
-                    items.append((str(label), obj))
-        if not items:
-            items = [(str(label), obj) for label, obj in context.models.items()]
-        return items
+        """Return (label, obj) for model-role sources from ``context.sources``."""
+        return [
+            (str(label), obj)
+            for label, obj in context.sources.items()
+            if PairingStage._source_role(obj) == "model"
+        ]
 
     @staticmethod
     def _lookup_source(context: PipelineContext, label: str) -> Any:
-        """Resolve a source by label from ``sources`` then the obs mirror."""
-        if label in context.sources:
-            return context.sources[label]
-        if label in context.observations:
-            return context.observations[label]
-        return None
+        """Resolve a source by label from the unified ``sources`` store."""
+        return context.sources.get(label)
 
     @staticmethod
     def _source_mapping(obj: Any) -> dict[str, Any]:

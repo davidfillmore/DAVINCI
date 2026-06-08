@@ -135,7 +135,7 @@ class TestUnifiedStageRoutesTimeseriesThroughRender:
                     }
                 },
             },
-            observations={"airnow": obs},
+            sources={"airnow": obs},
         )
         res = PlottingStage().execute(ctx)
         assert res.status == StageStatus.COMPLETED

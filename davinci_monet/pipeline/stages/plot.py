@@ -407,11 +407,8 @@ class PlottingStage(BaseStage):
                     # name `model_field` for compatibility.
                     if plot_type == "spatial_overlay":
                         if "model_field" not in plot_options:
-                            source_obj = (
-                                context.sources.get(model_label)
-                                or context.sources.get(obs_label)
-                                or context.models.get(model_label)
-                                or context.observations.get(obs_label)
+                            source_obj = context.sources.get(model_label) or context.sources.get(
+                                obs_label
                             )
                             if source_obj is not None:
                                 source_ds = (

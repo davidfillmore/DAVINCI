@@ -25,6 +25,7 @@ from davinci_monet.pipeline import (
     StatisticsStage,
     create_standard_pipeline,
 )
+from davinci_monet.pipeline.stages.base import SourceData
 
 # =============================================================================
 # Test Fixtures
@@ -147,8 +148,7 @@ class TestPipelineContext:
         ctx = PipelineContext()
 
         assert ctx.config == {}
-        assert ctx.models == {}
-        assert ctx.observations == {}
+        assert ctx.sources == {}
         assert ctx.paired == {}
         assert ctx.results == {}
 
@@ -158,33 +158,19 @@ class TestPipelineContext:
         assert "test_model" in sample_context.config["sources"]
         assert "test_obs" in sample_context.config["sources"]
 
-    def test_get_model(self):
-        """Test getting model from context."""
+    def test_get_source(self):
+        """Test getting a source from context."""
         ctx = PipelineContext()
-        ctx.models["test"] = {"data": "model_data"}
+        ctx.sources["test"] = {"data": "source_data"}
 
-        assert ctx.get_model("test") == {"data": "model_data"}
+        assert ctx.get_source("test") == {"data": "source_data"}
 
-    def test_get_model_not_found(self):
-        """Test getting non-existent model raises error."""
-        ctx = PipelineContext()
-
-        with pytest.raises(KeyError, match="Model 'missing' not found"):
-            ctx.get_model("missing")
-
-    def test_get_observation(self):
-        """Test getting observation from context."""
-        ctx = PipelineContext()
-        ctx.observations["test"] = {"data": "obs_data"}
-
-        assert ctx.get_observation("test") == {"data": "obs_data"}
-
-    def test_get_observation_not_found(self):
-        """Test getting non-existent observation raises error."""
+    def test_get_source_not_found(self):
+        """Test getting non-existent source raises error."""
         ctx = PipelineContext()
 
-        with pytest.raises(KeyError, match="Observation 'missing' not found"):
-            ctx.get_observation("missing")
+        with pytest.raises(KeyError, match="Source 'missing' not found"):
+            ctx.get_source("missing")
 
     def test_get_paired(self, context_with_paired: PipelineContext):
         """Test getting paired data from context."""
@@ -343,11 +329,24 @@ class TestPairingStage:
         assert stage.name == "pairing"
 
     def test_validation_with_data(self):
-        """Test validation passes with models and observations."""
+        """Test validation passes with model-role and obs-role sources."""
         stage = PairingStage()
         ctx = PipelineContext()
-        ctx.models["test"] = "model_data"
-        ctx.observations["test"] = "obs_data"
+        ds = xr.Dataset({"v": ("time", [1.0])}, coords={"time": [0]})
+        ctx.sources["mod"] = SourceData(
+            data=ds,
+            label="mod",
+            source_type="generic",
+            geometry=DataGeometry.GRID,
+            role="model",
+        )
+        ctx.sources["obs"] = SourceData(
+            data=ds,
+            label="obs",
+            source_type="pt_sfc",
+            geometry=DataGeometry.POINT,
+            role="obs",
+        )
 
         assert stage.validate(ctx) is True
 

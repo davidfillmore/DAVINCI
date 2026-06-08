@@ -28,9 +28,8 @@ class LoadSourcesStage(BaseStage):
     rejected at config load (see
     :func:`~davinci_monet.config.parser.load_config`); convert them with
     ``davinci-monet migrate-config``. Loaded datasets are tagged with ``role``
-    (``"model"``/``"obs"`` when known), ``source_label``, and ``geometry``.
-    Results are mirrored in ``context.models`` / ``context.observations`` so
-    existing accessors keep working.
+    (``"model"``/``"obs"`` when known), ``source_label``, and ``geometry`` in
+    ``context.sources``.
     """
 
     def __init__(self) -> None:
@@ -40,13 +39,9 @@ class LoadSourcesStage(BaseStage):
         """Validate that at least one source is configured."""
         cfg = context.config
         has_config = "sources" in cfg
-        # Already-populated containers are also a valid starting point.
-        return (
-            has_config
-            or bool(context.sources)
-            or bool(context.models)
-            or bool(context.observations)
-        )
+        # Already-populated sources (direct stage / unit-test use) are also a
+        # valid starting point.
+        return has_config or bool(context.sources)
 
     def execute(self, context: PipelineContext) -> StageResult:
         """Load and unify all data sources into ``context.sources``.
@@ -54,7 +49,7 @@ class LoadSourcesStage(BaseStage):
         Native ``sources:`` configs load directly through ``source_registry``.
         Legacy ``model:``/``obs:`` configs are rejected upstream at config load,
         so this stage only handles the unified ``sources:`` shape (plus any
-        pre-populated containers for direct stage/unit-test use).
+        pre-populated ``context.sources`` for direct stage/unit-test use).
         """
         import time
 
@@ -81,13 +76,11 @@ class LoadSourcesStage(BaseStage):
                     duration=time.time() - start,
                 )
 
-        # No source config at all: any pre-populated containers (tests/direct
-        # stage use) are unified into the single source view, tagging role /
-        # source_label / geometry.
-        for label, obj in context.models.items():
-            self._register(context, label, obj, role="model")
-        for label, obj in context.observations.items():
-            self._register(context, label, obj, role="obs")
+        # No source config at all: any pre-populated sources (tests/direct
+        # stage use) just get their datasets tagged with role / source_label /
+        # geometry so downstream stages can rely on those attrs.
+        for label, obj in list(context.sources.items()):
+            self._tag_source(label, obj)
 
         return self._create_result(
             StageStatus.COMPLETED,
@@ -336,9 +329,12 @@ class LoadSourcesStage(BaseStage):
         return ds
 
     @staticmethod
-    def _register(context: PipelineContext, label: str, obj: Any, role: str) -> None:
-        """Register a loaded container in context.sources and tag its dataset."""
-        context.sources[label] = obj
+    def _tag_source(label: str, obj: Any) -> None:
+        """Tag a pre-populated source's dataset with role/source_label/geometry.
+
+        Used for sources placed directly in ``context.sources`` (direct stage /
+        unit-test use) that bypassed :meth:`_load_unified_source`.
+        """
         data = getattr(obj, "data", None)
         if data is None:
             return
@@ -347,23 +343,16 @@ class LoadSourcesStage(BaseStage):
             geometry_name = geometry.name.lower() if hasattr(geometry, "name") else str(geometry)
         except Exception:
             geometry_name = "unknown"
-        data.attrs["role"] = role
         data.attrs["source_label"] = label
         data.attrs["geometry"] = geometry_name
+        role = getattr(obj, "role", None)
+        if role:
+            data.attrs["role"] = role
 
     @staticmethod
     def _register_source(context: PipelineContext, label: str, obj: SourceData) -> None:
-        """Register a loaded source.
-
-        ``context.sources`` is canonical. Role-specific dictionaries are
-        compatibility mirrors for legacy callers and must not be required by
-        standard stages.
-        """
+        """Register a loaded source in the canonical ``context.sources`` view."""
         context.sources[label] = obj
-        if obj.role == "model":
-            context.models[label] = obj
-        elif obj.role == "obs":
-            context.observations[label] = obj
         obj.data.attrs["source_label"] = label
         obj.data.attrs["geometry"] = obj.geometry.name.lower()
         if obj.role:

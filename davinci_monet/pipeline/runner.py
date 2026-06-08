@@ -312,11 +312,7 @@ class PipelineRunner:
         """
         import gc
 
-        source_items = (
-            list(context.sources.items())
-            if context.sources
-            else list(context.models.items()) + list(context.observations.items())
-        )
+        source_items = list(context.sources.items())
         closed_ids: set[int] = set()
         for _label, source_data in source_items:
             try:

@@ -58,7 +58,7 @@ def _obs_ctx(tmp_path: Any) -> PipelineContext:
             },
             "stats": {"metrics": ["N", "mean", "median", "std", "min", "max", "p10", "p90"]},
         },
-        observations={"airnow": obs},
+        sources={"airnow": obs},
     )
 
 

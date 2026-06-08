@@ -142,21 +142,10 @@ def iter_single_source_datasets(
 ) -> list[tuple[str, Any, xr.Dataset, str | None]]:
     """Return loaded single-source datasets from the unified source view.
 
-    ``context.sources`` is canonical for the standard pipeline. The legacy
-    role-specific dictionaries remain a compatibility fallback for tests and
-    direct stage use that bypasses ``LoadSourcesStage``.
+    ``context.sources`` is the canonical store for all loaded data sources
+    (models and observations alike), keyed by label.
     """
-    if context.sources:
-        items = list(context.sources.items())
-    else:
-        seen: set[str] = set()
-        items = []
-        for label, obj in context.models.items():
-            seen.add(label)
-            items.append((label, obj))
-        for label, obj in context.observations.items():
-            if label not in seen:
-                items.append((label, obj))
+    items = list(context.sources.items())
 
     sources: list[tuple[str, Any, xr.Dataset, str | None]] = []
     for label, obj in items:

@@ -116,10 +116,10 @@ class PipelineContext:
     ----------
     config
         Configuration dictionary from YAML or programmatic setup.
-    models
-        Dictionary of loaded model data.
-    observations
-        Dictionary of loaded observation data.
+    sources
+        Dictionary of loaded data sources (models and observations alike),
+        keyed by source label. Each entry carries optional ``role`` metadata
+        (``"model"``/``"obs"``) for styling and direction precedence.
     paired
         Dictionary of paired source data.
     results
@@ -132,10 +132,8 @@ class PipelineContext:
     """
 
     config: dict[str, Any] = field(default_factory=dict)
-    models: dict[str, Any] = field(default_factory=dict)
-    observations: dict[str, Any] = field(default_factory=dict)
     # Unified data-source view. Models and observations both register here
-    # keyed by label; legacy role-specific dicts are kept in sync where known.
+    # keyed by label, distinguished only by optional ``role`` metadata.
     sources: dict[str, Any] = field(default_factory=dict)
     paired: dict[str, Any] = field(default_factory=dict)
     results: dict[str, StageResult] = field(default_factory=dict)
@@ -146,30 +144,6 @@ class PipelineContext:
         """Log a progress message if callback is set."""
         if self.progress_callback:
             self.progress_callback(message)
-
-    def get_model(self, label: str) -> Any:
-        """Get a model by label.
-
-        Deprecated shim over the unified ``sources`` store: resolves from
-        ``models`` first (back-compat), then falls back to ``sources``.
-        """
-        if label in self.models:
-            return self.models[label]
-        if label in self.sources:
-            return self.sources[label]
-        raise KeyError(f"Model '{label}' not found in context")
-
-    def get_observation(self, label: str) -> Any:
-        """Get an observation by label.
-
-        Deprecated shim over the unified ``sources`` store: resolves from
-        ``observations`` first (back-compat), then falls back to ``sources``.
-        """
-        if label in self.observations:
-            return self.observations[label]
-        if label in self.sources:
-            return self.sources[label]
-        raise KeyError(f"Observation '{label}' not found in context")
 
     def get_source(self, label: str) -> Any:
         """Get a data source (model or observation) by label.

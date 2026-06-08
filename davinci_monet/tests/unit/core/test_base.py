@@ -47,27 +47,27 @@ class TestPairedData:
         )
         assert paired.pair_label == "airnow_cmaq"
 
-    def test_model_variables(self, paired_dataset: xr.Dataset) -> None:
-        """Test listing model variables."""
+    def test_comparand_variables(self, paired_dataset: xr.Dataset) -> None:
+        """Test listing comparand variables."""
         paired = PairedData(
             data=paired_dataset,
             model_label="cmaq",
             obs_label="airnow",
             geometry=DataGeometry.POINT,
         )
-        assert "model_ozone" in paired.model_variables
-        assert "model_pm25" in paired.model_variables
+        assert "model_ozone" in paired.comparand_variables
+        assert "model_pm25" in paired.comparand_variables
 
-    def test_obs_variables(self, paired_dataset: xr.Dataset) -> None:
-        """Test listing observation variables."""
+    def test_reference_variables(self, paired_dataset: xr.Dataset) -> None:
+        """Test listing reference variables."""
         paired = PairedData(
             data=paired_dataset,
             model_label="cmaq",
             obs_label="airnow",
             geometry=DataGeometry.POINT,
         )
-        assert "obs_ozone" in paired.obs_variables
-        assert "obs_pm25" in paired.obs_variables
+        assert "obs_ozone" in paired.reference_variables
+        assert "obs_pm25" in paired.reference_variables
 
     def test_paired_variable_names(self, paired_dataset: xr.Dataset) -> None:
         """Test getting paired variable names."""
@@ -81,8 +81,8 @@ class TestPairedData:
         assert ("obs_ozone", "model_ozone") in pairs
         assert ("obs_pm25", "model_pm25") in pairs
 
-    def test_get_obs(self, paired_dataset: xr.Dataset) -> None:
-        """Test getting observation variable."""
+    def test_get_reference(self, paired_dataset: xr.Dataset) -> None:
+        """Test getting reference variable."""
         paired = PairedData(
             data=paired_dataset,
             model_label="cmaq",
@@ -90,14 +90,14 @@ class TestPairedData:
             geometry=DataGeometry.POINT,
         )
         # With prefix
-        obs = paired.get_obs("obs_ozone")
+        obs = paired.get_reference("obs_ozone")
         assert obs is not None
         # Without prefix
-        obs = paired.get_obs("ozone")
+        obs = paired.get_reference("ozone")
         assert obs is not None
 
-    def test_get_model(self, paired_dataset: xr.Dataset) -> None:
-        """Test getting model variable."""
+    def test_get_comparand(self, paired_dataset: xr.Dataset) -> None:
+        """Test getting comparand variable."""
         paired = PairedData(
             data=paired_dataset,
             model_label="cmaq",
@@ -105,10 +105,10 @@ class TestPairedData:
             geometry=DataGeometry.POINT,
         )
         # With prefix
-        model = paired.get_model("model_ozone")
+        model = paired.get_comparand("model_ozone")
         assert model is not None
         # Without prefix
-        model = paired.get_model("ozone")
+        model = paired.get_comparand("ozone")
         assert model is not None
 
     def test_get_pair(self, paired_dataset: xr.Dataset) -> None:

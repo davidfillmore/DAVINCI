@@ -231,16 +231,6 @@ class PairedData:
         ]
 
     @property
-    def model_variables(self) -> list[str]:
-        """Compatibility alias for comparand-role variables."""
-        return self.comparand_variables
-
-    @property
-    def obs_variables(self) -> list[str]:
-        """Compatibility alias for reference-role variables."""
-        return self.reference_variables
-
-    @property
     def paired_variable_names(self) -> list[tuple[str, str]]:
         """List of (obs_var, model_var) pairs, matched by canonical name."""
         return [
@@ -295,38 +285,6 @@ class PairedData:
             )
         result: xr.DataArray = self.data[name]
         return result
-
-    def get_obs(self, variable: str) -> xr.DataArray:
-        """Get reference variable through the legacy observation accessor.
-
-        Parameters
-        ----------
-        variable
-            Variable name: exact, legacy ``obs_``-prefixed, bare canonical, or
-            source-label form.
-
-        Returns
-        -------
-        xr.DataArray
-            Reference data.
-        """
-        return self.get_reference(variable)
-
-    def get_model(self, variable: str) -> xr.DataArray:
-        """Get comparand variable through the legacy model accessor.
-
-        Parameters
-        ----------
-        variable
-            Variable name: exact, legacy ``model_``-prefixed, bare canonical, or
-            source-label form.
-
-        Returns
-        -------
-        xr.DataArray
-            Comparand data.
-        """
-        return self.get_comparand(variable)
 
     def get_pair(self, variable: str) -> tuple[xr.DataArray, xr.DataArray]:
         """Get both reference and comparand arrays for a variable.
