@@ -216,7 +216,7 @@ davinci_monet/
 
 ## Implementation Status
 
-**STATUS: COMPLETE** — 1,335 tests passing. CI via GitHub Actions (pytest, mypy, black/isort).
+**STATUS: COMPLETE** — 1,262 tests passing (pytest, mypy, black, isort), run **locally** in the `davinci` conda env. A CI workflow is defined (`.github/workflows/ci.yml`: pytest + mypy + black/isort on a 3.11/3.12 matrix), but **GitHub Actions is currently disabled for the repository**, so it does not execute on push — treat the local gates as the source of truth until Actions is enabled.
 
 ## Running Analyses
 

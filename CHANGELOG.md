@@ -51,8 +51,10 @@ with `davinci-monet migrate-config <old.yaml> -o <new.yaml>`.
 
 ### Quality
 
-- 1262 tests passing; mypy clean (225 source files); black/isort clean. CI typecheck now
-  installs the package and runs the test suite on a 3.11/3.12 matrix.
+- 1262 tests passing; mypy clean (225 source files); black/isort clean — gates run locally
+  in the `davinci` conda env. The CI workflow (`.github/workflows/ci.yml`) is configured to
+  install the package and run the suite on a 3.11/3.12 matrix, but GitHub Actions is currently
+  disabled for the repository, so it does not execute on push.
 
 ## 26.03 (2026-03-23)
 
