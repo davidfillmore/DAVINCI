@@ -6,6 +6,8 @@ auto-pairing) through the role-neutral pairing engine.
 
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 import xarray as xr
@@ -315,6 +317,96 @@ class PairingStage(BaseStage):
             return float(cfg["radius_of_influence"])
         return float(getattr(comparand_obj, "radius_of_influence", 12000.0))
 
+    @staticmethod
+    def _is_dask_backed(ds: xr.Dataset | None) -> bool:
+        """Return ``True`` if any data variable of ``ds`` is dask-chunked.
+
+        A chunked (lazy) dataset triggers the per-strategy
+        ``dask.config.set(scheduler="threads").compute()`` — i.e. its own thread
+        pool — during extraction. Eager (numpy-backed, unchunked) datasets hit a
+        cheap no-op ``.compute()`` that spawns no dask threads. This predicate is
+        what the executor uses to keep dask-backed pairs off the overlapping fast
+        path (see :meth:`_execute_source_pair_jobs`).
+        """
+        if ds is None:
+            return False
+        return any(
+            getattr(getattr(var, "data", None), "chunks", None) is not None
+            for var in ds.data_vars.values()
+        )
+
+    @staticmethod
+    def _pair_worker_counts(
+        pairing_config_dict: dict[str, Any], n_eager: int, cpu: int
+    ) -> tuple[int, int]:
+        """Compute bounded ``(eager_workers, dask_workers)`` thread counts.
+
+        Eager: ``max_pair_workers`` if set, else ``min(n_eager, max(1, cpu // 2))``;
+        clamped to ``[1, 8]``. Dask: ``dask_pair_workers`` (default ``1`` →
+        serial), clamped to ``>= 1``. Pure/static so the clamping is unit-testable
+        without running the executor.
+        """
+        eager_workers = pairing_config_dict.get("max_pair_workers")
+        if eager_workers is None:
+            eager_workers = min(n_eager, max(1, cpu // 2))
+        eager_workers = max(1, min(8, int(eager_workers)))
+        dask_workers = max(1, int(pairing_config_dict.get("dask_pair_workers", 1)))
+        return eager_workers, dask_workers
+
+    def _run_pair_job(
+        self,
+        context: PipelineContext,
+        job: SourcePairJob,
+        pairing_config_dict: dict[str, Any],
+        debug: bool,
+    ) -> tuple[SourcePairJob, Any, str | None]:
+        """Pair a single job. Thread-safe worker: returns, never mutates context.
+
+        Builds its own :class:`PairingConfig` and a *local* :class:`PairingEngine`
+        (no shared engine across threads), runs ``engine.pair_sources`` and
+        :func:`tag_paired_roles` (which mutates only this job's own paired dataset
+        attrs), and returns ``(job, paired_obj, None)`` on success or
+        ``(job, None, "<pair_key>: <err>")`` on failure. It does **not** touch
+        ``context.paired``/``context.metadata`` and does **not** call
+        ``context.log_progress`` — all shared-state mutation and progress logging
+        stays on the main thread.
+        """
+        from davinci_monet.pairing import PairingConfig, PairingEngine
+
+        ref_ds = self._source_dataset(job.reference_obj)
+        comp_ds = self._source_dataset(job.comparand_obj)
+        if ref_ds is None or comp_ds is None:
+            return job, None, f"{job.pair_key}: reference or comparand data is None"
+
+        try:
+            pairing_cfg = PairingConfig(
+                radius_of_influence=job.radius_of_influence,
+                time_tolerance=pairing_config_dict.get("time_tolerance", "1h"),
+                time_method=pairing_config_dict.get("time_method", "nearest"),
+            )
+            engine = PairingEngine()
+            paired_obj = engine.pair_sources(
+                reference=ref_ds,
+                comparand=comp_ds,
+                reference_vars=[job.reference_var],
+                comparand_vars=[job.comparand_var],
+                reference_geometry=self._source_geometry(job.reference_obj),
+                comparand_geometry=self._source_geometry(job.comparand_obj),
+                config=pairing_cfg,
+                reference_label=job.reference_label,
+                comparand_label=job.comparand_label,
+            )
+            tag_paired_roles(
+                paired_obj.data,
+                reference_label=job.reference_label,
+                comparand_label=job.comparand_label,
+                reference_role=job.reference_role,
+                comparand_role=job.comparand_role,
+            )
+            return job, paired_obj, None
+        except Exception as e:
+            return job, None, f"{job.pair_key}: {e}"
+
     def _execute_source_pair_jobs(
         self,
         context: PipelineContext,
@@ -322,64 +414,131 @@ class PairingStage(BaseStage):
         pairing_config_dict: dict[str, Any],
         start: float,
     ) -> StageResult:
-        """Execute source-pair jobs through the role-neutral engine."""
-        import time
+        """Execute source-pair jobs through the role-neutral engine.
 
-        from davinci_monet.pairing import PairingConfig, PairingEngine
+        Cross-pair concurrency is HDF5-safe and bounded. Jobs are partitioned by
+        :meth:`_is_dask_backed`:
+
+        * **eager jobs** (neither side dask-chunked) do a no-op ``.compute()`` and
+          spawn no dask threads, so they overlap freely on a
+          :class:`~concurrent.futures.ThreadPoolExecutor`.
+        * **dask-backed jobs** (either side chunked) each open their own
+          per-strategy dask thread pool during extraction. Overlapping them would
+          nest thread pools → GIL/contention and the documented HDF5 segfaults, so
+          they run **serially by default**.
+
+        Thread-safety: worker threads (``_run_pair_job``) only read source data and
+        mutate their own paired dataset attrs; they return results. Only the main
+        thread writes ``context.paired``/``context.metadata`` and emits
+        ``context.log_progress`` (as each result resolves), so the progress stream
+        and shared state never race.
+
+        Config knobs (under the ``pairing:`` block):
+
+        * ``max_pair_workers`` (int, optional) — thread count for eager jobs.
+          Default ``min(len(eager_jobs), max(1, cpu // 2))``, clamped to
+          ``[1, 8]``.
+        * ``dask_pair_workers`` (int, default ``1``) — thread count for
+          dask-backed jobs. Default ``1`` keeps them serial (nested-pool safe);
+          set higher only when each pair's own dask pool is constrained. Clamped
+          to ``>= 1``.
+        """
+        import time
 
         debug = context.config.get("analysis", {}).get("debug", False)
         paired_count = 0
         execution_errors: list[str] = []
         context.log_progress(f"    parallel_start: {len(jobs)}")
 
+        # Partition by dask-backing: only fully-eager jobs are safe to overlap.
+        eager_jobs: list[SourcePairJob] = []
+        dask_jobs: list[SourcePairJob] = []
         for job in jobs:
-            pair_start = time.time()
-            context.log_progress(f"    parallel_started: {job.pair_key}")
             ref_ds = self._source_dataset(job.reference_obj)
             comp_ds = self._source_dataset(job.comparand_obj)
-            if ref_ds is None or comp_ds is None:
-                execution_errors.append(f"{job.pair_key}: reference or comparand data is None")
-                context.log_progress(f"    parallel_completed: {job.pair_key} - FAILED")
-                continue
+            if self._is_dask_backed(ref_ds) or self._is_dask_backed(comp_ds):
+                dask_jobs.append(job)
+            else:
+                eager_jobs.append(job)
 
-            try:
-                pairing_cfg = PairingConfig(
-                    radius_of_influence=job.radius_of_influence,
-                    time_tolerance=pairing_config_dict.get("time_tolerance", "1h"),
-                    time_method=pairing_config_dict.get("time_method", "nearest"),
+        # Bounded worker counts.
+        cpu = os.cpu_count() or 1
+        eager_workers, dask_workers = self._pair_worker_counts(
+            pairing_config_dict, len(eager_jobs), cpu
+        )
+
+        def _record(
+            job: SourcePairJob, paired_obj: Any, error: str | None, pair_start: float
+        ) -> None:
+            """Main-thread sink for a resolved job: write state, log, count."""
+            nonlocal paired_count
+            if error is not None or paired_obj is None:
+                execution_errors.append(
+                    error or f"{job.pair_key}: reference or comparand data is None"
                 )
-                engine = PairingEngine()
-                paired_obj = engine.pair_sources(
-                    reference=ref_ds,
-                    comparand=comp_ds,
-                    reference_vars=[job.reference_var],
-                    comparand_vars=[job.comparand_var],
-                    reference_geometry=self._source_geometry(job.reference_obj),
-                    comparand_geometry=self._source_geometry(job.comparand_obj),
-                    config=pairing_cfg,
-                    reference_label=job.reference_label,
-                    comparand_label=job.comparand_label,
-                )
-                paired_data = paired_obj.data
-                tag_paired_roles(
-                    paired_data,
-                    reference_label=job.reference_label,
-                    comparand_label=job.comparand_label,
-                    reference_role=job.reference_role,
-                    comparand_role=job.comparand_role,
-                )
-                context.paired[job.pair_key] = paired_obj
-                paired_count += 1
-                n_vars = len(iter_paired_variable_pairs(paired_data))
-                n_points = paired_data.sizes.get("time", paired_data.sizes.get("x", 0))
-                timing_str = f" [{_format_duration(time.time() - pair_start)}]" if debug else ""
-                context.log_progress(
-                    f"    parallel_completed: {job.pair_key} - "
-                    f"{n_vars} vars, {_format_size(n_points)} points{timing_str}"
-                )
-            except Exception as e:
-                execution_errors.append(f"{job.pair_key}: {e}")
                 context.log_progress(f"    parallel_completed: {job.pair_key} - FAILED")
+                return
+            paired_data = paired_obj.data
+            context.paired[job.pair_key] = paired_obj
+            paired_count += 1
+            n_vars = len(iter_paired_variable_pairs(paired_data))
+            n_points = paired_data.sizes.get("time", paired_data.sizes.get("x", 0))
+            timing_str = f" [{_format_duration(time.time() - pair_start)}]" if debug else ""
+            context.log_progress(
+                f"    parallel_completed: {job.pair_key} - "
+                f"{n_vars} vars, {_format_size(n_points)} points{timing_str}"
+            )
+
+        # Eager jobs: overlap on a bounded thread pool.
+        if eager_jobs:
+            if eager_workers <= 1 or len(eager_jobs) <= 1:
+                for job in eager_jobs:
+                    pair_start = time.time()
+                    context.log_progress(f"    parallel_started: {job.pair_key}")
+                    j, paired_obj, error = self._run_pair_job(
+                        context, job, pairing_config_dict, debug
+                    )
+                    _record(j, paired_obj, error, pair_start)
+            else:
+                with ThreadPoolExecutor(max_workers=eager_workers) as pool:
+                    futures = {}
+                    for job in eager_jobs:
+                        context.log_progress(f"    parallel_started: {job.pair_key}")
+                        futures[
+                            pool.submit(
+                                self._run_pair_job, context, job, pairing_config_dict, debug
+                            )
+                        ] = time.time()
+                    for future in as_completed(futures):
+                        pair_start = futures[future]
+                        j, paired_obj, error = future.result()
+                        _record(j, paired_obj, error, pair_start)
+
+        # Dask-backed jobs: serial by default (nested dask pools are unsafe to
+        # overlap); a bounded pool only if ``dask_pair_workers`` is raised.
+        if dask_jobs:
+            if dask_workers <= 1 or len(dask_jobs) <= 1:
+                for job in dask_jobs:
+                    pair_start = time.time()
+                    context.log_progress(f"    parallel_started: {job.pair_key}")
+                    j, paired_obj, error = self._run_pair_job(
+                        context, job, pairing_config_dict, debug
+                    )
+                    _record(j, paired_obj, error, pair_start)
+            else:
+                with ThreadPoolExecutor(max_workers=dask_workers) as pool:
+                    futures = {}
+                    for job in dask_jobs:
+                        context.log_progress(f"    parallel_started: {job.pair_key}")
+                        futures[
+                            pool.submit(
+                                self._run_pair_job, context, job, pairing_config_dict, debug
+                            )
+                        ] = time.time()
+                    for future in as_completed(futures):
+                        pair_start = futures[future]
+                        j, paired_obj, error = future.result()
+                        _record(j, paired_obj, error, pair_start)
 
         context.log_progress("    parallel_end")
         if execution_errors:

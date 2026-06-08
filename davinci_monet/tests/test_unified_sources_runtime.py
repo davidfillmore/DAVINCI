@@ -780,3 +780,134 @@ def test_sources_config_pairs_swath_onto_grid(tmp_path: Path) -> None:
     # At least one grid cell received binned swath pixels (non-NaN), proving the
     # numba binning actually ran end-to-end.
     assert bool(np.isfinite(paired["modis_aod_550nm"].values).any())
+
+
+def test_two_explicit_pairs_both_produced_via_executor(tmp_path: Path) -> None:
+    """Two independent explicit pairs both land in ``context.paired``.
+
+    Exercises the real user path (``PipelineRunner.run_from_config``) with two
+    eager (in-memory, numpy-backed) source pairs. Proves the bounded concurrent
+    executor in PairingStage runs *all* jobs — not just the first — restoring the
+    cross-pair parallelism that the old inline loop had. Both pair keys and their
+    source-label-prefixed variables must be present.
+    """
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    model_a = tmp_path / "cam_a.nc"
+    model_b = tmp_path / "cam_b.nc"
+    obs_path = tmp_path / "airnow.nc"
+    _write_grid_source(model_a, offset=0.0)
+    _write_grid_source(model_b, offset=5.0)
+    _write_point_source(obs_path)
+
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "sources": {
+            "cam_a": {
+                "type": "generic",
+                "role": "model",
+                "files": str(model_a),
+                "radius_of_influence": 200000,
+                "variables": {"O3": {"units": "ppb"}},
+            },
+            "cam_b": {
+                "type": "generic",
+                "role": "model",
+                "files": str(model_b),
+                "radius_of_influence": 200000,
+                "variables": {"O3": {"units": "ppb"}},
+            },
+            "airnow": {
+                "type": "pt_sfc",
+                "role": "obs",
+                "filename": str(obs_path),
+                "variables": {"o3": {"units": "ppb"}},
+            },
+        },
+        "pairs": {
+            "cam_a_airnow_o3": {
+                "sources": ["cam_a", "airnow"],
+                "reference": "airnow",
+                "variables": {"cam_a": "O3", "airnow": "o3"},
+            },
+            "cam_b_airnow_o3": {
+                "sources": ["cam_b", "airnow"],
+                "reference": "airnow",
+                "variables": {"cam_b": "O3", "airnow": "o3"},
+            },
+        },
+        "stats": {"metrics": ["N", "MB"]},
+    }
+
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+
+    assert result.success
+    assert result.context is not None
+    # Both jobs ran: both keys present (the executor did not stop after one).
+    assert set(result.context.paired) == {"cam_a_airnow_o3", "cam_b_airnow_o3"}
+    paired_a = result.context.paired["cam_a_airnow_o3"].data
+    paired_b = result.context.paired["cam_b_airnow_o3"].data
+    assert set(paired_a.data_vars) == {"cam_a_o3", "airnow_o3"}
+    assert set(paired_b.data_vars) == {"cam_b_o3", "airnow_o3"}
+
+
+def test_two_explicit_pairs_with_max_pair_workers(tmp_path: Path) -> None:
+    """``pairing.max_pair_workers: 2`` over 2 eager pairs still produces both.
+
+    Smoke test that the ThreadPoolExecutor path (worker count > 1, > 1 eager job)
+    runs all jobs and writes both into ``context.paired`` from the main thread.
+    """
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    model_a = tmp_path / "cam_a.nc"
+    model_b = tmp_path / "cam_b.nc"
+    obs_path = tmp_path / "airnow.nc"
+    _write_grid_source(model_a, offset=0.0)
+    _write_grid_source(model_b, offset=5.0)
+    _write_point_source(obs_path)
+
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "pairing": {"max_pair_workers": 2},
+        "sources": {
+            "cam_a": {
+                "type": "generic",
+                "role": "model",
+                "files": str(model_a),
+                "radius_of_influence": 200000,
+                "variables": {"O3": {"units": "ppb"}},
+            },
+            "cam_b": {
+                "type": "generic",
+                "role": "model",
+                "files": str(model_b),
+                "radius_of_influence": 200000,
+                "variables": {"O3": {"units": "ppb"}},
+            },
+            "airnow": {
+                "type": "pt_sfc",
+                "role": "obs",
+                "filename": str(obs_path),
+                "variables": {"o3": {"units": "ppb"}},
+            },
+        },
+        "pairs": {
+            "cam_a_airnow_o3": {
+                "sources": ["cam_a", "airnow"],
+                "reference": "airnow",
+                "variables": {"cam_a": "O3", "airnow": "o3"},
+            },
+            "cam_b_airnow_o3": {
+                "sources": ["cam_b", "airnow"],
+                "reference": "airnow",
+                "variables": {"cam_b": "O3", "airnow": "o3"},
+            },
+        },
+        "stats": {"metrics": ["N", "MB"]},
+    }
+
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+
+    assert result.success
+    assert result.context is not None
+    assert set(result.context.paired) == {"cam_a_airnow_o3", "cam_b_airnow_o3"}
