@@ -1,0 +1,17 @@
+name: generic_eval
+title: Generic comparison
+description: Default brief used when no scenario template matches the variable.
+matches: []
+sections:
+  - heading: What this run is
+    format: prose
+    words: 60
+  - heading: Headline metrics
+    format: metric_callout
+    words: 50
+  - heading: Interpretation
+    format: prose
+    words: 90
+  - heading: Caveats
+    format: bullets
+    words: 50

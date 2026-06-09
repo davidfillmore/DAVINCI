@@ -1,0 +1,18 @@
+name: pm_eval
+title: Particulate matter evaluation
+description: Evaluation of particulate matter (PM2.5 / PM10) concentrations.
+matches: ["pm25", "pm2.5", "pm10", "pm1"]
+sections:
+  - heading: Bottom line
+    format: headline
+    words: 20
+  - heading: Key metrics
+    format: metric_callout
+    words: 45
+  - heading: Bias and episodes
+    format: prose
+    words: 90
+    instruction: Call out high-concentration episodes and whether the model captures peaks.
+  - heading: Caveats
+    format: bullets
+    words: 50
