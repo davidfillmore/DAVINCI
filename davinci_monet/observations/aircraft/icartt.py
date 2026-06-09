@@ -10,7 +10,7 @@ from __future__ import annotations
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -24,23 +24,6 @@ from davinci_monet.io.reader_utils import (
     set_geometry_attr,
     validate_file_list,
 )
-
-# Common variable name mappings for ICARTT aircraft data
-ICARTT_VARIABLE_MAPPING: dict[str, str] = {
-    "ozone": "O3",
-    "o3": "O3",
-    "no": "NO",
-    "no2": "NO2",
-    "nox": "NOx",
-    "co": "CO",
-    "so2": "SO2",
-    "hcho": "HCHO",
-    "altitude": "GPS_Altitude",
-    "pressure": "Static_Pressure",
-    "temperature": "Static_Temperature",
-    "latitude": "Latitude",
-    "longitude": "Longitude",
-}
 
 
 @source_registry.register("icartt")
@@ -323,7 +306,3 @@ class ICARTTReader:
             ds = ds.assign_coords(flight=("time", flight_dates))
 
         return set_geometry_attr(ds, DataGeometry.TRACK)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return ICARTT variable name mapping."""
-        return ICARTT_VARIABLE_MAPPING

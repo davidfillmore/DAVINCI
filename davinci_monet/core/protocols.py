@@ -109,11 +109,6 @@ class SourceReader(Protocol):
         """
         ...
 
-    @abstractmethod
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return mapping from standard variable names to source-specific names."""
-        ...
-
 
 @runtime_checkable
 class SourceProcessor(Protocol):

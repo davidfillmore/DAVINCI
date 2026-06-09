@@ -9,7 +9,7 @@ from __future__ import annotations
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -24,17 +24,6 @@ from davinci_monet.io.reader_utils import (
     set_geometry_attr,
     validate_file_list,
 )
-
-# Standard variable name mappings for AirNow
-AIRNOW_VARIABLE_MAPPING: dict[str, str] = {
-    "ozone": "OZONE",
-    "o3": "OZONE",
-    "pm25": "PM2.5",
-    "pm10": "PM10",
-    "no2": "NO2",
-    "co": "CO",
-    "so2": "SO2",
-}
 
 
 @source_registry.register("airnow")
@@ -178,10 +167,6 @@ class AirNowReader:
             ds = ds.rename(coord_renames)
 
         return set_geometry_attr(ds, DataGeometry.POINT)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return AirNow variable name mapping."""
-        return AIRNOW_VARIABLE_MAPPING
 
 
 def _dataframe_to_xarray(df: pd.DataFrame, daily: bool = False) -> xr.Dataset:

@@ -11,7 +11,7 @@ classes that return plain :class:`xarray.Dataset` objects.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import xarray as xr
 
@@ -104,10 +104,6 @@ class _GenericNetCDFReader:
 
         set_geometry_attr(ds, self.geometry)
         return ds
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Generic files use their native variable names."""
-        return {}
 
 
 @source_registry.register("pt_sfc")

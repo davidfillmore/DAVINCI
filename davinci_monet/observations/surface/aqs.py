@@ -9,7 +9,7 @@ from __future__ import annotations
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -24,24 +24,6 @@ from davinci_monet.io.reader_utils import (
     set_geometry_attr,
     validate_file_list,
 )
-
-# Standard variable name mappings for AQS
-AQS_VARIABLE_MAPPING: dict[str, str] = {
-    "ozone": "OZONE",
-    "o3": "OZONE",
-    "pm25": "PM2.5",
-    "pm25_frm": "PM2.5",
-    "pm10": "PM10",
-    "no2": "NO2",
-    "no": "NO",
-    "nox": "NOX",
-    "co": "CO",
-    "so2": "SO2",
-    "temperature": "TEMP",
-    "wind_speed": "WS",
-    "wind_direction": "WD",
-    "relative_humidity": "RH_DP",
-}
 
 
 @source_registry.register("aqs")
@@ -196,7 +178,3 @@ class AQSReader:
 
         # Set geometry attribute
         return set_geometry_attr(ds, DataGeometry.POINT)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return AQS variable name mapping."""
-        return AQS_VARIABLE_MAPPING

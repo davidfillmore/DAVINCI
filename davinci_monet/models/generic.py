@@ -10,7 +10,7 @@ import gc
 import os
 import sys
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Sequence
 
 import xarray as xr
 
@@ -267,13 +267,3 @@ class GenericReader:
             ds = ds.rename(coord_renames)
 
         return ds
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return empty mapping (generic reader has no predefined mapping).
-
-        Returns
-        -------
-        Mapping[str, str]
-            Empty mapping.
-        """
-        return {}

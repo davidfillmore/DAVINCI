@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import xarray as xr
 
@@ -22,28 +22,6 @@ from davinci_monet.io.reader_utils import (
     standardize_dims,
     validate_file_list,
 )
-
-# Standard variable name mappings for CMAQ
-CMAQ_VARIABLE_MAPPING: dict[str, str] = {
-    "ozone": "O3",
-    "pm25": "PM25_TOT",
-    "no2": "NO2",
-    "no": "NO",
-    "co": "CO",
-    "so2": "SO2",
-    "nox": "NOX",
-    "pm10": "PM10",
-    "temperature": "TEMP2",
-    "temperature_k": "TEMP2",
-    "pressure": "PRSFC",
-    "pres_pa_mid": "PRES",
-    "relative_humidity": "RH",
-    "wind_speed": "WSPD10",
-    "wind_direction": "WDIR10",
-}
-
-# Reverse mapping for lookups
-CMAQ_STANDARD_NAMES: dict[str, str] = {v: k for k, v in CMAQ_VARIABLE_MAPPING.items()}
 
 
 @source_registry.register("cmaq")
@@ -230,13 +208,3 @@ class CMAQReader:
         ds = alias_coord(ds, "longitude", "lon")
 
         return ds
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return CMAQ variable name mapping.
-
-        Returns
-        -------
-        Mapping[str, str]
-            Standard name to CMAQ name mapping.
-        """
-        return CMAQ_VARIABLE_MAPPING

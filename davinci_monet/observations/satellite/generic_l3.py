@@ -194,7 +194,3 @@ class GenericL3Reader:
             ds = ds.rename(coord_renames)
 
         return set_geometry_attr(ds, DataGeometry.GRID)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return empty variable mapping (generic reader)."""
-        return {}

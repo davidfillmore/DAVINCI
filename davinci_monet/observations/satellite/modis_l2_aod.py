@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import xarray as xr
 
@@ -201,7 +201,3 @@ class MODISL2AODReader:
             ds = ds.rename(coord_renames)
 
         return set_geometry_attr(ds, DataGeometry.SWATH)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return MODIS AOD variable name mapping."""
-        return MODIS_AOD_VARIABLE_MAPPING

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import xarray as xr
 
@@ -21,29 +21,6 @@ from davinci_monet.io.reader_utils import (
     standardize_dims,
     validate_file_list,
 )
-
-# Standard variable name mappings for UFS-AQM
-UFS_VARIABLE_MAPPING: dict[str, str] = {
-    "ozone": "o3",
-    "pm25": "pm25",
-    "no2": "no2",
-    "no": "no",
-    "co": "co",
-    "so2": "so2",
-    # Meteorology
-    "temperature": "tmp2m",
-    "temperature_2m": "tmp2m",
-    "temperature_k": "tmp2m",
-    "pressure": "pressfc",
-    "pres_pa_mid": "pres",
-    "relative_humidity": "rh2m",
-    "specific_humidity": "spfh2m",
-    "wind_speed_u": "ugrd10m",
-    "wind_speed_v": "vgrd10m",
-}
-
-# Reverse mapping
-UFS_STANDARD_NAMES: dict[str, str] = {v: k for k, v in UFS_VARIABLE_MAPPING.items()}
 
 
 @source_registry.register("ufs")
@@ -247,16 +224,6 @@ class UFSReader:
         ds = alias_coord(ds, "longitude", "lon")
 
         return ds
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return UFS variable name mapping.
-
-        Returns
-        -------
-        Mapping[str, str]
-            Standard name to UFS name mapping.
-        """
-        return UFS_VARIABLE_MAPPING
 
 
 # Alias for backward compatibility

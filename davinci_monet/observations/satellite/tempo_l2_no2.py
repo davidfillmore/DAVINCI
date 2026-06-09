@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import xarray as xr
 
@@ -202,7 +202,3 @@ class TEMPOL2NO2Reader:
             ds = ds.rename(coord_renames)
 
         return set_geometry_attr(ds, DataGeometry.SWATH)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return TEMPO NO2 variable name mapping."""
-        return TEMPO_NO2_VARIABLE_MAPPING

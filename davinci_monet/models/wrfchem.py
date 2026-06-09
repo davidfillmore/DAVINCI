@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import xarray as xr
 
@@ -20,38 +20,6 @@ from davinci_monet.io.reader_utils import (
     standardize_dims,
     validate_file_list,
 )
-
-# Standard variable name mappings for WRF-Chem
-# WRF-Chem variable names vary by chemical mechanism
-WRFCHEM_VARIABLE_MAPPING: dict[str, str] = {
-    # Common across mechanisms
-    "ozone": "o3",
-    "pm25": "PM2_5_DRY",
-    "pm10": "PM10",
-    "no2": "no2",
-    "no": "no",
-    "co": "co",
-    "so2": "so2",
-    "nox": "nox",
-    # Meteorology
-    "temperature": "T2",
-    "temperature_2m": "T2",
-    "temperature_k": "T2",
-    "pressure": "PSFC",
-    "pres_pa_mid": "P",
-    "relative_humidity": "rh",
-    "wind_speed_u": "U10",
-    "wind_speed_v": "V10",
-    "wind_speed": "WSPD10",
-    "wind_direction": "WDIR10",
-    # Additional species
-    "hcho": "hcho",
-    "isop": "isop",
-    "nh3": "nh3",
-}
-
-# Reverse mapping
-WRFCHEM_STANDARD_NAMES: dict[str, str] = {v: k for k, v in WRFCHEM_VARIABLE_MAPPING.items()}
 
 # monetio's WRF-Chem reader accepts these kwargs but xarray.open_dataset does
 # not. When the monetio path fails (e.g. wrf-python / netCDF4 version
@@ -372,13 +340,3 @@ class WRFChemReader:
             stacklevel=2,
         )
         return ds.isel(time=keep)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return WRF-Chem variable name mapping.
-
-        Returns
-        -------
-        Mapping[str, str]
-            Standard name to WRF-Chem name mapping.
-        """
-        return WRFCHEM_VARIABLE_MAPPING

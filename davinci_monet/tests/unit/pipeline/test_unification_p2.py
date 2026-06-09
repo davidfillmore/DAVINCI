@@ -50,7 +50,7 @@ def _obs_ctx(tmp_path: Any) -> PipelineContext:
             "analysis": {"output_dir": str(tmp_path / "out")},
             "plots": {
                 "o3_hist": {
-                    "type": "obs_histogram",
+                    "type": "histogram",
                     "obs": "airnow",
                     "variable": "O3",
                     "title": "O3",

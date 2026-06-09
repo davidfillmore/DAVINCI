@@ -95,9 +95,13 @@ class TestTimeseriesRenderPaired:
 
 class TestObsTimeseriesAlias:
     def test_alias_resolves_to_canonical(self) -> None:
+        import warnings
+
         from davinci_monet.plots.registry import get_plotter_class
 
-        assert get_plotter_class("obs_timeseries") is TimeSeriesPlotter
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            assert get_plotter_class("obs_timeseries") is TimeSeriesPlotter
 
 
 class TestUnifiedStageRoutesTimeseriesThroughRender:
@@ -128,7 +132,7 @@ class TestUnifiedStageRoutesTimeseriesThroughRender:
                 "analysis": {"output_dir": str(tmp_path / "out")},
                 "plots": {
                     "o3_ts": {
-                        "type": "obs_timeseries",
+                        "type": "timeseries",
                         "obs": "airnow",
                         "variable": "o3",
                         "title": "O3",

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import xarray as xr
 
@@ -170,7 +170,3 @@ class OMPSL3O3Reader:
             ds = ds.rename(coord_renames)
 
         return set_geometry_attr(ds, DataGeometry.GRID)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return OMPS O3 variable name mapping."""
-        return OMPS_O3_VARIABLE_MAPPING
