@@ -249,6 +249,18 @@ class LoadSourcesStage(BaseStage):
             data = data.sel(time=slice(start_time, end_time))
         if variables:
             data = self._apply_variable_config(data, variables)
+            # Subset to exactly the configured variables (coordinates preserved).
+            # The reader's open(variables=) subset is unreliable for source_name
+            # mappings: the names passed are the post-rename keys, which do not
+            # match the raw source_name columns at open time, so select_variables
+            # no-ops and keeps every column. Now that _apply_variable_config has
+            # renamed source_name -> key (then key -> rename), the final names
+            # match and coordinates are already promoted, so this drops only
+            # unconfigured data variables, never lat/lon/alt/time.
+            from davinci_monet.io.reader_utils import select_variables
+
+            final_names = [vcfg.get("rename") or name for name, vcfg in variables.items()]
+            data = select_variables(data, final_names)
 
         resample_freq = cfg.get("resample")
         if resample_freq:
