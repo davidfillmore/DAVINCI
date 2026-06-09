@@ -26,7 +26,7 @@ def test_each_row_gets_template_by_variable() -> None:
             "p_pm": {"PM25": {"N": 12, "MB": -2.0}},
         }
     )
-    payload = collect_payload(ctx, SummaryConfig())
+    payload = collect_payload(ctx, SummaryConfig())  # type: ignore[arg-type]
     by_var = {row["variable"]: row["template"].name for row in payload.stats_rows}
     assert by_var["O3"] == "ozone_eval"
     assert by_var["PM25"] == "pm_eval"
@@ -35,5 +35,5 @@ def test_each_row_gets_template_by_variable() -> None:
 def test_override_forces_template_for_pair() -> None:
     ctx = _context({"p_o3": {"O3": {"N": 10}}})
     cfg = SummaryConfig.model_validate({"template_overrides": {"p_o3": "trace_gas_eval"}})
-    payload = collect_payload(ctx, cfg)
+    payload = collect_payload(ctx, cfg)  # type: ignore[arg-type]
     assert payload.stats_rows[0]["template"].name == "trace_gas_eval"

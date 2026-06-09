@@ -56,7 +56,7 @@ def test_empty_sections_rejected() -> None:
 
 def test_unknown_format_rejected() -> None:
     with pytest.raises(ValidationError):
-        TemplateSection(heading="h", format="paragraph", words=10)
+        TemplateSection(heading="h", format="paragraph", words=10)  # type: ignore[arg-type]
 
 
 def test_format_instruction_includes_budget_and_extra() -> None:

@@ -40,7 +40,7 @@ def test_unknown_override_raises_with_hint() -> None:
 
 
 def test_inline_template_merges_and_extends_index() -> None:
-    inline = {
+    inline: dict[str, dict] = {
         "ozone_eval": {
             "title": "Custom O3",
             "matches": ["o3"],
