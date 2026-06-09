@@ -1,0 +1,19 @@
+name: ozone_eval
+title: Surface ozone evaluation
+description: Model-vs-observation evaluation of ozone (O3).
+matches: ["o3", "ozone"]
+sections:
+  - heading: Bottom line
+    format: headline
+    words: 20
+  - heading: Key metrics
+    format: metric_callout
+    words: 45
+    instruction: Lead with mean bias and normalized mean bias.
+  - heading: Bias and timing
+    format: prose
+    words: 90
+    instruction: Note daytime versus nighttime or diurnal-peak behavior if visible.
+  - heading: Caveats
+    format: bullets
+    words: 50

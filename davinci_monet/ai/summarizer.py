@@ -17,21 +17,13 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are a climate and atmospheric-composition data-comparison analyst.
 You are given the configuration, summary statistics, and figures from a single DAVINCI
-analysis run. Write a concise markdown brief with EXACTLY these four sections:
+analysis run. The run contains one or more comparisons; each lists the exact sections to
+write, with a required format and a word budget.
 
-## What this run is
-## Headline metrics
-## Interpretation
-## Caveats
-
-In "What this run is", describe the data sources, time period, variables, and pairing.
-In "Headline metrics", call out the most important statistics per variable and pair.
-In "Interpretation", describe where the comparand agrees or disagrees with the reference
-source and any spatial or temporal patterns visible in the attached figures.
-In "Caveats", note the sample size and what the metrics do not capture.
-
-Be specific and quantitative. Do not invent numbers that are not present in the provided
-statistics or visible in the figures."""
+For EACH comparison below, output a markdown block headed by the comparison name that
+contains EXACTLY its listed sections, in order. Obey each section's stated format and stay
+within its word budget. Be specific and quantitative. Do not invent numbers that are not
+present in the provided statistics or visible in the figures."""
 
 
 class SummaryError(Exception):
@@ -94,7 +86,15 @@ def extract_bullets(markdown: str, *, max_items: int = 12) -> list[str]:
 
 
 def render_text(payload: SummaryPayload) -> str:
-    """Render the textual portion of the user message from the payload."""
+    """Render the textual portion of the user message from the payload.
+
+    Emits the run header, then one templated block per ``(pair, variable)``
+    comparison: the comparison heading, its template's section instructions
+    (heading + format + word budget), and that comparison's statistics. Each row
+    carries a resolved ``template``; rows without one fall back to ``generic_eval``.
+    """
+    from davinci_monet.ai.templates import get_template_registry
+
     lines: list[str] = ["# Analysis run"]
     period = payload.period
     lines.append(f"Period: {period.get('start')} to {period.get('end')}")
@@ -103,13 +103,19 @@ def render_text(payload: SummaryPayload) -> str:
     if payload.pairs_summary:
         lines.append("Pairs: " + ", ".join(payload.pairs_summary))
 
-    lines.append("")
-    lines.append("## Statistics")
     if payload.stats_rows:
         for row in payload.stats_rows:
+            template = row.get("template") or get_template_registry().get("generic_eval")
+            lines.append("")
+            lines.append(f"## {row['pair']} — {row['variable']}")
+            lines.append("Write these sections, obeying each format and word budget:")
+            for section in template.sections:
+                lines.append(f"### {section.heading} — {section.format_instruction()}")
             metric_str = ", ".join(f"{k}={_fmt(v)}" for k, v in row["metrics"].items())
-            lines.append(f"- {row['pair']} / {row['variable']}: {metric_str}")
+            lines.append(f"Statistics: {metric_str}")
     else:
+        lines.append("")
+        lines.append("## Statistics")
         lines.append("(no statistics available)")
 
     if payload.instructions:

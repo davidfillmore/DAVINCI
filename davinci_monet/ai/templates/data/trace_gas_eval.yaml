@@ -1,0 +1,18 @@
+name: trace_gas_eval
+title: Trace gas evaluation
+description: Evaluation of trace gases (NO2, CO, SO2, HCHO, NH3).
+matches: ["no2", "co", "so2", "hcho", "nh3"]
+sections:
+  - heading: Bottom line
+    format: headline
+    words: 20
+  - heading: Key metrics
+    format: metric_callout
+    words: 45
+  - heading: Sources and patterns
+    format: prose
+    words: 90
+    instruction: Relate disagreements to emission sources or chemistry if visible.
+  - heading: Caveats
+    format: bullets
+    words: 50

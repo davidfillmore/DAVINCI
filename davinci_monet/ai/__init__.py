@@ -12,6 +12,12 @@ from davinci_monet.ai.summarizer import (
     generate_summary,
     resolve_api_key,
 )
+from davinci_monet.ai.templates import (
+    SummaryTemplate,
+    TemplateSection,
+    get_template_registry,
+    resolve_template_for,
+)
 from davinci_monet.config.schema import SummaryConfig
 
 __all__ = [
@@ -26,4 +32,8 @@ __all__ = [
     "generate_summary",
     "call_openrouter",
     "resolve_api_key",
+    "SummaryTemplate",
+    "TemplateSection",
+    "get_template_registry",
+    "resolve_template_for",
 ]

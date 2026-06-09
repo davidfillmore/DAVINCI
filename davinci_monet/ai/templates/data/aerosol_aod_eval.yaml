@@ -1,0 +1,19 @@
+name: aerosol_aod_eval
+title: Aerosol optical depth evaluation
+description: Evaluation of aerosol optical depth against AERONET or satellite retrievals.
+matches: ["aod", "aod_*", "aot", "aot_*", "*aod*"]
+sections:
+  - heading: Bottom line
+    format: headline
+    words: 20
+  - heading: Key metrics
+    format: metric_callout
+    words: 45
+    instruction: Report correlation and normalized mean bias; AOD is unitless.
+  - heading: Spatial and loading patterns
+    format: prose
+    words: 90
+  - heading: Caveats
+    format: bullets
+    words: 50
+    instruction: Note wavelength, retrieval sampling, and cloud screening limits.
