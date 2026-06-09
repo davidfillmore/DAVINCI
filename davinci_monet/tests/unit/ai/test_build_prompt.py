@@ -37,14 +37,12 @@ def test_render_text_appends_instructions() -> None:
     assert "Focus on coastal sites." in text
 
 
-def test_system_prompt_requests_four_sections() -> None:
-    for heading in (
-        "## What this run is",
-        "## Headline metrics",
-        "## Interpretation",
-        "## Caveats",
-    ):
-        assert heading in SYSTEM_PROMPT
+def test_system_prompt_is_template_driven() -> None:
+    lowered = SYSTEM_PROMPT.lower()
+    assert "section" in lowered
+    assert "format" in lowered
+    assert "word budget" in lowered
+    assert "comparison" in lowered
 
 
 def test_build_prompt_structure() -> None:
