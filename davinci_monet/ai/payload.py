@@ -74,6 +74,16 @@ def collect_payload(context: "PipelineContext", cfg: "SummaryConfig") -> Summary
                 metrics = {k: v for k, v in var_stats.items() if not k.startswith("_")}
                 stats_rows.append({"pair": pair_key, "variable": var_name, "metrics": metrics})
 
+    from davinci_monet.ai.templates import resolve_template_for
+
+    overrides = cfg.template_overrides or {}
+    for row in stats_rows:
+        row["template"] = resolve_template_for(
+            row["variable"],
+            override=overrides.get(row["pair"]),
+            inline=cfg.templates,
+        )
+
     all_plots: list[str] = []
     for stage_key in _PLOT_STAGES:
         result = context.results.get(stage_key)
