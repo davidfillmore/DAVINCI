@@ -121,7 +121,9 @@ class ProfileStrategy(BasePairingStrategy):
         # Interpolate model to observation times if needed
         if "time" in model_column.dims and "time" in obs.dims:
             obs_times = obs["time"]
-            model_column = self._interpolate_time(model_column, obs_times, "nearest")
+            model_column = self._interpolate_time(
+                model_column, obs_times, "nearest", time_tolerance=time_tolerance
+            )
 
         # Handle vertical interpolation
         if interp_to_obs_levels and level_coord in obs.dims:

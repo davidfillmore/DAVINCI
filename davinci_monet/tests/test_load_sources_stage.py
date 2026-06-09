@@ -158,3 +158,34 @@ class TestLoadSourcesStage:
 
     def test_stage_name(self) -> None:
         assert LoadSourcesStage().name == "load_sources"
+
+
+class TestApplyVariableConfigValidRange:
+    """Role-neutral valid_min/valid_max clamp, with obs_min/obs_max back-compat."""
+
+    @staticmethod
+    def _ds() -> xr.Dataset:
+        return xr.Dataset({"o3": ("x", [-5.0, 10.0, 999.0])}, coords={"x": [0, 1, 2]})
+
+    def test_valid_range_clamps_any_source(self) -> None:
+        out = LoadSourcesStage._apply_variable_config(
+            self._ds(), {"o3": {"valid_min": 0.0, "valid_max": 500.0}}
+        )
+        vals = out["o3"].values
+        assert np.isnan(vals[0])  # below valid_min
+        assert vals[1] == 10.0  # in range
+        assert np.isnan(vals[2])  # above valid_max
+
+    def test_obs_min_max_still_honored(self) -> None:
+        out = LoadSourcesStage._apply_variable_config(
+            self._ds(), {"o3": {"obs_min": 0.0, "obs_max": 500.0}}
+        )
+        vals = out["o3"].values
+        assert np.isnan(vals[0]) and vals[1] == 10.0 and np.isnan(vals[2])
+
+    def test_valid_min_takes_precedence_over_obs_min(self) -> None:
+        out = LoadSourcesStage._apply_variable_config(
+            self._ds(), {"o3": {"valid_min": 0.0, "obs_min": 100.0}}
+        )
+        # valid_min (0) wins over obs_min (100), so 10.0 survives.
+        assert out["o3"].values[1] == 10.0

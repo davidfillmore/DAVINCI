@@ -21,11 +21,7 @@ from davinci_monet.plots.base import (
     get_variable_units,
 )
 from davinci_monet.plots.registry import register_alias, register_plotter
-from davinci_monet.plots.renderers.track_map_3d import (
-    _get_border_segments,
-    _get_coastline_segments,
-    _render_surface_map,
-)
+from davinci_monet.plots.renderers._track3d import draw_track_3d
 from davinci_monet.plots.style import get_sequential_cmap
 
 if TYPE_CHECKING:
@@ -209,133 +205,48 @@ class FlightTrackPlotter(BasePlotter):
         text_cfg = self.config.text
         cmap = cmap or get_sequential_cmap()
 
-        # Plot 3D scatter
-        scatter = ax3d.scatter(  # type: ignore[misc]
-            lons,
-            lats,
-            alts,
-            c=values,
-            cmap=cmap,
-            s=marker_size,
-            alpha=alpha,
-            vmin=vmin,
-            vmax=vmax,
-            depthshade=True,
-        )
-
-        # Add 2D projection on bottom plane
-        if show_projection:
-            ax3d.scatter(  # type: ignore[misc]
-                lons,
-                lats,
-                np.zeros_like(alts),
-                c=values,
-                cmap=cmap,
-                s=marker_size * 0.3,
-                alpha=projection_alpha,
-                vmin=vmin,
-                vmax=vmax,
-            )
-
-        # Calculate bounds for map features
-        lon_min, lon_max = float(np.nanmin(lons)), float(np.nanmax(lons))
-        lat_min, lat_max = float(np.nanmin(lats)), float(np.nanmax(lats))
-        lon_pad = (lon_max - lon_min) * 0.1
-        lat_pad = (lat_max - lat_min) * 0.1
-        lon_min -= lon_pad
-        lon_max += lon_pad
-        lat_min -= lat_pad
-        lat_max += lat_pad
-
-        # Draw surface map or coastlines
-        if show_surface_map:
-            map_img = _render_surface_map(
-                lon_min,
-                lon_max,
-                lat_min,
-                lat_max,
-                resolution=surface_map_resolution,
-                land_color=land_color,
-                ocean_color=ocean_color,
-                coastline_color=coastline_color,
-                coastline_linewidth=coastline_linewidth,
-                show_borders=show_borders,
-                border_color=border_color,
-                border_linewidth=border_linewidth,
-            )
-            if map_img is not None:
-                img_h, img_w = map_img.shape[:2]
-                lon_grid = np.linspace(lon_min, lon_max, img_w)
-                lat_grid = np.linspace(lat_max, lat_min, img_h)
-                X, Y = np.meshgrid(lon_grid, lat_grid)
-                Z = np.zeros_like(X)
-                ax3d.plot_surface(  # type: ignore[attr-defined]
-                    X,
-                    Y,
-                    Z,
-                    facecolors=map_img,
-                    rstride=1,
-                    cstride=1,
-                    shade=False,
-                    zorder=1,
-                )
-        elif show_coastlines:
-            coastline_segments = _get_coastline_segments(
-                lon_min, lon_max, lat_min, lat_max, scale=coastline_scale
-            )
-            for seg_lons, seg_lats in coastline_segments:
-                ax3d.plot(
-                    seg_lons,
-                    seg_lats,
-                    np.zeros(len(seg_lons)),
-                    color=coastline_color,
-                    alpha=coastline_alpha,
-                    linewidth=coastline_linewidth,
-                    zorder=2,
-                )
-
-        # Draw country borders on surface plane (only if not using surface map)
-        if show_borders and not show_surface_map:
-            border_segments = _get_border_segments(lon_min, lon_max, lat_min, lat_max)
-            for seg_lons, seg_lats in border_segments:
-                ax3d.plot(
-                    seg_lons,
-                    seg_lats,
-                    np.zeros(len(seg_lons)),
-                    color=border_color,
-                    alpha=border_alpha,
-                    linewidth=border_linewidth,
-                    linestyle="--",
-                    zorder=2,
-                )
-
-        # Set axis limits
-        ax3d.set_xlim(lon_min, lon_max)
-        ax3d.set_ylim(lat_min, lat_max)
-
-        # Set view angle
-        ax3d.view_init(elev=elev, azim=azim)  # type: ignore[attr-defined]
-
-        # Limit tick count to prevent overlap, then format labels
-        ax3d.xaxis.set_major_locator(plt.MaxNLocator(nbins=5))
-        ax3d.yaxis.set_major_locator(plt.MaxNLocator(nbins=5))
-        ax3d.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.1f}"))
-        ax3d.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.1f}"))
-
-        # Axis labels
-        ax3d.set_xlabel("Longitude (\u00b0E)", fontsize=text_cfg.fontsize, labelpad=8)
-        ax3d.set_ylabel("Latitude (\u00b0N)", fontsize=text_cfg.fontsize, labelpad=8)
-        ax3d.set_zlabel("Altitude (km)", fontsize=text_cfg.fontsize, labelpad=8)  # type: ignore[attr-defined]
-        ax3d.tick_params(axis="both", labelsize=text_cfg.tick_fontsize)
-
-        # Colorbar
+        # Colorbar label
         var_label = get_variable_label(obs_data, variable, include_prefix=False)
         units = get_variable_units(obs_data, variable)
         cbar_label = format_label_with_units(var_label, units)
         cbar_label = format_plot_title(cbar_label)
-        cbar = fig.colorbar(scatter, ax=ax3d, shrink=0.6, pad=0.1)
-        cbar.set_label(cbar_label, fontsize=text_cfg.fontsize)
-        cbar.ax.tick_params(labelsize=text_cfg.tick_fontsize)
+
+        # Draw the shared 3D track body (scatter, projection, surface-plane map
+        # features, axis setup, labels, colorbar). ``use_maxnlocator`` matches
+        # the obs-only flight-track convention of capping x/y tick counts.
+        draw_track_3d(
+            fig,
+            ax3d,
+            lons,
+            lats,
+            alts,
+            values,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            text_cfg=text_cfg,
+            cbar_label=cbar_label,
+            marker_size=marker_size,
+            alpha=alpha,
+            elev=elev,
+            azim=azim,
+            show_projection=show_projection,
+            projection_alpha=projection_alpha,
+            show_coastlines=show_coastlines,
+            coastline_color=coastline_color,
+            coastline_alpha=coastline_alpha,
+            coastline_linewidth=coastline_linewidth,
+            coastline_scale=coastline_scale,
+            show_borders=show_borders,
+            border_color=border_color,
+            border_alpha=border_alpha,
+            border_linewidth=border_linewidth,
+            show_surface_map=show_surface_map,
+            surface_map_resolution=surface_map_resolution,
+            land_color=land_color,
+            ocean_color=ocean_color,
+            use_maxnlocator=True,
+        )
 
         # Title
         if title is None:

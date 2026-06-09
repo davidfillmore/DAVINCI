@@ -309,9 +309,3 @@ plotter_registry: Registry[type] = Registry("plotter")
 
 statistic_registry: Registry[type] = Registry("statistic")
 """Registry for statistic metric classes (MB, RMSE, R2, etc.)."""
-
-reader_registry: Registry[type] = Registry("reader")
-"""Registry for file reader classes (NetCDF, CSV, ICARTT, etc.)."""
-
-writer_registry: Registry[type] = Registry("writer")
-"""Registry for file writer classes (NetCDF, pickle, etc.)."""

@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 
 from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots._stats import annotation_metrics
 from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
@@ -454,23 +455,20 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
                 zorder=2,
             )
 
-        # Statistics box
+        # Statistics box (via central metric registry)
         if show_stats and valid_both.sum() > 0:
-            n = int(valid_both.sum())
             obs_mean = float(obs_vals[valid_both].mean())
-            mod_mean = float(mod_vals[valid_both].mean())
-            mb = mod_mean - obs_mean
-            nmb = 100 * mb / obs_mean if obs_mean != 0 else 0.0
-
-            # RMSE
-            diff = mod_vals[valid_both] - obs_vals[valid_both]
-            rmse = float(np.sqrt(np.mean(diff**2)))
-
-            # Correlation
-            if valid_both.sum() > 2:
-                r = float(np.corrcoef(obs_vals[valid_both], mod_vals[valid_both])[0, 1])
-            else:
-                r = np.nan
+            stats = annotation_metrics(
+                obs_vals[valid_both],
+                mod_vals[valid_both],
+                ["N", "MB", "RMSE", "NMB", "R"],
+            )
+            n = int(stats["N"])
+            mb = stats["MB"]
+            rmse = stats["RMSE"]
+            nmb = stats["NMB"] if obs_mean != 0 else 0.0
+            # Preserve the renderer's <=2-point guard (registry R needs >=2)
+            r = stats["R"] if valid_both.sum() > 2 else np.nan
 
             stats_text = f"N={n}\nMB={mb:+.2f}\nRMSE={rmse:.2f}\nNMB={nmb:+.0f}%"
             if not np.isnan(r):

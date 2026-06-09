@@ -7,8 +7,6 @@ of analysis stages, managing state and handling errors.
 from __future__ import annotations
 
 import logging
-import os
-import re
 import sys
 import time
 import traceback
@@ -21,6 +19,8 @@ from tqdm import tqdm
 
 from davinci_monet.core.exceptions import PipelineError
 from davinci_monet.pipeline.display import ProgressFormatter
+from davinci_monet.pipeline.lifecycle import PipelineResourcePolicy
+from davinci_monet.pipeline.progress import create_progress_callback
 from davinci_monet.pipeline.reporting import LogCollector, LogEntry
 from davinci_monet.pipeline.stages import (
     BaseStage,
@@ -167,6 +167,7 @@ class PipelineRunner:
         show_progress: bool = True,
         show_plots: bool = False,
         preview_format: Literal["pdf", "png"] = "pdf",
+        close_datasets_after_run: bool = True,
     ) -> None:
         """Initialize pipeline runner.
 
@@ -184,6 +185,9 @@ class PipelineRunner:
             Display interactive plot preview after completion (requires display).
         preview_format
             Format for plot preview: "pdf" opens in system viewer, "png" in matplotlib.
+        close_datasets_after_run
+            Close source datasets before returning. Set False when programmatic
+            callers need to inspect data in ``PipelineResult.context``.
         """
         self._stages = list(stages) if stages is not None else create_standard_pipeline()
         self._fail_fast = fail_fast
@@ -191,6 +195,9 @@ class PipelineRunner:
         self._show_progress = show_progress
         self._show_plots = show_plots
         self._preview_format = preview_format
+        self._resource_policy = PipelineResourcePolicy(
+            close_datasets_after_run=close_datasets_after_run
+        )
 
     @property
     def stages(self) -> list[Stage]:
@@ -278,28 +285,7 @@ class PipelineRunner:
         This helps prevent "invalid location identifier" errors that can occur
         when HDF5 has stale file handles from previous runs.
         """
-        import gc
-
-        # Force garbage collection to close any dangling file handles
-        gc.collect()
-
-        # Clear xarray's file manager cache if available
-        try:
-            from xarray.backends.file_manager import FILE_CACHE
-
-            FILE_CACHE.clear()
-        except (ImportError, AttributeError):
-            pass
-
-        # Clear netCDF4's file cache if available
-        try:
-            import netCDF4
-
-            # netCDF4 doesn't have a public cache clear, but gc.collect handles it
-        except ImportError:
-            pass
-
-        logger.debug("Cleared HDF5/NetCDF file state")
+        self._resource_policy.cleanup_hdf5_state()
 
     def _cleanup_context_datasets(self, context: PipelineContext) -> None:
         """Close all datasets in context to avoid transient file handle errors.
@@ -310,33 +296,7 @@ class PipelineRunner:
 
         Note: Does NOT clear the dictionaries, as other code may still reference them.
         """
-        import gc
-
-        source_items = list(context.sources.items())
-        closed_ids: set[int] = set()
-        for _label, source_data in source_items:
-            try:
-                data = source_data.data if hasattr(source_data, "data") else source_data
-                data_id = id(data)
-                if data_id in closed_ids:
-                    continue
-                if hasattr(data, "close"):
-                    data.close()
-                    closed_ids.add(data_id)
-            except Exception:
-                pass  # Ignore errors during cleanup
-
-        # Force garbage collection and clear file caches
-        gc.collect()
-
-        try:
-            from xarray.backends.file_manager import FILE_CACHE
-
-            FILE_CACHE.clear()
-        except (ImportError, AttributeError):
-            pass
-
-        logger.debug("Closed all context datasets")
+        self._resource_policy.cleanup_context_datasets(context)
 
     def run(self, context: PipelineContext | None = None) -> PipelineResult:
         """Execute the pipeline.
@@ -354,16 +314,7 @@ class PipelineRunner:
         if context is None:
             context = PipelineContext()
 
-        # Set HDF5 thread-safety defaults before any file I/O.
-        # Only set if the caller has not already provided an explicit value so
-        # that an explicit HDF5_USE_FILE_LOCKING=TRUE in the environment is
-        # always honoured.
-        if "HDF5_USE_FILE_LOCKING" not in os.environ:
-            os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
-            logger.debug("HDF5_USE_FILE_LOCKING not set; defaulting to FALSE")
-
-        # Clear HDF5/NetCDF state to avoid transient file handle errors
-        self._cleanup_hdf5_state()
+        self._resource_policy.prepare_before_run()
 
         # Apply plot styling from config if specified
         self._apply_plot_style(context)
@@ -392,92 +343,7 @@ class PipelineRunner:
         # Print header
         formatter.header(config_path=config_path, analysis_config=analysis_config)
 
-        # Set up progress callback that uses formatter and collects data
-        def _make_progress_callback(
-            fmt: ProgressFormatter,
-            collector: LogCollector | None,
-        ) -> Callable[[str], None]:
-            """Create progress callback for formatted output and log collection."""
-
-            def callback(msg: str) -> None:
-                # Collect structured data for Markdown log
-                if collector:
-                    collector.log_item(msg)
-                # Parse message type and format appropriately
-                if msg.strip().startswith("Loading source:"):
-                    match = re.match(r"\s*Loading source: (\S+) \((\d+)/(\d+)\)", msg)
-                    if match:
-                        name, idx, total = match.groups()
-                        fmt.item_start("source", name, int(idx), int(total))
-                elif msg.strip().startswith("Loading model:"):
-                    match = re.match(r"\s*Loading model: (\S+) \((\d+)/(\d+)\)", msg)
-                    if match:
-                        name, idx, total = match.groups()
-                        fmt.item_start("model", name, int(idx), int(total))
-                elif msg.strip().startswith("Loading obs:"):
-                    match = re.match(r"\s*Loading obs: (\S+) \((\d+)/(\d+)\)", msg)
-                    if match:
-                        name, idx, total = match.groups()
-                        fmt.item_start("obs", name, int(idx), int(total))
-                # Parallel mode control messages
-                elif msg.strip().startswith("parallel_start:"):
-                    # Format: "parallel_start: N" or "parallel_start: N | loading_msg"
-                    match = re.match(r"\s*parallel_start: (\d+)(?:\s*\|\s*(.+))?", msg)
-                    if match:
-                        total = int(match.group(1))
-                        loading_msg = match.group(2)  # May be None
-                        fmt.start_parallel(total, loading_msg)
-                elif msg.strip().startswith("parallel_end"):
-                    fmt.end_parallel()
-                elif msg.strip().startswith("parallel_started:"):
-                    # Item started in parallel mode (for logging, minimal display update)
-                    match = re.match(r"\s*parallel_started: (\S+)", msg)
-                    if match:
-                        name = match.group(1)
-                        fmt.parallel_item_started(name)
-                elif msg.strip().startswith("parallel_completed:"):
-                    # Item completed in parallel mode
-                    match = re.match(r"\s*parallel_completed: (\S+)(.*)", msg)
-                    if match:
-                        name = match.group(1)
-                        details = match.group(2).strip(" -") if match.group(2) else ""
-                        fmt.parallel_item_completed("pair", name, details)
-                # Legacy sequential pairing messages (for backward compatibility)
-                elif msg.strip().startswith("Pairing:"):
-                    # "Pairing:" = start, just update animation (don't track)
-                    match = re.match(r"\s*Pairing: (\S+) \((\d+)/(\d+)\)", msg)
-                    if match:
-                        name, idx, total = match.groups()
-                        fmt.item_start("pair", name, int(idx), int(total), track=False)
-                elif msg.strip().startswith("Paired:"):
-                    # "Paired:" = completion, show progress and track for summary
-                    match = re.match(r"\s*Paired: (\S+) \((\d+)/(\d+)\)(.*)", msg)
-                    if match:
-                        name, idx, total, details = match.groups()
-                        details = details.strip(" -") if details else ""
-                        fmt.item_complete("pair", name, int(idx), int(total), details)
-                elif msg.strip().startswith("Stats:"):
-                    match = re.match(r"\s*Stats: (\S+) \((\d+)/(\d+)\)", msg)
-                    if match:
-                        name, idx, total = match.groups()
-                        fmt.item_start("stats", name, int(idx), int(total))
-                elif msg.strip().startswith("Plot:"):
-                    match = re.match(r"\s*Plot: (\S+) \((\d+)/(\d+)\)", msg)
-                    if match:
-                        name, idx, total = match.groups()
-                        fmt.item_start("plot", name, int(idx), int(total))
-                elif msg.strip().startswith("step:"):
-                    # Step messages from stages
-                    step_msg = msg.strip()[5:].strip()
-                    fmt.step(step_msg)
-                elif msg.strip().startswith("done:"):
-                    # Completion messages from stages
-                    done_msg = msg.strip()[5:].strip()
-                    fmt.item_done(done_msg)
-
-            return callback
-
-        context.progress_callback = _make_progress_callback(formatter, log_collector)
+        context.progress_callback = create_progress_callback(formatter, log_collector)
 
         result = PipelineResult(
             success=True,
@@ -550,6 +416,17 @@ class PipelineRunner:
                 error_message=error_message,
             )
 
+            # Surface non-fatal per-item errors (pairing/stats/plot) that stages
+            # collected in metadata. These do not flip success, but were
+            # previously silent — a run could "succeed" while dropping items.
+            item_errors = {
+                key: context.metadata.get(key)
+                for key in ("pairing_errors", "stats_errors", "plot_errors")
+                if context.metadata.get(key)
+            }
+            if item_errors:
+                formatter.print_item_errors(item_errors)
+
             # Display the AI summary brief (if produced) to the terminal. The
             # summary stage cannot print durably itself (its log_progress is
             # transient), so the runner renders it here at end of run.
@@ -577,8 +454,7 @@ class PipelineRunner:
                 except Exception as e:
                     logger.warning(f"Failed to write log file: {e}")
 
-            # Close all datasets to prevent transient file handle errors during preview/exit
-            self._cleanup_context_datasets(context)
+            self._resource_policy.cleanup_after_run(context)
 
             # Preview generated plots if pipeline succeeded and show_plots is enabled
             if self._show_plots and result.success:

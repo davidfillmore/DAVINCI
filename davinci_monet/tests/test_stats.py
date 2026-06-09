@@ -511,6 +511,23 @@ class TestOutputFunctions:
         assert "Root Mean Square Error" in summary
         assert "Correlation Coefficient" in summary
 
+    def test_format_stats_summary_handles_none_and_nan(self):
+        """None/NaN metric values render as N/A instead of crashing.
+
+        Regression test: the None-guard was inverted, so a None value entered
+        the float-format branch and raised ``TypeError`` for a user-facing
+        summary. Both None and NaN must degrade to "N/A".
+        """
+        import numpy as np
+
+        from davinci_monet.stats import format_stats_summary
+
+        summary = format_stats_summary({"MB": None, "RMSE": np.nan, "R": 0.5})
+
+        assert "MB): N/A" in summary
+        assert "RMSE): N/A" in summary
+        assert "R): 0.5" in summary
+
     def test_get_metric_fullname(self):
         """Test get_metric_fullname function."""
         from davinci_monet.stats import get_metric_fullname

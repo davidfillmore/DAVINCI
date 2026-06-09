@@ -21,7 +21,11 @@ from davinci_monet.plots.base import (
     get_variable_units,
 )
 from davinci_monet.plots.registry import register_plotter
-from davinci_monet.plots.renderers.spatial.base import BaseSpatialPlotter, MapConfig
+from davinci_monet.plots.renderers.spatial.base import (
+    BaseSpatialPlotter,
+    MapConfig,
+    surface_level_index,
+)
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -79,7 +83,9 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
             model_lat (str, default "lat"),
             model_lon (str, default "lon"),
             time_index (int, default 0),
-            level_index (int|None, default 0),
+            level_index (int|str|None, default "surface"; "surface" auto-detects
+              the surface level — last index for CESM-style ascending-pressure
+              coords, else first — an int selects that index, None skips slicing),
             cmap (str, default "viridis"),
             n_levels (int, default 15),
             marker_size (float|None, default None),
@@ -107,7 +113,7 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         model_lat: str = kwargs.pop("model_lat", "lat")
         model_lon: str = kwargs.pop("model_lon", "lon")
         time_index: int = kwargs.pop("time_index", 0)
-        level_index: int | None = kwargs.pop("level_index", 0)
+        level_index: int | str | None = kwargs.pop("level_index", "surface")
         cmap: str = kwargs.pop("cmap", "viridis")
         n_levels: int = kwargs.pop("n_levels", 15)
         marker_size: float | None = kwargs.pop("marker_size", None)
@@ -140,7 +146,12 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         if level_index is not None:
             for dim in ["z", "level", "lev", "vertical"]:
                 if dim in model_field.dims:
-                    model_field = model_field.isel({dim: level_index})
+                    idx = (
+                        surface_level_index(model_field, dim)
+                        if level_index == "surface"
+                        else level_index
+                    )
+                    model_field = model_field.isel({dim: idx})
                     break
 
         # Get model coordinates
@@ -280,7 +291,7 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         model_lat: str = "lat",
         model_lon: str = "lon",
         time_index: int = 0,
-        level_index: int | None = 0,
+        level_index: int | str | None = "surface",
         cmap: str = "viridis",
         n_levels: int = 15,
         marker_size: float | None = None,
@@ -316,8 +327,10 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         time_index
             Time index to plot if model has time dimension.
         level_index
-            Level index to plot if model has vertical dimension.
-            Set to None to skip level selection.
+            Vertical level to plot if the model has a vertical dimension.
+            ``"surface"`` (default) auto-detects the surface level (last index
+            for CESM-style ascending-pressure coordinates, else first); an int
+            selects that index explicitly; None skips level selection.
         cmap
             Colormap name.
         n_levels

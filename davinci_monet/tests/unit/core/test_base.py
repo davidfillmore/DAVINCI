@@ -47,6 +47,24 @@ class TestPairedData:
         )
         assert paired.pair_label == "airnow_cmaq"
 
+    def test_from_sources_sets_reference_and_comparand_labels(
+        self, paired_dataset: xr.Dataset
+    ) -> None:
+        """Role-neutral construction is the preferred paired-data API."""
+        paired = PairedData.from_sources(
+            data=paired_dataset,
+            reference_label="airnow",
+            comparand_label="cam",
+            geometry=DataGeometry.POINT,
+            pairing_info={"strategy": "PointStrategy"},
+        )
+
+        assert paired.reference_label == "airnow"
+        assert paired.comparand_label == "cam"
+        assert paired.obs_label == "airnow"
+        assert paired.model_label == "cam"
+        assert paired.pairing_info["strategy"] == "PointStrategy"
+
     def test_comparand_variables(self, paired_dataset: xr.Dataset) -> None:
         """Test listing comparand variables."""
         paired = PairedData(

@@ -86,6 +86,24 @@ def detect_spatial_geometry(
     return "point"
 
 
+def surface_level_index(field_da: xr.DataArray, level_dim: str) -> int:
+    """Return the index of the surface level along ``level_dim``.
+
+    Mirrors the auto-detection in
+    :meth:`davinci_monet.pairing.strategies.base.BasePairingStrategy._extract_surface`
+    so map renderers slice the *surface*, not the top of atmosphere. For
+    CESM-style hybrid sigma-pressure coordinates the vertical coordinate values
+    increase with index (TOA first, surface last), so the surface is the last
+    index; for other conventions it is the first. Falls back to ``0`` when the
+    level coordinate is absent or has fewer than two values.
+    """
+    if level_dim in field_da.coords:
+        vert_vals = field_da.coords[level_dim].values
+        if len(vert_vals) > 1 and vert_vals[-1] > vert_vals[0]:
+            return -1
+    return 0
+
+
 @dataclass
 class MapConfig:
     """Configuration for map display.
@@ -360,34 +378,6 @@ def get_domain_extent(
     tuple[float, float, float, float] | None
         Extent (lon_min, lon_max, lat_min, lat_max) or None if unknown.
     """
-    # EPA regions (approximate bounds)
-    epa_regions = {
-        "R1": (-73.5, -66.9, 40.5, 47.5),  # New England
-        "R2": (-80.0, -71.8, 38.8, 45.0),  # NY, NJ, PR, VI
-        "R3": (-83.7, -74.5, 36.5, 42.5),  # Mid-Atlantic
-        "R4": (-92.0, -75.0, 24.5, 39.5),  # Southeast
-        "R5": (-97.5, -80.5, 36.0, 49.5),  # Great Lakes
-        "R6": (-107.0, -88.5, 26.0, 37.0),  # South Central
-        "R7": (-104.5, -89.0, 36.0, 43.5),  # Central
-        "R8": (-117.0, -96.0, 31.5, 49.0),  # Mountain
-        "R9": (-125.0, -114.0, 32.0, 42.5),  # Pacific Southwest
-        "R10": (-130.0, -116.0, 41.5, 49.5),  # Pacific Northwest
-    }
+    from davinci_monet.geography.domains import get_domain_extent as _get_domain_extent
 
-    # Standard domains
-    standard_domains = {
-        "conus": (-130.0, -60.0, 20.0, 55.0),
-        "global": (-180.0, 180.0, -90.0, 90.0),
-        "north_america": (-170.0, -50.0, 10.0, 75.0),
-        "europe": (-15.0, 45.0, 35.0, 72.0),
-        "asia": (60.0, 150.0, 0.0, 55.0),
-    }
-
-    if domain_type == "epa_region" and domain_name:
-        return epa_regions.get(domain_name.upper())
-    elif domain_type in standard_domains:
-        return standard_domains[domain_type]
-    elif domain_name and domain_name in standard_domains:
-        return standard_domains[domain_name]
-
-    return None
+    return _get_domain_extent(domain_type, domain_name)

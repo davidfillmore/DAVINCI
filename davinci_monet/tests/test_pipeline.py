@@ -704,6 +704,37 @@ class TestPipelineRunner:
         assert result.context is not None
         assert result.context.metadata.get("executed") is True
 
+    def test_runner_can_leave_context_datasets_open(self):
+        """Callers can opt out of result-context dataset cleanup after run()."""
+
+        class CloseableData:
+            def __init__(self) -> None:
+                self.closed = False
+
+            def close(self) -> None:
+                self.closed = True
+
+        class SourceStage(BaseStage):
+            def __init__(self, data: CloseableData) -> None:
+                super().__init__("source")
+                self.data = data
+
+            def execute(self, context: PipelineContext) -> StageResult:
+                context.sources["synthetic"] = self.data
+                return self._create_result(StageStatus.COMPLETED)
+
+        data = CloseableData()
+        runner = PipelineRunner(
+            stages=[SourceStage(data)],
+            show_progress=False,
+            close_datasets_after_run=False,
+        )
+
+        result = runner.run(PipelineContext())
+
+        assert result.success is True
+        assert data.closed is False
+
     def test_run_with_failing_stage(self):
         """Test pipeline handles failing stage."""
 

@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots._stats import annotation_metrics
 from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
@@ -86,21 +87,20 @@ class ScorecardPlotter(BasePlotter):
         obs_var = ref.var_name
         model_var = comp.var_name
 
-        # Calculate basic statistics
+        # Calculate basic statistics (via central metric registry)
         reference = paired_data[obs_var].values.flatten()
         comparand = paired_data[model_var].values.flatten()
 
-        mask = np.isfinite(reference) & np.isfinite(comparand)
-        reference = reference[mask]
-        comparand = comparand[mask]
-
+        registry_stats = annotation_metrics(
+            reference, comparand, ["N", "MO", "MP", "MB", "RMSE", "R"]
+        )
         stats = {
-            "N": len(reference),
-            "Mean Reference": np.mean(reference),
-            "Mean Comparand": np.mean(comparand),
-            "MB": np.mean(comparand - reference),
-            "RMSE": np.sqrt(np.mean((comparand - reference) ** 2)),
-            "R": np.corrcoef(reference, comparand)[0, 1] if len(reference) > 1 else np.nan,
+            "N": int(registry_stats["N"]),
+            "Mean Reference": registry_stats["MO"],
+            "Mean Comparand": registry_stats["MP"],
+            "MB": registry_stats["MB"],
+            "RMSE": registry_stats["RMSE"],
+            "R": registry_stats["R"],
         }
 
         # Create simple 1-row scorecard

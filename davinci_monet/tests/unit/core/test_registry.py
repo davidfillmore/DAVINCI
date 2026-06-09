@@ -10,10 +10,8 @@ from davinci_monet.core.registry import (
     Registry,
     RegistryError,
     plotter_registry,
-    reader_registry,
     source_registry,
     statistic_registry,
-    writer_registry,
 )
 
 
@@ -273,16 +271,6 @@ class TestPreConfiguredRegistries:
         """Test statistic_registry is properly configured."""
         assert statistic_registry.name == "statistic"
         assert isinstance(statistic_registry, Registry)
-
-    def test_reader_registry_exists(self) -> None:
-        """Test reader_registry is properly configured."""
-        assert reader_registry.name == "reader"
-        assert isinstance(reader_registry, Registry)
-
-    def test_writer_registry_exists(self) -> None:
-        """Test writer_registry is properly configured."""
-        assert writer_registry.name == "writer"
-        assert isinstance(writer_registry, Registry)
 
 
 class TestRegistryWithCallables:

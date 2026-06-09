@@ -10,6 +10,13 @@ import xarray as xr
 from davinci_monet.util.domain import filter_paired_by_domain
 
 
+def test_domain_extent_catalog_is_not_plot_owned() -> None:
+    """Named domains live in a neutral geography module, not spatial plotting."""
+    from davinci_monet.geography.domains import get_domain_extent
+
+    assert get_domain_extent("conus") == (-130, -60, 20, 55)
+
+
 def _paired_point_dataset() -> xr.Dataset:
     """Build a synthetic paired Dataset with sites spanning multiple regions."""
     times = pd.date_range("2024-01-01", periods=6, freq="h")

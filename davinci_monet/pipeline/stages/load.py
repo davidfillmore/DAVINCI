@@ -11,6 +11,7 @@ from typing import Any
 import xarray as xr
 
 from davinci_monet.core.protocols import DataGeometry
+from davinci_monet.io.source_registration import ensure_builtin_source_readers_registered
 from davinci_monet.pipeline.stages.base import (
     BaseStage,
     PipelineContext,
@@ -151,9 +152,9 @@ class LoadSourcesStage(BaseStage):
         context: PipelineContext,
     ) -> SourceData:
         """Load one source directly through ``source_registry``."""
-        import davinci_monet.models  # noqa: F401
-        import davinci_monet.observations  # noqa: F401
         from davinci_monet.core.registry import ComponentNotFoundError, source_registry
+
+        ensure_builtin_source_readers_registered()
 
         cfg = self._as_dict(raw_config)
         source_type = str(cfg.get("type") or "generic")
@@ -311,10 +312,15 @@ class LoadSourcesStage(BaseStage):
             nan_value = cfg.get("nan_value")
             if nan_value is not None:
                 arr = arr.where(arr != nan_value)
-            min_val = cfg.get("obs_min")
+            # Valid-range clamp. ``valid_min``/``valid_max`` are role-neutral and
+            # apply to any source (a model variable can declare a physical valid
+            # range too); ``obs_min``/``obs_max`` are the historical
+            # observation-flavored synonyms, honored as a fallback for
+            # back-compat.
+            min_val = cfg.get("valid_min", cfg.get("obs_min"))
             if min_val is not None:
                 arr = arr.where(arr >= min_val)
-            max_val = cfg.get("obs_max")
+            max_val = cfg.get("valid_max", cfg.get("obs_max"))
             if max_val is not None:
                 arr = arr.where(arr <= max_val)
             if cfg.get("units"):
