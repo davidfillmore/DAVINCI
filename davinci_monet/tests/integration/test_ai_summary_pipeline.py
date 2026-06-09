@@ -187,3 +187,86 @@ def test_summary_displayed_to_terminal_at_end_of_run(monkeypatch, tmp_path: Path
     assert summary_file is not None and summary_file.endswith("AI_summary.md")
     # the file on disk still holds the full brief
     assert "## Caveats" in (tmp_path / "output" / "AI_summary.md").read_text()
+
+
+def _build_two_species_config(tmp_path: Path) -> dict:
+    domain = Domain(lon_min=-105.0, lon_max=-95.0, lat_min=35.0, lat_max=45.0, n_lon=12, n_lat=12)
+    time_cfg = TimeConfig(start="2024-01-15 00:00", end="2024-01-17 00:00", freq="1h")
+
+    model_ds = create_model_dataset(
+        variables=["O3", "PM25"], domain=domain, time_config=time_cfg, seed=7
+    )
+    scenario = PerfectMatchScenario(
+        variables=["O3", "PM25"],
+        domain=domain,
+        time_config=time_cfg,
+        geometry=DataGeometry.POINT,
+        n_obs=10,
+        noise_level=0.0,
+        seed=7,
+    )
+    obs_ds = sample_obs_from(model_ds, "point", scenario=scenario)
+
+    model_path = tmp_path / "model2.nc"
+    obs_path = tmp_path / "obs2.nc"
+    model_ds.to_netcdf(model_path)
+    obs_ds.to_netcdf(obs_path)
+
+    return {
+        "analysis": {
+            "start_time": "2024-01-15 00:00",
+            "end_time": "2024-01-17 00:00",
+            "output_dir": str(tmp_path / "output"),
+            "log_dir": str(tmp_path / "logs"),
+        },
+        "sources": {
+            "synthetic": {
+                "type": "generic",
+                "role": "model",
+                "files": str(model_path),
+                "radius_of_influence": 50000,
+                "mapping": {"surface": {"O3": "O3", "PM25": "PM25"}},
+                "variables": {"O3": {"units": "ppb"}, "PM25": {"units": "ug/m3"}},
+            },
+            "surface": {
+                "type": "pt_sfc",
+                "role": "obs",
+                "filename": str(obs_path),
+                "variables": {"O3": {"units": "ppb"}, "PM25": {"units": "ug/m3"}},
+            },
+        },
+        "pairs": {
+            "o3_pair": {
+                "sources": ["synthetic", "surface"],
+                "reference": "surface",
+                "variables": {"synthetic": "O3", "surface": "O3"},
+            },
+            "pm_pair": {
+                "sources": ["synthetic", "surface"],
+                "reference": "surface",
+                "variables": {"synthetic": "PM25", "surface": "PM25"},
+            },
+        },
+        "stats": {"metrics": ["N", "MB", "RMSE", "R"]},
+    }
+
+
+def test_two_species_prompt_carries_distinct_templates(monkeypatch, tmp_path: Path) -> None:
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    stub = _StubClient()
+    monkeypatch.setattr(summarizer_mod, "_build_client", lambda cfg: stub)
+
+    config = _build_two_species_config(tmp_path)
+    config["summary"] = {"enabled": True, "model": "claude-haiku-4-5"}
+
+    runner = PipelineRunner(show_progress=False)
+    result = runner.run_from_config(config)
+
+    assert result.success, "pipeline run failed"
+    assert stub.calls, "client was not called"
+    user_text = stub.calls[0]["messages"][0]["content"][0]["text"]
+    assert "## o3_pair — O3" in user_text
+    assert "## pm_pair — PM25" in user_text
+    assert "Bias and timing" in user_text  # an ozone_eval-only section heading
+    assert "Bias and episodes" in user_text  # a pm_eval-only section heading
