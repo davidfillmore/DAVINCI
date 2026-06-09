@@ -132,6 +132,21 @@ class PairingEngine:
             )
         return self._strategies[geometry]
 
+    def supported_pairing_combinations(self) -> set[tuple[DataGeometry, DataGeometry]]:
+        """Return supported ``(reference, comparand)`` geometry combinations."""
+        return {(reference_geometry, DataGeometry.GRID) for reference_geometry in self._strategies}
+
+    def supports_pairing_combination(
+        self,
+        reference_geometry: DataGeometry,
+        comparand_geometry: DataGeometry,
+    ) -> bool:
+        """Return whether the engine can pair this geometry combination."""
+        return (
+            reference_geometry,
+            comparand_geometry,
+        ) in self.supported_pairing_combinations()
+
     def get_strategy_for(
         self,
         reference_geometry: DataGeometry,
@@ -162,7 +177,7 @@ class PairingEngine:
         PairingError
             If the combination is not supported.
         """
-        if comparand_geometry is not DataGeometry.GRID:
+        if not self.supports_pairing_combination(reference_geometry, comparand_geometry):
             raise PairingError(
                 f"Unsupported pairing combination "
                 f"(reference={reference_geometry.name}, comparand={comparand_geometry.name}). "
@@ -216,10 +231,10 @@ class PairingEngine:
             obs_vars=reference_vars,
             model_vars=comparand_vars,
         )
-        return PairedData(
+        return PairedData.from_sources(
             data=result_ds,
-            model_label=comparand_label,
-            obs_label=reference_label,
+            reference_label=reference_label,
+            comparand_label=comparand_label,
             geometry=reference_geometry,
             pairing_info={
                 "reference_label": reference_label,

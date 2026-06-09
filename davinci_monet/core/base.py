@@ -197,6 +197,33 @@ class PairedData:
     geometry: DataGeometry
     pairing_info: dict[str, Any] = field(default_factory=dict)
 
+    @classmethod
+    def from_sources(
+        cls,
+        *,
+        data: xr.Dataset,
+        reference_label: str,
+        comparand_label: str,
+        geometry: DataGeometry,
+        pairing_info: dict[str, Any] | None = None,
+    ) -> "PairedData":
+        """Construct paired data using role-neutral source labels.
+
+        ``obs_label`` and ``model_label`` remain compatibility fields for old
+        callers, but new construction should name the reference and comparand
+        directly.
+        """
+        info = dict(pairing_info or {})
+        info.setdefault("reference_label", reference_label)
+        info.setdefault("comparand_label", comparand_label)
+        return cls(
+            data=data,
+            model_label=comparand_label,
+            obs_label=reference_label,
+            geometry=geometry,
+            pairing_info=info,
+        )
+
     @property
     def pair_label(self) -> str:
         """Get combined pair label (reference_comparand format)."""

@@ -20,6 +20,12 @@ from davinci_monet.pipeline.stages.helpers import (
     resolve_paired_var_names,
     tag_source_roles,
 )
+from davinci_monet.pipeline.stages.plot_options import (
+    build_comparison_plot_options,
+    build_plot_subtitle,
+    single_source_plot_kwargs,
+    timestamp_from_field,
+)
 
 
 class PlottingStage(BaseStage):
@@ -76,20 +82,6 @@ class PlottingStage(BaseStage):
         from davinci_monet.plots.registry import get_plotter
 
         _logger = logging.getLogger(__name__)
-        _SCHEMA_KEYS = {
-            "type",
-            "obs",
-            "source",
-            "variable",
-            "fig_kwargs",
-            "default_plot_kwargs",
-            "text_kwargs",
-            "domain_type",
-            "domain_name",
-            "data",
-            "data_proc",
-        }
-
         start = time.time()
         plots_config = context.config.get("plots", {})
         output_dir = Path(context.config.get("analysis", {}).get("output_dir", "."))
@@ -125,7 +117,7 @@ class PlottingStage(BaseStage):
                 continue
 
             plotter = get_plotter(plot_type)
-            plot_kwargs = {k: v for k, v in plot_spec.items() if k not in _SCHEMA_KEYS}
+            plot_kwargs = single_source_plot_kwargs(plot_spec)
             base_title = plot_kwargs.get("title", f"{variable} {plot_type}")
 
             has_flights = "flight" in ds.coords
@@ -349,57 +341,12 @@ class PlottingStage(BaseStage):
                         plotter_config["vmin"] = vmin
                         plotter_config["vmax"] = vmax
 
-                    # Extract additional plot options from plot_spec
-                    plot_options: dict[str, Any] = {}
-                    for opt_key in [
-                        "show_site_labels",
-                        "show_individual_sites",
-                        "show_uncertainty",
-                        "uncertainty_type",
-                        "resample",
-                        "aggregate_dim",
-                        "label_sites",
-                        "site_label_var",
-                        "city_labels",
-                        "show_density",
-                        "density_cmap",
-                        "alpha",
-                        # spatial_overlay obs marker sizing
-                        "marker_size",
-                        "obs_edgecolor",
-                        "obs_linewidth",
-                        # spatial plotter rendering mode
-                        "plot_type",
-                        "cmap",
-                        # track_map_3d options
-                        "show_surface_map",
-                        "surface_map_resolution",
-                        "land_color",
-                        "ocean_color",
-                        "show_var",
-                        "elev",
-                        "azim",
-                        "show_coastlines",
-                        "show_borders",
-                        "show_projection",
-                        "alt_scale",
-                    ]:
-                        if opt_key in plot_spec:
-                            plot_options[opt_key] = plot_spec[opt_key]
-
-                    # Add city_labels from analysis config for spatial plots and 3D track maps
-                    if (
-                        plot_type.startswith("spatial") or plot_type == "track_map_3d"
-                    ) and "city_labels" not in plot_options:
-                        city_labels = analysis_config.get("city_labels")
-                        if city_labels:
-                            plot_options["city_labels"] = city_labels
-
-                    # Forward nlevels_plot to spatial plotters as n_levels so
-                    # configs can pick contour counts that produce nice round
-                    # tick values (e.g. 21 levels over 0-1 -> step 0.05).
-                    if plot_type.startswith("spatial") and nlevels is not None:
-                        plot_options.setdefault("n_levels", nlevels)
+                    plot_options = build_comparison_plot_options(
+                        plot_type,
+                        plot_spec,
+                        analysis_config,
+                        nlevels=nlevels,
+                    )
 
                     # spatial_overlay needs the raw gridded model field for the
                     # contour layer; the paired dataset usually carries sampled
@@ -437,29 +384,15 @@ class PlottingStage(BaseStage):
                     # Obs") has been removed — plot titles already name the
                     # sources, and the separator rendered as a missing-glyph box
                     # in the Poppins font.
-                    start_time = analysis_config.get("start_time", "")
-                    end_time = analysis_config.get("end_time", "")
-                    date_str = ""
-                    if start_time:
-                        start_date = str(start_time).split(" ")[0]
-                        end_date = str(end_time).split(" ")[0] if end_time else start_date
-                        date_str = (
-                            start_date if start_date == end_date else f"{start_date} - {end_date}"
-                        )
                     snapshot_str = ""
                     if plot_type == "spatial_overlay" and "model_field" in plot_options:
                         mf = plot_options["model_field"]
                         time_idx = plot_options.get("time_index", 0)
-                        if "time" in mf.dims and len(mf["time"]) > time_idx:
-                            ts = mf["time"].values[time_idx]
-                            try:
-                                import pandas as pd
-
-                                snapshot_str = pd.Timestamp(ts).strftime("%Y-%m-%d %H:%M UTC")
-                            except Exception:
-                                snapshot_str = str(ts)[:16] + " UTC"
-                    when = snapshot_str or date_str
-                    subtitle = when
+                        snapshot_str = timestamp_from_field(mf, time_idx)
+                    subtitle = build_plot_subtitle(
+                        analysis_config,
+                        snapshot_timestamp=snapshot_str,
+                    )
                     # Forward per-plot axis label overrides to the plotter config
                     # so renderers like scatter can display source-named labels
                     # (e.g. "MODIS Terra AOD") instead of "Observed AOD (550 nm)".

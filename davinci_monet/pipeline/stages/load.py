@@ -11,6 +11,7 @@ from typing import Any
 import xarray as xr
 
 from davinci_monet.core.protocols import DataGeometry
+from davinci_monet.io.source_registration import ensure_builtin_source_readers_registered
 from davinci_monet.pipeline.stages.base import (
     BaseStage,
     PipelineContext,
@@ -151,9 +152,9 @@ class LoadSourcesStage(BaseStage):
         context: PipelineContext,
     ) -> SourceData:
         """Load one source directly through ``source_registry``."""
-        import davinci_monet.models  # noqa: F401
-        import davinci_monet.observations  # noqa: F401
         from davinci_monet.core.registry import ComponentNotFoundError, source_registry
+
+        ensure_builtin_source_readers_registered()
 
         cfg = self._as_dict(raw_config)
         source_type = str(cfg.get("type") or "generic")

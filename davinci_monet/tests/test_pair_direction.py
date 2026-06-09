@@ -56,6 +56,17 @@ class TestResolvePairDirection:
 
 
 class TestEngineRefCompDispatch:
+    def test_supported_pairing_combinations_are_explicit(self) -> None:
+        engine = PairingEngine()
+        supported = engine.supported_pairing_combinations()
+
+        assert (G.POINT, G.GRID) in supported
+        assert (G.TRACK, G.GRID) in supported
+        assert (G.PROFILE, G.GRID) in supported
+        assert (G.SWATH, G.GRID) in supported
+        assert (G.GRID, G.GRID) in supported
+        assert (G.POINT, G.TRACK) not in supported
+
     def test_get_strategy_for_irregular_grid_matches_legacy(self) -> None:
         engine = PairingEngine()
         for geom in (G.POINT, G.TRACK, G.PROFILE, G.SWATH):

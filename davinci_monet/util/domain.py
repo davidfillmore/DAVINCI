@@ -2,8 +2,7 @@
 
 Translates ``domain_type`` / ``domain_name`` configuration keys into
 lat/lon bounding-box filters that can be applied to paired datasets
-before plotting or statistics. The named domain extents themselves are
-defined in :func:`davinci_monet.plots.renderers.spatial.base.get_domain_extent`.
+before plotting or statistics.
 """
 
 from __future__ import annotations
@@ -68,8 +67,7 @@ def filter_paired_by_domain(
     if dt is None or dt == "all":
         return paired_data
 
-    # Lazy import to avoid plots → util → plots cycles at module load.
-    from davinci_monet.plots.renderers.spatial.base import get_domain_extent
+    from davinci_monet.geography.domains import get_domain_extent
 
     extent = get_domain_extent(dt, dn)
     if extent is None:
