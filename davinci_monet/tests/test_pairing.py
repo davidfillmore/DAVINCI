@@ -347,6 +347,82 @@ class TestBasePairingStrategy:
         assert "z" not in surface.dims
         assert "temperature" in surface.data_vars
 
+    def test_interpolate_time_honors_tolerance(self) -> None:
+        """time_tolerance gates nearest-time matching instead of being ignored.
+
+        Regression test: the tolerance flowed config -> engine -> strategy but
+        never reached the point/track/profile ``sel`` call, so observations
+        arbitrarily far in time from any model time were paired silently. With a
+        tolerance set, out-of-tolerance targets must become NaN; with None they
+        snap to the nearest model time as before.
+        """
+        strategy = PointStrategy()
+        model_times = pd.date_range("2024-01-01", periods=5, freq="h")
+        model = xr.Dataset(
+            {"o3": ("time", np.arange(1.0, 6.0))},
+            coords={"time": model_times},
+        )
+        # Target a day after the model window: nearest model time is ~20h away.
+        targets = xr.DataArray(pd.to_datetime(["2024-01-02 00:00"]), dims=["time"])
+
+        gated = strategy._interpolate_time(model, targets, method="nearest", time_tolerance="1h")
+        assert bool(np.isnan(gated["o3"].values).all())
+
+        ungated = strategy._interpolate_time(model, targets, method="nearest", time_tolerance=None)
+        assert ungated["o3"].values[0] == 5.0  # snaps to last model time
+
+    def test_extract_surface_cesm_pressure_ordering(self) -> None:
+        """Surface extraction selects the LAST level for CESM-ordered pressure.
+
+        Reproduces the CESM hybrid sigma-pressure convention where pressure
+        increases with index (top-of-atmosphere first, surface last). This
+        ordering is otherwise not represented in the synthetic data, so the
+        ``surface_idx = -1`` branch of ``_extract_surface`` previously went
+        untested even though CLAUDE.md flags it as a repeatedly-rediscovered
+        bug. The assertion confirms we get realistic surface ozone (~40 ppb),
+        not the stratospheric top-of-atmosphere value.
+        """
+        from davinci_monet.tests.synthetic.generators import create_level_axis
+
+        z = create_level_axis(n_levels=6, ascending_pressure=True)
+        assert z.values[-1] > z.values[0]  # pressure increases with index (CESM)
+
+        lats = np.linspace(30, 50, 4)
+        lons = np.linspace(-120, -80, 5)
+        # Index 0 = TOA (stratospheric O3), last index = surface (~40 ppb).
+        o3_profile = np.linspace(5000.0, 40.0, z.size)
+        ozone = np.broadcast_to(o3_profile[:, None, None], (z.size, lats.size, lons.size))
+        model = xr.Dataset(
+            {"ozone": (["z", "lat", "lon"], ozone.copy())},
+            coords={"z": ("z", z.values), "lat": lats, "lon": lons},
+        )
+
+        surface = PointStrategy()._extract_surface(model)
+
+        assert "z" not in surface.dims
+        np.testing.assert_allclose(surface["ozone"].values, 40.0)
+
+    def test_extract_surface_descending_pressure_ordering(self) -> None:
+        """Surface extraction selects index 0 when pressure decreases with index."""
+        from davinci_monet.tests.synthetic.generators import create_level_axis
+
+        z = create_level_axis(n_levels=6, ascending_pressure=False)
+        assert z.values[-1] < z.values[0]  # surface first (default ordering)
+
+        lats = np.linspace(30, 50, 4)
+        lons = np.linspace(-120, -80, 5)
+        # Index 0 = surface (~40 ppb), last index = TOA (stratospheric O3).
+        o3_profile = np.linspace(40.0, 5000.0, z.size)
+        ozone = np.broadcast_to(o3_profile[:, None, None], (z.size, lats.size, lons.size))
+        model = xr.Dataset(
+            {"ozone": (["z", "lat", "lon"], ozone.copy())},
+            coords={"z": ("z", z.values), "lat": lats, "lon": lons},
+        )
+
+        surface = PointStrategy()._extract_surface(model)
+
+        np.testing.assert_allclose(surface["ozone"].values, 40.0)
+
 
 # =============================================================================
 # Tests for PointStrategy

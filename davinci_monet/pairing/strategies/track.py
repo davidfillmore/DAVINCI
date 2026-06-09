@@ -12,6 +12,7 @@ from typing import Any, Hashable
 
 import dask
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 from davinci_monet.core.exceptions import PairingError
@@ -177,6 +178,7 @@ class TrackStrategy(BasePairingStrategy):
             obs_altitude,
             vertical_method=vertical_method,
             model_has_vertical=model_has_vertical,
+            time_tolerance=time_tolerance,
         )
 
         # Create paired output
@@ -218,6 +220,7 @@ class TrackStrategy(BasePairingStrategy):
         obs_altitude: xr.DataArray | None,
         vertical_method: str,
         model_has_vertical: bool,
+        time_tolerance: TimeDelta | None = None,
     ) -> xr.Dataset:
         """Extract model values along the track with 3D interpolation.
 
@@ -311,6 +314,15 @@ class TrackStrategy(BasePairingStrategy):
         right_dist = np.abs(model_times[right_idx] - obs_times_vals)
         time_idx = np.where(left_dist <= right_dist, left_idx, right_idx)
 
+        # Gate on time tolerance: track points whose nearest model time is
+        # farther than the tolerance are dropped (NaN) rather than snapped to a
+        # distant model time. None disables the gate.
+        if time_tolerance is not None:
+            tol_ns = pd.Timedelta(time_tolerance).value
+            time_valid = np.minimum(left_dist, right_dist) <= tol_ns
+        else:
+            time_valid = np.ones(n_points, dtype=bool)
+
         # Create time indexer
         time_indexer = xr.DataArray(time_idx, dims=["track_point"])
 
@@ -324,8 +336,8 @@ class TrackStrategy(BasePairingStrategy):
             else:
                 out_data = np.full(n_points, var_data.values)
 
-            # Mask invalid points
-            out_data = np.where(valid_mask, out_data, np.nan)
+            # Mask points invalid in space (outside radius) or time (outside tolerance)
+            out_data = np.where(valid_mask & time_valid, out_data, np.nan)
             result_vars[str(var)] = (("time",), out_data)
 
         # Build output dataset

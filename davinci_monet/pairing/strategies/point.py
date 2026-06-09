@@ -161,7 +161,9 @@ class PointStrategy(BasePairingStrategy):
         # Interpolate model to observation times
         if "time" in model_at_sites.dims and "time" in obs.dims:
             obs_times = obs["time"]
-            model_at_sites = self._interpolate_time(model_at_sites, obs_times, method=time_method)
+            model_at_sites = self._interpolate_time(
+                model_at_sites, obs_times, method=time_method, time_tolerance=time_tolerance
+            )
 
         # Combine into paired dataset
         paired = self._create_paired_output(obs, model_at_sites, site_dim)

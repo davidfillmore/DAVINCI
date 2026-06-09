@@ -16,12 +16,8 @@ import pytest
 from davinci_monet.core.protocols import (
     Configurable,
     DataGeometry,
-    DataReader,
-    DataWriter,
     PairingEngine,
     PairingStrategy,
-    Pipeline,
-    PipelineStage,
     Plotter,
     SpatialPlotter,
     StatisticMetric,
@@ -134,60 +130,6 @@ class TestStatisticMetricProtocol:
         assert isinstance(metric, StatisticMetric)
 
 
-class TestPipelineStageProtocol:
-    """Tests for PipelineStage protocol."""
-
-    def test_protocol_is_runtime_checkable(self) -> None:
-        """Verify PipelineStage is runtime_checkable."""
-
-        class MockStage:
-            @property
-            def name(self) -> str:
-                return "load_data"
-
-            def execute(self, context: Mapping[str, Any]) -> Mapping[str, Any]:
-                return dict(context)
-
-        stage = MockStage()
-        assert isinstance(stage, PipelineStage)
-
-
-class TestDataReaderProtocol:
-    """Tests for DataReader protocol."""
-
-    def test_protocol_is_runtime_checkable(self) -> None:
-        """Verify DataReader is runtime_checkable."""
-
-        class MockDataReader:
-            def read(self, path: str | Path, **kwargs: Any) -> Any:
-                return None
-
-            def supports(self, path: str | Path) -> bool:
-                return True
-
-        reader = MockDataReader()
-        assert isinstance(reader, DataReader)
-
-
-class TestDataWriterProtocol:
-    """Tests for DataWriter protocol."""
-
-    def test_protocol_is_runtime_checkable(self) -> None:
-        """Verify DataWriter is runtime_checkable."""
-
-        class MockDataWriter:
-            def write(
-                self,
-                data: Any,
-                path: str | Path,
-                **kwargs: Any,
-            ) -> Path:
-                return Path(path)
-
-        writer = MockDataWriter()
-        assert isinstance(writer, DataWriter)
-
-
 class TestConfigurableProtocol:
     """Tests for Configurable protocol."""
 
@@ -223,23 +165,6 @@ class TestPairingEngineProtocol:
 
         engine = MockEngine()
         assert isinstance(engine, PairingEngine)
-
-
-class TestPipelineProtocol:
-    """Tests for Pipeline protocol."""
-
-    def test_protocol_is_runtime_checkable(self) -> None:
-        """Verify Pipeline is runtime_checkable."""
-
-        class MockPipeline:
-            def add_stage(self, stage: PipelineStage) -> None:
-                pass
-
-            def run(self, initial_context: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
-                return {}
-
-        pipeline = MockPipeline()
-        assert isinstance(pipeline, Pipeline)
 
 
 class TestStatisticsCalculatorProtocol:

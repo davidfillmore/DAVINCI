@@ -38,12 +38,8 @@ from davinci_monet.core.exceptions import (
 from davinci_monet.core.protocols import (
     Configurable,
     DataGeometry,
-    DataReader,
-    DataWriter,
     PairingEngine,
     PairingStrategy,
-    Pipeline,
-    PipelineStage,
     Plotter,
     SourceProcessor,
     SourceReader,
@@ -57,10 +53,8 @@ from davinci_monet.core.registry import (
     Registry,
     RegistryError,
     plotter_registry,
-    reader_registry,
     source_registry,
     statistic_registry,
-    writer_registry,
 )
 from davinci_monet.core.types import (
     BoundingBox,
@@ -90,12 +84,6 @@ __all__ = [
     # Statistics protocols
     "StatisticMetric",
     "StatisticsCalculator",
-    # Pipeline protocols
-    "PipelineStage",
-    "Pipeline",
-    # I/O protocols
-    "DataReader",
-    "DataWriter",
     # Configuration protocol
     "Configurable",
     # Registry
@@ -107,8 +95,6 @@ __all__ = [
     "source_registry",
     "plotter_registry",
     "statistic_registry",
-    "reader_registry",
-    "writer_registry",
     # Exceptions
     "DavinciMonetError",
     "ConfigurationError",

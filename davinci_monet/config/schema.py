@@ -162,10 +162,17 @@ class VariableConfig(FlexibleModel):
         Scaling factor for unit conversion.
     unit_scale_method
         Method for scaling: '*', '+', '-', '/'.
+    valid_min
+        Minimum valid value (values below set to NaN). Role-neutral: applies to
+        any source, including models. Takes precedence over ``obs_min``.
+    valid_max
+        Maximum valid value (values above set to NaN). Role-neutral; takes
+        precedence over ``obs_max``.
     obs_min
-        Minimum valid value (values below set to NaN).
+        Historical (observation-flavored) synonym for ``valid_min``. Still
+        honored for back-compat; prefer ``valid_min`` for new configs.
     obs_max
-        Maximum valid value (values above set to NaN).
+        Historical synonym for ``valid_max``.
     nan_value
         Value to treat as NaN.
     source_name
@@ -201,6 +208,8 @@ class VariableConfig(FlexibleModel):
     source_name: str | None = None
     unit_scale: float = 1.0
     unit_scale_method: Literal["*", "+", "-", "/"] = "*"
+    valid_min: float | None = None
+    valid_max: float | None = None
     obs_min: float | None = None
     obs_max: float | None = None
     nan_value: float | None = None

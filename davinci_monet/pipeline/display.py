@@ -10,7 +10,7 @@ from __future__ import annotations
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Mapping
 
 
 class ProgressFormatter:
@@ -670,6 +670,38 @@ class ProgressFormatter:
 
         if log_path:
             self._print(f"  [dim]Log:[/dim] [white]{log_path}[/white]")
+        self._print()
+
+    def print_item_errors(self, item_errors: Mapping[str, list[Any] | None]) -> None:
+        """Surface non-fatal per-item errors collected during the run.
+
+        Stages (pairing/statistics/plotting) continue past an individual item
+        failure and stash the error in ``context.metadata`` rather than failing
+        the whole pipeline. Those errors used to be collected but never shown,
+        so a run could report success while silently dropping pairs, stats, or
+        plots. This renders a concise amber summary; full detail (with the count)
+        is in the Markdown log.
+        """
+        stage_labels = {
+            "pairing_errors": "pairing",
+            "stats_errors": "statistics",
+            "plot_errors": "plotting",
+        }
+        total = sum(len(v or []) for v in item_errors.values())
+        if not total:
+            return
+
+        self._log("")
+        self._log(f"{total} non-fatal error(s) occurred (pipeline still succeeded):")
+        self._print(
+            f"  [bold {self.NCAR_ORANGE}]⚠ {total} non-fatal error(s) "
+            f"(pipeline still succeeded):[/bold {self.NCAR_ORANGE}]"
+        )
+        for key, errors in item_errors.items():
+            stage = stage_labels.get(key, key)
+            for message in errors or []:
+                self._log(f"  [{stage}] {message}")
+                self._print(f"    [{self.NCAR_ORANGE}]• [{stage}] {message}[/{self.NCAR_ORANGE}]")
         self._print()
 
     def preview_plots(

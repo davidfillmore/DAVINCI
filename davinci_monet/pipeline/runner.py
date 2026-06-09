@@ -416,6 +416,17 @@ class PipelineRunner:
                 error_message=error_message,
             )
 
+            # Surface non-fatal per-item errors (pairing/stats/plot) that stages
+            # collected in metadata. These do not flip success, but were
+            # previously silent — a run could "succeed" while dropping items.
+            item_errors = {
+                key: context.metadata.get(key)
+                for key in ("pairing_errors", "stats_errors", "plot_errors")
+                if context.metadata.get(key)
+            }
+            if item_errors:
+                formatter.print_item_errors(item_errors)
+
             # Display the AI summary brief (if produced) to the terminal. The
             # summary stage cannot print durably itself (its log_progress is
             # transient), so the runner renders it here at end of run.

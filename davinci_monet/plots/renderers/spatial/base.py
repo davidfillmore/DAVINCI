@@ -86,6 +86,24 @@ def detect_spatial_geometry(
     return "point"
 
 
+def surface_level_index(field_da: xr.DataArray, level_dim: str) -> int:
+    """Return the index of the surface level along ``level_dim``.
+
+    Mirrors the auto-detection in
+    :meth:`davinci_monet.pairing.strategies.base.BasePairingStrategy._extract_surface`
+    so map renderers slice the *surface*, not the top of atmosphere. For
+    CESM-style hybrid sigma-pressure coordinates the vertical coordinate values
+    increase with index (TOA first, surface last), so the surface is the last
+    index; for other conventions it is the first. Falls back to ``0`` when the
+    level coordinate is absent or has fewer than two values.
+    """
+    if level_dim in field_da.coords:
+        vert_vals = field_da.coords[level_dim].values
+        if len(vert_vals) > 1 and vert_vals[-1] > vert_vals[0]:
+            return -1
+    return 0
+
+
 @dataclass
 class MapConfig:
     """Configuration for map display.

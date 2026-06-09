@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 from davinci_monet.core.exceptions import InterpolationError, PairingError
@@ -340,6 +341,7 @@ class BasePairingStrategy(ABC):
         model: xr.Dataset,
         target_times: xr.DataArray,
         method: str = "nearest",
+        time_tolerance: TimeDelta | None = None,
     ) -> xr.Dataset:
         """Interpolate model data to target times.
 
@@ -351,6 +353,13 @@ class BasePairingStrategy(ABC):
             Target time values.
         method
             Interpolation method ('nearest', 'linear').
+        time_tolerance
+            Maximum allowed gap between a target (observation) time and the
+            matched model time. When set and ``method == "nearest"``, target
+            times with no model time within the tolerance are filled with NaN
+            instead of being silently snapped to a distant model time. None
+            (default) disables the gate and matches the nearest time regardless
+            of distance.
 
         Returns
         -------
@@ -361,8 +370,16 @@ class BasePairingStrategy(ABC):
             return model
 
         if method == "nearest":
-            # Select nearest times and assign target times as coordinate
-            # This ensures alignment when combining with observation data
+            if time_tolerance is not None:
+                # Reindex (not sel) so out-of-tolerance targets become NaN
+                # rather than snapping to a far-away model time.
+                return model.reindex(
+                    time=target_times.values,
+                    method="nearest",
+                    tolerance=pd.Timedelta(time_tolerance),
+                )
+            # Select nearest times and assign target times as coordinate.
+            # This ensures alignment when combining with observation data.
             result = model.sel(time=target_times, method="nearest")
             return result.assign_coords(time=target_times.values)
         else:

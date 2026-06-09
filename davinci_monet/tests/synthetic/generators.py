@@ -294,6 +294,7 @@ def create_level_axis(
     n_levels: int = 30,
     surface_pressure: float = 1013.25,
     top_pressure: float = 10.0,
+    ascending_pressure: bool = False,
 ) -> xr.DataArray:
     """Create a vertical level coordinate array.
 
@@ -307,6 +308,14 @@ def create_level_axis(
         Surface pressure in hPa.
     top_pressure
         Top-of-atmosphere pressure in hPa.
+    ascending_pressure
+        If False (default), pressure *decreases* with index (surface at index 0,
+        top of atmosphere last). If True, reproduce the **CESM hybrid
+        sigma-pressure convention** where pressure *increases* with index (TOA at
+        index 0, surface at the last index); this is the ordering that triggers
+        the ``surface_idx = -1`` branch of surface extraction and is otherwise
+        not represented in the synthetic data (see the CESM vertical-coordinate
+        warning in CLAUDE.md).
 
     Returns
     -------
@@ -319,6 +328,10 @@ def create_level_axis(
         np.log10(top_pressure),
         n_levels,
     )
+    if ascending_pressure:
+        # Reverse so pressure increases with index (TOA -> surface), matching the
+        # CESM ordering where the surface is the last level.
+        levels = levels[::-1]
     return xr.DataArray(
         levels,
         dims=["level"],

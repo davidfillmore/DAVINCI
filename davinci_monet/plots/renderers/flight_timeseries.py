@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 
 from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots._stats import annotation_metrics
 from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
@@ -323,16 +324,16 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 else:
                     ax2.set_ylabel("")
 
-            # Compute and display stats
+            # Compute and display stats (via central metric registry)
             if show_stats and valid_both.sum() > 0:
-                n = valid_both.sum()
                 obs_mean = obs_vals[valid_both].mean()
-                mod_mean = mod_vals[valid_both].mean()
-                nmb = 100 * (mod_mean - obs_mean) / obs_mean if obs_mean != 0 else 0
-                if valid_both.sum() > 2:
-                    r = np.corrcoef(obs_vals[valid_both], mod_vals[valid_both])[0, 1]
-                else:
-                    r = np.nan
+                stats = annotation_metrics(
+                    obs_vals[valid_both], mod_vals[valid_both], ["N", "NMB", "R"]
+                )
+                n = int(stats["N"])
+                nmb = stats["NMB"] if obs_mean != 0 else 0
+                # Preserve the renderer's <=2-point guard (registry R needs >=2)
+                r = stats["R"] if valid_both.sum() > 2 else np.nan
 
                 stats_text = f"N={n}\nNMB={nmb:+.0f}%"
                 if not np.isnan(r):
@@ -656,16 +657,16 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     f"Altitude ({altitude_units})", fontsize=text_cfg.fontsize, color=ALTITUDE_COLOR
                 )
 
-            # Compute and display stats
+            # Compute and display stats (via central metric registry)
             if show_stats and valid_both.sum() > 0:
-                n = valid_both.sum()
                 obs_mean = obs_vals[valid_both].mean()
-                mod_mean = mod_vals[valid_both].mean()
-                nmb = 100 * (mod_mean - obs_mean) / obs_mean if obs_mean != 0 else 0
-                if valid_both.sum() > 2:
-                    r = np.corrcoef(obs_vals[valid_both], mod_vals[valid_both])[0, 1]
-                else:
-                    r = np.nan
+                stats = annotation_metrics(
+                    obs_vals[valid_both], mod_vals[valid_both], ["N", "NMB", "R"]
+                )
+                n = int(stats["N"])
+                nmb = stats["NMB"] if obs_mean != 0 else 0
+                # Preserve the renderer's <=2-point guard (registry R needs >=2)
+                r = stats["R"] if valid_both.sum() > 2 else np.nan
 
                 stats_text = f"N={n}\nNMB={nmb:+.0f}%"
                 if not np.isnan(r):

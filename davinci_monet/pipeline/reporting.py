@@ -254,6 +254,23 @@ class LogCollector:
         if stats_result and stats_result.data:
             self.statistics = stats_result.data
 
+        # Capture per-item (non-fatal) errors that stages stashed in metadata so
+        # they appear in the report. These do not flip pipeline success, but
+        # silently dropping them hides real failures (a pair/stat/plot that
+        # errored while the run still "succeeded").
+        _ITEM_ERROR_STAGES = {
+            "pairing_errors": "pairing",
+            "stats_errors": "statistics",
+            "plot_errors": "plotting",
+        }
+        for meta_key, stage_name in _ITEM_ERROR_STAGES.items():
+            for message in context.metadata.get(meta_key, []) or []:
+                self.log_error(
+                    stage_name=stage_name,
+                    error_type="ItemError",
+                    error_message=str(message),
+                )
+
     def _format_number(self, n: int) -> str:
         """Format large numbers with K/M suffix."""
         if n >= 1_000_000:

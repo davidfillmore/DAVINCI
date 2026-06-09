@@ -15,6 +15,7 @@ import numpy as np
 from matplotlib.colors import LogNorm, Normalize
 
 from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots._stats import annotation_metrics
 from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
@@ -460,12 +461,13 @@ class ScatterPlotter(BasePlotter):
         obs, model
             Data arrays.
         """
-        # Calculate statistics
-        n = len(obs)
-        mb = np.mean(model - obs)
-        rmse = np.sqrt(np.mean((model - obs) ** 2))
-        r = np.corrcoef(obs, model)[0, 1]
-        nme = np.mean(np.abs(model - obs)) / np.mean(obs) * 100 if np.mean(obs) != 0 else np.nan
+        # Calculate statistics (via central metric registry)
+        stats = annotation_metrics(obs, model, ["N", "MB", "RMSE", "R", "NME"])
+        n = int(stats["N"])
+        mb = stats["MB"]
+        rmse = stats["RMSE"]
+        r = stats["R"]
+        nme = stats["NME"]
 
         # Create annotation text
         stats_text = (

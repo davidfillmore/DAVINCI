@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Mapping
 
 import pandas as pd
 
@@ -428,7 +428,7 @@ def write_statistics_table(
 
 
 def format_stats_summary(
-    stats_dict: dict[str, float],
+    stats_dict: Mapping[str, float | None],
     precision: int = 3,
 ) -> str:
     """Format a statistics dictionary as a summary string.
@@ -448,10 +448,10 @@ def format_stats_summary(
     lines = []
     for metric, value in stats_dict.items():
         fullname = get_metric_fullname(metric)
-        if value is None or (isinstance(value, float) and not pd.isna(value)):
-            lines.append(f"{fullname} ({metric}): {value:.{precision}f}")
-        else:
+        if value is None or (isinstance(value, float) and pd.isna(value)):
             lines.append(f"{fullname} ({metric}): N/A")
+        else:
+            lines.append(f"{fullname} ({metric}): {value:.{precision}f}")
     return "\n".join(lines)
 
 

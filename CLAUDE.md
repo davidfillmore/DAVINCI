@@ -86,7 +86,7 @@ CESM uses hybrid sigma-pressure coordinates where **pressure increases with leve
 
 **Common symptom**: Model O3 values of 5000-10000 ppb (stratospheric) instead of 30-80 ppb (surface).
 
-**The fix** (implemented in `_extract_surface()` in `pairing/strategies/base.py` — the live pairing path; a duplicate currently exists in `models/base.py` and is slated for consolidation):
+**The fix** is single-sourced in `_extract_surface()` in `pairing/strategies/base.py` (the live pairing path). Spatial renderers that slice a vertical level use the matching `surface_level_index()` helper in `plots/renderers/spatial/base.py` so map overlays default to the surface, not the top of atmosphere:
 ```python
 # Auto-detect if pressure increases with index
 if vert_vals[-1] > vert_vals[0]:
