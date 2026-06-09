@@ -14,7 +14,7 @@ authors:
 affiliations:
   - name: National Center for Atmospheric Research, Boulder, CO, USA
     index: 1
-date: 19 March 2026
+date: 9 June 2026
 bibliography: paper.bib
 nocite: '@fillmore_davinci'
 ---
@@ -25,9 +25,11 @@ DAVINCI (Data Analysis and Visual Intelligence for Climate) is a
 Python package for evaluating climate and atmospheric composition model
 output against observations. It combines validated YAML configuration,
 geometry-aware pairing, evaluation statistics, and plotting in a stage-based
-workflow built around xarray datasets. DAVINCI supports paired
-model-observation analyses, observation-only field-campaign workflows, and
-satellite swath-to-grid evaluation within one software stack. It is intended
+workflow built around xarray datasets. Models and observations are handled
+uniformly as data sources distinguished by their data geometry rather than by
+type, so DAVINCI supports paired model-observation analyses, observation-only
+field-campaign workflows, and satellite swath-to-grid evaluation within one
+software stack. It is intended
 for atmospheric chemistry model developers and analysis teams who need
 reproducible, scriptable evaluation across multiple observation types,
 including repeatable batch workflows.
@@ -45,16 +47,21 @@ share across research groups, especially for campaign-scale or repeated batch
 analyses.
 
 DAVINCI addresses this by providing a unified, config-driven evaluation
-runtime in which pairing behavior is selected from dataset geometry rather than
-from observation source alone. A single YAML control file specifies model and
-observation inputs, variable mappings, plot requests, and statistical
-configuration. The runtime validates the configuration, loads data, performs
+runtime in which models and observations are declared as a single class of
+geometry-typed data sources, and pairing behavior is selected from dataset
+geometry rather than from whether a dataset is labeled model or observation. A
+single YAML control file declares these sources and the pairs to evaluate,
+along with variable mappings, plot requests, and statistical configuration. The runtime validates the configuration, loads data, performs
 pairing, computes statistics, generates plots, and writes structured logs from
 one command:
 
 ```bash
 davinci-monet run config.yaml
 ```
+
+The project is named DAVINCI; its distribution package and command-line entry
+point retain the name `davinci-monet`, reflecting the toolkit's lineage from
+MELODIES-MONET.
 
 This design reduces the amount of campaign-specific glue code needed to compare
 one model against many observation classes, or to characterize an observation
@@ -92,13 +99,22 @@ unified atmospheric chemistry evaluation runtime.
 
 DAVINCI is organized around a small number of composable subsystems. The
 configuration layer loads YAML control files, expands environment variables,
-and validates structure before runtime. The pipeline layer executes named
-stages with a shared context, allowing paired and observation-only runs to
-share the same execution model. The pairing layer uses a `PairingEngine` and
-geometry-specific strategies for point, track, profile, swath, and grid data,
-including a swath-to-grid workflow for satellite Level 2 products. Statistics
-and plotting operate on paired outputs, while observation-only rendering uses a
-separate plotter interface for single-dataset workflows.
+and validates structure before runtime. Control files use a unified schema in
+which every input—model or observation—is declared in a single `sources:`
+block and evaluations are expressed as binary `pairs:`; an optional
+`role: model | obs` tag supplies styling and legend metadata but never drives
+pairing. Earlier control files that separate `model:` and `obs:` blocks remain
+accepted and are converted to this unified schema at load time. The pipeline
+layer executes named stages with a shared context, allowing paired and
+observation-only runs to share the same execution model. The pairing layer uses
+a `PairingEngine` and geometry-specific strategies for point, track, profile,
+swath, and grid data, including a swath-to-grid workflow for satellite Level 2
+products. For each pair, the reference dataset is chosen by geometry
+precedence—irregular geometries such as points and tracks outrank gridded
+fields, so a gridded model is sampled onto observation locations—rather than by
+source type. Statistics and plotting operate on paired outputs, while
+observation-only rendering uses a separate plotter interface for single-dataset
+workflows.
 
 These design choices reflect lessons from the predecessor codebase. The
 xarray-only data model avoids repeated conversions between pandas DataFrames and
@@ -120,6 +136,16 @@ Model readers support CMAQ, WRF-Chem, UFS, CESM, and generic NetCDF inputs.
 The package also includes performance-oriented features such as observation
 time filtering during load, configurable Dask concurrency during pairing, and
 numba-accelerated grid binning for satellite workflows.
+
+An optional final stage realizes the "Visual Intelligence" element of the
+toolkit's name: a single-prompt AI summary of each run. When enabled in the
+control file, it sends the computed statistics, configuration metadata, and a
+selected subset of the generated plot images to a vision-capable large language
+model (Anthropic Claude by default, with an OpenRouter provider option) and
+writes back a structured Markdown brief that interprets the figures rather than
+only the numbers. The stage is opt-in and always non-fatal: the analysis
+outputs are complete before it runs, so a missing API key, absent optional
+dependency, or network error is logged and skipped without affecting the run.
 
 # Research impact
 
@@ -153,7 +179,7 @@ for this paper. Some workflows depend on external datasets or credentials, so
 DAVINCI does not claim that every analysis is push-button reproducible in a
 fresh environment. Instead, the repository makes the configuration,
 acquisition paths, and workflow structure explicit, and the test suite
-(960+ synthetic-data tests) verifies pipeline correctness independent of
+(1,200+ synthetic-data tests) verifies pipeline correctness independent of
 external data. The same structure also supports repeated campaign-scale runs
 through a consistent command-line and configuration interface.
 
