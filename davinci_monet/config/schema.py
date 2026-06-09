@@ -541,6 +541,8 @@ class SummaryConfig(FlexibleModel):
     max_images: int = 8
     output_filename: str = "AI_summary.md"
     instructions: str | None = None
+    templates: dict[str, dict] | None = None
+    template_overrides: dict[str, str] | None = None
 
     @model_validator(mode="after")
     def _apply_provider_defaults(self) -> "SummaryConfig":
