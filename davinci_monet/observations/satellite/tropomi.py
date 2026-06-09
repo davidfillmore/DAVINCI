@@ -16,7 +16,7 @@ from __future__ import annotations
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import xarray as xr
@@ -220,7 +220,3 @@ class TROPOMIReader:
             ds = ds.rename(coord_renames)
 
         return set_geometry_attr(ds, DataGeometry.SWATH)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return TROPOMI variable name mapping."""
-        return TROPOMI_VARIABLE_MAPPING

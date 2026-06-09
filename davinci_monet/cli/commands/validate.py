@@ -13,7 +13,6 @@ from davinci_monet.cli.app import (
     ERROR_COLOR,
     INFO_COLOR,
     SUCCESS_COLOR,
-    WARNING_COLOR,
     display_error,
 )
 from davinci_monet.core.exceptions import ConfigurationError
@@ -44,25 +43,10 @@ def validate_config_command(
     typer.echo()
 
     try:
-        from davinci_monet.config import load_config, load_yaml
-        from davinci_monet.config.migration import check_deprecated_fields, detect_config_version
+        from davinci_monet.config import load_config
 
-        # First, load raw YAML
-        raw_config = load_yaml(p)
-
-        # Check for deprecated fields
-        deprecations = check_deprecated_fields(raw_config)
-        if deprecations:
-            typer.secho("Deprecation warnings:", fg=WARNING_COLOR)
-            for warning in deprecations:
-                typer.echo(f"  - {warning}")
-            typer.echo()
-
-        # Detect version
-        version = detect_config_version(raw_config)
-        typer.secho(f"Detected config version: {version}", fg=INFO_COLOR)
-
-        # Parse and validate
+        # Parse and validate. Legacy ``model:``/``obs:`` configs are rejected by
+        # the parser (which directs the user to ``davinci-monet migrate-config``).
         config = load_config(p)
 
         # Report what was found

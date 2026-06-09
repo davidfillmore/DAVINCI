@@ -9,7 +9,7 @@ from __future__ import annotations
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -23,19 +23,6 @@ from davinci_monet.io.reader_utils import (
     set_geometry_attr,
     validate_file_list,
 )
-
-# Standard variable name mappings for ozonesondes
-OZONESONDE_VARIABLE_MAPPING: dict[str, str] = {
-    "ozone": "O3",
-    "o3": "O3",
-    "pressure": "Press",
-    "temperature": "Temp",
-    "altitude": "Alt",
-    "relative_humidity": "RH",
-    "theta": "Theta",
-    "latitude": "Lat",
-    "longitude": "Lon",
-}
 
 
 @source_registry.register("ozonesonde")
@@ -330,7 +317,3 @@ class OzonesondeReader:
             ds = ds.rename(coord_renames)
 
         return set_geometry_attr(ds, DataGeometry.PROFILE)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return ozonesonde variable name mapping."""
-        return OZONESONDE_VARIABLE_MAPPING

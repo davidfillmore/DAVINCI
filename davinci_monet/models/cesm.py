@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import xarray as xr
@@ -25,35 +25,6 @@ from davinci_monet.io.reader_utils import (
     standardize_dims,
     validate_file_list,
 )
-
-# Standard variable name mappings for CESM/CAM-chem
-CESM_VARIABLE_MAPPING: dict[str, str] = {
-    "ozone": "O3",
-    "pm25": "PM25",
-    "no2": "NO2",
-    "no": "NO",
-    "co": "CO",
-    "so2": "SO2",
-    # Aerosols
-    "bc": "bc_a4",
-    "oc": "pom_a4",
-    "so4": "so4_a1",
-    "dust": "dst_a1",
-    "sea_salt": "ncl_a1",
-    # Meteorology
-    "temperature": "T",
-    "temperature_k": "T",
-    "pressure": "PS",
-    "pres_pa_mid": "P",
-    "relative_humidity": "RELHUM",
-    "specific_humidity": "Q",
-    "wind_speed_u": "U",
-    "wind_speed_v": "V",
-    "geopotential_height": "Z3",
-}
-
-# Reverse mapping
-CESM_STANDARD_NAMES: dict[str, str] = {v: k for k, v in CESM_VARIABLE_MAPPING.items()}
 
 
 @source_registry.register("cesm_fv")
@@ -167,10 +138,6 @@ class CESMFVReader:
         """Standardize CESM-FV dataset dimensions."""
         # CESM standard dimension names
         return standardize_dims(ds, {"lev": "z", "ilev": "z_interface"})
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return CESM variable name mapping."""
-        return CESM_VARIABLE_MAPPING
 
 
 @source_registry.register("cesm_se")
@@ -313,7 +280,3 @@ class CESMSEReader:
     def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
         """Standardize CESM-SE dataset dimensions."""
         return standardize_dims(ds, {"lev": "z", "ilev": "z_interface"})
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return CESM variable name mapping."""
-        return CESM_VARIABLE_MAPPING

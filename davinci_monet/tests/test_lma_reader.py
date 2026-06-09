@@ -160,16 +160,6 @@ class TestLMAReader:
         reader = LMAReader()
         assert reader.name == "lma"
 
-    def test_variable_mapping(self):
-        """Test variable mapping."""
-        from davinci_monet.observations.lightning.lma import LMAReader
-
-        reader = LMAReader()
-        mapping = reader.get_variable_mapping()
-        assert "flash_density" in mapping
-        assert "source_density" in mapping
-        assert mapping["flash_density"] == "flash_extent_density"
-
     def test_open_netcdf_file(self):
         """Test opening a standard LMA NetCDF grid."""
         from davinci_monet.observations.lightning.lma import LMAReader

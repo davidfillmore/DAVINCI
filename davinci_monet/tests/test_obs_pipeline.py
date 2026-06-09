@@ -75,7 +75,7 @@ def obs_context(obs_data: SourceData, tmp_path: Any) -> PipelineContext:
             },
             "plots": {
                 "o3_histogram": {
-                    "type": "obs_histogram",
+                    "type": "histogram",
                     "obs": "dc8",
                     "variable": "O3",
                     "title": "O3 Distribution",

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import xarray as xr
 
@@ -175,7 +175,3 @@ class MOPITTL3COReader:
             ds = ds.rename(coord_renames)
 
         return set_geometry_attr(ds, DataGeometry.GRID)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return MOPITT CO variable name mapping."""
-        return MOPITT_CO_VARIABLE_MAPPING

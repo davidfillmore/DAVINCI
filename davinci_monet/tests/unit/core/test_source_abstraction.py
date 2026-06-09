@@ -8,7 +8,7 @@ ModelReader / ObservationReader protocols and registries are untouched.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import xarray as xr
 
@@ -16,7 +16,7 @@ from davinci_monet.core.protocols import DataGeometry, SourceProcessor, SourceRe
 
 
 class _FullSourceReader:
-    """A reader with name, geometry, open, and get_variable_mapping."""
+    """A reader with name, geometry, and open."""
 
     @property
     def name(self) -> str:
@@ -35,9 +35,6 @@ class _FullSourceReader:
     ) -> xr.Dataset:
         return xr.Dataset(attrs={"geometry": self.geometry.name})
 
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        return {"ozone": "O3"}
-
 
 class _NoGeometryReader:
     """A reader missing the required geometry property (former ModelReader shape)."""
@@ -53,9 +50,6 @@ class _NoGeometryReader:
         **kwargs: Any,
     ) -> xr.Dataset:
         return xr.Dataset()
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        return {}
 
 
 class TestSourceReaderProtocol:

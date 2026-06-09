@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import xarray as xr
@@ -29,15 +29,6 @@ from davinci_monet.io.reader_utils import (
     set_geometry_attr,
     validate_file_list,
 )
-
-# Standard variable name mappings for LMA data
-LMA_VARIABLE_MAPPING: dict[str, str] = {
-    "flash_density": "flash_extent_density",
-    "flash_extent": "flash_extent_density",
-    "source_density": "source_density",
-    "flash_init": "flash_init_density",
-    "flash_initiation": "flash_init_density",
-}
 
 # Known LMA network locations
 LMA_NETWORKS: dict[str, dict[str, Any]] = {
@@ -218,7 +209,3 @@ class LMAReader:
             ds.attrs["lma_network_id"] = network
 
         return ds
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return LMA variable name mapping."""
-        return LMA_VARIABLE_MAPPING

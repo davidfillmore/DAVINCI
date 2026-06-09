@@ -245,15 +245,6 @@ class TestAQSReader:
         reader = AQSReader()
         assert reader.name == "aqs"
 
-    def test_variable_mapping(self):
-        """Test variable mapping."""
-        from davinci_monet.observations.surface.aqs import AQSReader
-
-        reader = AQSReader()
-        mapping = reader.get_variable_mapping()
-        assert "ozone" in mapping
-        assert "pm25" in mapping
-
     def test_open_netcdf_file(self):
         """Test opening NetCDF file."""
         from davinci_monet.observations.surface.aqs import AQSReader
@@ -319,15 +310,6 @@ class TestAERONETReader:
         reader = AERONETReader()
         assert reader.name == "aeronet"
 
-    def test_variable_mapping(self):
-        """Test variable mapping."""
-        from davinci_monet.observations.surface.aeronet import AERONETReader
-
-        reader = AERONETReader()
-        mapping = reader.get_variable_mapping()
-        assert "aod_500" in mapping
-        assert "angstrom" in mapping
-
 
 class TestOpenAQReader:
     """Test OpenAQ reader."""
@@ -354,15 +336,6 @@ class TestICARTTReader:
 
         reader = ICARTTReader()
         assert reader.name == "icartt"
-
-    def test_variable_mapping(self):
-        """Test variable mapping."""
-        from davinci_monet.observations.aircraft.icartt import ICARTTReader
-
-        reader = ICARTTReader()
-        mapping = reader.get_variable_mapping()
-        assert "ozone" in mapping
-        assert "co" in mapping
 
     def test_dataframe_to_dataset(self):
         """Test converting DataFrame to Dataset."""
@@ -399,15 +372,6 @@ class TestTROPOMIReader:
 
         reader = TROPOMIReader()
         assert reader.name == "tropomi"
-
-    def test_variable_mapping(self):
-        """Test variable mapping."""
-        from davinci_monet.observations.satellite.tropomi import TROPOMIReader
-
-        reader = TROPOMIReader()
-        mapping = reader.get_variable_mapping()
-        assert "no2" in mapping
-        assert "o3" in mapping
 
     def test_qa_filtering(self):
         """Test QA value filtering."""
@@ -456,14 +420,6 @@ class TestGOESL3AODReader:
         reader = GOESL3AODReader()
         assert reader.name == "goes_l3_aod"
 
-    def test_variable_mapping(self):
-        """Test variable mapping."""
-        from davinci_monet.observations.satellite.goes_l3_aod import GOESL3AODReader
-
-        reader = GOESL3AODReader()
-        mapping = reader.get_variable_mapping()
-        assert "aod" in mapping
-
     def test_open_with_xarray(self):
         """Test opening file with xarray fallback."""
         from davinci_monet.observations.satellite.goes_l3_aod import GOESL3AODReader
@@ -506,14 +462,6 @@ class TestTEMPOL2NO2Reader:
         reader = TEMPOL2NO2Reader()
         assert reader.name == "tempo_l2_no2"
 
-    def test_variable_mapping(self):
-        """Test variable mapping."""
-        from davinci_monet.observations.satellite.tempo_l2_no2 import TEMPOL2NO2Reader
-
-        reader = TEMPOL2NO2Reader()
-        mapping = reader.get_variable_mapping()
-        assert "no2" in mapping
-
     def test_standardization(self):
         """Test dataset standardization."""
         from davinci_monet.observations.satellite.tempo_l2_no2 import TEMPOL2NO2Reader
@@ -533,14 +481,6 @@ class TestMODISL2AODReader:
 
         reader = MODISL2AODReader()
         assert reader.name == "modis_l2_aod"
-
-    def test_variable_mapping(self):
-        """Test variable mapping."""
-        from davinci_monet.observations.satellite.modis_l2_aod import MODISL2AODReader
-
-        reader = MODISL2AODReader()
-        mapping = reader.get_variable_mapping()
-        assert "aod" in mapping
 
     def test_standardization(self):
         """Test dataset standardization."""
@@ -562,14 +502,6 @@ class TestMOPITTL3COReader:
         reader = MOPITTL3COReader()
         assert reader.name == "mopitt_l3_co"
 
-    def test_variable_mapping(self):
-        """Test variable mapping."""
-        from davinci_monet.observations.satellite.mopitt_l3_co import MOPITTL3COReader
-
-        reader = MOPITTL3COReader()
-        mapping = reader.get_variable_mapping()
-        assert "co" in mapping
-
     def test_standardization(self):
         """Test dataset standardization."""
         from davinci_monet.observations.satellite.mopitt_l3_co import MOPITTL3COReader
@@ -589,14 +521,6 @@ class TestOMPSL3O3Reader:
 
         reader = OMPSL3O3Reader()
         assert reader.name == "omps_l3_o3"
-
-    def test_variable_mapping(self):
-        """Test variable mapping."""
-        from davinci_monet.observations.satellite.omps_l3_o3 import OMPSL3O3Reader
-
-        reader = OMPSL3O3Reader()
-        mapping = reader.get_variable_mapping()
-        assert "o3" in mapping
 
     def test_standardization(self):
         """Test dataset standardization."""
@@ -622,15 +546,6 @@ class TestOzonesondeReader:
 
         reader = OzonesondeReader()
         assert reader.name == "ozonesonde"
-
-    def test_variable_mapping(self):
-        """Test variable mapping."""
-        from davinci_monet.observations.sonde.ozonesonde import OzonesondeReader
-
-        reader = OzonesondeReader()
-        mapping = reader.get_variable_mapping()
-        assert "ozone" in mapping
-        assert "pressure" in mapping
 
     def test_open_netcdf_file(self):
         """Test opening NetCDF file."""

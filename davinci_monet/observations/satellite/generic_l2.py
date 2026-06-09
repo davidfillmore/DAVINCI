@@ -211,7 +211,3 @@ class GenericL2Reader:
             ds = ds.rename(coord_renames)
 
         return set_geometry_attr(ds, DataGeometry.SWATH)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return empty variable mapping (generic reader)."""
-        return {}

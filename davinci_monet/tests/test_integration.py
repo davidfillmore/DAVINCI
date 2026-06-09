@@ -430,25 +430,25 @@ class TestObsOnlyPipeline:
             },
             "plots": {
                 "obs_ts_o3": {
-                    "type": "obs_timeseries",
+                    "type": "timeseries",
                     "obs": "dc8",
                     "variable": "O3",
                     "title": "O3 Time Series",
                 },
                 "obs_hist_o3": {
-                    "type": "obs_histogram",
+                    "type": "histogram",
                     "obs": "dc8",
                     "variable": "O3",
                     "title": "O3 Distribution",
                 },
                 "obs_profile_o3": {
-                    "type": "obs_vertical_profile",
+                    "type": "vertical_profile",
                     "obs": "dc8",
                     "variable": "O3",
                     "title": "O3 Vertical Profile",
                 },
                 "obs_track_o3": {
-                    "type": "obs_flight_track",
+                    "type": "flight_track",
                     "obs": "dc8",
                     "variable": "O3",
                     "title": "O3 Flight Track",

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import xarray as xr
 
@@ -203,10 +203,6 @@ class GOESL3AODReader:
             ds = ds.rename(coord_renames)
 
         return set_geometry_attr(ds, DataGeometry.GRID)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return GOES AOD variable name mapping."""
-        return GOES_AOD_VARIABLE_MAPPING
 
 
 # Backward compatibility alias

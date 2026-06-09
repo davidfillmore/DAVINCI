@@ -9,7 +9,7 @@ from __future__ import annotations
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -24,18 +24,6 @@ from davinci_monet.io.reader_utils import (
     set_geometry_attr,
     validate_file_list,
 )
-
-# Standard variable name mappings for AERONET
-AERONET_VARIABLE_MAPPING: dict[str, str] = {
-    "aod_500": "AOD_500nm",
-    "aod_440": "AOD_440nm",
-    "aod_675": "AOD_675nm",
-    "aod_870": "AOD_870nm",
-    "angstrom": "440-870_Angstrom_Exponent",
-    "water_vapor": "Precipitable_Water(cm)",
-    "ssa_440": "SSA440-T",
-    "ssa_675": "SSA675-T",
-}
 
 
 @source_registry.register("aeronet")
@@ -208,10 +196,6 @@ class AERONETReader:
             ds = ds.rename(coord_renames)
 
         return set_geometry_attr(ds, DataGeometry.POINT)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return AERONET variable name mapping."""
-        return AERONET_VARIABLE_MAPPING
 
 
 def _dataframe_to_xarray(df: pd.DataFrame) -> xr.Dataset:

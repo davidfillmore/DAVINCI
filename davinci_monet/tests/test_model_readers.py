@@ -229,15 +229,6 @@ class TestCMAQReader:
         reader = CMAQReader()
         assert reader.name == "cmaq"
 
-    def test_variable_mapping(self) -> None:
-        """Test variable mapping contains expected entries."""
-        reader = CMAQReader()
-        mapping = reader.get_variable_mapping()
-        assert "ozone" in mapping
-        assert mapping["ozone"] == "O3"
-        assert "pm25" in mapping
-        assert mapping["pm25"] == "PM25_TOT"
-
     def test_standardize_dataset(self, cmaq_dataset: xr.Dataset) -> None:
         """Test that CMAQ dimensions are standardized."""
         reader = CMAQReader()
@@ -268,15 +259,6 @@ class TestWRFChemReader:
         """Test reader name property."""
         reader = WRFChemReader()
         assert reader.name == "wrfchem"
-
-    def test_variable_mapping(self) -> None:
-        """Test variable mapping contains expected entries."""
-        reader = WRFChemReader()
-        mapping = reader.get_variable_mapping()
-        assert "ozone" in mapping
-        assert mapping["ozone"] == "o3"
-        assert "temperature" in mapping
-        assert mapping["temperature"] == "T2"
 
     def test_standardize_dataset(self, wrfchem_dataset: xr.Dataset) -> None:
         """Test that WRF-Chem dimensions are standardized."""
@@ -506,14 +488,6 @@ class TestUFSReader:
         assert reader.name == "rrfs"
         assert isinstance(reader, UFSReader)
 
-    def test_variable_mapping(self) -> None:
-        """Test variable mapping contains expected entries."""
-        reader = UFSReader()
-        mapping = reader.get_variable_mapping()
-        assert "ozone" in mapping
-        assert mapping["ozone"] == "o3"
-        assert "pm25" in mapping
-
     def test_standardize_dataset(self, ufs_dataset: xr.Dataset) -> None:
         """Test that UFS dimensions are standardized."""
         reader = UFSReader()
@@ -538,15 +512,6 @@ class TestCESMFVReader:
         reader = CESMFVReader()
         assert reader.name == "cesm_fv"
 
-    def test_variable_mapping(self) -> None:
-        """Test variable mapping contains expected entries."""
-        reader = CESMFVReader()
-        mapping = reader.get_variable_mapping()
-        assert "ozone" in mapping
-        assert mapping["ozone"] == "O3"
-        assert "temperature" in mapping
-        assert mapping["temperature"] == "T"
-
     def test_standardize_dataset(self, cesm_fv_dataset: xr.Dataset) -> None:
         """Test that CESM-FV dimensions are standardized."""
         reader = CESMFVReader()
@@ -569,12 +534,6 @@ class TestCESMSEReader:
         reader = CESMSEReader()
         assert reader.name == "cesm_se"
 
-    def test_variable_mapping(self) -> None:
-        """Test variable mapping returns CESM mapping."""
-        reader = CESMSEReader()
-        mapping = reader.get_variable_mapping()
-        assert "ozone" in mapping
-
 
 # =============================================================================
 # Tests for GenericReader
@@ -588,12 +547,6 @@ class TestGenericReader:
         """Test reader name property."""
         reader = GenericReader()
         assert reader.name == "generic"
-
-    def test_variable_mapping_empty(self) -> None:
-        """Test that generic reader has empty variable mapping."""
-        reader = GenericReader()
-        mapping = reader.get_variable_mapping()
-        assert len(mapping) == 0
 
     def test_open_netcdf_file(self, temp_netcdf_file: Path) -> None:
         """Test opening a NetCDF file."""

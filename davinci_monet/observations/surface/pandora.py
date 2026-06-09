@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -22,14 +22,6 @@ from davinci_monet.io.reader_utils import (
     set_geometry_attr,
     validate_file_list,
 )
-
-# Standard variable name mappings for Pandora
-PANDORA_VARIABLE_MAPPING: dict[str, str] = {
-    "no2_trop_column": "no2_trop_column",
-    "no2_column_uncertainty": "no2_column_uncertainty",
-    "no2_quality_flag": "no2_quality_flag",
-    "solar_zenith_angle": "solar_zenith_angle",
-}
 
 # Column indices in Pandora L2 files (0-indexed)
 PANDORA_COLUMNS = {
@@ -336,7 +328,3 @@ class PandoraReader:
             }
 
         return ds
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return Pandora variable name mapping."""
-        return PANDORA_VARIABLE_MAPPING

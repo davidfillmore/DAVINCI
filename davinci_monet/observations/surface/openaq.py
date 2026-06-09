@@ -9,7 +9,7 @@ from __future__ import annotations
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -24,18 +24,6 @@ from davinci_monet.io.reader_utils import (
     set_geometry_attr,
     validate_file_list,
 )
-
-# Standard variable name mappings for OpenAQ
-OPENAQ_VARIABLE_MAPPING: dict[str, str] = {
-    "ozone": "o3",
-    "pm25": "pm25",
-    "pm10": "pm10",
-    "no2": "no2",
-    "no": "no",
-    "co": "co",
-    "so2": "so2",
-    "bc": "bc",
-}
 
 
 @source_registry.register("openaq")
@@ -225,7 +213,3 @@ class OpenAQReader:
             ds = ds.rename(coord_renames)
 
         return set_geometry_attr(ds, DataGeometry.POINT)
-
-    def get_variable_mapping(self) -> Mapping[str, str]:
-        """Return OpenAQ variable name mapping."""
-        return OPENAQ_VARIABLE_MAPPING
