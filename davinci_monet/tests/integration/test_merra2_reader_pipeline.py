@@ -99,3 +99,30 @@ def test_merra2_reader_pipeline(tmp_path: Path) -> None:
     assert result.success, f"Pipeline failed: {failed}"
     assert sorted(out_dir.rglob("*.png")), "expected plots"
     assert list(out_dir.rglob("*.csv")), "expected a stats CSV"
+
+
+_IO_AER = Path("/Volumes/Io/MERRA2_tavgM/aer_Nx")
+
+
+@pytest.mark.skipif(
+    not _IO_AER.is_dir(),
+    reason="MERRA-2 monthly aerosol data not staged on /Volumes/Io",
+)
+def test_real_merra2_file_opens() -> None:
+    """Smoke: open one staged monthly aerosol file via the MERRA-2 reader."""
+    from davinci_monet.models.merra2 import MERRA2Reader
+
+    files = sorted(
+        f
+        for f in _IO_AER.glob("MERRA2_*.tavgM_2d_aer_Nx.*.nc4")
+        if not f.name.startswith("._")
+    )
+    if not files:
+        pytest.skip("no monthly aerosol .nc4 files present")
+
+    ds = MERRA2Reader().open([files[0]], variables=["TOTEXTTAU"])
+    assert "TOTEXTTAU" in ds.data_vars
+    assert {"time", "lat", "lon"} <= set(ds["TOTEXTTAU"].dims)
+    assert ds.attrs["geometry"] == "grid"
+    da = ds["TOTEXTTAU"]
+    assert 0.0 <= float(da.min()) and float(da.max()) < 5.0  # physical AOD range

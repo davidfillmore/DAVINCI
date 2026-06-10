@@ -1,0 +1,49 @@
+# MERRA-2 (GOCART) total AOD vs a gridded AOD reference. Portable template:
+# set REANALYSIS_DATA and REANALYSIS_OUT, or replace with absolute paths.
+analysis:
+  start_time: "2026-04-01"
+  end_time: "2026-04-30"
+  output_dir: ${REANALYSIS_OUT}/output
+  log_dir: ${REANALYSIS_OUT}/logs
+  style:
+    theme: ncar
+    context: default
+
+sources:
+  merra2:
+    type: merra2
+    role: model
+    files: /Volumes/Io/MERRA2_tavgM/aer_Nx/MERRA2_*.tavgM_2d_aer_Nx.202604.nc4
+    variables:
+      TOTEXTTAU:
+        units: "1"          # AOD is dimensionless; no unit_scale needed
+  modis:
+    type: generic
+    role: obs
+    files: ${REANALYSIS_DATA}/modis/*.nc
+    variables:
+      aod_550nm:
+        obs_min: 0
+        obs_max: 5
+
+pairs:
+  merra2_vs_modis:
+    sources: [merra2, modis]
+    reference: modis
+    variables:
+      merra2: TOTEXTTAU
+      modis: aod_550nm
+
+plots:
+  aod_bias:
+    type: spatial_bias
+    pairs: [merra2_vs_modis]
+    title: "MERRA-2 vs MODIS Total AOD (550 nm)"
+  aod_scatter:
+    type: scatter
+    pairs: [merra2_vs_modis]
+    title: "AOD Scatter"
+
+stats:
+  output_table: true
+  metrics: [N, MB, RMSE, R, NMB, NME, IOA]
