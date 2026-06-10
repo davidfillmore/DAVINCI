@@ -99,3 +99,27 @@ def test_surface_index_nv_is_last(tmp_path: Path) -> None:
     _make_3d(np.array([1.0, 2.0, 3.0, 71.0, 72.0])).to_netcdf(f)
     ds = MERRA2Reader().open([f])
     assert surface_level_index(ds["CLOUD"], "z") == -1
+
+
+def test_open_multifile_concats_time(tmp_path: Path) -> None:
+    for day in ("01", "02"):
+        ds = _make_2d("TOTEXTTAU", nt=1)
+        ds = ds.assign_coords(
+            time=np.array([f"2026-04-{day}"], dtype="datetime64[ns]")
+        )
+        ds.to_netcdf(tmp_path / f"MERRA2_400.tavgM_2d_aer_Nx.2026{day}.nc4")
+
+    files = sorted(tmp_path.glob("MERRA2_400.*.nc4"))
+    ds = MERRA2Reader().open(files)
+    assert ds.sizes["time"] == 2
+
+
+def test_open_ignores_resource_fork_sidecars(tmp_path: Path) -> None:
+    real = tmp_path / "MERRA2_400.tavgM_2d_aer_Nx.202604.nc4"
+    _make_2d("TOTEXTTAU").to_netcdf(real)
+    # macOS resource-fork sidecar: not a valid NetCDF; would break open if read.
+    (tmp_path / "._MERRA2_400.tavgM_2d_aer_Nx.202604.nc4").write_bytes(b"\x00\x05")
+
+    files = sorted(tmp_path.glob("*.nc4"))  # includes the ._ sidecar
+    ds = MERRA2Reader().open(files)
+    assert "TOTEXTTAU" in ds.data_vars
