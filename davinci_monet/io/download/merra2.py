@@ -32,6 +32,11 @@ MERRA2_COLLECTIONS: dict[str, CollectionSpec] = {
     # Meteorology — for ERA5-parallel climate evaluation.
     "tavg1_2d_slv_Nx": CollectionSpec("M2T1NXSLV", Path("MERRA2_tavg1/slv_Nx")),
     "inst3_3d_asm_Np": CollectionSpec("M2I3NPASM", Path("MERRA2_inst3/asm_Np")),
+    # Clouds & radiation. 2D cloud fractions live alongside radiative fluxes
+    # in rad_Nx; 3D cloud and radiation are separate collections.
+    "tavg1_2d_rad_Nx": CollectionSpec("M2T1NXRAD", Path("MERRA2_tavg1/rad_Nx")),
+    "tavg3_3d_cld_Np": CollectionSpec("M2T3NPCLD", Path("MERRA2_tavg3/cld_Np")),
+    "tavg3_3d_rad_Np": CollectionSpec("M2T3NPRAD", Path("MERRA2_tavg3/rad_Np")),
 }
 
 

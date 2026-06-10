@@ -17,6 +17,9 @@ from davinci_monet.io.download import merra2
         ("inst3_3d_aer_Nv", "M2I3NVAER", "MERRA2_inst3/aer_Nv"),
         ("tavg1_2d_slv_Nx", "M2T1NXSLV", "MERRA2_tavg1/slv_Nx"),
         ("inst3_3d_asm_Np", "M2I3NPASM", "MERRA2_inst3/asm_Np"),
+        ("tavg1_2d_rad_Nx", "M2T1NXRAD", "MERRA2_tavg1/rad_Nx"),
+        ("tavg3_3d_cld_Np", "M2T3NPCLD", "MERRA2_tavg3/cld_Np"),
+        ("tavg3_3d_rad_Np", "M2T3NPRAD", "MERRA2_tavg3/rad_Np"),
     ],
 )
 def test_all_collections_resolve(collection: str, short_name: str, subpath: str) -> None:
