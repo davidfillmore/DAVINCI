@@ -24,10 +24,14 @@ class CollectionSpec:
 
 
 # Friendly collection name -> (Earthdata short_name, Io subpath).
-# Subpaths match the existing on-disk layout under the staging root.
+# Subpaths follow the existing on-disk layout: MERRA2_<temporal>/<group>.
 MERRA2_COLLECTIONS: dict[str, CollectionSpec] = {
+    # Aerosol (GOCART) — the chemistry->climate bridge.
     "tavgM_2d_aer_Nx": CollectionSpec("M2TMNXAER", Path("MERRA2_tavgM/aer_Nx")),
     "inst3_3d_aer_Nv": CollectionSpec("M2I3NVAER", Path("MERRA2_inst3/aer_Nv")),
+    # Meteorology — for ERA5-parallel climate evaluation.
+    "tavg1_2d_slv_Nx": CollectionSpec("M2T1NXSLV", Path("MERRA2_tavg1/slv_Nx")),
+    "inst3_3d_asm_Np": CollectionSpec("M2I3NPASM", Path("MERRA2_inst3/asm_Np")),
 }
 
 

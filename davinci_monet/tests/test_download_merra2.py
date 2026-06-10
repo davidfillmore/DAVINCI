@@ -10,10 +10,19 @@ import pytest
 from davinci_monet.io.download import merra2
 
 
-def test_known_collection_resolves_shortname_and_destdir() -> None:
-    spec = merra2.resolve_collection("tavgM_2d_aer_Nx")
-    assert spec.short_name == "M2TMNXAER"
-    assert spec.subpath == Path("MERRA2_tavgM/aer_Nx")
+@pytest.mark.parametrize(
+    "collection, short_name, subpath",
+    [
+        ("tavgM_2d_aer_Nx", "M2TMNXAER", "MERRA2_tavgM/aer_Nx"),
+        ("inst3_3d_aer_Nv", "M2I3NVAER", "MERRA2_inst3/aer_Nv"),
+        ("tavg1_2d_slv_Nx", "M2T1NXSLV", "MERRA2_tavg1/slv_Nx"),
+        ("inst3_3d_asm_Np", "M2I3NPASM", "MERRA2_inst3/asm_Np"),
+    ],
+)
+def test_all_collections_resolve(collection: str, short_name: str, subpath: str) -> None:
+    spec = merra2.resolve_collection(collection)
+    assert spec.short_name == short_name
+    assert spec.subpath == Path(subpath)
 
 
 def test_destdir_joins_root_and_subpath() -> None:
