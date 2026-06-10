@@ -37,9 +37,7 @@ def resolve_collection(collection: str) -> CollectionSpec:
         return MERRA2_COLLECTIONS[collection]
     except KeyError:
         known = ", ".join(sorted(MERRA2_COLLECTIONS))
-        raise KeyError(
-            f"Unknown MERRA-2 collection {collection!r}. Known: {known}"
-        ) from None
+        raise KeyError(f"Unknown MERRA-2 collection {collection!r}. Known: {known}") from None
 
 
 def dest_dir(collection: str, root: str | Path = DEFAULT_ROOT) -> Path:
@@ -65,7 +63,7 @@ def _download(results: Sequence[Any], dest: str) -> list[Path]:
     """Download ``results`` into ``dest``; return local file paths."""
     import earthaccess
 
-    return [Path(p) for p in earthaccess.download(results, dest)]
+    return [Path(p) for p in earthaccess.download(list(results), dest)]
 
 
 def stage_merra2(
@@ -110,31 +108,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="davinci-stage-merra2",
         description="Stage MERRA-2 aerosol collections to local disk.",
     )
-    parser.add_argument(
-        "--collection", required=True, choices=sorted(MERRA2_COLLECTIONS)
-    )
+    parser.add_argument("--collection", required=True, choices=sorted(MERRA2_COLLECTIONS))
     parser.add_argument("--start", required=True, help="ISO start, e.g. 2003-01")
     parser.add_argument("--end", required=True, help="ISO end, e.g. 2003-03")
     parser.add_argument("--root", default=DEFAULT_ROOT, help="Staging root dir")
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Search only; do not download"
-    )
+    parser.add_argument("--dry-run", action="store_true", help="Search only; do not download")
     ns = parser.parse_args(argv)
 
-    result = stage_merra2(
-        ns.collection, ns.start, ns.end, root=ns.root, dry_run=ns.dry_run
-    )
+    result = stage_merra2(ns.collection, ns.start, ns.end, root=ns.root, dry_run=ns.dry_run)
     if ns.dry_run:
-        print(
-            f"{result} granule(s) found for {ns.collection} "
-            f"[{ns.start}..{ns.end}]"
-        )
+        print(f"{result} granule(s) found for {ns.collection} " f"[{ns.start}..{ns.end}]")
     else:
         assert isinstance(result, list)
-        print(
-            f"Staged {len(result)} file(s) to "
-            f"{dest_dir(ns.collection, ns.root)}"
-        )
+        print(f"Staged {len(result)} file(s) to " f"{dest_dir(ns.collection, ns.root)}")
     return 0
 
 
