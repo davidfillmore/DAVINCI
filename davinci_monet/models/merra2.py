@@ -51,3 +51,51 @@ class MERRA2Reader:
     def geometry(self) -> DataGeometry:
         """MERRA-2 output is gridded."""
         return DataGeometry.GRID
+
+    def open(
+        self,
+        file_paths: Sequence[str | Path],
+        variables: Sequence[str] | None = None,
+        **kwargs: Any,
+    ) -> xr.Dataset:
+        """Open MERRA-2 NetCDF4 files and standardize to (time, z, lat, lon).
+
+        Parameters
+        ----------
+        file_paths
+            Paths to MERRA-2 ``.nc4`` files (resource-fork ``._*`` sidecars
+            are ignored).
+        variables
+            Variables to load. If None, loads all.
+        **kwargs
+            Passed through to xarray's open functions.
+
+        Returns
+        -------
+        xr.Dataset
+            Standardized dataset with GRID geometry tagged.
+        """
+        # Filter macOS resource-fork sidecars before validation so the count
+        # reflects real data files (external drives carry ``._*.nc4``).
+        real = [Path(f) for f in file_paths if not Path(f).name.startswith("._")]
+        file_list = validate_file_list(real, source_label="MERRA-2")
+
+        def _open() -> xr.Dataset:
+            if len(file_list) > 1:
+                ds = xr.open_mfdataset(
+                    [str(f) for f in file_list],
+                    combine="by_coords",
+                    parallel=True,
+                    **kwargs,
+                )
+            else:
+                ds = xr.open_dataset(str(file_list[0]), **kwargs)
+            return select_variables(ds, variables)
+
+        ds = retry_transient_open(_open, context="Opening MERRA-2 files")
+        return self._standardize_dataset(ds)
+
+    def _standardize_dataset(self, ds: xr.Dataset) -> xr.Dataset:
+        """Rename ``lev``->``z`` (when present) and tag GRID geometry."""
+        ds = standardize_dims(ds, {"lev": "z"})
+        return set_geometry_attr(ds, DataGeometry.GRID)
