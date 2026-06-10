@@ -13,6 +13,15 @@ A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air 
 
 ---
 
+## ⚠️ Output Display Constraint
+
+**The user cannot scroll up in their terminal** — only the most recent output is visible. Keep responses short and chunked:
+- A few sentences per message, one idea at a time.
+- Do NOT dump long multi-section answers, large menus, or many options at once; earlier content is lost.
+- When presenting a design, plan, or list, deliver it incrementally and wait for "ok"/confirmation before continuing.
+
+---
+
 ## Cross-Model Handoff Convention
 
 This repo uses **cross-model code reviews and hand-offs** (e.g., Claude Opus writes implementation, Codex reviews, then back). Handoff files follow a consistent structure so any model can pick up context quickly.
