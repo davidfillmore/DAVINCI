@@ -11,6 +11,7 @@ import xarray as xr
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
 from davinci_monet.models.merra2 import MERRA2Reader
+from davinci_monet.plots.renderers.spatial.base import surface_level_index
 
 
 def test_reader_registered_and_grid_geometry() -> None:
@@ -56,3 +57,45 @@ def test_open_subsets_requested_variables(tmp_path: Path) -> None:
 
     assert "TOTEXTTAU" in ds.data_vars
     assert "DUEXTTAU" not in ds.data_vars
+
+
+def _make_3d(lev_values: np.ndarray, nt: int = 2) -> xr.Dataset:
+    """A MERRA-2-like 3D field on (time, lev, lat, lon)."""
+    times = np.array(["2026-04-01", "2026-04-02"], dtype="datetime64[ns]")[:nt]
+    lat = np.linspace(-90.0, 90.0, 5)
+    lon = np.linspace(-180.0, 179.0, 6)
+    nz = len(lev_values)
+    rng = np.random.default_rng(1)
+    data = rng.uniform(0.0, 1.0, size=(nt, nz, 5, 6)).astype(np.float32)
+    return xr.Dataset(
+        {"CLOUD": (("time", "lev", "lat", "lon"), data)},
+        coords={"time": times, "lev": lev_values, "lat": lat, "lon": lon},
+    )
+
+
+def test_open_3d_renames_lev_to_z(tmp_path: Path) -> None:
+    # Np pressure levels: 1000 hPa first -> 0.1 hPa last.
+    f = tmp_path / "MERRA2_400.tavg3_3d_cld_Np.20260401.nc4"
+    _make_3d(np.array([1000.0, 850.0, 500.0, 100.0, 0.1])).to_netcdf(f)
+
+    ds = MERRA2Reader().open([f])
+
+    assert "z" in ds.dims
+    assert "lev" not in ds.dims
+    assert set(ds["CLOUD"].dims) == {"time", "z", "lat", "lon"}
+
+
+def test_surface_index_np_is_first(tmp_path: Path) -> None:
+    # Pressure decreasing with index -> surface is index 0.
+    f = tmp_path / "MERRA2_400.tavg3_3d_cld_Np.20260401.nc4"
+    _make_3d(np.array([1000.0, 850.0, 500.0, 100.0, 0.1])).to_netcdf(f)
+    ds = MERRA2Reader().open([f])
+    assert surface_level_index(ds["CLOUD"], "z") == 0
+
+
+def test_surface_index_nv_is_last(tmp_path: Path) -> None:
+    # Model level index increasing -> surface is last index.
+    f = tmp_path / "MERRA2_400.inst3_3d_aer_Nv.20260401.nc4"
+    _make_3d(np.array([1.0, 2.0, 3.0, 71.0, 72.0])).to_netcdf(f)
+    ds = MERRA2Reader().open([f])
+    assert surface_level_index(ds["CLOUD"], "z") == -1
