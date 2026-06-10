@@ -23,9 +23,7 @@ def test_reader_registered_and_grid_geometry() -> None:
 
 def _make_2d(varname: str, nt: int = 3) -> xr.Dataset:
     """A MERRA-2-like 2D field on (time, lat, lon)."""
-    times = np.array(
-        ["2026-04-01", "2026-04-02", "2026-04-03"], dtype="datetime64[ns]"
-    )[:nt]
+    times = np.array(["2026-04-01", "2026-04-02", "2026-04-03"], dtype="datetime64[ns]")[:nt]
     lat = np.linspace(-90.0, 90.0, 6)
     lon = np.linspace(-180.0, 179.375, 8)
     rng = np.random.default_rng(0)
@@ -104,9 +102,7 @@ def test_surface_index_nv_is_last(tmp_path: Path) -> None:
 def test_open_multifile_concats_time(tmp_path: Path) -> None:
     for day in ("01", "02"):
         ds = _make_2d("TOTEXTTAU", nt=1)
-        ds = ds.assign_coords(
-            time=np.array([f"2026-04-{day}"], dtype="datetime64[ns]")
-        )
+        ds = ds.assign_coords(time=np.array([f"2026-04-{day}"], dtype="datetime64[ns]"))
         ds.to_netcdf(tmp_path / f"MERRA2_400.tavgM_2d_aer_Nx.2026{day}.nc4")
 
     files = sorted(tmp_path.glob("MERRA2_400.*.nc4"))

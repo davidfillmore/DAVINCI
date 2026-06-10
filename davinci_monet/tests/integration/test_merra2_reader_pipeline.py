@@ -20,9 +20,7 @@ pytestmark = pytest.mark.integration
 
 
 def _grid(varname: str, seed: int) -> xr.Dataset:
-    times = np.array(
-        ["2026-04-01", "2026-04-02", "2026-04-03"], dtype="datetime64[ns]"
-    )
+    times = np.array(["2026-04-01", "2026-04-02", "2026-04-03"], dtype="datetime64[ns]")
     lat = np.linspace(-87.5, 87.5, 6)
     lon = np.linspace(-175.0, 175.0, 8)
     rng = np.random.default_rng(seed)
@@ -38,9 +36,7 @@ def test_merra2_reader_pipeline(tmp_path: Path) -> None:
     o_dir = tmp_path / "obs"
     m_dir.mkdir()
     o_dir.mkdir()
-    _grid("TOTEXTTAU", seed=1).to_netcdf(
-        m_dir / "MERRA2_400.tavgM_2d_aer_Nx.202604.nc4"
-    )
+    _grid("TOTEXTTAU", seed=1).to_netcdf(m_dir / "MERRA2_400.tavgM_2d_aer_Nx.202604.nc4")
     _grid("aod_550nm", seed=2).to_netcdf(o_dir / "obs.nc")
 
     out_dir = tmp_path / "output"
@@ -92,9 +88,7 @@ def test_merra2_reader_pipeline(tmp_path: Path) -> None:
     result = PipelineRunner(show_progress=False).run_from_config(str(cfg))
 
     failed = [
-        f"{s.stage_name}: {s.error}"
-        for s in result.stage_results
-        if s.status.name == "FAILED"
+        f"{s.stage_name}: {s.error}" for s in result.stage_results if s.status.name == "FAILED"
     ]
     assert result.success, f"Pipeline failed: {failed}"
     assert sorted(out_dir.rglob("*.png")), "expected plots"
@@ -113,9 +107,7 @@ def test_real_merra2_file_opens() -> None:
     from davinci_monet.models.merra2 import MERRA2Reader
 
     files = sorted(
-        f
-        for f in _IO_AER.glob("MERRA2_*.tavgM_2d_aer_Nx.*.nc4")
-        if not f.name.startswith("._")
+        f for f in _IO_AER.glob("MERRA2_*.tavgM_2d_aer_Nx.*.nc4") if not f.name.startswith("._")
     )
     if not files:
         pytest.skip("no monthly aerosol .nc4 files present")
