@@ -78,3 +78,35 @@ def test_stage_merra2_downloads_into_dest_dir(
     assert Path(seen["dest"]) == expected_dir
     assert isinstance(out, list)
     assert out[0].name == "MERRA2_400.tavgM_2d_aer_Nx.200301.nc4"
+
+
+def test_main_dry_run_invokes_stage(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def _fake_stage(
+        collection: str, start: str, end: str, *, root: Any, dry_run: bool
+    ) -> int:
+        captured.update(
+            collection=collection, start=start, end=end, root=root, dry_run=dry_run
+        )
+        return 7
+
+    monkeypatch.setattr(merra2, "stage_merra2", _fake_stage)
+
+    rc = merra2.main(
+        [
+            "--collection", "tavgM_2d_aer_Nx",
+            "--start", "2003-01",
+            "--end", "2003-03",
+            "--root", str(tmp_path),
+            "--dry-run",
+        ]
+    )
+
+    assert rc == 0
+    assert captured["collection"] == "tavgM_2d_aer_Nx"
+    assert captured["dry_run"] is True
+    assert captured["root"] == str(tmp_path)
+    assert "7" in capsys.readouterr().out

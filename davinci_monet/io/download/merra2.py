@@ -102,3 +102,41 @@ def stage_merra2(
     target = Path(root) / spec.subpath
     target.mkdir(parents=True, exist_ok=True)
     return _download(results, str(target))
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """CLI: stage a MERRA-2 collection. Returns a process exit code."""
+    parser = argparse.ArgumentParser(
+        prog="davinci-stage-merra2",
+        description="Stage MERRA-2 aerosol collections to local disk.",
+    )
+    parser.add_argument(
+        "--collection", required=True, choices=sorted(MERRA2_COLLECTIONS)
+    )
+    parser.add_argument("--start", required=True, help="ISO start, e.g. 2003-01")
+    parser.add_argument("--end", required=True, help="ISO end, e.g. 2003-03")
+    parser.add_argument("--root", default=DEFAULT_ROOT, help="Staging root dir")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Search only; do not download"
+    )
+    ns = parser.parse_args(argv)
+
+    result = stage_merra2(
+        ns.collection, ns.start, ns.end, root=ns.root, dry_run=ns.dry_run
+    )
+    if ns.dry_run:
+        print(
+            f"{result} granule(s) found for {ns.collection} "
+            f"[{ns.start}..{ns.end}]"
+        )
+    else:
+        assert isinstance(result, list)
+        print(
+            f"Staged {len(result)} file(s) to "
+            f"{dest_dir(ns.collection, ns.root)}"
+        )
+    return 0
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())
