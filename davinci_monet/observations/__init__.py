@@ -22,7 +22,7 @@ from davinci_monet.observations.base import (
 from davinci_monet.observations.lightning.lma import LMAReader
 
 # Satellite observation readers - L3 gridded
-from davinci_monet.observations.satellite.ceres_l3 import CERESEBAFReader
+from davinci_monet.observations.satellite.ceres_l3 import CERESEBAFReader, CERESSYN1degReader
 
 # Generic satellite readers
 from davinci_monet.observations.satellite.generic_l2 import GenericL2Reader
@@ -103,6 +103,7 @@ __all__ = [
     "MODISL2AODReader",
     # Satellite L3 readers
     "CERESEBAFReader",
+    "CERESSYN1degReader",
     "MODISVIIRSReader",
     "GOESL3AODReader",
     "GOESReader",  # Backward compatibility

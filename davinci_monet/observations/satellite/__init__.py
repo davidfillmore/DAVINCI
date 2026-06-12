@@ -42,8 +42,9 @@ is not available, but some features (projections, swath geometry) may not
 work correctly without monetio.
 """
 
-from davinci_monet.observations.satellite.ceres_l3 import (  # noqa: F401  (registers "ceres_ebaf")
+from davinci_monet.observations.satellite.ceres_l3 import (  # noqa: F401  (registers both ceres_ebaf and ceres_syn1deg)
     CERESEBAFReader,
+    CERESSYN1degReader,
 )
 
 # Generic readers (pure xarray, no monetio dependency)
@@ -99,6 +100,7 @@ __all__ = [
     "MODIS_AOD_VARIABLE_MAPPING",
     # CERES L3
     "CERESEBAFReader",
+    "CERESSYN1degReader",
     # MODIS/VIIRS L3 catalog reader
     "MODISVIIRSReader",
     # GOES L3 AOD
