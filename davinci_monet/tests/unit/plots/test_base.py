@@ -96,6 +96,12 @@ class TestFormatVariableDisplayName:
         assert format_variable_display_name("o3") == r"O$_3$"
         assert format_variable_display_name("aod_500nm") == "AOD (500 nm)"
 
+    def test_acronyms_survive_title_casing(self):
+        """TOA/LW/SW-style acronyms stay uppercase in auto-formatted names."""
+        assert format_variable_display_name("obs_toa_lw_up") == "Observed TOA LW Up"
+        assert format_variable_display_name("model_toa_lw_up") == "Modeled TOA LW Up"
+        assert format_variable_display_name("sfc_sw_down") == "SFC SW Down"
+
     def test_case_insensitive_lookup(self):
         """Lookup should be case-insensitive."""
         assert format_variable_display_name("PM25") == r"PM$_{2.5}$"
