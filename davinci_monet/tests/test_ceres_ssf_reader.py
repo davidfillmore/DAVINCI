@@ -163,3 +163,96 @@ def test_hdf4_missing_variable_raises(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="not found"):
         CERESSSFReader().open([p], variables=["toa_solar_in"])
+
+
+# ---------------------------------------------------------------------------
+# netCDF (Edition1C) path
+# ---------------------------------------------------------------------------
+
+
+def _write_ssf_netcdf(
+    path: Path,
+    n: int = 6,
+    base_iso: str = "2026-04-01T00:30:00",
+    nc_var: str = "toa_longwave_flux",
+    fill_flux_idx: int | None = None,
+    fill_coord_idx: int | None = None,
+) -> Path:
+    """Write a minimal Edition1C-like grouped netCDF granule."""
+    base = np.datetime64(base_iso)
+    times = base + np.arange(n) * np.timedelta64(10, "s")
+    lat = np.linspace(30.0, -30.0, n)
+    lon = np.linspace(10.0, 350.0, n)  # 0-360 in-file; reader wraps
+    flux = np.linspace(150.0, 300.0, n)
+    if fill_coord_idx is not None:
+        lat[fill_coord_idx] = np.nan  # xarray-decoded fill arrives as NaN
+
+    pos = xr.Dataset(
+        {
+            "time": ("Footprints", times),
+            "instrument_fov_latitude": ("Footprints", lat),
+            "instrument_fov_longitude": ("Footprints", lon),
+        }
+    )
+    flux_da = xr.DataArray(flux, dims=("Footprints",))
+    if fill_flux_idx is not None:
+        flux_vals = flux.copy()
+        flux_vals[fill_flux_idx] = np.nan
+        flux_da = xr.DataArray(flux_vals, dims=("Footprints",))
+    fluxes = xr.Dataset({nc_var: flux_da})
+
+    pos.to_netcdf(path, group="Time_and_Position", mode="w")
+    fluxes.to_netcdf(path, group="TOA_and_Surface_Fluxes", mode="a")
+    return path
+
+
+def test_netcdf_canonical_open_matches_hdf4_semantics(tmp_path: Path) -> None:
+    p = _write_ssf_netcdf(tmp_path / "CER_SSF_NOAA20-FM6-VIIRS_Edition1C_103103.2026040100.nc")
+
+    ds = CERESSSFReader().open([p], variables=["toa_lw_up"])
+
+    assert ds.attrs["geometry"] == "swath"
+    assert set(ds.data_vars) == {"toa_lw_up"}
+    assert ds["toa_lw_up"].dims == ("time",)
+    assert ds.sizes["time"] == 6
+    np.testing.assert_allclose(ds["lat"].values[[0, -1]], [30.0, -30.0])
+    assert float(ds["lon"].values[-1]) == pytest.approx(-10.0)
+    assert ds["time"].values[0] == np.datetime64("2026-04-01T00:30:00")
+
+
+def test_netcdf_invalid_coord_footprint_dropped(tmp_path: Path) -> None:
+    p = _write_ssf_netcdf(
+        tmp_path / "CER_SSF_NOAA20-FM6-VIIRS_Edition1C_103103.2026040100.nc",
+        fill_coord_idx=1,
+    )
+
+    ds = CERESSSFReader().open([p], variables=["toa_lw_up"])
+
+    assert ds.sizes["time"] == 5
+    assert not np.isnan(ds["lat"].values).any()
+
+
+def test_netcdf_group_path_escape(tmp_path: Path) -> None:
+    p = _write_ssf_netcdf(
+        tmp_path / "CER_SSF_NOAA20-FM6-VIIRS_Edition1C_103103.2026040100.nc",
+        nc_var="toa_longwave_channel_flux",
+    )
+
+    ds = CERESSSFReader().open([p], variables=["TOA_and_Surface_Fluxes/toa_longwave_channel_flux"])
+
+    assert "TOA_and_Surface_Fluxes/toa_longwave_channel_flux" in ds.data_vars
+
+
+def test_netcdf_missing_variable_raises(tmp_path: Path) -> None:
+    p = _write_ssf_netcdf(tmp_path / "CER_SSF_NOAA20-FM6-VIIRS_Edition1C_103103.2026040100.nc")
+
+    with pytest.raises(ValueError, match="not found"):
+        CERESSSFReader().open([p], variables=["toa_solar_in"])
+
+
+def test_mixed_formats_rejected(tmp_path: Path) -> None:
+    h4 = _write_ssf_hdf4(tmp_path / "CER_SSF_Terra-FM1-MODIS_Edition4A_410406.2026040100")
+    nc = _write_ssf_netcdf(tmp_path / "CER_SSF_NOAA20-FM6-VIIRS_Edition1C_103103.2026040100.nc")
+
+    with pytest.raises(ValueError, match="mixed"):
+        CERESSSFReader().open([h4, nc], variables=["toa_lw_up"])
