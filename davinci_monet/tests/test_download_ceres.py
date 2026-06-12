@@ -180,3 +180,83 @@ def test_stage_ceres_downloads_into_dest_dir(
     assert Path(seen["dest"]) == expected_dir
     assert isinstance(out, list)
     assert out[0].name == "CER_SSF_Aqua-FM3-MODIS_Edition4A_407405.2023070100.hdf"
+
+
+def test_main_dry_run_prints_count_and_size(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def _fake_stage(
+        collection: str,
+        start: str | None = None,
+        end: str | None = None,
+        *,
+        root: Any,
+        dry_run: bool,
+    ) -> ceres.DryRunReport:
+        captured.update(collection=collection, start=start, end=end, root=root, dry_run=dry_run)
+        return ceres.DryRunReport(granules=48, total_mb=3100.0)
+
+    monkeypatch.setattr(ceres, "stage_ceres", _fake_stage)
+
+    rc = ceres.main(
+        [
+            "--collection",
+            "ssf_aqua-fm3",
+            "--start",
+            "2023-07-01",
+            "--end",
+            "2023-07-02",
+            "--root",
+            str(tmp_path),
+            "--dry-run",
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert captured["collection"] == "ssf_aqua-fm3"
+    assert captured["dry_run"] is True
+    assert "48 granule(s)" in out
+    assert "GB" in out  # size is part of the dry-run report
+    assert "[2023-07-01..2023-07-02]" in out
+
+
+def test_main_ebaf_needs_no_temporal_flags(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    def _fake_stage(
+        collection: str,
+        start: str | None = None,
+        end: str | None = None,
+        *,
+        root: Any,
+        dry_run: bool,
+    ) -> list[Path]:
+        assert start is None and end is None
+        return [Path(root) / "CERES/EBAF/CERES_EBAF_Edition4.2.1_200003-202512.nc"]
+
+    monkeypatch.setattr(ceres, "stage_ceres", _fake_stage)
+
+    rc = ceres.main(["--collection", "ebaf", "--root", str(tmp_path)])
+
+    assert rc == 0
+    assert "Staged 1 file(s)" in capsys.readouterr().out
+
+
+def test_main_missing_temporal_exits_cleanly(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    with pytest.raises(SystemExit) as exc:
+        ceres.main(["--collection", "ssf_aqua-fm3", "--root", str(tmp_path), "--dry-run"])
+
+    assert exc.value.code == 2
+    assert "start and end are required" in capsys.readouterr().err
+
+
+def test_download_package_reexports_ceres() -> None:
+    from davinci_monet.io import download
+
+    assert download.stage_ceres is ceres.stage_ceres
+    assert "ebaf" in download.CERES_COLLECTIONS

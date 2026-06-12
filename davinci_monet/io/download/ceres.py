@@ -125,6 +125,41 @@ def stage_ceres(
     if dry_run:
         return DryRunReport(
             granules=len(result),
-            total_mb=sum(earthdata.granule_size_mb(g) for g in result),
+            total_mb=sum((earthdata.granule_size_mb(g) for g in result), 0.0),
         )
     return [Path(p) for p in result]
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """CLI: stage a CERES collection. Returns a process exit code."""
+    parser = argparse.ArgumentParser(
+        prog="davinci-stage-ceres",
+        description="Stage CERES radiation products (SSF, EBAF, SYN1deg) to local disk.",
+    )
+    parser.add_argument("--collection", required=True, choices=sorted(CERES_COLLECTIONS))
+    parser.add_argument("--start", help="ISO start, e.g. 2023-07-01 (optional for ebaf)")
+    parser.add_argument("--end", help="ISO end, e.g. 2023-07-02 (optional for ebaf)")
+    parser.add_argument("--root", default=DEFAULT_ROOT, help="Staging root dir")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Search only; report granule count and size"
+    )
+    ns = parser.parse_args(argv)
+
+    try:
+        result = stage_ceres(ns.collection, ns.start, ns.end, root=ns.root, dry_run=ns.dry_run)
+    except ValueError as exc:
+        parser.error(str(exc))
+    if isinstance(result, DryRunReport):
+        gb = result.total_mb / 1024.0
+        window = f" [{ns.start}..{ns.end}]" if ns.start else ""
+        print(
+            f"{result.granules} granule(s), ~{result.total_mb:,.0f} MB (~{gb:,.1f} GB) "
+            f"for {ns.collection}{window}"
+        )
+    else:
+        print(f"Staged {len(result)} file(s) to {dest_dir(ns.collection, ns.root)}")
+    return 0
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

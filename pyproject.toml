@@ -72,6 +72,7 @@ docs = [
 [project.scripts]
 davinci-monet = "davinci_monet.cli.app:app"
 davinci-stage-merra2 = "davinci_monet.io.download.merra2:main"
+davinci-stage-ceres = "davinci_monet.io.download.ceres:main"
 
 [project.urls]
 Homepage = "https://github.com/NCAR/DAVINCI"

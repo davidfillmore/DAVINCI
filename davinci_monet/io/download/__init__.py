@@ -1,11 +1,12 @@
-"""Optional data-staging helpers for reanalysis sources.
+"""Optional data-staging helpers for reanalysis and EOS data sources.
 
-Public API is re-exported once the staging functions are defined (see
-``merra2``). These helpers require optional extras (``pip install -e
-".[reanalysis]"``) that are imported lazily, so importing this package never
-requires the network or ``earthaccess`` to be installed.
+Public API is re-exported from the product modules (``merra2``, ``ceres``).
+These helpers require optional extras (``pip install -e ".[reanalysis]"``)
+that are imported lazily, so importing this package never requires the
+network or ``earthaccess`` to be installed.
 """
 
+from davinci_monet.io.download.ceres import CERES_COLLECTIONS, stage_ceres
 from davinci_monet.io.download.merra2 import MERRA2_COLLECTIONS, stage_merra2
 
-__all__ = ["MERRA2_COLLECTIONS", "stage_merra2"]
+__all__ = ["CERES_COLLECTIONS", "MERRA2_COLLECTIONS", "stage_ceres", "stage_merra2"]
