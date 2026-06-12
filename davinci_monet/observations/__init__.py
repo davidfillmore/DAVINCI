@@ -24,6 +24,11 @@ from davinci_monet.observations.lightning.lma import LMAReader
 # Satellite observation readers - L3 gridded
 from davinci_monet.observations.satellite.ceres_l3 import CERESEBAFReader, CERESSYN1degReader
 
+# Satellite observation readers - L2 footprint
+from davinci_monet.observations.satellite.ceres_ssf import (  # noqa: F401  (registers "ceres_ssf")
+    CERESSSFReader,
+)
+
 # Generic satellite readers
 from davinci_monet.observations.satellite.generic_l2 import GenericL2Reader
 from davinci_monet.observations.satellite.generic_l3 import GenericL3Reader
@@ -104,6 +109,8 @@ __all__ = [
     # Satellite L3 readers
     "CERESEBAFReader",
     "CERESSYN1degReader",
+    # Satellite L2 footprint readers
+    "CERESSSFReader",
     "MODISVIIRSReader",
     "GOESL3AODReader",
     "GOESReader",  # Backward compatibility

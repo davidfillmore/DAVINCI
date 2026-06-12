@@ -46,6 +46,9 @@ from davinci_monet.observations.satellite.ceres_l3 import (  # noqa: F401  (regi
     CERESEBAFReader,
     CERESSYN1degReader,
 )
+from davinci_monet.observations.satellite.ceres_ssf import (  # noqa: F401  (registers "ceres_ssf")
+    CERESSSFReader,
+)
 
 # Generic readers (pure xarray, no monetio dependency)
 from davinci_monet.observations.satellite.generic_l2 import GenericL2Reader
@@ -101,6 +104,8 @@ __all__ = [
     # CERES L3
     "CERESEBAFReader",
     "CERESSYN1degReader",
+    # CERES SSF L2
+    "CERESSSFReader",
     # MODIS/VIIRS L3 catalog reader
     "MODISVIIRSReader",
     # GOES L3 AOD
