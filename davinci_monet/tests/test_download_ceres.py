@@ -259,4 +259,5 @@ def test_download_package_reexports_ceres() -> None:
     from davinci_monet.io import download
 
     assert download.stage_ceres is ceres.stage_ceres
+    assert download.DryRunReport is ceres.DryRunReport
     assert "ebaf" in download.CERES_COLLECTIONS
