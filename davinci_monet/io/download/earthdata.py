@@ -65,13 +65,47 @@ def _download(results: Sequence[Any], dest: str) -> list[Path]:
     return [Path(p) for p in earthaccess.download(list(results), dest)]
 
 
+# CMR SizeUnit -> MB conversion. earthaccess's DataGranule.size() sums the
+# raw Size numbers ignoring SizeUnit, so granule_size_mb reads the UMM
+# metadata itself and only falls back to size() when that's unavailable.
+_SIZE_UNIT_TO_MB = {
+    "KB": 1.0 / 1024.0,
+    "MB": 1.0,
+    "GB": 1024.0,
+    "TB": 1024.0 * 1024.0,
+    "PB": 1024.0**3,
+}
+
+
 def granule_size_mb(granule: Any) -> float:
-    """Best-effort size of an earthaccess granule in MB (0.0 if unavailable)."""
-    size = getattr(granule, "size", None)
-    if not callable(size):
+    """Best-effort size of an earthaccess granule in MB (0.0 if unavailable).
+
+    Prefers the UMM archive metadata, which carries explicit units; see
+    ``_SIZE_UNIT_TO_MB`` for why ``DataGranule.size()`` is not trusted.
+    """
+    try:
+        infos = granule["umm"]["DataGranule"]["ArchiveAndDistributionInformation"]
+    except (KeyError, TypeError):
+        infos = None
+    if infos:
+        total = 0.0
+        found = False
+        for info in infos:
+            if not isinstance(info, dict):
+                continue
+            factor = _SIZE_UNIT_TO_MB.get(str(info.get("SizeUnit")))
+            size = info.get("Size")
+            if factor is None or not isinstance(size, (int, float)):
+                continue
+            total += float(size) * factor
+            found = True
+        if found:
+            return total
+    size_method = getattr(granule, "size", None)
+    if not callable(size_method):
         return 0.0
     try:
-        return float(size())
+        return float(size_method())
     except (TypeError, ValueError):
         return 0.0
 

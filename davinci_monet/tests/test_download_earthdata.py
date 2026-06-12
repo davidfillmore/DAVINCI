@@ -33,6 +33,45 @@ def test_granule_size_mb_zero_when_unavailable() -> None:
     assert earthdata.granule_size_mb("just-a-string") == 0.0
 
 
+class _FakeUmmGranule(dict):
+    """Dict-like granule carrying UMM archive metadata, like DataGranule."""
+
+    def __init__(self, infos: list[dict[str, Any]]) -> None:
+        super().__init__({"umm": {"DataGranule": {"ArchiveAndDistributionInformation": infos}}})
+
+    def size(self) -> float:  # pragma: no cover - must not be reached
+        raise AssertionError("size() fallback used despite UMM metadata")
+
+
+def test_granule_size_mb_converts_umm_units() -> None:
+    granule = _FakeUmmGranule(
+        [
+            {"Size": 1.9072410818189383, "SizeUnit": "GB"},
+            {"Size": 16.345703125, "SizeUnit": "KB"},
+        ]
+    )
+    assert earthdata.granule_size_mb(granule) == pytest.approx(1953.0, abs=0.1)
+
+
+def test_granule_size_mb_skips_unknown_units_and_falls_back() -> None:
+    class _UnknownUnitGranule(dict):
+        def __init__(self) -> None:
+            super().__init__(
+                {
+                    "umm": {
+                        "DataGranule": {
+                            "ArchiveAndDistributionInformation": [{"Size": 5.0, "SizeUnit": "NA"}]
+                        }
+                    }
+                }
+            )
+
+        def size(self) -> float:
+            return 7.5
+
+    assert earthdata.granule_size_mb(_UnknownUnitGranule()) == 7.5
+
+
 def test_stage_collection_dry_run_returns_results_without_download(tmp_path: Path) -> None:
     spec = earthdata.CollectionSpec("X", Path("X/sub"), version="V1")
     calls: dict[str, Any] = {}
