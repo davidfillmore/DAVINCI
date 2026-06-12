@@ -161,6 +161,7 @@ class PlotConfig:
     xlabel: str | None = None
     ylabel: str | None = None
     title: str | None = None
+    caption: str | None = None
 
     # Output
     output_dir: Path | None = None
@@ -219,6 +220,7 @@ class PlotConfig:
             "xlabel",
             "ylabel",
             "title",
+            "caption",
             "output_dir",
             "output_format",
             "debug",

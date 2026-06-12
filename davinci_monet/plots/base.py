@@ -247,6 +247,7 @@ class BasePlotter(ABC):
                 formatted_title,
                 fontsize=cfg.title_fontsize,
                 fontweight=cfg.fontweight,
+                wrap=True,
             )
 
     def set_limits(
@@ -333,6 +334,19 @@ class BasePlotter(ABC):
         """
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        caption = getattr(self.config, "caption", None)
+        if caption and not getattr(fig, "_davinci_caption_drawn", False):
+            fig.text(
+                0.99,
+                0.01,
+                caption,
+                ha="right",
+                va="bottom",
+                fontsize=self.config.text.annotation_small,
+                color="#58595B",
+            )
+            fig._davinci_caption_drawn = True  # type: ignore[attr-defined]
 
         save_kwargs = {
             "dpi": dpi or self.config.figure.dpi,

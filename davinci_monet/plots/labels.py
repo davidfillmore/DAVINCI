@@ -29,6 +29,10 @@ if TYPE_CHECKING:
 
 # Lookup table for common atmospheric variable display names
 # Maps lowercase variable names (or patterns) to display names with proper formatting
+# Whole words kept uppercase in auto-formatted display names (see
+# format_variable_display_name): title-casing otherwise mangles them.
+_DISPLAY_ACRONYMS = {"toa", "sfc", "lw", "sw", "wn", "olr", "uv", "tc", "adm"}
+
 VARIABLE_DISPLAY_NAMES: dict[str, str] = {
     # Surface pollutants (using LaTeX math mode for subscripts)
     "pm25": r"PM$_{2.5}$",
@@ -194,6 +198,10 @@ def format_variable_display_name(var_name: str, include_prefix: bool = True) -> 
     formatted = base_name.replace("_", " ")
     if formatted.islower() or formatted.isupper():
         formatted = formatted.title()
+    # Restore acronyms that title-casing mangles ("Toa Lw Up" -> "TOA LW Up").
+    formatted = " ".join(
+        word.upper() if word.lower() in _DISPLAY_ACRONYMS else word for word in formatted.split(" ")
+    )
 
     return prefix + formatted
 
