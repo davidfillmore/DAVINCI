@@ -210,6 +210,59 @@ class TestPlotConfig:
         assert config.text.fontsize == 11
         assert config.domain.domain_type == "conus"
 
+    def test_caption_round_trips_from_dict(self):
+        """caption field is extracted by from_dict and defaults to None."""
+        from davinci_monet.plots.base import PlotConfig
+
+        # Explicit caption
+        config = PlotConfig.from_dict({"title": "T", "caption": "C"})
+        assert config.caption == "C"
+        assert config.title == "T"
+
+        # Default is None
+        config_no_caption = PlotConfig.from_dict({"title": "T"})
+        assert config_no_caption.caption is None
+
+
+class TestBasePlotterCaption:
+    """Tests for BasePlotter caption rendering in save()."""
+
+    def test_caption_drawn_on_save(self, tmp_path):
+        """save() must render config.caption as figure-bottom text before writing."""
+        import numpy as np
+        import pandas as pd
+        import xarray as xr
+
+        from davinci_monet.plots import ScatterPlotter
+        from davinci_monet.plots.base import PlotConfig
+
+        # Build minimal paired dataset
+        np.random.seed(0)
+        n = 20
+        time = pd.date_range("2025-01-01", periods=n, freq="h")
+        ds = xr.Dataset(
+            {
+                "obs_o3": (["time"], np.random.normal(50, 10, n)),
+                "model_o3": (["time"], np.random.normal(52, 10, n)),
+            },
+            coords={"time": time},
+        )
+
+        caption_text = "2025-10-01 - 2025-12-31"
+        config = PlotConfig(caption=caption_text)
+        plotter = ScatterPlotter(config=config)
+
+        fig = plotter.plot(ds, "obs_o3", "model_o3")
+        # Caption not yet drawn — save() draws it
+        output_file = tmp_path / "test_caption.png"
+        plotter.save(fig, output_file)
+
+        # After save(), the caption text object must exist on the figure
+        assert any(
+            t.get_text() == caption_text for t in fig.texts
+        ), f"Caption '{caption_text}' not found in fig.texts after save()"
+        plt.close(fig)
+
 
 class TestUtilities:
     """Tests for plotting utility functions."""

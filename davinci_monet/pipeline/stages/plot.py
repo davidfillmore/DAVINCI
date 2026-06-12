@@ -374,7 +374,7 @@ class PlottingStage(BaseStage):
             if input_key in plot_spec:
                 plotter_config[plotter_key] = plot_spec[input_key]
         if subtitle:
-            plotter_config["title"] = f"{title}\n{subtitle}"
+            plotter_config["caption"] = subtitle
 
         return plotter_config, plot_options
 
