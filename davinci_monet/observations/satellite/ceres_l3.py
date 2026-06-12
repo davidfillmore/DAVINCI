@@ -29,7 +29,14 @@ from davinci_monet.io.reader_utils import (
 
 
 def _drop_unused_dims(ds: xr.Dataset) -> xr.Dataset:
-    """Drop dims (e.g. EBAF's ``ctime``/``sc``) used by no data variable."""
+    """Drop dims (e.g. EBAF's ``ctime``/``sc``) used by no data variable.
+
+    ``select_variables`` already drops climatology dims on the selection
+    path; this also covers orphan dims in a ``variables=None`` open. Note
+    ``drop_dims`` removes *any* variable touching a dropped dim (e.g. a
+    hypothetical bounds coord) — acceptable for CERES L3 files, which
+    carry none.
+    """
     used: set[Any] = set()
     for var in ds.data_vars.values():
         used.update(var.dims)

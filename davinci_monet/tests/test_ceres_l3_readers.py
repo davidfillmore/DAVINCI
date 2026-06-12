@@ -99,3 +99,26 @@ def test_open_ignores_resource_fork_sidecars(tmp_path: Path) -> None:
     ds = CERESEBAFReader().open(sorted(tmp_path.glob("*ebaf.nc")), variables=["toa_lw_all_mon"])
 
     assert ds.sizes["time"] == 3
+
+
+def test_longitude_already_normalized_passes_through(tmp_path: Path) -> None:
+    src = _ebaf_like()
+    src = src.assign_coords(lon=np.array([-179.5, -89.5, 0.5, 90.5]))
+    path = _write(src, tmp_path / "ebaf.nc")
+
+    ds = CERESEBAFReader().open([path], variables=["toa_lw_all_mon"])
+
+    np.testing.assert_allclose(ds["lon"].values, [-179.5, -89.5, 0.5, 90.5])
+
+
+def test_drop_unused_dims_handles_dim_without_data_vars(tmp_path: Path) -> None:
+    # A raw file can carry a dim used by no data variable at all (select_
+    # variables already covers the selection path; this pins the helper's own
+    # case: an orphan dim surviving into the opened dataset).
+    src = _ebaf_like()
+    src = src.assign_coords(orphan=("orphan", [1, 2, 3]))
+    path = _write(src, tmp_path / "ebaf.nc")
+
+    ds = CERESEBAFReader().open([path])
+
+    assert "orphan" not in ds.dims
