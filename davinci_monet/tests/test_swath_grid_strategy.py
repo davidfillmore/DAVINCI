@@ -362,3 +362,95 @@ class TestSwathGridStrategy:
         valid = obs_data[np.isfinite(obs_data)]
         assert np.all(valid >= 0.05)
         assert np.all(valid <= 0.8)
+
+
+# =============================================================================
+# Regression test: 2-D per-scanline multi-time-bin layout
+# =============================================================================
+
+
+def test_per_scanline_time_bins_across_multiple_days() -> None:
+    """2-D swath with per-scanline times spanning 3 days must bin per day.
+
+    Regression: DataArray.astype("datetime64[s]") silently kept ns units,
+    collapsing every pixel into the final time bin (fixed in SSF Phase 3).
+
+    The test uses a constant obs value per day (100 / 200 / 300) so the
+    per-bin means are assertable without statistical uncertainty.
+    """
+    # -- observation dataset (scanline=6, pixel=4) ----------------------------
+    n_scanlines = 6
+    n_pixels = 4
+
+    # Two scanlines per day across 2025-10-01 / 02 / 03
+    days = pd.to_datetime(["2025-10-01", "2025-10-02", "2025-10-03"])
+    # shape (6,): [day0, day0, day1, day1, day2, day2]
+    scanline_times = np.array(
+        [days[0], days[0], days[1], days[1], days[2], days[2]],
+        dtype="datetime64[ns]",
+    )
+
+    # Known constant flux per day (assertable means after binning)
+    day_values = np.array([100.0, 200.0, 300.0])
+    # shape (6, 4): rows 0-1 → 100, rows 2-3 → 200, rows 4-5 → 300
+    flux = np.repeat(day_values, 2).reshape(n_scanlines, 1) * np.ones((n_scanlines, n_pixels))
+
+    # 2-D lat/lon spread across domain (-60..60 lat, -120..120 lon)
+    lats = np.linspace(-60, 60, n_scanlines).reshape(-1, 1) * np.ones((n_scanlines, n_pixels))
+    lons = np.linspace(-120, 120, n_pixels).reshape(1, -1) * np.ones((n_scanlines, n_pixels))
+
+    obs = xr.Dataset(
+        {"flux": (["scanline", "pixel"], flux.astype(np.float32))},
+        coords={
+            "latitude": (["scanline", "pixel"], lats),
+            "longitude": (["scanline", "pixel"], lons),
+            "time": ("scanline", scanline_times),
+        },
+    )
+
+    # -- model dataset (time=3 days, lat=12, lon=24) --------------------------
+    lat = np.linspace(-90, 90, 12)
+    lon = np.linspace(-180, 180, 24, endpoint=False)
+    model_time = days
+    model_flux = np.ones((3, 12, 24), dtype=np.float32) * 999.0
+
+    model = xr.Dataset(
+        {"FLUX": (["time", "lat", "lon"], model_flux)},
+        coords={"time": model_time, "lat": lat, "lon": lon},
+    )
+
+    # -- pair -----------------------------------------------------------------
+    strategy = SwathGridStrategy()
+    paired = strategy.pair(
+        model,
+        obs,
+        grid_mode="match_model",
+        time_resolution="1D",
+        obs_var="flux",
+        model_var="FLUX",
+    )
+
+    obs_binned = paired["obs_flux"].values  # (time, lon, lat)
+    obs_count = paired["obs_count"].values
+
+    # 3 distinct time bins must be present
+    assert paired.dims["time"] == 3, f"Expected 3 time bins, got {paired.dims['time']}"
+
+    # Each time bin must contain at least one finite obs pixel
+    finite_per_bin = np.array([np.any(np.isfinite(obs_binned[t])) for t in range(3)])
+    assert np.all(finite_per_bin), (
+        f"Some time bins have no finite obs (pre-fix: all collapsed into last bin). "
+        f"Finite per bin: {finite_per_bin}"
+    )
+
+    # Per-bin means of finite cells must match 100 / 200 / 300 respectively
+    expected = [100.0, 200.0, 300.0]
+    for t, exp in enumerate(expected):
+        cells = obs_binned[t][np.isfinite(obs_binned[t])]
+        assert len(cells) > 0, f"Time bin {t} is empty"
+        np.testing.assert_allclose(
+            cells,
+            exp,
+            rtol=1e-4,
+            err_msg=f"Time bin {t}: expected mean {exp}, got {cells.mean():.1f}",
+        )

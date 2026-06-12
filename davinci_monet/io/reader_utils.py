@@ -30,6 +30,7 @@ import warnings
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+import numpy as np
 import xarray as xr
 
 from davinci_monet.core.exceptions import (
@@ -42,6 +43,7 @@ from davinci_monet.core.exceptions import (
 from davinci_monet.core.protocols import DataGeometry
 
 __all__ = [
+    "apply_hdf4_scale",
     "resolve_file_list",
     "validate_file_list",
     "select_available_vars",
@@ -52,6 +54,45 @@ __all__ = [
     "alias_coord",
     "set_geometry_attr",
 ]
+
+
+def apply_hdf4_scale(raw: np.ndarray, attrs: dict[str, Any]) -> np.ndarray:
+    """Apply HDF4/CF scale_factor, add_offset, _FillValue, and valid_range.
+
+    CF convention: ``physical = raw * scale_factor + add_offset``.
+    Values equal to ``_FillValue`` or outside ``valid_range`` are set to
+    ``NaN``.  The result is always ``float64``.
+
+    Parameters
+    ----------
+    raw
+        Raw array as read from the HDF4/NetCDF file.
+    attrs
+        Attribute dictionary for the variable (e.g. from pyhdf SDS.attributes()
+        or xarray DataArray.attrs).  Recognised keys: ``scale_factor``,
+        ``add_offset``, ``_FillValue``, ``valid_range``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Float64 array with fill/out-of-range values replaced by ``NaN`` and
+        scale/offset applied.
+    """
+    scale = float(attrs.get("scale_factor", 1.0))
+    offset = float(attrs.get("add_offset", 0.0))
+    fill_val = attrs.get("_FillValue")
+    valid_range = attrs.get("valid_range")
+
+    data = raw.astype("float64")
+
+    if fill_val is not None:
+        data[raw == int(fill_val)] = np.nan
+    if valid_range is not None:
+        lo = float(valid_range[0])
+        hi = float(valid_range[1])
+        data[(raw < lo) | (raw > hi)] = np.nan
+
+    return data * scale + offset
 
 
 def resolve_file_list(files: Any) -> list[str]:

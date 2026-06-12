@@ -20,7 +20,7 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataNotFoundError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.io.reader_utils import set_geometry_attr, validate_file_list
+from davinci_monet.io.reader_utils import apply_hdf4_scale, set_geometry_attr, validate_file_list
 from davinci_monet.observations.satellite.catalog import ProductEntry, get_catalog
 
 _DATE_TOKEN = re.compile(r"\.A(\d{7})\.")  # ".A2024032." -> 2024032
@@ -224,27 +224,8 @@ class MODISVIIRSReader:
 
     @staticmethod
     def _apply_hdf4_scale(raw: np.ndarray, attrs: dict[str, Any]) -> np.ndarray:
-        """Apply HDF4/CF scale_factor, add_offset, _FillValue, and valid_range.
-
-        CF convention: ``physical = raw * scale_factor + add_offset``.
-        Values equal to ``_FillValue`` or outside ``valid_range`` are set to
-        ``NaN``.  The result is always ``float64``.
-        """
-        scale = float(attrs.get("scale_factor", 1.0))
-        offset = float(attrs.get("add_offset", 0.0))
-        fill_val = attrs.get("_FillValue")
-        valid_range = attrs.get("valid_range")
-
-        data = raw.astype("float64")
-
-        if fill_val is not None:
-            data[raw == int(fill_val)] = np.nan
-        if valid_range is not None:
-            lo = float(valid_range[0])
-            hi = float(valid_range[1])
-            data[(raw < lo) | (raw > hi)] = np.nan
-
-        return data * scale + offset
+        """Delegate to the shared helper in ``io.reader_utils``."""
+        return apply_hdf4_scale(raw, attrs)
 
     def _open_one_nc(
         self,
