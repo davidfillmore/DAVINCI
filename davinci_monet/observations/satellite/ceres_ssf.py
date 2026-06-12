@@ -231,10 +231,13 @@ class CERESSSFReader:
         """Read one Edition1C netCDF granule into a footprint Dataset.
 
         The ``Time_and_Position`` group contains a ``julian_observation_time``
-        variable whose units (``"days since -4712-01-01 12:00:00"``) are
-        outside the range of numpy datetime64 and require cftime. We drop it
-        via ``drop_variables`` so xarray can decode the ``time`` variable
-        (which uses a conventional epoch) normally without needing cftime.
+        variable whose units (``"days since -4712-01-01 12:00:00"``) use a
+        non-standard epoch. Decoding it emits a ``CFWarning`` (a
+        ``UserWarning`` subclass); this repo's pytest config escalates
+        ``UserWarning`` to errors, so the open fails under tests even with
+        cftime installed — and in cftime-less environments it fails
+        unconditionally. The variable duplicates the ``time`` coordinate and is
+        not needed; drop it so xarray decodes ``time`` normally.
         """
         pos = xr.open_dataset(
             str(path),
