@@ -154,17 +154,25 @@ class PlottingStage(BaseStage):
                         for fig, fig_suffix in result:
                             out_path = output_dir / f"{plot_name}{suffix}{fig_suffix}.png"
                             plotter.save(fig, out_path)
+                            plots_generated.append(str(out_path))
+                            # Also save PDF (parity with the comparison path)
+                            pdf_path = output_dir / f"{plot_name}{suffix}{fig_suffix}.pdf"
+                            plotter.save(fig, pdf_path)
+                            plots_generated.append(str(pdf_path))
                             plt.close(fig)
                             plot_count += 1
-                            plots_generated.append(str(out_path))
                             _logger.info(f"Saved source plot: {out_path}")
                     else:
                         fig = result
                         out_path = output_dir / f"{plot_name}{suffix}.png"
                         plotter.save(fig, out_path)
+                        plots_generated.append(str(out_path))
+                        # Also save PDF (parity with the comparison path)
+                        pdf_path = output_dir / f"{plot_name}{suffix}.pdf"
+                        plotter.save(fig, pdf_path)
+                        plots_generated.append(str(pdf_path))
                         plt.close(fig)
                         plot_count += 1
-                        plots_generated.append(str(out_path))
                         _logger.info(f"Saved source plot: {out_path}")
                 except Exception as e:
                     label = f"'{plot_name}' (flight {fid})" if fid else f"'{plot_name}'"
