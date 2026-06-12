@@ -126,6 +126,9 @@ class TestObsPlottingStage:
         png_files = list(output_dir.glob("*.png"))
         assert len(png_files) >= 1
         assert any("o3_histogram" in f.name for f in png_files)
+        # Single-source plots save a PDF alongside each PNG (comparison parity)
+        pdf_files = list(output_dir.glob("*.pdf"))
+        assert {f.stem for f in pdf_files} == {f.stem for f in png_files}
 
 
 # =============================================================================
