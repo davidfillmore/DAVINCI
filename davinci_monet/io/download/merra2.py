@@ -2,25 +2,20 @@
 
 Network access is isolated in ``_login``/``_search``/``_download`` so the
 rest of the module (and its tests) run offline. ``earthaccess`` is an
-optional dependency (``pip install -e ".[reanalysis]"``) imported lazily.
+optional dependency (``pip install -e ".[reanalysis]"``) imported lazily
+via the shared :mod:`davinci_monet.io.download.earthdata` core.
 """
 
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
+from davinci_monet.io.download import earthdata
+from davinci_monet.io.download.earthdata import CollectionSpec, stage_collection
+
 DEFAULT_ROOT = "/Volumes/Io"
-
-
-@dataclass(frozen=True)
-class CollectionSpec:
-    """A MERRA-2 collection: Earthdata short-name + on-disk subpath."""
-
-    short_name: str
-    subpath: Path
 
 
 # Friendly collection name -> (Earthdata short_name, Io subpath).
@@ -55,24 +50,18 @@ def dest_dir(collection: str, root: str | Path = DEFAULT_ROOT) -> Path:
 
 
 def _login() -> Any:
-    """Authenticate to NASA Earthdata (lazy earthaccess import)."""
-    import earthaccess
-
-    return earthaccess.login()
+    """Authenticate to NASA Earthdata (delegates to the shared core)."""
+    return earthdata._login()
 
 
 def _search(short_name: str, temporal: tuple[str, str]) -> Sequence[Any]:
     """Search GES DISC for granules of ``short_name`` over ``temporal``."""
-    import earthaccess
-
-    return earthaccess.search_data(short_name=short_name, temporal=temporal)
+    return earthdata._search(short_name, temporal)
 
 
 def _download(results: Sequence[Any], dest: str) -> list[Path]:
     """Download ``results`` into ``dest``; return local file paths."""
-    import earthaccess
-
-    return [Path(p) for p in earthaccess.download(list(results), dest)]
+    return earthdata._download(results, dest)
 
 
 def stage_merra2(
@@ -102,13 +91,21 @@ def stage_merra2(
         Granule count when ``dry_run``; otherwise the staged file paths.
     """
     spec = resolve_collection(collection)
-    _login()
-    results = _search(spec.short_name, (start, end))
+    temporal = (start, end)
+    # Hooks reference this module's network wrappers so tests can monkeypatch
+    # merra2._login/_search/_download (resolved from module globals at call time).
+    result = stage_collection(
+        spec,
+        temporal,
+        Path(root) / spec.subpath,
+        dry_run=dry_run,
+        login=_login,
+        search=lambda s, _t: _search(s.short_name, temporal),
+        download=_download,
+    )
     if dry_run:
-        return len(results)
-    target = Path(root) / spec.subpath
-    target.mkdir(parents=True, exist_ok=True)
-    return _download(results, str(target))
+        return len(result)
+    return list(result)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
