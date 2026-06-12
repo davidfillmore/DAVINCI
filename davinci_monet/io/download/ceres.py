@@ -73,3 +73,58 @@ def resolve_collection(collection: str) -> CollectionSpec:
 def dest_dir(collection: str, root: str | Path = DEFAULT_ROOT) -> Path:
     """Return the staging directory for ``collection`` under ``root``."""
     return Path(root) / resolve_collection(collection).subpath
+
+
+@dataclass(frozen=True)
+class DryRunReport:
+    """Summary of a dry-run search: granule count and total size in MB."""
+
+    granules: int
+    total_mb: float
+
+
+def stage_ceres(
+    collection: str,
+    start: str | None = None,
+    end: str | None = None,
+    *,
+    root: str | Path = DEFAULT_ROOT,
+    dry_run: bool = False,
+) -> DryRunReport | list[Path]:
+    """Stage a CERES ``collection`` under ``root``.
+
+    Parameters
+    ----------
+    collection
+        Friendly collection name (see ``CERES_COLLECTIONS``).
+    start, end
+        Inclusive temporal bounds as ISO strings (e.g. ``"2023-07-01"``).
+        Optional for whole-record collections (``ebaf``); required otherwise —
+        an unbounded SSF search would match the entire 25-year record.
+    root
+        Staging root; the collection subpath is appended.
+    dry_run
+        If True, search only and report granule count + total size.
+
+    Returns
+    -------
+    DryRunReport | list[Path]
+        Count/size summary when ``dry_run``; otherwise the staged file paths.
+    """
+    spec = resolve_collection(collection)
+    if (start is None) != (end is None):
+        raise ValueError("provide both start and end, or neither")
+    if start is None and collection not in NO_TEMPORAL_OK:
+        raise ValueError(
+            f"start and end are required for {collection!r}; only whole-record "
+            f"collections ({', '.join(sorted(NO_TEMPORAL_OK))}) may omit them"
+        )
+    temporal = (start, end) if start is not None and end is not None else None
+
+    result = earthdata.stage_collection(spec, temporal, Path(root) / spec.subpath, dry_run=dry_run)
+    if dry_run:
+        return DryRunReport(
+            granules=len(result),
+            total_mb=sum(earthdata.granule_size_mb(g) for g in result),
+        )
+    return [Path(p) for p in result]
