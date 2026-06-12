@@ -8,9 +8,11 @@ arrive with their phases.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
 import yaml
@@ -97,4 +99,49 @@ def test_ceres_ebaf_pipeline(tmp_path: Path) -> None:
     ]
     assert result.success, f"Pipeline failed: {failed}"
     assert sorted(out_dir.rglob("*.png")), "expected plots"
-    assert list(out_dir.rglob("*.csv")), "expected a stats CSV"
+    csvs = list(out_dir.rglob("statistics_summary.csv"))
+    assert csvs, "expected a stats CSV"
+    # All 3 times x 6 lats x 8 lons must pair; a broken lon normalization
+    # NaNs the 0-360 half of the grid and silently halves N (review finding).
+    stats = pd.read_csv(csvs[0])
+    n_col = next(c for c in stats.columns if c.strip().upper() == "N")
+    assert int(stats[n_col].iloc[0]) == 144, f"expected N=144, got\n{stats}"
+
+
+_IO_EBAF = Path("/Volumes/Io/CERES/EBAF")
+_RUN_REAL = bool(os.environ.get("CERES_DATA"))
+
+
+@pytest.mark.skipif(
+    not (_RUN_REAL and _IO_EBAF.is_dir()),
+    reason="real-data smoke is opt-in (set CERES_DATA) and needs /Volumes/Io",
+)
+def test_real_ebaf_file_opens() -> None:
+    """Smoke: open the staged EBAF record via the reader, check physics.
+
+    Opt-in only — set ``CERES_DATA`` to activate::
+
+        export CERES_DATA=/Volumes/Io/CERES
+
+    Not auto-run on mount: opening the ~2 GB netCDF over the SMB volume
+    contaminates global netCDF4/HDF5 state, and unrelated dask-parallel
+    tests then fail transiently when this runs inside the full suite.
+    """
+    from davinci_monet.observations.satellite.ceres_l3 import CERESEBAFReader
+
+    files = sorted(f for f in _IO_EBAF.glob("CERES_EBAF_*.nc") if not f.name.startswith("._"))
+    if not files:
+        pytest.skip("no EBAF .nc files present")
+
+    ds = CERESEBAFReader().open([files[0]], variables=["toa_lw_all_mon"])
+
+    assert set(ds.data_vars) == {"toa_lw_all_mon"}
+    assert ds.attrs["geometry"] == "grid"
+    assert "ctime" not in ds.dims
+    lon = ds["lon"].values
+    assert lon.min() >= -180.0 and lon.max() < 180.0
+    # Area-weighted global-mean OLR for one month must be physical.
+    da = ds["toa_lw_all_mon"].isel(time=-1)
+    weights = np.cos(np.deg2rad(ds["lat"]))
+    gmean = float(da.weighted(weights).mean())
+    assert 220.0 <= gmean <= 260.0, f"global-mean OLR {gmean:.1f} W m-2 unphysical"
