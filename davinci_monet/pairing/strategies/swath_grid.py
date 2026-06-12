@@ -338,7 +338,13 @@ class SwathGridStrategy(BasePairingStrategy):
                 if var_name is None and obs.data_vars:
                     var_name = str(list(obs.data_vars)[0])
                 if var_name is not None:
-                    epoch_da = time_da.astype("datetime64[s]").astype(np.float64)
+                    # Convert via .values so the datetime64[ns]→[s] cast goes
+                    # through numpy rather than xarray.DataArray.astype, which
+                    # does not reliably change the datetime64 unit (it can
+                    # silently reinterpret the integer magnitude as float64,
+                    # leaving nanosecond-epoch values where seconds are needed).
+                    epoch_np = time_da.values.astype("datetime64[s]").astype(np.float64)
+                    epoch_da = xr.DataArray(epoch_np, dims=time_da.dims)
                     broadcast = epoch_da.broadcast_like(obs[var_name])
                     # Match the C-order .flatten() used for the data values.
                     epoch_flat = broadcast.transpose(*obs[var_name].dims).values.flatten()

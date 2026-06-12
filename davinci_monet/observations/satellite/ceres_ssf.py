@@ -228,8 +228,20 @@ class CERESSSFReader:
     # -- netCDF (Edition1C) ---------------------------------------------------
 
     def _open_one_netcdf(self, path: Path, variables: Sequence[str] | None) -> xr.Dataset:
-        """Read one Edition1C netCDF granule into a footprint Dataset."""
-        pos = xr.open_dataset(str(path), group=_NC_POSITION_GROUP)
+        """Read one Edition1C netCDF granule into a footprint Dataset.
+
+        The ``Time_and_Position`` group contains a ``julian_observation_time``
+        variable whose units (``"days since -4712-01-01 12:00:00"``) are
+        outside the range of numpy datetime64 and require cftime. We drop it
+        via ``drop_variables`` so xarray can decode the ``time`` variable
+        (which uses a conventional epoch) normally without needing cftime.
+        """
+        pos = xr.open_dataset(
+            str(path),
+            group=_NC_POSITION_GROUP,
+            decode_times=True,
+            drop_variables=["julian_observation_time"],
+        )
         try:
             time = pos[_NC_TIME].values
             lat = np.asarray(pos[_NC_LAT].values, dtype=np.float64)
@@ -247,7 +259,7 @@ class CERESSSFReader:
         scan = variables is None  # catalog scan skips absentees; explicit requests raise
         data_vars: dict[str, Any] = {}
         for group, mapping in by_group.items():
-            grp = xr.open_dataset(str(path), group=group)
+            grp = xr.open_dataset(str(path), group=group, decode_times=False)
             try:
                 missing = [v for v in mapping.values() if v not in grp.data_vars]
                 if missing and not scan:

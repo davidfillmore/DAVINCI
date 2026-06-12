@@ -256,3 +256,71 @@ def test_mixed_formats_rejected(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="mixed"):
         CERESSSFReader().open([h4, nc], variables=["toa_lw_up"])
+
+
+# ---------------------------------------------------------------------------
+# Grid-aligned helper for pipeline integration tests
+# ---------------------------------------------------------------------------
+
+
+def _write_ssf_hdf4_grid(
+    path: Path,
+    lat_centers: np.ndarray,
+    lon_centers: np.ndarray,
+    base_iso: str,
+) -> Path:
+    """Write an SSF-like HDF4 granule with one footprint per (lat, lon) center."""
+    SD, SDC = pyhdf_SD.SD, pyhdf_SD.SDC
+    lat2d, lon2d = np.meshgrid(lat_centers, lon_centers, indexing="ij")
+    lat = lat2d.ravel().astype(np.float32)
+    lon = lon2d.ravel().astype(np.float32)
+    n = lat.size
+    times = np.array([_jd(base_iso) + i * (1.0 / 86400.0) for i in range(n)])
+    flux = np.linspace(150.0, 300.0, n).astype(np.float32)
+
+    f = SD(str(path), SDC.WRITE | SDC.CREATE)
+
+    def _sds(name: str, data: np.ndarray, typ: int, fill: float, vr: list) -> None:
+        s = f.create(name, typ, n)
+        s.dim(0).setname("Footprints")
+        s[:] = data
+        s.attr("_FillValue").set(typ, fill)
+        s.attr("valid_range").set(typ, vr)
+        s.endaccess()
+
+    _sds("Time of observation", times, SDC.FLOAT64, 1.7976931348623157e308, [2440000.0, 2480000.0])
+    _sds(
+        "Colatitude of CERES FOV at surface",
+        (90.0 - lat).astype(np.float32),
+        SDC.FLOAT32,
+        _FILL32,
+        [0.0, 180.0],
+    )
+    _sds(
+        "Longitude of CERES FOV at surface",
+        np.where(lon < 0, lon + 360.0, lon).astype(np.float32),
+        SDC.FLOAT32,
+        _FILL32,
+        [0.0, 360.0],
+    )
+    _sds("CERES LW TOA flux - upwards", flux, SDC.FLOAT32, _FILL32, [0.0, 500.0])
+    f.end()
+    return path
+
+
+# ---------------------------------------------------------------------------
+# Cross-format identity test
+# ---------------------------------------------------------------------------
+
+
+def test_hdf4_and_netcdf_paths_produce_identical_output(tmp_path: Path) -> None:
+    h4 = _write_ssf_hdf4(tmp_path / "CER_SSF_Terra-FM1-MODIS_Edition4A_410406.2026040100")
+    nc = _write_ssf_netcdf(tmp_path / "CER_SSF_NOAA20-FM6-VIIRS_Edition1C_103103.2026040100.nc")
+
+    ds_h4 = CERESSSFReader().open([h4], variables=["toa_lw_up"])
+    ds_nc = CERESSSFReader().open([nc], variables=["toa_lw_up"])
+
+    np.testing.assert_array_equal(ds_h4["time"].values, ds_nc["time"].values)
+    np.testing.assert_array_equal(ds_h4["lat"].values, ds_nc["lat"].values)
+    np.testing.assert_array_equal(ds_h4["lon"].values, ds_nc["lon"].values)
+    np.testing.assert_array_equal(ds_h4["toa_lw_up"].values, ds_nc["toa_lw_up"].values)

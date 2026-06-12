@@ -1,9 +1,9 @@
 """Integration: CERES readers through the full pipeline.
 
-Exercises PipelineRunner.run_from_config() with a ``type: ceres_ebaf`` GRID
-source as the pairing reference against a synthetic gridded model — the same
-path a user takes with ``davinci-monet run``. SSF/SYN1deg pipeline tests
-arrive with their phases.
+Exercises PipelineRunner.run_from_config() with CERES EBAF (GRID), SYN1deg
+(GRID), and SSF (SWATH) sources against a synthetic gridded model — the same
+path a user takes with ``davinci-monet run``. EBAF and SYN1deg tests cover
+Phase 2; SSF tests cover Phase 3.
 """
 
 from __future__ import annotations
@@ -176,7 +176,7 @@ def test_real_ebaf_file_opens() -> None:
 
 
 # ---------------------------------------------------------------------------
-# SYN1deg pipeline (Phase 3)
+# SYN1deg pipeline (Phase 2)
 # ---------------------------------------------------------------------------
 
 
@@ -250,7 +250,7 @@ def test_ceres_syn1deg_pipeline(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# SYN1deg real-data smoke (Phase 3)
+# SYN1deg real-data smoke (Phase 2)
 # ---------------------------------------------------------------------------
 
 _IO_SYN_MONTH = Path("/Volumes/Io/CERES/SYN1deg/month")
@@ -285,3 +285,121 @@ def test_real_syn1deg_zonal_means_correlate_with_ebaf() -> None:
         "lat",
         "lon",
     }
+
+
+# ---------------------------------------------------------------------------
+# SSF pipeline (Phase 3)
+# ---------------------------------------------------------------------------
+
+
+def test_ceres_ssf_pipeline(tmp_path: Path) -> None:
+    """SSF footprints -> SwathGridStrategy binning -> stats, via the pipeline."""
+    from davinci_monet.tests.test_ceres_ssf_reader import _write_ssf_hdf4_grid
+
+    s_dir = tmp_path / "ssf"
+    m_dir = tmp_path / "model"
+    s_dir.mkdir()
+    m_dir.mkdir()
+    lat_centers = np.linspace(-87.5, 87.5, 6)
+    lon_centers = np.linspace(-175.0, 175.0, 8)
+    for i, day in enumerate(("2025-10-01", "2025-11-01", "2025-12-01")):
+        _write_ssf_hdf4_grid(
+            s_dir / f"CER_SSF_Terra-FM1-MODIS_Edition4A_410406.20251{i}0100",
+            lat_centers,
+            lon_centers,
+            base_iso=f"{day}T00:00:00",
+        )
+    _monthly_grid("OLR", seed=2).to_netcdf(m_dir / "model.nc")
+
+    out_dir = tmp_path / "output"
+    config = {
+        "analysis": {
+            "start_time": "2025-10-01",
+            "end_time": "2025-12-31",
+            "output_dir": str(out_dir),
+            "log_dir": str(tmp_path / "logs"),
+        },
+        "sources": {
+            "ceres": {
+                "type": "ceres_ssf",
+                "role": "obs",
+                "files": str(s_dir / "CER_SSF_*"),
+                "variables": {"toa_lw_up": {"units": "W m-2"}},
+            },
+            "model": {
+                "type": "generic",
+                "role": "model",
+                "files": str(m_dir / "*.nc"),
+                "variables": {"OLR": {"units": "W m-2"}},
+            },
+        },
+        "pairs": {
+            "model_vs_ssf_olr": {
+                "sources": ["model", "ceres"],
+                "reference": "ceres",
+                "variables": {"model": "OLR", "ceres": "toa_lw_up"},
+            }
+        },
+        "plots": {
+            "sc": {"type": "scatter", "pairs": ["model_vs_ssf_olr"], "title": "OLR"},
+        },
+        "stats": {"output_table": True, "metrics": ["N", "MB", "RMSE", "R"]},
+    }
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(yaml.safe_dump(config))
+
+    result = PipelineRunner(show_progress=False).run_from_config(str(cfg))
+
+    failed = [
+        f"{s.stage_name}: {s.error}" for s in result.stage_results if s.status.name == "FAILED"
+    ]
+    assert result.success, f"Pipeline failed: {failed}"
+    csvs = list(out_dir.rglob("statistics_summary.csv"))
+    assert csvs, "expected a stats CSV"
+    stats = pd.read_csv(csvs[0])
+    n_col = next(c for c in stats.columns if c.strip().upper() == "N")
+    # One footprint per model cell per granule-day: 6x8 cells x 3 days = 144
+    # bins with exactly one obs each. Fewer means binning lost footprints.
+    assert int(stats[n_col].iloc[0]) == 144, f"expected N=144, got\n{stats}"
+
+
+# ---------------------------------------------------------------------------
+# SSF real-data smoke (Phase 3)
+# ---------------------------------------------------------------------------
+
+_IO_SSF_TERRA = Path("/Volumes/Io/CERES/SSF/Terra-FM1")
+_IO_SSF_N20 = Path("/Volumes/Io/CERES/SSF/NOAA20-FM6")
+
+
+@pytest.mark.skipif(
+    not (_RUN_REAL and _IO_SSF_TERRA.is_dir() and _IO_SSF_N20.is_dir()),
+    reason="real-data smoke is opt-in (set CERES_DATA) and needs /Volumes/Io",
+)
+def test_real_ssf_granules_open_in_both_editions() -> None:
+    """Smoke: one HDF4 (Terra) and one netCDF (NOAA-20) granule via the reader."""
+    from davinci_monet.observations.satellite.ceres_ssf import CERESSSFReader
+
+    h4 = sorted(f for f in _IO_SSF_TERRA.glob("CER_SSF_*") if not f.name.startswith("._"))
+    nc = sorted(f for f in _IO_SSF_N20.glob("CER_SSF_*.nc") if not f.name.startswith("._"))
+    if not h4 or not nc:
+        pytest.skip("staged SSF granules not found")
+
+    for path, edition in ((h4[0], "Edition4A"), (nc[0], "Edition1C")):
+        ds = CERESSSFReader().open([path], variables=["toa_lw_up"])
+        assert ds.attrs["geometry"] == "swath", edition
+        assert ds.sizes["time"] > 10_000, edition  # a real granule has ~1e5 footprints
+        lat = ds["lat"].values
+        assert lat.min() >= -90.0 and lat.max() <= 90.0, edition
+        lon = ds["lon"].values
+        assert lon.min() >= -180.0 and lon.max() < 180.0, edition
+        olr = ds["toa_lw_up"].values
+        finite = olr[~np.isnan(olr)]
+        assert finite.size > 0 and 50.0 < float(np.median(finite)) < 400.0, edition
+        # Times must fall within the granule hour stamped in the filename
+        # (filename ends .YYYYMMDDHH or .YYYYMMDDHH.nc).
+        digits = "".join(
+            ch for ch in path.name.split(".")[-2 if path.suffix == ".nc" else -1] if ch.isdigit()
+        )
+        t0 = np.datetime64(f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}T{digits[8:10]}:00")
+        t = ds["time"].values
+        assert (t >= t0).all() and (t <= t0 + np.timedelta64(1, "h")).all(), edition
