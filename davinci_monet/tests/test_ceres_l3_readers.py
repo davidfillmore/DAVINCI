@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from davinci_monet.core.exceptions import DataFormatError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
 from davinci_monet.observations.satellite.ceres_l3 import CERESEBAFReader
@@ -52,6 +53,13 @@ def test_open_selects_variables_and_drops_climatology_dims(tmp_path: Path) -> No
     assert set(ds.data_vars) == {"toa_lw_all_mon"}
     assert "ctime" not in ds.dims  # climatology dim dropped when unused
     assert ds.attrs["geometry"] == "grid"
+
+
+def test_ebaf_missing_requested_variable_raises(tmp_path: Path) -> None:
+    path = _write(_ebaf_like(), tmp_path / "CERES_EBAF_Edition4.2.1_200003-202512.nc")
+
+    with pytest.raises(DataFormatError, match="EBAF variable"):
+        CERESEBAFReader().open([path], variables=["not_a_ceres_var"])
 
 
 def test_open_without_selection_keeps_climatology(tmp_path: Path) -> None:
@@ -128,11 +136,13 @@ def test_drop_unused_dims_handles_dim_without_data_vars(tmp_path: Path) -> None:
 # SYN1deg (Phase 2)
 # ---------------------------------------------------------------------------
 
-pyhdf_SD = pytest.importorskip("pyhdf.SD", reason="pyhdf required for SYN1deg tests")
-
 from davinci_monet.observations.satellite.ceres_l3 import CERESSYN1degReader  # noqa: E402
 
 _SYN_FILL = 3.4028234663852886e38
+
+
+def _pyhdf_sd():
+    return pytest.importorskip("pyhdf.SD", reason="pyhdf required for SYN1deg HDF4 tests")
 
 
 def _write_syn_hdf4(
@@ -153,6 +163,7 @@ def _write_syn_hdf4(
     ``obs_all_toa_lw_zon`` on ("latitude",); ``"layered"`` adds a 3-D
     ``obs_cld_amount_reg`` on ("cloud_layer", "latitude", "longitude").
     """
+    pyhdf_SD = _pyhdf_sd()
     SD, SDC = pyhdf_SD.SD, pyhdf_SD.SDC
     lat = np.linspace(89.5, -89.5, nlat).astype(np.float32)  # descending like real files
     lon = np.linspace(-179.5, 179.5, nlon).astype(np.float32)
@@ -253,6 +264,7 @@ def test_syn_hourly_file_expands_24_steps(tmp_path: Path) -> None:
 def test_syn_latitude_flipped_ascending_with_data(tmp_path: Path) -> None:
     p = _write_syn_hdf4(tmp_path / "CER_SYN1deg-Month_Terra-Aqua-NOAA20_Edition4B_415412.202512")
     # Read the raw row that sits at descending-lat index 0 (lat=+89.5).
+    pyhdf_SD = _pyhdf_sd()
     SD, SDC = pyhdf_SD.SD, pyhdf_SD.SDC
     f = SD(str(p), SDC.READ)
     north_row = np.array(f.select("obs_all_toa_lw_reg").get()[0, :], dtype=np.float64)

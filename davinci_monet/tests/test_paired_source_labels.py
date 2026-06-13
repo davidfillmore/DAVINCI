@@ -1,15 +1,4 @@
-"""Tests for source-label paired naming (renderer rewire R-5, the clean break).
-
-R-5 drops the legacy dual-naming bridge: when source labels are supplied,
-``tag_paired_roles`` now *renames* the paired variables to ``<comparand_label>_<v>``
-(model/comparand side) and ``<reference_label>_<v>`` (obs/reference side),
-dropping the legacy ``model_<v>`` / ``obs_<v>`` names, and tags each with ``role``
-and ``source_label`` attrs.
-
-Without labels (the low-level engine API path, and untagged/legacy data), the
-legacy names are kept and only the ``role`` attr is set — so direct
-``engine.pair`` / ``strategy.pair`` callers are unaffected.
-"""
+"""Tests for source-label paired naming."""
 
 from __future__ import annotations
 
@@ -66,26 +55,21 @@ class TestSourceLabelRename:
         assert ds["airnow_o3"].attrs["role"] == "obs"
         assert ds["airnow_o3"].attrs["source_label"] == "airnow"
 
-    def test_no_labels_keeps_legacy_names(self) -> None:
-        # The low-level path (no labels) keeps the legacy names and only tags
-        # role, so direct engine.pair / strategy.pair callers are unaffected.
+    def test_no_labels_use_neutral_source_labels(self) -> None:
         ds = _paired()
         tag_paired_roles(ds)
-        assert set(ds.data_vars) == {"model_o3", "obs_o3"}
-        assert ds["model_o3"].attrs["role"] == "model"
-        assert ds["obs_o3"].attrs["role"] == "obs"
-        assert "source_label" not in ds["model_o3"].attrs
-        assert "source_label" not in ds["obs_o3"].attrs
+        assert set(ds.data_vars) == {"comparand_o3", "reference_o3"}
+        assert ds["comparand_o3"].attrs["role"] == "model"
+        assert ds["reference_o3"].attrs["role"] == "obs"
+        assert ds["comparand_o3"].attrs["source_label"] == "comparand"
+        assert ds["reference_o3"].attrs["source_label"] == "reference"
 
-    def test_reserved_prefix_labels_keep_legacy_names(self) -> None:
-        # A label whose rename would re-enter the reserved model_/obs_ namespace
-        # (e.g. "model"/"obs" or "model_foo") must NOT rename — the legacy name is
-        # kept (and source_label still recorded).
+    def test_source_labels_are_not_reserved(self) -> None:
         ds = _paired()
-        tag_paired_roles(ds, reference_label="obs", comparand_label="model")
-        assert set(ds.data_vars) == {"model_o3", "obs_o3"}
-        assert ds["model_o3"].attrs["source_label"] == "model"
-        assert ds["obs_o3"].attrs["source_label"] == "obs"
+        tag_paired_roles(ds, reference_label="obs_feed", comparand_label="model_run")
+        assert set(ds.data_vars) == {"model_run_o3", "obs_feed_o3"}
+        assert ds["model_run_o3"].attrs["source_label"] == "model_run"
+        assert ds["obs_feed_o3"].attrs["source_label"] == "obs_feed"
 
 
 @pytest.mark.integration

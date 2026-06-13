@@ -214,6 +214,7 @@ class SourcePairJob:
     reference_role: str | None
     comparand_role: str | None
     radius_of_influence: float
+    strategy_options: dict[str, Any] = field(default_factory=dict)
 
 
 class BaseStage(ABC):

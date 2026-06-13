@@ -10,9 +10,6 @@ import xarray as xr
 
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-
-pyhdf_SD = pytest.importorskip("pyhdf.SD", reason="pyhdf required for SSF HDF4 tests")
-
 from davinci_monet.observations.satellite.ceres_ssf import (  # noqa: E402
     SSF_CATALOG,
     CERESSSFReader,
@@ -28,6 +25,10 @@ def _jd(iso: str) -> float:
     return _JD_EPOCH + float(ns) / 86400.0
 
 
+def _pyhdf_sd():
+    return pytest.importorskip("pyhdf.SD", reason="pyhdf required for SSF HDF4 tests")
+
+
 def _write_ssf_hdf4(
     path: Path,
     n: int = 6,
@@ -37,6 +38,7 @@ def _write_ssf_hdf4(
     fill_coord_idx: int | None = None,
 ) -> Path:
     """Write a minimal SSF-like HDF4 file: 1-D footprint SDS with real names."""
+    pyhdf_SD = _pyhdf_sd()
     SD, SDC = pyhdf_SD.SD, pyhdf_SD.SDC
     times = np.array([_jd(base_iso) + i * (10.0 / 86400.0) for i in range(n)])  # 10 s apart
     colat = np.linspace(60.0, 120.0, n).astype(np.float32)  # lat +30 .. -30
@@ -270,6 +272,7 @@ def _write_ssf_hdf4_grid(
     base_iso: str,
 ) -> Path:
     """Write an SSF-like HDF4 granule with one footprint per (lat, lon) center."""
+    pyhdf_SD = _pyhdf_sd()
     SD, SDC = pyhdf_SD.SD, pyhdf_SD.SDC
     lat2d, lon2d = np.meshgrid(lat_centers, lon_centers, indexing="ij")
     lat = lat2d.ravel().astype(np.float32)

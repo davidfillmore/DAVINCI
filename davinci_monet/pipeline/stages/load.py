@@ -160,7 +160,10 @@ class LoadSourcesStage(BaseStage):
         source_type = str(cfg.get("type") or "generic")
         role = cfg.get("role")
         variables = self._normalize_var_configs(cfg.get("variables", {}))
-        variable_names = list(variables) or None
+        variable_names: list[str] | None = [
+            str(vcfg.get("source_name") or name) for name, vcfg in variables.items()
+        ]
+        variable_names = variable_names or None
         file_paths = self._file_list(cfg.get("files") or cfg.get("filename"))
 
         analysis = context.config.get("analysis", {})

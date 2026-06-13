@@ -73,13 +73,27 @@ class BasePairingStrategy(ABC):
         comparand: xr.Dataset,
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Role-neutral pairing entrypoint (Phase 4).
+        """Role-neutral pairing entrypoint.
 
-        Resamples ``comparand`` onto ``reference``'s geometry. This is a thin,
-        additive wrapper over :meth:`pair` that preserves today's semantics: the
-        reference takes the former observation role and the comparand the former
-        model role (a GRID comparand sampled onto an irregular reference).
+        Resamples ``comparand`` onto ``reference``'s geometry. Strategy
+        implementations may still share older helper code internally, but this
+        method is the public boundary used by the engine and accepts
+        reference/comparand variable names.
         """
+        reference_vars = kwargs.pop("reference_vars", None)
+        comparand_vars = kwargs.pop("comparand_vars", None)
+        reference_var = kwargs.pop("reference_var", None)
+        comparand_var = kwargs.pop("comparand_var", None)
+        if reference_var is None and reference_vars:
+            reference_var = reference_vars[0]
+        if comparand_var is None and comparand_vars:
+            comparand_var = comparand_vars[0]
+        if reference_var is not None:
+            kwargs.setdefault("reference_var", reference_var)
+            kwargs.setdefault("obs_var", reference_var)
+        if comparand_var is not None:
+            kwargs.setdefault("comparand_var", comparand_var)
+            kwargs.setdefault("model_var", comparand_var)
         return self.pair(model=comparand, obs=reference, **kwargs)
 
     def _get_model_coords(self, model: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:

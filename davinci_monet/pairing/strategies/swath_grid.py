@@ -90,10 +90,10 @@ class SwathGridStrategy(BasePairingStrategy):
             - min_obs_count : int
                 Minimum pixel count per cell. Cells below this are
                 masked to NaN. Default 1.
-            - obs_var : str
-                Observation variable name to bin.
-            - model_var : str
-                Model variable name to extract.
+            - reference_var : str
+                Reference variable name to bin.
+            - comparand_var : str
+                Comparand variable name to extract.
 
         Returns
         -------
@@ -104,8 +104,8 @@ class SwathGridStrategy(BasePairingStrategy):
         grid_mode = kwargs.get("grid_mode", "match_model")
         time_resolution = kwargs.get("time_resolution", "1D")
         min_obs_count = kwargs.get("min_obs_count", 1)
-        obs_var = kwargs.get("obs_var")
-        model_var = kwargs.get("model_var")
+        obs_var = kwargs.get("reference_var") or kwargs.get("obs_var")
+        model_var = kwargs.get("comparand_var") or kwargs.get("model_var")
 
         # Extract surface if model has vertical dimension
         model_proc = model
@@ -126,11 +126,16 @@ class SwathGridStrategy(BasePairingStrategy):
             raise PairingError("Model dataset must have a time dimension")
 
         # Build target grid (filter kwargs to avoid duplicating named params)
-        grid_kwargs = {
-            k: v
-            for k, v in kwargs.items()
-            if k not in ("grid_mode", "time_resolution", "min_obs_count", "obs_var", "model_var")
+        consumed = {
+            "grid_mode",
+            "time_resolution",
+            "min_obs_count",
+            "reference_var",
+            "comparand_var",
+            "obs_var",
+            "model_var",
         }
+        grid_kwargs = {k: v for k, v in kwargs.items() if k not in consumed}
         time_edges, lon_edges, lat_edges, time_centers, lon_centers, lat_centers = self._build_grid(
             grid_mode=grid_mode,
             model_lat=model_lat,
