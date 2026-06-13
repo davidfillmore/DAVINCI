@@ -139,6 +139,18 @@ class CERESEBAFReader:
 _SYN_DATE_RE = re.compile(r"\.(\d{6}|\d{8})$")
 
 
+def _syn_cadence_from_filename(path: Path) -> str | None:
+    """Return SYN1deg cadence from the product token when present."""
+    name = path.name
+    if "SYN1deg-Month" in name:
+        return "month"
+    if "SYN1deg-Day" in name:
+        return "day"
+    if "SYN1deg-1Hour" in name:
+        return "hour"
+    return None
+
+
 def _syn_time_from_filename(path: Path) -> np.datetime64:
     """Parse the date stamp from a SYN1deg filename tail.
 
@@ -205,6 +217,11 @@ class CERESSYN1degReader:
         """
         real = [Path(f) for f in file_paths if not Path(f).name.startswith("._")]
         file_list = validate_file_list(real, source_label="CERES SYN1deg")
+        cadences = {cadence for path in file_list if (cadence := _syn_cadence_from_filename(path))}
+        if len(cadences) > 1:
+            raise ValueError(
+                f"CERES SYN1deg open received mixed SYN1deg cadences: {sorted(cadences)}"
+            )
 
         per_file = [self._open_one(path, variables) for path in file_list]
         ds = per_file[0] if len(per_file) == 1 else xr.concat(per_file, dim="time")
