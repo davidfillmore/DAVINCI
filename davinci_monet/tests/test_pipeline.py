@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
 
@@ -356,6 +357,61 @@ class TestPairingStage:
         ctx = PipelineContext()
 
         assert stage.validate(ctx) is False
+
+    def test_execute_forwards_pair_strategy_options(self):
+        """Pair-level strategy options flow into the unified pairing strategy."""
+        stage = PairingStage()
+        times = pd.date_range("2024-01-01T00:00:00", periods=3, freq="1h")
+        lat = np.array([0.0, 1.0])
+        lon = np.array([10.0, 11.0])
+        comparand = xr.Dataset(
+            {"flux": (("time", "lat", "lon"), np.ones((3, 2, 2), dtype=np.float32))},
+            coords={"time": times, "lat": lat, "lon": lon},
+            attrs={"geometry": "grid"},
+        )
+        reference = xr.Dataset(
+            {"flux": ("time", np.array([10.0, 20.0, 30.0], dtype=np.float32))},
+            coords={
+                "time": times,
+                "lat": ("time", np.array([0.0, 0.0, 0.0])),
+                "lon": ("time", np.array([10.0, 10.0, 10.0])),
+            },
+            attrs={"geometry": "swath"},
+        )
+        ctx = PipelineContext(
+            config={
+                "pairs": {
+                    "met_vs_ceres": {
+                        "sources": ["met", "ceres"],
+                        "reference": "ceres",
+                        "variables": {"met": "flux", "ceres": "flux"},
+                        "time_resolution": "1h",
+                    }
+                },
+            }
+        )
+        ctx.sources["met"] = SourceData(
+            data=comparand,
+            label="met",
+            source_type="generic",
+            geometry=DataGeometry.GRID,
+            role=None,
+        )
+        ctx.sources["ceres"] = SourceData(
+            data=reference,
+            label="ceres",
+            source_type="ceres_ssf",
+            geometry=DataGeometry.SWATH,
+            role=None,
+        )
+
+        result = stage.execute(ctx)
+
+        assert result.status is StageStatus.COMPLETED
+        paired = ctx.paired["met_vs_ceres"].data
+        assert paired.sizes["time"] == 3
+        assert set(paired.data_vars) == {"ceres_flux", "met_flux"}
+        assert all(not str(name).startswith(("obs_", "model_")) for name in paired.data_vars)
 
 
 class TestStatisticsStage:

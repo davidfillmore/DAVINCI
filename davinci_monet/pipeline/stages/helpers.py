@@ -48,29 +48,31 @@ def tag_paired_roles(
     """Tag each paired variable with its ``role`` and rename it by source label.
 
     Each paired variable gets a source ``role`` attr plus a ``pair_role`` attr
-    (``reference``/``comparand``). For legacy model-vs-obs pairings these values
-    line up with ``obs``/``model`` respectively; same-role source pairs keep
-    their source role while ``pair_role`` preserves reference/comparand semantics
-    for statistics and plotting.
+    (``reference``/``comparand``). Same-role source pairs keep their source role
+    while ``pair_role`` preserves reference/comparand semantics for statistics
+    and plotting.
 
-    When the source labels are supplied (the pipeline path), the variable is
-    *renamed* to ``<comparand_label>_<v>`` (model/comparand side) or
-    ``<reference_label>_<v>`` (obs/reference side), the legacy prefix is dropped,
-    and both ``role`` and ``source_label`` attrs are set — the renderer rewire R-5
-    clean break to source-label-only naming. Pairing maps ``obs`` -> reference and
-    ``model`` -> comparand.
-
-    Without labels (the low-level engine/strategy API and untagged data) the
-    legacy names are kept and only the ``role`` attr is set. A rename is also
-    skipped when it would collide with an existing variable or re-enter the
-    reserved ``model_``/``obs_`` namespace (e.g. a label like ``model_foo``), so
-    such variables keep their legacy name. A pre-existing ``role`` attr is never
-    overwritten.
+    The variable is renamed to ``<comparand_label>_<v>`` or
+    ``<reference_label>_<v>``. When labels are omitted, ``comparand`` and
+    ``reference`` are used as neutral defaults. A pre-existing ``role`` attr is
+    never overwritten.
     """
     if data is None or not hasattr(data, "data_vars"):
         return
+    reference_label = reference_label or "reference"
+    comparand_label = comparand_label or "comparand"
     # Snapshot the names first: variables are renamed while iterating.
     for name in list(data.data_vars):
+        existing_pair_role = data[name].attrs.get("pair_role")
+        if existing_pair_role in {"reference", "comparand"}:
+            role = reference_role if existing_pair_role == "reference" else comparand_role
+            label = reference_label if existing_pair_role == "reference" else comparand_label
+            if role is not None:
+                data[name].attrs.setdefault("role", role)
+            if label is not None:
+                data[name].attrs.setdefault("source_label", label)
+            continue
+
         lname = str(name).lower()
         if lname.startswith("model_"):
             role = comparand_role or "model"
@@ -88,22 +90,12 @@ def tag_paired_roles(
         var = data[name]
         var.attrs.setdefault("role", role)
         var.attrs.setdefault("pair_role", pair_role)
-        if not label:
-            continue
         var.attrs.setdefault("source_label", label)
 
-        # Rename to the source-label name, dropping the legacy prefix. Skip when
-        # the new name would collide or re-enter the reserved model_/obs_
-        # namespace (a pathological label like ``model_foo``); such a variable
-        # keeps its legacy name (and its source_label attr).
+        # Rename to the source-label name unless it would collide with an
+        # existing data variable.
         new_name = f"{label}_{canonical}"
-        new_l = new_name.lower()
-        if (
-            new_name != name
-            and new_name not in data.data_vars
-            and not new_l.startswith("model_")
-            and not new_l.startswith("obs_")
-        ):
+        if new_name != name and new_name not in data.data_vars:
             data[new_name] = var
             data[new_name].attrs["role"] = var.attrs["role"]
             data[new_name].attrs["pair_role"] = var.attrs["pair_role"]

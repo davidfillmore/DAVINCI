@@ -1,0 +1,17 @@
+# Output files - plots and statistics
+output/
+
+# Log files
+logs/
+
+# Data files and local staging
+data/
+
+# Machine-specific configs with absolute paths
+*-local.yaml
+*-gemini.yaml
+*-derecho.yaml
+
+# Python cache
+__pycache__/
+*.pyc

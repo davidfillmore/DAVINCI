@@ -337,14 +337,9 @@ Each paired variable carries `role` (`model`/`obs`) and `source_label` attrs, so
 consumers select series by role/source rather than by a name prefix. This is the
 going-forward naming after the renderer rewire clean break (R-5).
 
-The legacy `model_<var>`/`obs_<var>` prefix is still produced by the low-level
-`PairingEngine.pair()`/`strategy.pair()` API when no source labels are supplied
-(e.g. in unit tests); `tag_paired_roles` renames to source labels in the pipeline
-and tags the `role` attr in both cases. Variable resolution and styling helpers
-(`resolve_source_variable`, `canonical_variable_name`, `get_role_color`,
-`get_series_label`, `paired_variable_role`/`iter_paired_variable_pairs`) handle
-both names, inferring role from the `model_`/`obs_` prefix when no `role` attr is
-present.
+Pipeline and `PairingEngine.pair_sources()` output is source-label named. Direct
+strategy implementations may still use adapter-local variable names internally,
+but those are not the public paired dataset convention.
 
 Either way it is **prefix** format, NOT suffix (`pm25_cam`, `pm25_model`).
 
@@ -374,12 +369,12 @@ Grid:    xr.Dataset with dims (time, lat, lon)
 Paired:  xr.Dataset with aligned model + obs variables
 ```
 
-## Backward Compatibility
+## External Dependencies
 
 - Continues using monet/monetio libraries for data I/O
-- Legacy MELODIES-MONET `model:`/`obs:` YAML configs are still accepted but
-  **deprecated** (a `LegacyConfigWarning` is emitted). They are auto-converted
-  internally to the unified `sources:` schema at run time.
+- YAML control files should use the unified `sources:` schema. Legacy
+  `model:`/`obs:` pair shapes are rejected by validation; use
+  `davinci-monet migrate-config` to convert old controls.
 
 ## Unified Data-Source Config (`sources:`)
 

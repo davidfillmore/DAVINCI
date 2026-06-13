@@ -1,10 +1,4 @@
-"""Tests for role tagging on paired output (Phase 6, CFG-4).
-
-Additive metadata: each paired variable carries a ``role`` attr (model/obs)
-derived from its prefix, so the paired dataset self-describes roles. This is the
-prerequisite the role-based renderer styling consumes; it does not rename any
-variables.
-"""
+"""Tests for role/source-label tagging on paired output."""
 
 from __future__ import annotations
 
@@ -30,19 +24,21 @@ class TestTagPairedRoles:
     def test_tags_role_by_prefix(self) -> None:
         ds = _paired()
         tag_paired_roles(ds)
-        assert ds["model_o3"].attrs["role"] == "model"
-        assert ds["obs_o3"].attrs["role"] == "obs"
+        assert ds["comparand_o3"].attrs["role"] == "model"
+        assert ds["reference_o3"].attrs["role"] == "obs"
 
-    def test_does_not_rename_variables(self) -> None:
+    def test_renames_to_neutral_source_labels(self) -> None:
         ds = _paired()
         tag_paired_roles(ds)
-        assert set(ds.data_vars) == {"model_o3", "obs_o3"}
+        assert set(ds.data_vars) == {"comparand_o3", "reference_o3"}
+        assert ds["comparand_o3"].attrs["source_label"] == "comparand"
+        assert ds["reference_o3"].attrs["source_label"] == "reference"
 
     def test_does_not_overwrite_existing_role(self) -> None:
         ds = _paired()
         ds["model_o3"].attrs["role"] = "obs"  # pre-set; must be preserved
         tag_paired_roles(ds)
-        assert ds["model_o3"].attrs["role"] == "obs"
+        assert ds["comparand_o3"].attrs["role"] == "obs"
 
     def test_none_is_safe(self) -> None:
         # Should not raise on None input.

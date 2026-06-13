@@ -106,17 +106,25 @@ class CERESEBAFReader:
         real = [Path(f) for f in file_paths if not Path(f).name.startswith("._")]
         file_list = validate_file_list(real, source_label="CERES EBAF")
 
+        def _validate_and_select(ds: xr.Dataset) -> xr.Dataset:
+            if variables is not None:
+                missing = [v for v in variables if v not in ds.data_vars]
+                if missing:
+                    raise ValueError(f"EBAF variable(s) not found: {missing!r}")
+            return select_variables(ds, variables)
+
         def _open() -> xr.Dataset:
             if len(file_list) > 1:
-                ds = xr.open_mfdataset(
-                    [str(f) for f in file_list],
-                    combine="by_coords",
-                    parallel=True,
-                    **kwargs,
-                )
+                per_file = []
+                for path in file_list:
+                    with xr.open_dataset(str(path), **kwargs) as src:
+                        per_file.append(_validate_and_select(src).load())
+                ds = xr.concat(per_file, dim="time", data_vars="minimal", coords="minimal")
+                if "time" in ds.coords:
+                    ds = ds.sortby("time")
             else:
                 ds = xr.open_dataset(str(file_list[0]), **kwargs)
-            return select_variables(ds, variables)
+            return _validate_and_select(ds)
 
         ds = retry_transient_open(_open, context="Opening CERES EBAF files")
         return self._standardize_dataset(ds)

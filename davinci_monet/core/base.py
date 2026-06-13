@@ -65,6 +65,9 @@ def paired_canonical_name(dataset: xr.Dataset, var_name: str) -> str:
     with no recognised prefix are returned unchanged.
     """
     if var_name in dataset.data_vars:
+        canonical = dataset[var_name].attrs.get("canonical_name")
+        if canonical:
+            return str(canonical)
         source_label = dataset[var_name].attrs.get("source_label")
         if source_label and var_name.startswith(f"{source_label}_"):
             return var_name[len(source_label) + 1 :]

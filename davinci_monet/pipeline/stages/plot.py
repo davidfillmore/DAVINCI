@@ -17,7 +17,6 @@ from davinci_monet.pipeline.stages.base import (
 )
 from davinci_monet.pipeline.stages.helpers import (
     iter_single_source_datasets,
-    resolve_paired_var_names,
     tag_source_roles,
 )
 from davinci_monet.pipeline.stages.plot_options import (
@@ -49,16 +48,47 @@ class PlottingStage(BaseStage):
         source_label: str,
         variable_name: str,
     ) -> dict[str, Any]:
-        """Return variable plot config for a source label from unified or legacy config."""
-        for block in ("sources", "model", "obs"):
-            block_cfg = config.get(block, {})
-            if not isinstance(block_cfg, dict):
-                continue
-            source_cfg = cls._config_dict(block_cfg.get(source_label, {}))
-            variables = cls._config_dict(source_cfg.get("variables", {}))
-            if variable_name in variables:
-                return cls._config_dict(variables[variable_name])
+        """Return variable plot config for a source label."""
+        sources_cfg = config.get("sources", {})
+        if not isinstance(sources_cfg, dict):
+            return {}
+        source_cfg = cls._config_dict(sources_cfg.get(source_label, {}))
+        variables = cls._config_dict(source_cfg.get("variables", {}))
+        if variable_name in variables:
+            return cls._config_dict(variables[variable_name])
         return {}
+
+    @staticmethod
+    def _resolve_paired_source_variable(
+        paired_data: Any,
+        *,
+        source_label: str,
+        source_variable: str,
+        pair_role: str,
+        fallback_name: str | None = None,
+    ) -> str | None:
+        """Resolve a variable from unified paired metadata."""
+        candidates = list(paired_data.data_vars)
+        if fallback_name in paired_data.data_vars:
+            candidates.insert(0, str(fallback_name))
+
+        seen: set[str] = set()
+        for name in candidates:
+            name = str(name)
+            if name in seen:
+                continue
+            seen.add(name)
+            attrs = paired_data[name].attrs
+            if attrs.get("pair_role") != pair_role:
+                continue
+            if attrs.get("source_label") != source_label:
+                continue
+            actual_source_var = str(attrs.get("source_variable") or "")
+            if actual_source_var == source_variable:
+                return name
+            if name == source_variable:
+                return name
+        return None
 
     def validate(self, context: PipelineContext) -> bool:
         """Run for paired comparisons or single-source plots."""
@@ -235,12 +265,38 @@ class PlottingStage(BaseStage):
                     paired_data[fallback_model_name].attrs.get("source_label", "comparand")
                 )
             source_vars = pair_spec.get("variables") or {}
-            obs_var = str(source_vars.get(obs_label) or fallback_var)
-            model_var = str(source_vars.get(model_label) or obs_var)
-            var_spec = {"obs_var": obs_var, "model_var": model_var}
-            obs_var_name, model_var_name = resolve_paired_var_names(
-                paired_data, obs_var, obs_label, model_label
+            obs_var = str(
+                source_vars.get(obs_label)
+                or paired_data[fallback_obs_name].attrs.get("source_variable")
+                or fallback_var
             )
+            model_var = str(
+                source_vars.get(model_label)
+                or paired_data[fallback_model_name].attrs.get("source_variable")
+                or fallback_var
+            )
+            var_spec = {
+                "obs_var": obs_var,
+                "model_var": model_var,
+                "reference_var": obs_var,
+                "comparand_var": model_var,
+            }
+            obs_var_name = self._resolve_paired_source_variable(
+                paired_data,
+                source_label=obs_label,
+                source_variable=obs_var,
+                pair_role="reference",
+                fallback_name=fallback_obs_name,
+            )
+            model_var_name = self._resolve_paired_source_variable(
+                paired_data,
+                source_label=model_label,
+                source_variable=model_var,
+                pair_role="comparand",
+                fallback_name=fallback_model_name,
+            )
+            if obs_var_name is None or model_var_name is None:
+                return None
         else:
             # No (or empty) pair spec: a plot referencing a pair key in
             # context.paired directly (implicit auto-pairing or a

@@ -60,8 +60,12 @@ class PairingEngine:
     Examples
     --------
     >>> engine = PairingEngine()
-    >>> paired = engine.pair_sources(reference=obs_data, comparand=model_data,
-    ...                              reference_vars=['O3'], comparand_vars=['OZONE'])
+    >>> paired = engine.pair_sources(
+    ...     reference=reference_data,
+    ...     comparand=comparand_data,
+    ...     reference_vars=["O3"],
+    ...     comparand_vars=["OZONE"],
+    ... )
     """
 
     def __init__(self, register_defaults: bool = True) -> None:
@@ -154,11 +158,10 @@ class PairingEngine:
     ) -> PairingStrategy:
         """Get the strategy for a ``(reference, comparand)`` geometry pair.
 
-        Role-neutral dispatch (Phase 4). The comparand is resampled onto the
-        reference's geometry. The seeded combinations mirror today's behavior:
-        a GRID comparand sampled onto any irregular reference (POINT/TRACK/
-        PROFILE/SWATH), and GRID onto GRID. The reference geometry selects the
-        strategy, exactly as the legacy obs-geometry dispatch did.
+        The comparand is resampled onto the reference's geometry. Supported
+        combinations are a GRID comparand sampled onto any registered reference
+        geometry (POINT/TRACK/PROFILE/SWATH/GRID). The reference geometry selects
+        the strategy.
 
         Parameters
         ----------
@@ -201,9 +204,9 @@ class PairingEngine:
     ) -> PairedData:
         """Pair two role-neutral sources.
 
-        ``comparand`` is sampled onto ``reference``. The paired output still
-        uses the internal ``obs_``/``model_`` assembly prefixes before the
-        pipeline tags them with source labels.
+        ``comparand`` is sampled onto ``reference``. The paired output uses
+        ``<source_label>_<source_variable>`` variable names with ``pair_role``,
+        ``source_label``, and ``source_variable`` attrs.
         """
         if config is None:
             config = PairingConfig()
@@ -224,12 +227,18 @@ class PairingEngine:
             vertical_method=config.vertical_method,
             horizontal_method=config.horizontal_method,
             time_method=config.time_method,
+            reference_vars=list(reference_vars),
+            comparand_vars=list(comparand_vars),
+            reference_var=str(reference_vars[0]) if reference_vars else None,
+            comparand_var=str(comparand_vars[0]) if comparand_vars else None,
             **kwargs,
         )
         result_ds = self._assemble_paired_dataset(
             paired_ds,
-            obs_vars=reference_vars,
-            model_vars=comparand_vars,
+            reference_vars=reference_vars,
+            comparand_vars=comparand_vars,
+            reference_label=reference_label,
+            comparand_label=comparand_label,
         )
         return PairedData.from_sources(
             data=result_ds,
@@ -260,37 +269,70 @@ class PairingEngine:
     def _assemble_paired_dataset(
         self,
         paired_ds: xr.Dataset,
-        obs_vars: Sequence[str],
-        model_vars: Sequence[str],
+        reference_vars: Sequence[str],
+        comparand_vars: Sequence[str],
+        reference_label: str,
+        comparand_label: str,
     ) -> xr.Dataset:
-        """Build a paired dataset with obs_/model_ prefixes from strategy output."""
+        """Build a source-label paired dataset from strategy output."""
         data_vars: dict[str, xr.DataArray] = {}
         coords = dict(paired_ds.coords)
 
-        for obs_var, model_var in zip(obs_vars, model_vars):
-            obs_key = self._select_var(paired_ds, [f"obs_{obs_var}", obs_var])
-            model_key = self._select_var(
+        for reference_var, comparand_var in zip(reference_vars, comparand_vars):
+            ref_name = str(reference_var)
+            comp_name = str(comparand_var)
+            reference_key = self._select_var(
                 paired_ds,
-                [f"model_{model_var}", f"model_{obs_var}", model_var],
+                [f"reference_{ref_name}", ref_name, f"obs_{ref_name}"],
+            )
+            comparand_key = self._select_var(
+                paired_ds,
+                [
+                    f"comparand_{comp_name}",
+                    comp_name,
+                    f"model_{comp_name}",
+                    f"model_{ref_name}",
+                ],
             )
 
-            if obs_key is not None:
-                data_vars[f"obs_{obs_var}"] = paired_ds[obs_key]
-            if model_key is not None:
-                data_vars[f"model_{obs_var}"] = paired_ds[model_key]
+            if reference_key is None or comparand_key is None:
+                continue
+
+            reference_output = f"{reference_label}_{ref_name}"
+            comparand_output = f"{comparand_label}_{comp_name}"
+            reference_da = paired_ds[reference_key].copy()
+            comparand_da = paired_ds[comparand_key].copy()
+            reference_da.attrs.update(
+                {
+                    "pair_role": "reference",
+                    "source_label": reference_label,
+                    "source_variable": ref_name,
+                    "canonical_name": ref_name,
+                }
+            )
+            comparand_da.attrs.update(
+                {
+                    "pair_role": "comparand",
+                    "source_label": comparand_label,
+                    "source_variable": comp_name,
+                    "canonical_name": ref_name,
+                }
+            )
+            data_vars[reference_output] = reference_da
+            data_vars[comparand_output] = comparand_da
 
         result = xr.Dataset(data_vars, coords=coords)
         result.attrs = dict(paired_ds.attrs)
         result.attrs.update({"created_by": "davinci_monet", "paired": True})
         return result
 
-    def _detect_geometry(self, obs: xr.Dataset) -> DataGeometry:
-        """Detect observation geometry from dataset attributes or structure.
+    def _detect_geometry(self, data: xr.Dataset) -> DataGeometry:
+        """Detect source geometry from dataset attributes or structure.
 
         Parameters
         ----------
-        obs
-            Observation dataset.
+        data
+            Source dataset.
 
         Returns
         -------
@@ -303,8 +345,8 @@ class PairingEngine:
             If geometry cannot be determined.
         """
         # Check explicit geometry attribute
-        if "geometry" in obs.attrs:
-            geom = obs.attrs["geometry"]
+        if "geometry" in data.attrs:
+            geom = data.attrs["geometry"]
             if isinstance(geom, DataGeometry):
                 return geom
             if isinstance(geom, str):
@@ -314,7 +356,7 @@ class PairingEngine:
                     pass
 
         # Infer from dimensions
-        dims = set(obs.dims)
+        dims = set(data.dims)
 
         # Grid: has lat/lon as dimensions
         if ("lat" in dims or "latitude" in dims) and ("lon" in dims or "longitude" in dims):
@@ -334,50 +376,50 @@ class PairingEngine:
 
         # Track: has time dimension with lat/lon as coordinates
         if "time" in dims:
-            coords = set(obs.coords)
+            coords = set(data.coords)
             if ("lat" in coords or "latitude" in coords) and (
                 "lon" in coords or "longitude" in coords
             ):
                 return DataGeometry.TRACK
 
         raise GeometryMismatchError(
-            f"Cannot determine observation geometry from dims {dims}. "
+            f"Cannot determine source geometry from dims {dims}. "
             "Please set the 'geometry' attribute on the dataset."
         )
 
-    def _check_temporal_overlap(self, model: xr.Dataset, obs: xr.Dataset) -> None:
-        """Check if model and observation have temporal overlap.
+    def _check_temporal_overlap(self, comparand: xr.Dataset, reference: xr.Dataset) -> None:
+        """Check if the two sources have temporal overlap.
 
         Parameters
         ----------
-        model
-            Model dataset.
-        obs
-            Observation dataset.
+        comparand
+            Source sampled from.
+        reference
+            Source sampled onto.
 
         Raises
         ------
         NoOverlapError
             If no temporal overlap exists.
         """
-        if "time" not in model.dims or "time" not in obs.dims:
+        if "time" not in comparand.dims or "time" not in reference.dims:
             return
 
-        model_times = model["time"].values
-        obs_times = obs["time"].values
+        comparand_times = comparand["time"].values
+        reference_times = reference["time"].values
 
-        if len(model_times) == 0 or len(obs_times) == 0:
+        if len(comparand_times) == 0 or len(reference_times) == 0:
             return
 
-        model_start = model_times.min()
-        model_end = model_times.max()
-        obs_start = obs_times.min()
-        obs_end = obs_times.max()
+        comparand_start = comparand_times.min()
+        comparand_end = comparand_times.max()
+        reference_start = reference_times.min()
+        reference_end = reference_times.max()
 
-        if model_end < obs_start or obs_end < model_start:
+        if comparand_end < reference_start or reference_end < comparand_start:
             raise NoOverlapError(
-                f"No temporal overlap between model ({model_start} to {model_end}) "
-                f"and observations ({obs_start} to {obs_end})"
+                f"No temporal overlap between comparand ({comparand_start} to {comparand_end}) "
+                f"and reference ({reference_start} to {reference_end})"
             )
 
 

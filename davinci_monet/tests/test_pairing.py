@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
+from davinci_monet.core.base import iter_paired_variable_pairs
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.pairing import (
     BasePairingStrategy,
@@ -910,6 +911,86 @@ class TestGridStrategy:
 class TestPairingWorkflow:
     """Full pairing workflow tests (calls internal APIs directly, not PipelineRunner)."""
 
+    def test_engine_pair_grid_emits_source_label_variables_only(self) -> None:
+        """Unified pair output names variables by source label, not model/obs roles."""
+        times = pd.date_range("2024-01-01", periods=1, freq="D")
+        lat = np.array([0.0, 1.0])
+        lon = np.array([10.0, 11.0])
+        reference = xr.Dataset(
+            {"REF": (("time", "lat", "lon"), np.ones((1, 2, 2)))},
+            coords={"time": times, "lat": lat, "lon": lon},
+            attrs={"geometry": "grid"},
+        )
+        comparand = xr.Dataset(
+            {"CMP": (("time", "lat", "lon"), np.full((1, 2, 2), 2.0))},
+            coords={"time": times, "lat": lat, "lon": lon},
+            attrs={"geometry": "grid"},
+        )
+
+        paired = PairingEngine().pair_sources(
+            reference=reference,
+            comparand=comparand,
+            reference_vars=["REF"],
+            comparand_vars=["CMP"],
+            reference_geometry=DataGeometry.GRID,
+            comparand_geometry=DataGeometry.GRID,
+            reference_label="sensor",
+            comparand_label="reanalysis",
+            config=PairingConfig(time_tolerance=timedelta(hours=1)),
+        )
+
+        assert set(paired.data.data_vars) == {"sensor_REF", "reanalysis_CMP"}
+        assert all(not str(name).startswith(("obs_", "model_")) for name in paired.data.data_vars)
+        assert paired.data["sensor_REF"].attrs["pair_role"] == "reference"
+        assert paired.data["sensor_REF"].attrs["source_label"] == "sensor"
+        assert paired.data["reanalysis_CMP"].attrs["pair_role"] == "comparand"
+        assert paired.data["reanalysis_CMP"].attrs["source_label"] == "reanalysis"
+        assert iter_paired_variable_pairs(paired.data) == [("sensor_REF", "reanalysis_CMP", "REF")]
+
+    def test_engine_pair_swath_uses_requested_source_variables(self) -> None:
+        """A multi-variable swath pair uses reference/comparand vars from the pair spec."""
+        times = pd.date_range("2024-01-01", periods=1, freq="D")
+        lat = np.array([0.0, 1.0])
+        lon = np.array([10.0, 11.0])
+        comparand = xr.Dataset(
+            {
+                "M1": (("time", "lat", "lon"), np.ones((1, 2, 2))),
+                "M2": (("time", "lat", "lon"), np.full((1, 2, 2), 2.0)),
+            },
+            coords={"time": times, "lat": lat, "lon": lon},
+            attrs={"geometry": "grid"},
+        )
+        reference = xr.Dataset(
+            {
+                "A": ("time", np.array([10.0])),
+                "B": ("time", np.array([20.0])),
+            },
+            coords={
+                "time": times,
+                "lat": ("time", np.array([0.0])),
+                "lon": ("time", np.array([10.0])),
+            },
+            attrs={"geometry": "swath"},
+        )
+
+        paired = PairingEngine().pair_sources(
+            reference=reference,
+            comparand=comparand,
+            reference_vars=["B"],
+            comparand_vars=["M2"],
+            reference_geometry=DataGeometry.SWATH,
+            comparand_geometry=DataGeometry.GRID,
+            reference_label="ceres",
+            comparand_label="merra2",
+            config=PairingConfig(time_tolerance=timedelta(hours=1)),
+        )
+
+        assert set(paired.data.data_vars) == {"ceres_B", "merra2_M2"}
+        assert "ceres_A" not in paired.data.data_vars
+        assert "merra2_M1" not in paired.data.data_vars
+        assert float(paired.data["ceres_B"].max(skipna=True)) == pytest.approx(20.0)
+        assert float(paired.data["merra2_M2"].max(skipna=True)) == pytest.approx(2.0)
+
     def test_engine_pair_point(self, model_2d: xr.Dataset, point_obs: xr.Dataset) -> None:
         """Test full pairing workflow through engine for point data."""
         engine = PairingEngine()
@@ -924,9 +1005,10 @@ class TestPairingWorkflow:
         )
 
         assert paired is not None
-        # Engine prefixes reference vars with "obs_" and comparand vars with "model_"
-        assert "obs_temperature" in paired.data.data_vars
-        assert "model_temperature" in paired.data.data_vars
+        assert "reference_temperature" in paired.data.data_vars
+        assert "comparand_temperature" in paired.data.data_vars
+        assert "obs_temperature" not in paired.data.data_vars
+        assert "model_temperature" not in paired.data.data_vars
 
     def test_engine_pair_track(self, model_3d: xr.Dataset, track_obs: xr.Dataset) -> None:
         """Test full pairing workflow through engine for track data."""
@@ -942,8 +1024,10 @@ class TestPairingWorkflow:
         )
 
         assert paired is not None
-        assert "obs_ozone" in paired.data.data_vars
-        assert "model_ozone" in paired.data.data_vars
+        assert "reference_ozone" in paired.data.data_vars
+        assert "comparand_ozone" in paired.data.data_vars
+        assert "obs_ozone" not in paired.data.data_vars
+        assert "model_ozone" not in paired.data.data_vars
 
     def test_engine_pair_grid(self, model_2d: xr.Dataset, gridded_obs: xr.Dataset) -> None:
         """Test full pairing workflow through engine for gridded data."""
@@ -959,8 +1043,10 @@ class TestPairingWorkflow:
         )
 
         assert paired is not None
-        assert "obs_temperature" in paired.data.data_vars
-        assert "model_temperature" in paired.data.data_vars
+        assert "reference_temperature" in paired.data.data_vars
+        assert "comparand_temperature" in paired.data.data_vars
+        assert "obs_temperature" not in paired.data.data_vars
+        assert "model_temperature" not in paired.data.data_vars
 
 
 # =============================================================================
@@ -1018,10 +1104,9 @@ def test_grid_pairing_preserves_model_when_times_offset() -> None:
         .data
     )
 
-    model_var = next(v for v in paired.data_vars if str(v).startswith("model_"))
-    obs_var = next(v for v in paired.data_vars if str(v).startswith("obs_"))
-    model_finite = int(np.isfinite(paired[model_var]).sum())
-    covalid = int((np.isfinite(paired[model_var]) & np.isfinite(paired[obs_var])).sum())
+    ref_var, comp_var, _canonical = iter_paired_variable_pairs(paired)[0]
+    model_finite = int(np.isfinite(paired[comp_var]).sum())
+    covalid = int((np.isfinite(paired[comp_var]) & np.isfinite(paired[ref_var])).sum())
     assert model_finite > 0, (
         f"regridded model is all-NaN (time-label reindex bug); " f"model_finite={model_finite}"
     )

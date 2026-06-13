@@ -360,6 +360,8 @@ def calculate_symmetric_limits(
         return (-1.0, 1.0)
 
     abs_max = np.percentile(np.abs(data), percentile)
+    if not np.isfinite(abs_max) or abs_max == 0:
+        return (-1.0, 1.0)
     return (-abs_max, abs_max)
 
 

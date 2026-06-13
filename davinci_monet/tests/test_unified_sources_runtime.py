@@ -125,9 +125,11 @@ def test_sources_config_pairs_from_pair_variables(tmp_path: Path) -> None:
     assert set(result.context.sources) == {"cam", "airnow"}
     assert set(result.context.paired) == {"cam_airnow_o3"}
     paired = result.context.paired["cam_airnow_o3"].data
-    assert set(paired.data_vars) == {"cam_o3", "airnow_o3"}
-    assert paired["cam_o3"].attrs["source_label"] == "cam"
+    assert set(paired.data_vars) == {"cam_O3", "airnow_o3"}
+    assert paired["cam_O3"].attrs["source_label"] == "cam"
+    assert paired["cam_O3"].attrs["source_variable"] == "O3"
     assert paired["airnow_o3"].attrs["source_label"] == "airnow"
+    assert paired["airnow_o3"].attrs["source_variable"] == "o3"
 
 
 def test_implicit_auto_pairing_from_mapping_without_pairs(tmp_path: Path) -> None:
@@ -176,10 +178,10 @@ def test_implicit_auto_pairing_from_mapping_without_pairs(tmp_path: Path) -> Non
     assert set(result.context.paired) == {"cam_airnow"}
     paired = result.context.paired["cam_airnow"].data
     # pair_sources renamed both sides to source-label names and tagged roles.
-    assert set(paired.data_vars) == {"cam_o3", "airnow_o3"}
-    assert paired["cam_o3"].attrs["role"] == "model"
+    assert set(paired.data_vars) == {"cam_O3", "airnow_o3"}
+    assert paired["cam_O3"].attrs["role"] == "model"
     assert paired["airnow_o3"].attrs["role"] == "obs"
-    assert paired["cam_o3"].attrs["pair_role"] == "comparand"
+    assert paired["cam_O3"].attrs["pair_role"] == "comparand"
     assert paired["airnow_o3"].attrs["pair_role"] == "reference"
 
 
@@ -228,15 +230,27 @@ def test_plot_data_reference_without_pair_spec_uses_paired_dataset(
     paired = xr.Dataset(
         {
             "airnow_o3": ("time", np.array([1.0, 2.0])),
-            "cam_o3": ("time", np.array([1.1, 2.2])),
+            "cam_O3": ("time", np.array([1.1, 2.2])),
         },
         coords={"time": times},
     )
     paired["airnow_o3"].attrs.update(
-        {"role": "obs", "pair_role": "reference", "source_label": "airnow"}
+        {
+            "role": "obs",
+            "pair_role": "reference",
+            "source_label": "airnow",
+            "source_variable": "o3",
+            "canonical_name": "o3",
+        }
     )
-    paired["cam_o3"].attrs.update(
-        {"role": "model", "pair_role": "comparand", "source_label": "cam"}
+    paired["cam_O3"].attrs.update(
+        {
+            "role": "model",
+            "pair_role": "comparand",
+            "source_label": "cam",
+            "source_variable": "O3",
+            "canonical_name": "o3",
+        }
     )
     ctx = PipelineContext(
         config={
@@ -261,15 +275,27 @@ def test_plot_sources_pair_spec_uses_reference_and_comparand(
     paired = xr.Dataset(
         {
             "airnow_o3": ("time", np.array([1.0, 2.0])),
-            "cam_o3": ("time", np.array([1.1, 2.2])),
+            "cam_O3": ("time", np.array([1.1, 2.2])),
         },
         coords={"time": times},
     )
     paired["airnow_o3"].attrs.update(
-        {"role": "obs", "pair_role": "reference", "source_label": "airnow"}
+        {
+            "role": "obs",
+            "pair_role": "reference",
+            "source_label": "airnow",
+            "source_variable": "o3",
+            "canonical_name": "o3",
+        }
     )
-    paired["cam_o3"].attrs.update(
-        {"role": "model", "pair_role": "comparand", "source_label": "cam"}
+    paired["cam_O3"].attrs.update(
+        {
+            "role": "model",
+            "pair_role": "comparand",
+            "source_label": "cam",
+            "source_variable": "O3",
+            "canonical_name": "o3",
+        }
     )
     ctx = PipelineContext(
         config={
@@ -772,11 +798,11 @@ def test_sources_config_pairs_swath_onto_grid(tmp_path: Path) -> None:
     # Reference and comparand share the canonical stem (aod_550nm) under their
     # source-label prefixes, with role + pair_role tags.
     assert "modis_aod_550nm" in paired.data_vars
-    assert "cam_aod_550nm" in paired.data_vars
+    assert "cam_AOD" in paired.data_vars
     assert paired["modis_aod_550nm"].attrs["pair_role"] == "reference"
-    assert paired["cam_aod_550nm"].attrs["pair_role"] == "comparand"
+    assert paired["cam_AOD"].attrs["pair_role"] == "comparand"
     assert paired["modis_aod_550nm"].attrs["role"] == "obs"
-    assert paired["cam_aod_550nm"].attrs["role"] == "model"
+    assert paired["cam_AOD"].attrs["role"] == "model"
     # At least one grid cell received binned swath pixels (non-NaN), proving the
     # numba binning actually ran end-to-end.
     assert bool(np.isfinite(paired["modis_aod_550nm"].values).any())
@@ -847,8 +873,8 @@ def test_two_explicit_pairs_both_produced_via_executor(tmp_path: Path) -> None:
     assert set(result.context.paired) == {"cam_a_airnow_o3", "cam_b_airnow_o3"}
     paired_a = result.context.paired["cam_a_airnow_o3"].data
     paired_b = result.context.paired["cam_b_airnow_o3"].data
-    assert set(paired_a.data_vars) == {"cam_a_o3", "airnow_o3"}
-    assert set(paired_b.data_vars) == {"cam_b_o3", "airnow_o3"}
+    assert set(paired_a.data_vars) == {"cam_a_O3", "airnow_o3"}
+    assert set(paired_b.data_vars) == {"cam_b_O3", "airnow_o3"}
 
 
 def test_two_explicit_pairs_with_max_pair_workers(tmp_path: Path) -> None:

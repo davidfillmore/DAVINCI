@@ -195,6 +195,10 @@ class PairingStage(BaseStage):
                         reference_role=self._source_role(reference_obj),
                         comparand_role=self._source_role(comparand_obj),
                         radius_of_influence=self._pair_radius(raw_pair, comparand_obj),
+                        strategy_options=self._strategy_options(
+                            pairing_config_dict=context.config.get("pairing", {}),
+                            pair_spec=raw_pair,
+                        ),
                     )
                 )
             else:
@@ -249,6 +253,10 @@ class PairingStage(BaseStage):
                             reference_role=self._source_role(obs_obj) or "obs",
                             comparand_role=self._source_role(model_obj) or "model",
                             radius_of_influence=self._pair_radius({}, model_obj),
+                            strategy_options=self._strategy_options(
+                                pairing_config_dict=context.config.get("pairing", {}),
+                                pair_spec={},
+                            ),
                         )
                     )
         return jobs
@@ -316,6 +324,27 @@ class PairingStage(BaseStage):
         if isinstance(cfg, dict) and cfg.get("radius_of_influence") is not None:
             return float(cfg["radius_of_influence"])
         return float(getattr(comparand_obj, "radius_of_influence", 12000.0))
+
+    @staticmethod
+    def _strategy_options(
+        *,
+        pairing_config_dict: dict[str, Any],
+        pair_spec: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Return strategy-specific options from global and pair config."""
+        control_keys = {
+            "sources",
+            "reference",
+            "variables",
+            "radius_of_influence",
+            "time_tolerance",
+            "time_method",
+            "max_pair_workers",
+            "dask_pair_workers",
+        }
+        options = {k: v for k, v in pairing_config_dict.items() if k not in control_keys}
+        options.update({k: v for k, v in pair_spec.items() if k not in control_keys})
+        return {k: v for k, v in options.items() if v is not None}
 
     @staticmethod
     def _is_dask_backed(ds: xr.Dataset | None) -> bool:
@@ -395,6 +424,7 @@ class PairingStage(BaseStage):
                 config=pairing_cfg,
                 reference_label=job.reference_label,
                 comparand_label=job.comparand_label,
+                **job.strategy_options,
             )
             tag_paired_roles(
                 paired_obj.data,
