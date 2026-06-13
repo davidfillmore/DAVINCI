@@ -60,11 +60,22 @@ def bin_swath_to_grid(
     dy = lat_edges[1] - lat_edges[0]
     nt, nx, ny = data_grid.shape
     for i in range(len(data_obs)):
-        if not math.isnan(data_obs[i]):
+        if (
+            not math.isnan(data_obs[i])
+            and not math.isnan(time_obs[i])
+            and not math.isnan(lon_obs[i])
+            and not math.isnan(lat_obs[i])
+            and time_obs[i] >= time_edges[0]
+            and time_obs[i] <= time_edges[-1]
+            and lon_obs[i] >= lon_edges[0]
+            and lon_obs[i] <= lon_edges[-1]
+            and lat_obs[i] >= lat_edges[0]
+            and lat_obs[i] <= lat_edges[-1]
+        ):
             it = int((time_obs[i] - time_edges[0]) / dt)
             ix = int((lon_obs[i] - lon_edges[0]) / dx)
             iy = int((lat_obs[i] - lat_edges[0]) / dy)
-            # clamp to valid range
+            # Clamp exact upper-edge coordinates into the final bin.
             if it < 0:
                 it = 0
             elif it >= nt:

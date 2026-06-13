@@ -149,6 +149,43 @@ def test_hdf4_multigranule_concat_sorted(tmp_path: Path) -> None:
     assert (np.diff(t) > np.timedelta64(0, "s")).all()
 
 
+def test_time_range_prunes_files_before_open(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    old_file = tmp_path / "CER_SSF_Terra-FM1-MODIS_Edition4A_410406.2026040100"
+    keep_file = tmp_path / "CER_SSF_Terra-FM1-MODIS_Edition4A_410406.2026040200"
+    old_file.write_bytes(b"\x0e\x03\x13\x01")
+    keep_file.write_bytes(b"\x0e\x03\x13\x01")
+    opened: list[str] = []
+
+    def _fake_open_one_hdf4(
+        self: CERESSSFReader, path: Path, variables: list[str] | None
+    ) -> xr.Dataset:
+        if path == old_file:
+            raise AssertionError("out-of-window file was opened")
+        opened.append(path.name)
+        return xr.Dataset(
+            {"toa_lw_up": ("time", np.array([250.0]))},
+            coords={
+                "time": np.array(["2026-04-02T00:30:00"], dtype="datetime64[ns]"),
+                "lat": ("time", np.array([0.0])),
+                "lon": ("time", np.array([0.0])),
+            },
+        )
+
+    monkeypatch.setattr(CERESSSFReader, "_open_one_hdf4", _fake_open_one_hdf4)
+
+    ds = CERESSSFReader().open(
+        [old_file, keep_file],
+        variables=["toa_lw_up"],
+        time_range=("2026-04-02T00:00:00", "2026-04-02T23:59:59"),
+    )
+
+    assert opened == [keep_file.name]
+    assert ds.sizes["time"] == 1
+    assert ds["time"].values[0] == np.datetime64("2026-04-02T00:30:00")
+
+
 def test_hdf4_raw_source_name_escape(tmp_path: Path) -> None:
     p = _write_ssf_hdf4(
         tmp_path / "CER_SSF_Terra-FM1-MODIS_Edition4A_410406.2026040100",

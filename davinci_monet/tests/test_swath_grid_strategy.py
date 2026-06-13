@@ -136,6 +136,23 @@ class TestBinSwathToGrid:
         assert count.sum() == 1
         assert data.sum() == 7.0
 
+    def test_out_of_domain_pixels_are_skipped(self):
+        time_edges, lon_edges, lat_edges, count, data = self._make_grid(nt=1, nx=1, ny=1)
+        bin_swath_to_grid(
+            time_edges,
+            lon_edges,
+            lat_edges,
+            np.array([100.0, 100.0]),
+            np.array([180.0, 999.0]),
+            np.array([0.0, 999.0]),
+            np.array([10.0, 1000.0]),
+            count,
+            data,
+        )
+
+        assert count[0, 0, 0] == 1
+        assert data[0, 0, 0] == 10.0
+
 
 class TestNormalizeGrid:
     """Test grid normalization."""

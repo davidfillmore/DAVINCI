@@ -16,6 +16,7 @@ invalid data values become NaN but keep their footprint.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
@@ -103,6 +104,7 @@ SSF_CATALOG: dict[str, SSFVariable] = {
 
 _HDF4_MAGIC = b"\x0e\x03\x13\x01"
 _HDF5_MAGIC = b"\x89HDF"
+_SSF_STAMP_RE = re.compile(r"\.(\d{10})(?:\.nc)?$")
 
 
 def _sniff_format(path: Path) -> str:
@@ -136,6 +138,49 @@ def _wrap_lon(lon: "np.ndarray[Any, np.dtype[Any]]") -> "np.ndarray[Any, np.dtyp
     return ((lon + 180.0) % 360.0) - 180.0
 
 
+def _as_datetime64_ns(value: Any) -> np.datetime64:
+    """Coerce config/string datetime values to ``datetime64[ns]``."""
+    return np.datetime64(value).astype("datetime64[ns]")
+
+
+def _ssf_hour_from_filename(path: Path) -> np.datetime64 | None:
+    """Return the hourly granule start time encoded in an SSF filename."""
+    match = _SSF_STAMP_RE.search(path.name)
+    if match is None:
+        return None
+    stamp = match.group(1)
+    try:
+        return np.datetime64(f"{stamp[:4]}-{stamp[4:6]}-{stamp[6:8]}T{stamp[8:10]}:00:00").astype(
+            "datetime64[ns]"
+        )
+    except ValueError:
+        return None
+
+
+def _filter_files_to_time_range(
+    file_list: Sequence[Path],
+    time_range: tuple[Any, Any] | None,
+) -> list[Path]:
+    """Prune filename-stamped hourly SSF granules before expensive reads."""
+    if time_range is None:
+        return list(file_list)
+    start = _as_datetime64_ns(time_range[0])
+    end = _as_datetime64_ns(time_range[1])
+    if end < start:
+        raise ValueError(f"Invalid CERES SSF time_range: end {end} precedes start {start}")
+
+    kept: list[Path] = []
+    for path in file_list:
+        granule_start = _ssf_hour_from_filename(path)
+        if granule_start is None:
+            kept.append(path)
+            continue
+        granule_end = granule_start + np.timedelta64(1, "h")
+        if granule_start <= end and granule_end > start:
+            kept.append(path)
+    return kept
+
+
 @source_registry.register("ceres_ssf")
 class CERESSSFReader:
     """Reader for CERES SSF L2 footprints (HDF4 Ed4A and netCDF Ed1C)."""
@@ -154,6 +199,7 @@ class CERESSSFReader:
         self,
         file_paths: Sequence[str | Path],
         variables: Sequence[str] | None = None,
+        time_range: tuple[Any, Any] | None = None,
         **kwargs: Any,
     ) -> xr.Dataset:
         """Open SSF granule(s) and standardize to a (time,) footprint stream.
@@ -178,6 +224,8 @@ class CERESSSFReader:
         """
         real = [Path(f) for f in file_paths if not Path(f).name.startswith("._")]
         file_list = validate_file_list(real, source_label="CERES SSF")
+        file_list = _filter_files_to_time_range(file_list, time_range)
+        file_list = validate_file_list(file_list, source_label="CERES SSF")
 
         formats = {_sniff_format(p) for p in file_list}
         if len(formats) > 1:
@@ -191,6 +239,10 @@ class CERESSSFReader:
         per_file = [opener(path, variables) for path in file_list]
         ds = per_file[0] if len(per_file) == 1 else xr.concat(per_file, dim="time")
         ds = ds.sortby("time")
+        if time_range is not None and "time" in ds:
+            ds = ds.sel(
+                time=slice(_as_datetime64_ns(time_range[0]), _as_datetime64_ns(time_range[1]))
+            )
         return set_geometry_attr(ds, DataGeometry.SWATH)
 
     # -- HDF4 (Edition4A) ---------------------------------------------------

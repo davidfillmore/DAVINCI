@@ -248,6 +248,16 @@ def test_syn_day_files_concat_and_sort(tmp_path: Path) -> None:
     assert times[0] == np.datetime64("2025-12-01") and times[1] == np.datetime64("2025-12-02")
 
 
+def test_syn_rejects_mixed_cadences(tmp_path: Path) -> None:
+    month = _write_syn_hdf4(
+        tmp_path / "CER_SYN1deg-Month_Terra-Aqua-NOAA20_Edition4B_415412.202512"
+    )
+    day = _write_syn_hdf4(tmp_path / "CER_SYN1deg-Day_Terra-Aqua-NOAA20_Edition4B_415412.20251202")
+
+    with pytest.raises(ValueError, match="mixed SYN1deg cadences"):
+        CERESSYN1degReader().open([month, day], variables=["obs_all_toa_lw_reg"])
+
+
 def test_syn_hourly_file_expands_24_steps(tmp_path: Path) -> None:
     p = _write_syn_hdf4(
         tmp_path / "CER_SYN1deg-1Hour_Terra-Aqua-NOAA20_Edition4B_415412.20251229",
