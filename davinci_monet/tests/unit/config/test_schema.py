@@ -338,12 +338,22 @@ class TestMonetConfig:
         config = validate_schema(
             MonetConfig,
             {
+                "sources": {
+                    "airnow": {"type": "pt_sfc", "filename": "/data/airnow.nc"},
+                    "cmaq": {"type": "cmaq", "files": "/data/cmaq.nc"},
+                },
+                "pairs": {
+                    "airnow_cmaq": {
+                        "x": {"source": "airnow", "variable": "o3"},
+                        "y": {"source": "cmaq", "variable": "O3"},
+                    }
+                },
                 "plots": {
                     "plot_grp1": {
                         "type": "timeseries",
                         "data": ["airnow_cmaq"],
                     },
-                }
+                },
             },
         )
         assert "plot_grp1" in config.plots
@@ -425,6 +435,83 @@ class TestMonetConfig:
         assert config.pairs["a_b"].x.variable == "O3"
         assert config.pairs["a_b"].y.source == "b"
         assert config.pairs["a_b"].y.variable == "O3"
+
+    def test_plot_data_names_must_resolve_to_pairs(self) -> None:
+        """Plot data references are validated instead of silently skipped."""
+        with pytest.raises(ValueError, match="plots.scatter.data.*missing_pair"):
+            validate_schema(
+                MonetConfig,
+                {
+                    "sources": {
+                        "a": {"type": "generic", "files": "/tmp/a.nc"},
+                        "b": {"type": "generic", "files": "/tmp/b.nc"},
+                    },
+                    "pairs": {
+                        "a_b": {
+                            "x": {"source": "a", "variable": "O3"},
+                            "y": {"source": "b", "variable": "O3"},
+                        }
+                    },
+                    "plots": {"scatter": {"type": "scatter", "data": ["missing_pair"]}},
+                },
+            )
+
+    def test_plot_pairs_names_must_resolve_to_pairs(self) -> None:
+        """The newer plots.*.pairs spelling gets the same validation as data."""
+        with pytest.raises(ValueError, match="plots.scatter.pairs.*missing_pair"):
+            validate_schema(
+                MonetConfig,
+                {
+                    "sources": {
+                        "a": {"type": "generic", "files": "/tmp/a.nc"},
+                        "b": {"type": "generic", "files": "/tmp/b.nc"},
+                    },
+                    "pairs": {
+                        "a_b": {
+                            "x": {"source": "a", "variable": "O3"},
+                            "y": {"source": "b", "variable": "O3"},
+                        }
+                    },
+                    "plots": {"scatter": {"type": "scatter", "pairs": ["missing_pair"]}},
+                },
+            )
+
+    def test_single_source_plot_source_must_resolve_to_source(self) -> None:
+        """Single-source plot source references are validated."""
+        with pytest.raises(ValueError, match="plots.hist.source.*missing_source"):
+            validate_schema(
+                MonetConfig,
+                {
+                    "sources": {"airnow": {"type": "pt_sfc", "filename": "/tmp/a.nc"}},
+                    "plots": {
+                        "hist": {
+                            "type": "histogram",
+                            "source": "missing_source",
+                            "variable": "O3",
+                        }
+                    },
+                },
+            )
+
+    def test_stats_data_names_must_resolve_to_pairs(self) -> None:
+        """Stats data references are validated instead of ignored."""
+        with pytest.raises(ValueError, match="stats.data.*missing_pair"):
+            validate_schema(
+                MonetConfig,
+                {
+                    "sources": {
+                        "a": {"type": "generic", "files": "/tmp/a.nc"},
+                        "b": {"type": "generic", "files": "/tmp/b.nc"},
+                    },
+                    "pairs": {
+                        "a_b": {
+                            "x": {"source": "a", "variable": "O3"},
+                            "y": {"source": "b", "variable": "O3"},
+                        }
+                    },
+                    "stats": {"data": ["missing_pair"]},
+                },
+            )
 
 
 class TestExtraFieldsHandling:

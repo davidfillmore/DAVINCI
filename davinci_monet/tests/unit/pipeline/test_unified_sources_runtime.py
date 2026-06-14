@@ -129,6 +129,53 @@ def test_sources_config_pairs_from_pair_variables(tmp_path: Path) -> None:
     assert paired["airnow_o3"].attrs["dataset_variable"] == "o3"
 
 
+def test_grid_x_point_y_uses_point_geometry_but_preserves_config_axes(tmp_path: Path) -> None:
+    """x/y are plot axes; pairing direction follows geometry precedence."""
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    grid_path = tmp_path / "cam.nc"
+    point_path = tmp_path / "airnow.nc"
+    _write_grid_source(grid_path)
+    _write_point_source(point_path)
+
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "sources": {
+            "cam": {
+                "type": "generic",
+                "files": str(grid_path),
+                "radius_of_influence": 200000,
+                "variables": {"O3": {"units": "ppb"}},
+            },
+            "airnow": {
+                "type": "pt_sfc",
+                "filename": str(point_path),
+                "variables": {"o3": {"units": "ppb"}},
+            },
+        },
+        "pairs": {
+            "cam_airnow_o3": {
+                "x": {"source": "cam", "variable": "O3"},
+                "y": {"source": "airnow", "variable": "o3"},
+            }
+        },
+        "stats": {"metrics": ["N", "MB"]},
+    }
+
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+
+    assert result.success
+    assert result.context is not None
+    paired_obj = result.context.paired["cam_airnow_o3"]
+    paired = paired_obj.data
+    assert paired_obj.x_source == "cam"
+    assert paired_obj.y_source == "airnow"
+    assert paired_obj.geometry.name == "POINT"
+    assert paired["cam_O3"].attrs["axis"] == "x"
+    assert paired["airnow_o3"].attrs["axis"] == "y"
+    assert bool(np.isfinite(paired["cam_O3"].values).any())
+
+
 def test_sources_config_without_pairs_loads_sources_only(tmp_path: Path) -> None:
     """A sources config without ``pairs:`` loads sources and produces no pairs."""
     from davinci_monet.pipeline.runner import PipelineRunner

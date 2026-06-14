@@ -402,7 +402,18 @@ class TestConfigBuilder:
 
     def test_add_plot(self) -> None:
         """Test adding plot."""
-        config = ConfigBuilder().add_plot("ts1", "timeseries", data=["airnow_cmaq"]).build()
+        config = (
+            ConfigBuilder()
+            .add_source("airnow", type="pt_sfc")
+            .add_source("cmaq", type="cmaq")
+            .add_pair(
+                "airnow_cmaq",
+                x={"source": "airnow", "variable": "o3"},
+                y={"source": "cmaq", "variable": "O3"},
+            )
+            .add_plot("ts1", "timeseries", data=["airnow_cmaq"])
+            .build()
+        )
         assert "ts1" in config.plots
         assert config.plots["ts1"].type == "timeseries"
 
@@ -419,6 +430,11 @@ class TestConfigBuilder:
             .set_analysis(start_time="2024-01-01", end_time="2024-01-02")
             .add_source("cmaq", type="cmaq")
             .add_source("airnow", type="pt_sfc")
+            .add_pair(
+                "airnow_cmaq",
+                x={"source": "airnow", "variable": "o3"},
+                y={"source": "cmaq", "variable": "O3"},
+            )
             .add_plot("ts", "timeseries", data=["airnow_cmaq"])
             .build()
         )

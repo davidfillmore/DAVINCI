@@ -225,6 +225,19 @@ class PlottingStage(BaseStage):
                     errors.append(f"Plot {label} failed: {e}")
                     _logger.warning(f"Source plot {label} failed: {e}")
 
+        if errors:
+            context.metadata.setdefault("plot_errors", []).extend(errors)
+            return self._create_result(
+                StageStatus.FAILED,
+                data={
+                    "plot_count": plot_count,
+                    "plots_generated": plots_generated,
+                    "errors": errors,
+                },
+                error="Plotting failed: " + "; ".join(errors),
+                duration=time.time() - start,
+            )
+
         return self._create_result(
             StageStatus.COMPLETED if plot_count > 0 or not plots_config else StageStatus.SKIPPED,
             data={"plot_count": plot_count, "plots_generated": plots_generated, "errors": errors},
@@ -618,7 +631,7 @@ class PlottingStage(BaseStage):
 
         resolved = self._resolve_pair_labels_and_vars(pair_name, pair_spec, context)
         if resolved is None:
-            return file_index
+            raise ValueError(f"Pair '{pair_name}' not found or has no matching x/y variables")
         (
             paired_data,
             x_source,
@@ -631,7 +644,10 @@ class PlottingStage(BaseStage):
         paired_data = self._apply_domain_filter(paired_data, plot_spec)
 
         if x_var_name not in paired_data or y_var_name not in paired_data:
-            return file_index
+            raise ValueError(
+                f"Pair '{pair_name}' missing resolved variables "
+                f"'{x_var_name}' and/or '{y_var_name}'"
+            )
 
         plotter_config, plot_options = self._resolve_plot_options(
             context=context,
@@ -768,6 +784,15 @@ class PlottingStage(BaseStage):
             except Exception as e:
                 context.metadata.setdefault("plot_errors", []).append(f"{plot_name}: {e}")
                 context.log_progress(f"warning: plot failed for {plot_name}: {e}")
+
+        errors = context.metadata.get("plot_errors") or []
+        if errors:
+            return self._create_result(
+                StageStatus.FAILED,
+                data={"plots_generated": plots_generated},
+                error="Plotting failed: " + "; ".join(str(e) for e in errors),
+                duration=time.time() - start,
+            )
 
         return self._create_result(
             StageStatus.COMPLETED,
