@@ -148,7 +148,7 @@ The `examples/` directory contains individual plot type examples using `davinci_
 | Box Plot | `plot_05_boxplot.py` | Point |
 | Spatial Bias | `plot_06_spatial_bias.py` | Point |
 | Spatial Overlay | `plot_07_spatial_overlay.py` | Point + Grid |
-| Spatial Distribution | `plot_08_spatial_distribution.py` | Point |
+| Spatial Field (single-source) | `plot_08_spatial_field.py` | All geometries |
 | Curtain | `plot_09_curtain.py` | Track |
 | Scorecard | `plot_10_scorecard.py` | Point |
 | 3D Track Map | `plot_13_track_map_3d.py` | Track |
