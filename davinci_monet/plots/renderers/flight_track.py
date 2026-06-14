@@ -21,7 +21,7 @@ from davinci_monet.plots.base import (
     get_variable_units,
 )
 from davinci_monet.plots.registry import register_plotter
-from davinci_monet.plots.renderers._track3d import draw_track_3d
+from davinci_monet.plots.renderers._track3d import draw_track_3d, resolve_track_coords
 from davinci_monet.plots.style import get_sequential_cmap
 
 if TYPE_CHECKING:
@@ -182,28 +182,22 @@ class FlightTrackPlotter(BasePlotter):
         matplotlib.figure.Figure
             The generated figure.
         """
-        # Extract coordinates
-        lats = x_data[lat_coord].values
-        lons = x_data[lon_coord].values
-        values = x_data[variable].values
-
-        # Get altitude
-        if alt_coord in x_data.coords:
-            alts = x_data[alt_coord].values * alt_scale
-        elif alt_coord in x_data.data_vars:
-            alts = x_data[alt_coord].values * alt_scale
-        else:
+        # Validate altitude presence (helper would raise a bare KeyError).
+        if alt_coord not in x_data.coords and alt_coord not in x_data.data_vars:
             raise ValueError(
                 f"Altitude coordinate '{alt_coord}' not found. "
                 f"Available: {list(x_data.coords) + list(x_data.data_vars)}"
             )
 
-        # Filter valid data
-        valid = np.isfinite(values) & np.isfinite(lats) & np.isfinite(lons) & np.isfinite(alts)
-        lats = lats[valid]
-        lons = lons[valid]
-        alts = alts[valid]
-        values = values[valid]
+        # Extract finite-filtered coordinates and values (alt scaled m -> km).
+        lons, lats, alts, values = resolve_track_coords(
+            x_data,
+            variable,
+            lat_var=lat_coord,
+            lon_var=lon_coord,
+            alt_var=alt_coord,
+            alt_scale=alt_scale,
+        )
 
         if len(values) == 0:
             raise ValueError("No valid data points for 3D track plot")

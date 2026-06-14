@@ -22,8 +22,26 @@ import numpy as np
 if TYPE_CHECKING:
     import matplotlib.axes
     import matplotlib.figure
+    import xarray as xr
 
     from davinci_monet.plots.plot_config import TextConfig
+
+
+def resolve_track_coords(
+    dataset: xr.Dataset,
+    variable: str,
+    lat_var: str = "latitude",
+    lon_var: str = "longitude",
+    alt_var: str = "altitude",
+    alt_scale: float = 1.0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Return finite (lons, lats, alts, values) flat arrays for a track variable."""
+    lats = dataset[lat_var].values
+    lons = dataset[lon_var].values
+    alts = dataset[alt_var].values * alt_scale
+    vals = dataset[variable].values
+    valid = np.isfinite(vals) & np.isfinite(lats) & np.isfinite(lons) & np.isfinite(alts)
+    return lons[valid], lats[valid], alts[valid], vals[valid]
 
 
 def _get_coastline_segments(
@@ -582,6 +600,7 @@ def draw_track_3d(
 
 
 __all__ = [
+    "resolve_track_coords",
     "_get_coastline_segments",
     "_get_land_polygons",
     "_get_border_segments",
