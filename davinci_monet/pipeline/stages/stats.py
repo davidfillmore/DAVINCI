@@ -218,15 +218,15 @@ class StatisticsStage(BaseStage):
                 if x_var not in flight_data or y_var not in flight_data:
                     continue
 
-                dataset_vals = flight_data[y_var].values.flatten()
-                geometry_vals = flight_data[x_var].values.flatten()
+                y_vals = flight_data[y_var].values.flatten()
+                x_vals = flight_data[x_var].values.flatten()
 
                 # Remove NaNs
-                valid = ~(np.isnan(dataset_vals) | np.isnan(geometry_vals))
+                valid = ~(np.isnan(y_vals) | np.isnan(x_vals))
                 if valid.sum() < 3:
                     continue
 
-                m, o = dataset_vals[valid], geometry_vals[valid]
+                m, o = y_vals[valid], x_vals[valid]
                 diff = m - o
 
                 row: dict[str, Any] = {

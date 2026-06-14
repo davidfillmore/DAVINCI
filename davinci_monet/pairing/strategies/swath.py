@@ -108,20 +108,20 @@ class SwathStrategy(BasePairingStrategy):
         match_overpass = kwargs.get("match_overpass", False)
 
         # Get coordinates
-        dataset_lat, dataset_lon = self._get_dataset_coords(dataset)
-        geometry_lat, geometry_lon = self._get_geometry_coords(geometry)
+        y_lat, y_lon = self._get_dataset_coords(dataset)
+        x_lat, x_lon = self._get_geometry_coords(geometry)
 
         # Flatten swath coordinates for processing
-        geometry_lat_flat = geometry_lat.values.flatten()
-        geometry_lon_flat = geometry_lon.values.flatten()
-        n_pixels = len(geometry_lat_flat)
+        x_lat_flat = x_lat.values.flatten()
+        x_lon_flat = x_lon.values.flatten()
+        n_pixels = len(x_lat_flat)
 
         # Find nearest dataset grid for each pixel
         lat_idx, lon_idx = self._find_nearest_indices(
-            dataset_lat,
-            dataset_lon,
-            xr.DataArray(geometry_lat_flat),
-            xr.DataArray(geometry_lon_flat),
+            y_lat,
+            y_lon,
+            xr.DataArray(x_lat_flat),
+            xr.DataArray(x_lon_flat),
             radius_of_influence=radius_of_influence,
         )
 
@@ -133,8 +133,8 @@ class SwathStrategy(BasePairingStrategy):
         # side retains valid values, polluting cross-pixel aggregates.
         valid_flat = (lat_idx.values >= 0) & (lon_idx.values >= 0)
         if not valid_flat.all():
-            spatial_dims = geometry_lat.dims
-            valid_2d = valid_flat.reshape(geometry_lat.shape)
+            spatial_dims = x_lat.dims
+            valid_2d = valid_flat.reshape(x_lat.shape)
             valid_da = xr.DataArray(valid_2d, dims=spatial_dims)
             _logger.info(
                 "SwathStrategy: masking %d swath pixel(s) outside %.0f m "
@@ -153,30 +153,28 @@ class SwathStrategy(BasePairingStrategy):
         # Handle time matching
         if match_overpass and "time" in geometry.coords:
             # Get overpass times and match dataset
-            dataset_matched = self._match_to_overpass(dataset, geometry)
+            y_matched = self._match_to_overpass(dataset, geometry)
         else:
-            dataset_matched = dataset
+            y_matched = dataset
 
         # Extract dataset values at pixel locations
-        dataset_at_pixels = self._extract_at_pixels(
-            dataset_matched,
-            dataset_lat,
-            dataset_lon,
+        y_at_pixels = self._extract_at_pixels(
+            y_matched,
+            y_lat,
+            y_lon,
             lat_idx.values,
             lon_idx.values,
-            geometry.shape if hasattr(geometry, "shape") else geometry_lat.shape,
+            geometry.shape if hasattr(geometry, "shape") else x_lat.shape,
         )
 
         # Apply averaging kernel if requested
         if apply_ak:
             ak_var = kwargs.get("ak_var", "averaging_kernel")
             if ak_var in geometry:
-                dataset_at_pixels = self._apply_averaging_kernel(
-                    dataset_at_pixels, geometry, ak_var
-                )
+                y_at_pixels = self._apply_averaging_kernel(y_at_pixels, geometry, ak_var)
 
         # Create paired output
-        paired = self._create_paired_output(geometry, dataset_at_pixels)
+        paired = self._create_paired_output(geometry, y_at_pixels)
 
         return paired
 
@@ -204,21 +202,21 @@ class SwathStrategy(BasePairingStrategy):
 
         # Get dataset times
         if "time" in geometry.coords:
-            geometry_times = geometry["time"]
-            if geometry_times.ndim > 0:
+            x_times = geometry["time"]
+            if x_times.ndim > 0:
                 # Use median time as representative overpass
-                geometry_time = geometry_times.values.flat[len(geometry_times.values.flat) // 2]
+                x_time = x_times.values.flat[len(x_times.values.flat) // 2]
             else:
-                geometry_time = geometry_times.values
-            return dataset.sel(time=geometry_time, method="nearest")
+                x_time = x_times.values
+            return dataset.sel(time=x_time, method="nearest")
 
         return dataset
 
     def _extract_at_pixels(
         self,
         dataset: xr.Dataset,
-        dataset_lat: xr.DataArray,
-        dataset_lon: xr.DataArray,
+        y_lat: xr.DataArray,
+        y_lon: xr.DataArray,
         lat_idx: np.ndarray[Any, np.dtype[Any]],
         lon_idx: np.ndarray[Any, np.dtype[Any]],
         output_shape: tuple[int, ...],
@@ -244,12 +242,12 @@ class SwathStrategy(BasePairingStrategy):
         n_pixels = len(lat_idx)
 
         # Determine dimension names
-        if dataset_lat.ndim == 1:
-            lat_dim = dataset_lat.dims[0]
-            lon_dim = dataset_lon.dims[0]
+        if y_lat.ndim == 1:
+            lat_dim = y_lat.dims[0]
+            lon_dim = y_lon.dims[0]
         else:
-            lat_dim = dataset_lat.dims[0]
-            lon_dim = dataset_lat.dims[1]
+            lat_dim = y_lat.dims[0]
+            lon_dim = y_lat.dims[1]
 
         # Build output for each variable
         data_vars: dict[str, tuple[tuple[str, ...], np.ndarray[Any, np.dtype[Any]]]] = {}
@@ -273,7 +271,7 @@ class SwathStrategy(BasePairingStrategy):
                 if lat_idx[i] < 0 or lon_idx[i] < 0:
                     continue
 
-                if dataset_lat.ndim == 1:
+                if y_lat.ndim == 1:
                     selection = {lat_dim: lat_idx[i], lon_dim: lon_idx[i]}
                 else:
                     selection = {lat_dim: lat_idx[i], lon_dim: lon_idx[i]}
@@ -324,7 +322,7 @@ class SwathStrategy(BasePairingStrategy):
     def _create_paired_output(
         self,
         geometry: xr.Dataset,
-        dataset_at_pixels: xr.Dataset,
+        y_at_pixels: xr.Dataset,
     ) -> xr.Dataset:
         """Create the final paired output dataset.
 
@@ -351,8 +349,8 @@ class SwathStrategy(BasePairingStrategy):
             data_vars[str(var)] = geometry[var]
 
         # Add dataset variables with prefix
-        for var in dataset_at_pixels.data_vars:
-            dataset_var_name = f"dataset_{var}"
-            data_vars[dataset_var_name] = dataset_at_pixels[var]
+        for var in y_at_pixels.data_vars:
+            y_var_name = f"dataset_{var}"
+            data_vars[y_var_name] = y_at_pixels[var]
 
         return xr.Dataset(data_vars, coords=coords)

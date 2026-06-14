@@ -99,39 +99,31 @@ class PointStrategy(BasePairingStrategy):
         dask_num_workers = kwargs.get("dask_num_workers")
 
         # Get coordinates
-        dataset_lat, dataset_lon = self._get_dataset_coords(dataset)
-        geometry_lat, geometry_lon = self._get_geometry_coords(geometry)
+        y_lat, y_lon = self._get_dataset_coords(dataset)
+        x_lat, x_lon = self._get_geometry_coords(geometry)
 
         # Extract surface level if dataset is 3D
         if extract_surface:
-            dataset_surface = self._extract_surface(dataset)
+            y_surface = self._extract_surface(dataset)
         else:
-            dataset_surface = dataset
+            y_surface = dataset
 
         # Find site dimension in geometry
         site_dim = self._get_site_dim(geometry)
 
         # Get unique site locations
-        if geometry_lat.dims == (site_dim,):
-            site_lats = geometry_lat.values
-            site_lons = geometry_lon.values
+        if x_lat.dims == (site_dim,):
+            site_lats = x_lat.values
+            site_lons = x_lon.values
         else:
             # Lat/lon may be (time, site) - take first time
-            site_lats = (
-                geometry_lat.isel(time=0).values
-                if "time" in geometry_lat.dims
-                else geometry_lat.values
-            )
-            site_lons = (
-                geometry_lon.isel(time=0).values
-                if "time" in geometry_lon.dims
-                else geometry_lon.values
-            )
+            site_lats = x_lat.isel(time=0).values if "time" in x_lat.dims else x_lat.values
+            site_lons = x_lon.isel(time=0).values if "time" in x_lon.dims else x_lon.values
 
         # Find nearest dataset grid indices for each site
         lat_idx, lon_idx = self._find_nearest_indices(
-            dataset_lat,
-            dataset_lon,
+            y_lat,
+            y_lon,
             xr.DataArray(site_lats),
             xr.DataArray(site_lons),
             radius_of_influence=radius_of_influence,
@@ -159,10 +151,10 @@ class PointStrategy(BasePairingStrategy):
             lon_idx = xr.DataArray(lon_idx.values[keep])
 
         # Extract dataset values at dataset sites
-        dataset_at_sites = self._extract_at_sites(
-            dataset_surface,
-            dataset_lat,
-            dataset_lon,
+        y_at_sites = self._extract_at_sites(
+            y_surface,
+            y_lat,
+            y_lon,
             lat_idx.values,
             lon_idx.values,
             site_dim,
@@ -170,14 +162,14 @@ class PointStrategy(BasePairingStrategy):
         )
 
         # Interpolate dataset to dataset times
-        if "time" in dataset_at_sites.dims and "time" in geometry.dims:
-            geometry_times = geometry["time"]
-            dataset_at_sites = self._interpolate_time(
-                dataset_at_sites, geometry_times, method=time_method, time_tolerance=time_tolerance
+        if "time" in y_at_sites.dims and "time" in geometry.dims:
+            x_times = geometry["time"]
+            y_at_sites = self._interpolate_time(
+                y_at_sites, x_times, method=time_method, time_tolerance=time_tolerance
             )
 
         # Combine into paired dataset
-        paired = self._create_paired_output(geometry, dataset_at_sites, site_dim)
+        paired = self._create_paired_output(geometry, y_at_sites, site_dim)
 
         return paired
 
@@ -205,8 +197,8 @@ class PointStrategy(BasePairingStrategy):
     def _extract_at_sites(
         self,
         dataset: xr.Dataset,
-        dataset_lat: xr.DataArray,
-        dataset_lon: xr.DataArray,
+        y_lat: xr.DataArray,
+        y_lon: xr.DataArray,
         lat_idx: np.ndarray[Any, np.dtype[Any]],
         lon_idx: np.ndarray[Any, np.dtype[Any]],
         site_dim: str,
@@ -233,13 +225,13 @@ class PointStrategy(BasePairingStrategy):
         n_sites = len(lat_idx)
 
         # Determine lat/lon dimension names
-        if dataset_lat.ndim == 1:
-            lat_dim = dataset_lat.dims[0]
-            lon_dim = dataset_lon.dims[0]
+        if y_lat.ndim == 1:
+            lat_dim = y_lat.dims[0]
+            lon_dim = y_lon.dims[0]
         else:
             # Curvilinear grid - assume (y, x) or similar
-            lat_dim = dataset_lat.dims[0]
-            lon_dim = dataset_lat.dims[1]
+            lat_dim = y_lat.dims[0]
+            lon_dim = y_lat.dims[1]
 
         # Create site coordinate
         site_coord = np.arange(n_sites)
@@ -280,7 +272,7 @@ class PointStrategy(BasePairingStrategy):
     def _create_paired_output(
         self,
         geometry: xr.Dataset,
-        dataset_at_sites: xr.Dataset,
+        y_at_sites: xr.Dataset,
         site_dim: str,
     ) -> xr.Dataset:
         """Create the final paired output dataset.
@@ -303,29 +295,29 @@ class PointStrategy(BasePairingStrategy):
         data_vars: dict[str, Any] = {}
 
         # Add dataset variables
-        geometry_var_names = set()
+        x_var_names = set()
         for var in geometry.data_vars:
             var_name = str(var)
             data_vars[var_name] = geometry[var]
-            geometry_var_names.add(var_name)
+            x_var_names.add(var_name)
 
         # Add dataset variables - reassign to geometry coordinates to ensure alignment
         # Dataset was extracted at same site/time locations, just with integer indices
-        for var in dataset_at_sites.data_vars:
-            y_var = dataset_at_sites[var]
-            geometry_ref = geometry[list(geometry.data_vars)[0]]
+        for var in y_at_sites.data_vars:
+            y_var = y_at_sites[var]
+            x_ref = geometry[list(geometry.data_vars)[0]]
 
             # Handle dimension mismatch (e.g., geometry has extra y=1 dimension)
-            if y_var.ndim != geometry_ref.ndim:
+            if y_var.ndim != x_ref.ndim:
                 # Find extra dims in geometry that aren't in dataset (usually singleton dims like y=1)
-                extra_dims = [d for d in geometry_ref.dims if d not in y_var.dims]
-                if all(geometry_ref.sizes[d] == 1 for d in extra_dims):
+                extra_dims = [d for d in x_ref.dims if d not in y_var.dims]
+                if all(x_ref.sizes[d] == 1 for d in extra_dims):
                     # Squeeze geometry to match dataset dims, then expand dataset to match geometry
                     target_dims = y_var.dims
                     target_coords = {
                         d: geometry.coords[d] for d in target_dims if d in geometry.coords
                     }
-                    dataset_da = xr.DataArray(
+                    y_da = xr.DataArray(
                         y_var.values,
                         dims=target_dims,
                         coords=target_coords,
@@ -333,27 +325,25 @@ class PointStrategy(BasePairingStrategy):
                     )
                     # Expand to include the extra singleton dimensions
                     for ed in extra_dims:
-                        dataset_da = dataset_da.expand_dims({ed: geometry.coords[ed].values})
+                        y_da = y_da.expand_dims({ed: geometry.coords[ed].values})
                     # Reorder to match geometry dims
-                    dataset_da = dataset_da.transpose(*geometry_ref.dims)
+                    y_da = y_da.transpose(*x_ref.dims)
                 else:
                     raise PairingError(
-                        f"Dimension mismatch between dataset ({y_var.dims}) and geometry ({geometry_ref.dims}). "
+                        f"Dimension mismatch between dataset ({y_var.dims}) and geometry ({x_ref.dims}). "
                         f"Extra dimensions {extra_dims} are not singletons."
                     )
             else:
                 # Dimensions match - use original logic
-                dataset_da = xr.DataArray(
+                y_da = xr.DataArray(
                     y_var.values,
-                    dims=geometry_ref.dims,
-                    coords={
-                        d: geometry.coords[d] for d in geometry_ref.dims if d in geometry.coords
-                    },
+                    dims=x_ref.dims,
+                    coords={d: geometry.coords[d] for d in x_ref.dims if d in geometry.coords},
                     name=var,
                 )
             var_name = str(var)
-            if var_name in geometry_var_names:
+            if var_name in x_var_names:
                 var_name = f"dataset_{var_name}"
-            data_vars[var_name] = dataset_da
+            data_vars[var_name] = y_da
 
         return xr.Dataset(data_vars, coords=dict(geometry.coords))

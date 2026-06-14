@@ -57,9 +57,7 @@ def _build_config(tmp_path: Path) -> dict:
     domain = Domain(lon_min=-105.0, lon_max=-95.0, lat_min=35.0, lat_max=45.0, n_lon=12, n_lat=12)
     time_cfg = TimeConfig(start="2024-01-15 00:00", end="2024-01-17 00:00", freq="1h")
 
-    dataset_ds = create_dataset_dataset(
-        variables=["O3"], domain=domain, time_config=time_cfg, seed=42
-    )
+    y_ds = create_dataset_dataset(variables=["O3"], domain=domain, time_config=time_cfg, seed=42)
     scenario = PerfectMatchScenario(
         variables=["O3"],
         domain=domain,
@@ -69,15 +67,15 @@ def _build_config(tmp_path: Path) -> dict:
         noise_level=0.0,
         seed=42,
     )
-    geometry_ds = sample_geometry_from(dataset_ds, "point", scenario=scenario)
+    x_ds = sample_geometry_from(y_ds, "point", scenario=scenario)
 
     rng = np.random.default_rng(42)
-    dataset_ds["O3"] = dataset_ds["O3"] + 5.0 + rng.normal(0, 3.0, size=dataset_ds["O3"].shape)
+    y_ds["O3"] = y_ds["O3"] + 5.0 + rng.normal(0, 3.0, size=y_ds["O3"].shape)
 
-    dataset_path = tmp_path / "dataset.nc"
-    geometry_path = tmp_path / "geometry.nc"
-    dataset_ds.to_netcdf(dataset_path)
-    geometry_ds.to_netcdf(geometry_path)
+    y_path = tmp_path / "dataset.nc"
+    x_path = tmp_path / "geometry.nc"
+    y_ds.to_netcdf(y_path)
+    x_ds.to_netcdf(x_path)
 
     return {
         "analysis": {
@@ -89,13 +87,13 @@ def _build_config(tmp_path: Path) -> dict:
         "sources": {
             "synthetic": {
                 "type": "generic",
-                "files": str(dataset_path),
+                "files": str(y_path),
                 "radius_of_influence": 50000,
                 "variables": {"O3": {"units": "ppb"}},
             },
             "surface": {
                 "type": "pt_sfc",
-                "filename": str(geometry_path),
+                "filename": str(x_path),
                 "variables": {"O3": {"valid_min": 0, "valid_max": 200, "units": "ppb"}},
             },
         },
@@ -191,7 +189,7 @@ def _build_two_species_config(tmp_path: Path) -> dict:
     domain = Domain(lon_min=-105.0, lon_max=-95.0, lat_min=35.0, lat_max=45.0, n_lon=12, n_lat=12)
     time_cfg = TimeConfig(start="2024-01-15 00:00", end="2024-01-17 00:00", freq="1h")
 
-    dataset_ds = create_dataset_dataset(
+    y_ds = create_dataset_dataset(
         variables=["O3", "PM25"], domain=domain, time_config=time_cfg, seed=7
     )
     scenario = PerfectMatchScenario(
@@ -203,12 +201,12 @@ def _build_two_species_config(tmp_path: Path) -> dict:
         noise_level=0.0,
         seed=7,
     )
-    geometry_ds = sample_geometry_from(dataset_ds, "point", scenario=scenario)
+    x_ds = sample_geometry_from(y_ds, "point", scenario=scenario)
 
-    dataset_path = tmp_path / "dataset2.nc"
-    geometry_path = tmp_path / "geometry2.nc"
-    dataset_ds.to_netcdf(dataset_path)
-    geometry_ds.to_netcdf(geometry_path)
+    y_path = tmp_path / "dataset2.nc"
+    x_path = tmp_path / "geometry2.nc"
+    y_ds.to_netcdf(y_path)
+    x_ds.to_netcdf(x_path)
 
     return {
         "analysis": {
@@ -220,13 +218,13 @@ def _build_two_species_config(tmp_path: Path) -> dict:
         "sources": {
             "synthetic": {
                 "type": "generic",
-                "files": str(dataset_path),
+                "files": str(y_path),
                 "radius_of_influence": 50000,
                 "variables": {"O3": {"units": "ppb"}, "PM25": {"units": "ug/m3"}},
             },
             "surface": {
                 "type": "pt_sfc",
-                "filename": str(geometry_path),
+                "filename": str(x_path),
                 "variables": {"O3": {"units": "ppb"}, "PM25": {"units": "ug/m3"}},
             },
         },

@@ -652,11 +652,11 @@ class AnomalyCorrelationMetric(BaseMetric):
         if len(geometry) < 2:
             return np.nan
 
-        geometry_anom = geometry - np.mean(geometry)
-        dataset_anom = dataset - np.mean(dataset)
+        x_anom = geometry - np.mean(geometry)
+        y_anom = dataset - np.mean(dataset)
 
-        numerator = np.sum(geometry_anom * dataset_anom)
-        denominator = np.sqrt(np.sum(geometry_anom**2) * np.sum(dataset_anom**2))
+        numerator = np.sum(x_anom * y_anom)
+        denominator = np.sqrt(np.sum(x_anom**2) * np.sum(y_anom**2))
 
         if denominator == 0:
             return np.nan

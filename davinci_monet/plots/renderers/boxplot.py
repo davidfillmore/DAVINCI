@@ -255,14 +255,14 @@ class BoxPlotter(BasePlotter):
         show_means, show_outliers, notch, vert
             Plot options.
         """
-        geometry_values = paired_data[x_var].values.flatten()
-        dataset_values = paired_data[y_var].values.flatten()
+        x_values = paired_data[x_var].values.flatten()
+        y_values = paired_data[y_var].values.flatten()
 
         # Remove NaN values
-        geometry_values = geometry_values[np.isfinite(geometry_values)]
-        dataset_values = dataset_values[np.isfinite(dataset_values)]
+        x_values = x_values[np.isfinite(x_values)]
+        y_values = y_values[np.isfinite(y_values)]
 
-        data = [geometry_values, dataset_values]
+        data = [x_values, y_values]
         labels = [x_label, y_label]
         colors = [
             get_axis_color(
@@ -341,14 +341,14 @@ class BoxPlotter(BasePlotter):
         y_data = []
 
         for i in range(n_groups):
-            geometry_vals = paired_data[x_var].isel({group_by: i}).values.flatten()
-            dataset_vals = paired_data[y_var].isel({group_by: i}).values.flatten()
+            x_vals = paired_data[x_var].isel({group_by: i}).values.flatten()
+            y_vals = paired_data[y_var].isel({group_by: i}).values.flatten()
 
-            geometry_vals = geometry_vals[np.isfinite(geometry_vals)]
-            dataset_vals = dataset_vals[np.isfinite(dataset_vals)]
+            x_vals = x_vals[np.isfinite(x_vals)]
+            y_vals = y_vals[np.isfinite(y_vals)]
 
-            x_data.append(geometry_vals)
-            y_data.append(dataset_vals)
+            x_data.append(x_vals)
+            y_data.append(y_vals)
 
         # Calculate positions
         width = 0.35

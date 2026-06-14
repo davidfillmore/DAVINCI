@@ -316,11 +316,11 @@ class LoadSourcesStage(BaseStage):
             return
         try:
             geometry = obj.geometry
-            geometry_name = geometry.name.lower() if hasattr(geometry, "name") else str(geometry)
+            x_name = geometry.name.lower() if hasattr(geometry, "name") else str(geometry)
         except Exception:
-            geometry_name = "unknown"
+            x_name = "unknown"
         data.attrs["source_label"] = label
-        data.attrs["geometry"] = geometry_name
+        data.attrs["geometry"] = x_name
 
     @staticmethod
     def _register_source(context: PipelineContext, label: str, obj: SourceData) -> None:

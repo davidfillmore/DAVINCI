@@ -428,12 +428,12 @@ def test_per_scanline_time_bins_across_multiple_days() -> None:
     # -- dataset dataset (time=3 days, lat=12, lon=24) --------------------------
     lat = np.linspace(-90, 90, 12)
     lon = np.linspace(-180, 180, 24, endpoint=False)
-    dataset_time = days
-    dataset_flux = np.ones((3, 12, 24), dtype=np.float32) * 999.0
+    y_time = days
+    y_flux = np.ones((3, 12, 24), dtype=np.float32) * 999.0
 
     dataset = xr.Dataset(
-        {"FLUX": (["time", "lat", "lon"], dataset_flux)},
-        coords={"time": dataset_time, "lat": lat, "lon": lon},
+        {"FLUX": (["time", "lat", "lon"], y_flux)},
+        coords={"time": y_time, "lat": lat, "lon": lon},
     )
 
     # -- pair -----------------------------------------------------------------
@@ -447,14 +447,14 @@ def test_per_scanline_time_bins_across_multiple_days() -> None:
         y_var="FLUX",
     )
 
-    geometry_binned = paired["geometry_flux"].values  # (time, lon, lat)
+    x_binned = paired["geometry_flux"].values  # (time, lon, lat)
     sample_count = paired["sample_count"].values
 
     # 3 distinct time bins must be present
     assert paired.dims["time"] == 3, f"Expected 3 time bins, got {paired.dims['time']}"
 
     # Each time bin must contain at least one finite geometry pixel
-    finite_per_bin = np.array([np.any(np.isfinite(geometry_binned[t])) for t in range(3)])
+    finite_per_bin = np.array([np.any(np.isfinite(x_binned[t])) for t in range(3)])
     assert np.all(finite_per_bin), (
         f"Some time bins have no finite geometry (pre-fix: all collapsed into last bin). "
         f"Finite per bin: {finite_per_bin}"
@@ -463,7 +463,7 @@ def test_per_scanline_time_bins_across_multiple_days() -> None:
     # Per-bin means of finite cells must match 100 / 200 / 300 respectively
     expected = [100.0, 200.0, 300.0]
     for t, exp in enumerate(expected):
-        cells = geometry_binned[t][np.isfinite(geometry_binned[t])]
+        cells = x_binned[t][np.isfinite(x_binned[t])]
         assert len(cells) > 0, f"Time bin {t} is empty"
         np.testing.assert_allclose(
             cells,

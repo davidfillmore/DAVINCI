@@ -124,21 +124,21 @@ class TrackStrategy(BasePairingStrategy):
         altitude_var = kwargs.get("altitude_var", "altitude")
 
         # Get coordinates
-        dataset_lat, dataset_lon = self._get_dataset_coords(dataset)
-        geometry_lat, geometry_lon = self._get_geometry_coords(geometry)
+        y_lat, y_lon = self._get_dataset_coords(dataset)
+        x_lat, x_lon = self._get_geometry_coords(geometry)
 
         # Get dataset times
         if "time" not in geometry.dims:
             raise PairingError("Track datasets must have 'time' dimension")
-        geometry_times = geometry["time"]
-        n_points = len(geometry_times)
+        x_times = geometry["time"]
+        n_points = len(x_times)
 
         # Find nearest dataset grid cell for each track point
         lat_idx, lon_idx = self._find_nearest_indices(
-            dataset_lat,
-            dataset_lon,
-            geometry_lat,
-            geometry_lon,
+            y_lat,
+            y_lon,
+            x_lat,
+            x_lon,
             radius_of_influence=radius_of_influence,
         )
 
@@ -159,33 +159,33 @@ class TrackStrategy(BasePairingStrategy):
                 len(valid),
             )
             geometry = geometry.isel(time=keep)
-            geometry_times = geometry["time"]
-            n_points = len(geometry_times)
+            x_times = geometry["time"]
+            n_points = len(x_times)
             lat_idx = xr.DataArray(lat_idx.values[keep])
             lon_idx = xr.DataArray(lon_idx.values[keep])
 
         # Determine vertical coordinate
-        geometry_altitude = self._get_altitude(geometry, altitude_var)
-        dataset_has_vertical = any(
+        x_altitude = self._get_altitude(geometry, altitude_var)
+        y_has_vertical = any(
             dim in dataset.dims for dim in ["z", "lev", "level", "altitude", "height"]
         )
 
         # Extract and interpolate dataset values along track
-        dataset_along_track = self._extract_along_track(
+        y_along_track = self._extract_along_track(
             dataset,
-            dataset_lat,
-            dataset_lon,
+            y_lat,
+            y_lon,
             lat_idx.values,
             lon_idx.values,
-            geometry_times,
-            geometry_altitude,
+            x_times,
+            x_altitude,
             vertical_method=vertical_method,
-            dataset_has_vertical=dataset_has_vertical,
+            y_has_vertical=y_has_vertical,
             time_tolerance=time_tolerance,
         )
 
         # Create paired output
-        paired = self._create_paired_output(geometry, dataset_along_track)
+        paired = self._create_paired_output(geometry, y_along_track)
 
         return paired
 
@@ -215,14 +215,14 @@ class TrackStrategy(BasePairingStrategy):
     def _extract_along_track(
         self,
         dataset: xr.Dataset,
-        dataset_lat: xr.DataArray,
-        dataset_lon: xr.DataArray,
+        y_lat: xr.DataArray,
+        y_lon: xr.DataArray,
         lat_idx: np.ndarray[Any, np.dtype[Any]],
         lon_idx: np.ndarray[Any, np.dtype[Any]],
-        geometry_times: xr.DataArray,
-        geometry_altitude: xr.DataArray | None,
+        x_times: xr.DataArray,
+        x_altitude: xr.DataArray | None,
         vertical_method: str,
-        dataset_has_vertical: bool,
+        y_has_vertical: bool,
         time_tolerance: TimeDelta | None = None,
     ) -> xr.Dataset:
         """Extract dataset values along the track with 3D interpolation.
@@ -252,15 +252,15 @@ class TrackStrategy(BasePairingStrategy):
         xr.Dataset
             Dataset values along track with time dimension.
         """
-        n_points = len(geometry_times)
+        n_points = len(x_times)
 
         # Determine lat/lon dimension names
-        if dataset_lat.ndim == 1:
-            lat_dim = str(dataset_lat.dims[0])
-            lon_dim = str(dataset_lon.dims[0])
+        if y_lat.ndim == 1:
+            lat_dim = str(y_lat.dims[0])
+            lon_dim = str(y_lon.dims[0])
         else:
-            lat_dim = str(dataset_lat.dims[0])
-            lon_dim = str(dataset_lat.dims[1])
+            lat_dim = str(y_lat.dims[0])
+            lon_dim = str(y_lat.dims[1])
 
         # Handle invalid indices (outside radius of influence)
         valid_mask = (lat_idx >= 0) & (lon_idx >= 0)
@@ -278,7 +278,7 @@ class TrackStrategy(BasePairingStrategy):
 
         # If dataset has vertical dimension and we have altitude, do 3D interpolation
         # Otherwise fall back to surface extraction
-        if level_dim and dataset_has_vertical and geometry_altitude is not None:
+        if level_dim and y_has_vertical and x_altitude is not None:
             extracted = self._extract_with_vertical_interp(
                 dataset,
                 lat_dim,
@@ -286,7 +286,7 @@ class TrackStrategy(BasePairingStrategy):
                 level_dim,
                 lat_indexer,
                 lon_indexer,
-                geometry_altitude,
+                x_altitude,
                 vertical_method,
                 valid_mask,
                 n_points,
@@ -303,18 +303,18 @@ class TrackStrategy(BasePairingStrategy):
 
         # Interpolate in time: for each track point, find nearest dataset time
         # Use vectorized nearest-neighbor time matching
-        dataset_times = extracted["time"].values.astype("datetime64[ns]").astype(np.int64)
-        geometry_times_vals = geometry_times.values.astype("datetime64[ns]").astype(np.int64)
+        y_times = extracted["time"].values.astype("datetime64[ns]").astype(np.int64)
+        x_times_vals = x_times.values.astype("datetime64[ns]").astype(np.int64)
 
         # Vectorized nearest time matching using searchsorted
-        insert_idx = np.searchsorted(dataset_times, geometry_times_vals)
+        insert_idx = np.searchsorted(y_times, x_times_vals)
         # Clamp to valid range
-        insert_idx = np.clip(insert_idx, 1, len(dataset_times) - 1)
+        insert_idx = np.clip(insert_idx, 1, len(y_times) - 1)
         # Check if left or right neighbor is closer
         left_idx = insert_idx - 1
         right_idx = insert_idx
-        left_dist = np.abs(geometry_times_vals - dataset_times[left_idx])
-        right_dist = np.abs(dataset_times[right_idx] - geometry_times_vals)
+        left_dist = np.abs(x_times_vals - y_times[left_idx])
+        right_dist = np.abs(y_times[right_idx] - x_times_vals)
         time_idx = np.where(left_dist <= right_dist, left_idx, right_idx)
 
         # Gate on time tolerance: track points whose nearest dataset time is
@@ -344,7 +344,7 @@ class TrackStrategy(BasePairingStrategy):
             result_vars[str(var)] = (("time",), out_data)
 
         # Build output dataset
-        coords = {"time": geometry_times.values}
+        coords = {"time": x_times.values}
 
         return xr.Dataset(result_vars, coords=coords)
 
@@ -356,7 +356,7 @@ class TrackStrategy(BasePairingStrategy):
         level_dim: str,
         lat_indexer: xr.DataArray,
         lon_indexer: xr.DataArray,
-        geometry_altitude: xr.DataArray,
+        x_altitude: xr.DataArray,
         vertical_method: str,
         valid_mask: np.ndarray[Any, np.dtype[Any]],
         n_points: int,
@@ -386,14 +386,14 @@ class TrackStrategy(BasePairingStrategy):
             Dataset values interpolated to aircraft altitude.
         """
         # Get dataset pressure levels (hPa)
-        dataset_levels = dataset.coords[level_dim].values
+        y_levels = dataset.coords[level_dim].values
 
         # Determine if levels are in pressure (hPa) or something else
         # CESM uses hPa with values like 3.6 to 992.5
-        levels_are_pressure = dataset_levels.max() > 100  # hPa values > 100
+        levels_are_pressure = y_levels.max() > 100  # hPa values > 100
 
         # Convert aircraft altitude (meters) to pressure (hPa)
-        altitude_values = geometry_altitude.values
+        altitude_values = x_altitude.values
         if hasattr(altitude_values, "compute"):
             altitude_values = altitude_values.compute()
         altitude_values = np.asarray(altitude_values, dtype=np.float64)
@@ -407,9 +407,9 @@ class TrackStrategy(BasePairingStrategy):
         extracted_3d = dataset.isel({lat_dim: lat_indexer, lon_dim: lon_indexer})
 
         # Determine surface index (where pressure is highest)
-        if dataset_levels[-1] > dataset_levels[0]:
+        if y_levels[-1] > y_levels[0]:
             # Pressure increases with index - surface at end (CESM style)
-            surface_idx = len(dataset_levels) - 1
+            surface_idx = len(y_levels) - 1
         else:
             # Pressure decreases with index - surface at start
             surface_idx = 0
@@ -432,7 +432,7 @@ class TrackStrategy(BasePairingStrategy):
                 # Nearest neighbor interpolation
                 out_data = self._interp_nearest_vertical(
                     var_data.values,
-                    dataset_levels,
+                    y_levels,
                     aircraft_pressure,
                     level_axis,
                     n_points,
@@ -443,7 +443,7 @@ class TrackStrategy(BasePairingStrategy):
                 # Linear interpolation (in log-pressure space)
                 out_data = self._interp_linear_vertical(
                     var_data.values,
-                    dataset_levels,
+                    y_levels,
                     aircraft_pressure,
                     level_axis,
                     n_points,
@@ -463,7 +463,7 @@ class TrackStrategy(BasePairingStrategy):
     def _interp_nearest_vertical(
         self,
         data: np.ndarray[Any, np.dtype[Any]],
-        dataset_levels: np.ndarray[Any, np.dtype[Any]],
+        y_levels: np.ndarray[Any, np.dtype[Any]],
         aircraft_pressure: np.ndarray[Any, np.dtype[Any]],
         level_axis: int,
         n_points: int,
@@ -505,7 +505,7 @@ class TrackStrategy(BasePairingStrategy):
 
             target_p = aircraft_pressure[i]
             # Find nearest level by absolute difference
-            diffs = np.abs(dataset_levels - target_p)
+            diffs = np.abs(y_levels - target_p)
             level_indices[i] = int(np.argmin(diffs))
 
         # Use advanced indexing to extract values at each level
@@ -542,7 +542,7 @@ class TrackStrategy(BasePairingStrategy):
     def _interp_linear_vertical(
         self,
         data: np.ndarray[Any, np.dtype[Any]],
-        dataset_levels: np.ndarray[Any, np.dtype[Any]],
+        y_levels: np.ndarray[Any, np.dtype[Any]],
         aircraft_pressure: np.ndarray[Any, np.dtype[Any]],
         level_axis: int,
         n_points: int,
@@ -575,7 +575,7 @@ class TrackStrategy(BasePairingStrategy):
         """
         # Use log-pressure for interpolation (better for atmospheric profiles)
         # Guard against zero/negative pressure values
-        safe_dataset_levels = np.maximum(dataset_levels, 1e-10)
+        safe_dataset_levels = np.maximum(y_levels, 1e-10)
         log_dataset_levels = np.log(safe_dataset_levels)
 
         # Move level axis to end
@@ -595,7 +595,7 @@ class TrackStrategy(BasePairingStrategy):
             n_track = original_shape[-1]
 
         # Ensure dataset levels are sorted for searchsorted
-        if dataset_levels[0] > dataset_levels[-1]:
+        if y_levels[0] > y_levels[-1]:
             # Decreasing pressure - reverse for interpolation
             sorted_indices = np.arange(n_levels - 1, -1, -1)
             log_levels_sorted = log_dataset_levels[sorted_indices]
@@ -657,7 +657,7 @@ class TrackStrategy(BasePairingStrategy):
     def _create_paired_output(
         self,
         geometry: xr.Dataset,
-        dataset_along_track: xr.Dataset,
+        y_along_track: xr.Dataset,
     ) -> xr.Dataset:
         """Create the final paired output dataset.
 
@@ -677,7 +677,7 @@ class TrackStrategy(BasePairingStrategy):
         coords = dict(geometry.coords)
 
         # Get geometry variable names to check for collisions
-        geometry_var_names = set(str(v) for v in geometry.data_vars)
+        x_var_names = set(str(v) for v in geometry.data_vars)
 
         # Combine data variables
         data_vars: dict[str, Any] = {}
@@ -687,13 +687,13 @@ class TrackStrategy(BasePairingStrategy):
             data_vars[str(var)] = geometry[var]
 
         # Add dataset variables - add prefix only if name collision
-        for var in dataset_along_track.data_vars:
+        for var in y_along_track.data_vars:
             var_name = str(var)
-            if var_name in geometry_var_names:
+            if var_name in x_var_names:
                 # Name collision - add dataset_ prefix
-                data_vars[f"dataset_{var_name}"] = dataset_along_track[var]
+                data_vars[f"dataset_{var_name}"] = y_along_track[var]
             else:
                 # No collision - keep original name
-                data_vars[var_name] = dataset_along_track[var]
+                data_vars[var_name] = y_along_track[var]
 
         return xr.Dataset(data_vars, coords=coords)

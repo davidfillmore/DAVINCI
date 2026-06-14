@@ -115,23 +115,19 @@ class DiurnalPlotter(BasePlotter):
         y_data = y_data.assign_coords(hour=hours)
 
         # Group by hour and calculate statistics
-        geometry_hourly = x_data.groupby("hour")
-        dataset_hourly = y_data.groupby("hour")
+        x_hourly = x_data.groupby("hour")
+        y_hourly = y_data.groupby("hour")
 
         # Calculate means
-        geometry_mean = geometry_hourly.mean()
-        dataset_mean = dataset_hourly.mean()
+        x_mean = x_hourly.mean()
+        y_mean = y_hourly.mean()
 
         # Flatten to 1D if multi-dimensional
-        geometry_mean_vals = geometry_mean.values
-        dataset_mean_vals = dataset_mean.values
-        if geometry_mean_vals.ndim > 1:
-            geometry_mean_vals = np.nanmean(
-                geometry_mean_vals, axis=tuple(range(1, geometry_mean_vals.ndim))
-            )
-            dataset_mean_vals = np.nanmean(
-                dataset_mean_vals, axis=tuple(range(1, dataset_mean_vals.ndim))
-            )
+        x_mean_vals = x_mean.values
+        y_mean_vals = y_mean.values
+        if x_mean_vals.ndim > 1:
+            x_mean_vals = np.nanmean(x_mean_vals, axis=tuple(range(1, x_mean_vals.ndim)))
+            y_mean_vals = np.nanmean(y_mean_vals, axis=tuple(range(1, y_mean_vals.ndim)))
 
         # Get hour values for x-axis
         hours_arr = np.arange(24)
@@ -163,8 +159,8 @@ class DiurnalPlotter(BasePlotter):
         if show_spread != "none":
             self._add_spread_bands(
                 ax,
-                geometry_hourly,
-                dataset_hourly,
+                x_hourly,
+                y_hourly,
                 hours_arr,
                 show_spread,
                 x_color,
@@ -174,7 +170,7 @@ class DiurnalPlotter(BasePlotter):
         # Plot means
         ax.plot(
             hours_arr,
-            geometry_mean_vals,
+            x_mean_vals,
             color=x_color,
             linestyle=style.x_linestyle,
             marker=style.x_marker,
@@ -185,7 +181,7 @@ class DiurnalPlotter(BasePlotter):
 
         ax.plot(
             hours_arr,
-            dataset_mean_vals,
+            y_mean_vals,
             color=y_color,
             linestyle=style.y_linestyle,
             marker=style.y_marker,
@@ -280,8 +276,8 @@ class DiurnalPlotter(BasePlotter):
     def _add_spread_bands(
         self,
         ax: matplotlib.axes.Axes,
-        geometry_hourly: Any,
-        dataset_hourly: Any,
+        x_hourly: Any,
+        y_hourly: Any,
         hours: np.ndarray,
         spread_type: str,
         x_color: str,
@@ -303,65 +299,57 @@ class DiurnalPlotter(BasePlotter):
             Series colors (pair-axis) so the bands match the plotted lines.
         """
         if spread_type == "std":
-            geometry_mean = geometry_hourly.mean()
-            dataset_mean = dataset_hourly.mean()
+            x_mean = x_hourly.mean()
+            y_mean = y_hourly.mean()
 
             # Suppress warnings for hours with single datasets (ddof > n)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", "Degrees of freedom", RuntimeWarning)
-                geometry_std = geometry_hourly.std()
-                dataset_std = dataset_hourly.std()
+                x_std = x_hourly.std()
+                y_std = y_hourly.std()
 
-            geometry_lower = geometry_mean - geometry_std
-            geometry_upper = geometry_mean + geometry_std
-            dataset_lower = dataset_mean - dataset_std
-            dataset_upper = dataset_mean + dataset_std
+            x_lower = x_mean - x_std
+            x_upper = x_mean + x_std
+            y_lower = y_mean - y_std
+            y_upper = y_mean + y_std
 
         elif spread_type == "iqr":
-            geometry_lower = geometry_hourly.quantile(0.25)
-            geometry_upper = geometry_hourly.quantile(0.75)
-            dataset_lower = dataset_hourly.quantile(0.25)
-            dataset_upper = dataset_hourly.quantile(0.75)
+            x_lower = x_hourly.quantile(0.25)
+            x_upper = x_hourly.quantile(0.75)
+            y_lower = y_hourly.quantile(0.25)
+            y_upper = y_hourly.quantile(0.75)
 
         else:  # range
-            geometry_lower = geometry_hourly.min()
-            geometry_upper = geometry_hourly.max()
-            dataset_lower = dataset_hourly.min()
-            dataset_upper = dataset_hourly.max()
+            x_lower = x_hourly.min()
+            x_upper = x_hourly.max()
+            y_lower = y_hourly.min()
+            y_upper = y_hourly.max()
 
         # Flatten to 1D if multi-dimensional (e.g., when grouping over time with site dimension)
-        geometry_lower_vals = geometry_lower.values
-        geometry_upper_vals = geometry_upper.values
-        dataset_lower_vals = dataset_lower.values
-        dataset_upper_vals = dataset_upper.values
+        x_lower_vals = x_lower.values
+        x_upper_vals = x_upper.values
+        y_lower_vals = y_lower.values
+        y_upper_vals = y_upper.values
 
         # If multi-dimensional, average over non-hour dimensions
-        if geometry_lower_vals.ndim > 1:
-            geometry_lower_vals = np.nanmean(
-                geometry_lower_vals, axis=tuple(range(1, geometry_lower_vals.ndim))
-            )
-            geometry_upper_vals = np.nanmean(
-                geometry_upper_vals, axis=tuple(range(1, geometry_upper_vals.ndim))
-            )
-            dataset_lower_vals = np.nanmean(
-                dataset_lower_vals, axis=tuple(range(1, dataset_lower_vals.ndim))
-            )
-            dataset_upper_vals = np.nanmean(
-                dataset_upper_vals, axis=tuple(range(1, dataset_upper_vals.ndim))
-            )
+        if x_lower_vals.ndim > 1:
+            x_lower_vals = np.nanmean(x_lower_vals, axis=tuple(range(1, x_lower_vals.ndim)))
+            x_upper_vals = np.nanmean(x_upper_vals, axis=tuple(range(1, x_upper_vals.ndim)))
+            y_lower_vals = np.nanmean(y_lower_vals, axis=tuple(range(1, y_lower_vals.ndim)))
+            y_upper_vals = np.nanmean(y_upper_vals, axis=tuple(range(1, y_upper_vals.ndim)))
 
         # Plot bands (pair-axis colors, matching the series; R-3)
         ax.fill_between(
             hours,
-            geometry_lower_vals,
-            geometry_upper_vals,
+            x_lower_vals,
+            x_upper_vals,
             color=x_color,
             alpha=0.2,
         )
         ax.fill_between(
             hours,
-            dataset_lower_vals,
-            dataset_upper_vals,
+            y_lower_vals,
+            y_upper_vals,
             color=y_color,
             alpha=0.2,
         )

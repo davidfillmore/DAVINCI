@@ -193,14 +193,14 @@ class PairedData:
         return f"{self.x_source}_{self.y_source}"
 
     @property
-    def geometry_variables(self) -> list[str]:
+    def x_variables(self) -> list[str]:
         """List of geometry variables in the paired data."""
         return [
             str(v) for v in self.data.data_vars if paired_variable_axis(self.data, str(v)) == "x"
         ]
 
     @property
-    def dataset_variables(self) -> list[str]:
+    def y_variables(self) -> list[str]:
         """List of dataset variables in the paired data."""
         return [
             str(v) for v in self.data.data_vars if paired_variable_axis(self.data, str(v)) == "y"
@@ -235,8 +235,7 @@ class PairedData:
         name = self._resolve_axis_var(variable, "x")
         if name is None:
             raise VariableNotFoundError(
-                f"Geometry variable '{variable}' not found. "
-                f"Available: {self.geometry_variables}"
+                f"Geometry variable '{variable}' not found. " f"Available: {self.x_variables}"
             )
         result: xr.DataArray = self.data[name]
         return result
@@ -246,7 +245,7 @@ class PairedData:
         name = self._resolve_axis_var(variable, "y")
         if name is None:
             raise VariableNotFoundError(
-                f"Dataset variable '{variable}' not found. " f"Available: {self.dataset_variables}"
+                f"Dataset variable '{variable}' not found. " f"Available: {self.y_variables}"
             )
         result: xr.DataArray = self.data[name]
         return result

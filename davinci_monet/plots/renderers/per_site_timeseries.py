@@ -111,7 +111,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             site (str|None, default None), min_points (int, default 20),
             time_dim (str, default "time"), site_dim (str, default "site"),
             show_stats (bool, default True), scale_factor (float, default 1.0),
-            geometry_style (str, default "scatter"), dataset_style (str, default "line").
+            x_style (str, default "scatter"), y_style (str, default "line").
 
         Returns
         -------
@@ -134,8 +134,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         site_dim: str = kwargs.pop("site_dim", "site")
         show_stats: bool = kwargs.pop("show_stats", True)
         scale_factor: float = kwargs.pop("scale_factor", 1.0)
-        geometry_style: str = kwargs.pop("geometry_style", "scatter")
-        dataset_style: str = kwargs.pop("dataset_style", "line")
+        x_style: str = kwargs.pop("x_style", "scatter")
+        y_style: str = kwargs.pop("y_style", "line")
 
         if site_dim not in paired_data.dims:
             raise ValueError(f"Site dimension '{site_dim}' not found in dataset")
@@ -149,9 +149,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             chosen_site = None
             for s in sites:
                 sd = paired_data.sel({site_dim: s})
-                geometry_vals = sd[x_var].values
-                dataset_vals = sd[y_var].values
-                valid = ~np.isnan(geometry_vals) & ~np.isnan(dataset_vals)
+                x_vals = sd[x_var].values
+                y_vals = sd[y_var].values
+                valid = ~np.isnan(x_vals) & ~np.isnan(y_vals)
                 if valid.sum() >= min_points:
                     chosen_site = s
                     break
@@ -172,8 +172,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             time_dim,
             site_dim,
             scale_factor,
-            geometry_style,
-            dataset_style,
+            x_style,
+            y_style,
             show_stats,
             single_panel=True,
         )
@@ -193,8 +193,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         site_dim: str = "site",
         show_stats: bool = True,
         scale_factor: float = 1.0,
-        geometry_style: str = "scatter",
-        dataset_style: str = "line",
+        x_style: str = "scatter",
+        y_style: str = "line",
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Plot a single site timeseries.
@@ -223,9 +223,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             If True, show statistics box.
         scale_factor
             Scale factor for display values.
-        geometry_style
+        x_style
             Style for datasets: 'scatter' or 'line'.
-        dataset_style
+        y_style
             Style for dataset: 'line' or 'scatter'.
         **kwargs
             Additional options.
@@ -244,8 +244,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             site_dim=site_dim,
             show_stats=show_stats,
             scale_factor=scale_factor,
-            geometry_style=geometry_style,
-            dataset_style=dataset_style,
+            x_style=x_style,
+            y_style=y_style,
             **kwargs,
         )
 
@@ -259,8 +259,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         min_points: int = 20,
         show_stats: bool = True,
         scale_factor: float = 1.0,
-        geometry_style: str = "scatter",
-        dataset_style: str = "line",
+        x_style: str = "scatter",
+        y_style: str = "line",
         **kwargs: Any,
     ) -> Iterator[tuple[str, matplotlib.figure.Figure]]:
         """Generate individual time series plots for each site.
@@ -286,9 +286,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             If True, show statistics box.
         scale_factor
             Scale factor for display values.
-        geometry_style
+        x_style
             Style for datasets: 'scatter' or 'line'.
-        dataset_style
+        y_style
             Style for dataset: 'line' or 'scatter'.
         **kwargs
             Additional options.
@@ -309,9 +309,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         for site in sites:
             site_data = paired_data.sel({site_dim: site})
 
-            geometry_vals = site_data[x_var].values
-            dataset_vals = site_data[y_var].values
-            valid_both = ~np.isnan(geometry_vals) & ~np.isnan(dataset_vals)
+            x_vals = site_data[x_var].values
+            y_vals = site_data[y_var].values
+            valid_both = ~np.isnan(x_vals) & ~np.isnan(y_vals)
 
             if valid_both.sum() < min_points:
                 continue
@@ -328,8 +328,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
                 time_dim,
                 site_dim,
                 scale_factor,
-                geometry_style,
-                dataset_style,
+                x_style,
+                y_style,
                 show_stats,
                 single_panel=True,
             )
@@ -350,8 +350,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         time_dim: str,
         site_dim: str,
         scale_factor: float,
-        geometry_style: str,
-        dataset_style: str,
+        x_style: str,
+        y_style: str,
         show_stats: bool,
         *,
         single_panel: bool = False,
@@ -378,9 +378,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             Site dimension name.
         scale_factor
             Multiplicative scale factor for display.
-        geometry_style
+        x_style
             'scatter' or 'line' for datasets.
-        dataset_style
+        y_style
             'line' or 'scatter' for dataset.
         show_stats
             Whether to display the statistics box.
@@ -391,11 +391,11 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         text_cfg = self.config.text
 
         times = pd.to_datetime(site_data[time_dim].values)
-        geometry_vals = site_data[x_var].values * scale_factor
-        dataset_vals = site_data[y_var].values * scale_factor
+        x_vals = site_data[x_var].values * scale_factor
+        y_vals = site_data[y_var].values * scale_factor
 
-        valid_geometry = ~np.isnan(geometry_vals)
-        valid_both = valid_geometry & ~np.isnan(dataset_vals)
+        valid_geometry = ~np.isnan(x_vals)
+        valid_both = valid_geometry & ~np.isnan(y_vals)
 
         # Series colors/labels by source axis (R-3): geometry gray, dataset blue, else
         # palette; legends use the source label.
@@ -417,10 +417,10 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         y_label = get_series_label(site_data, y_var)
 
         # Plot datasets
-        if geometry_style == "scatter":
+        if x_style == "scatter":
             ax.scatter(
                 times[valid_geometry],
-                geometry_vals[valid_geometry],
+                x_vals[valid_geometry],
                 s=20,
                 alpha=0.7,
                 color=x_color,
@@ -430,7 +430,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         else:
             ax.plot(
                 times[valid_geometry],
-                geometry_vals[valid_geometry],
+                x_vals[valid_geometry],
                 "o-",
                 color=x_color,
                 markersize=4,
@@ -441,10 +441,10 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             )
 
         # Plot dataset
-        if dataset_style == "line":
+        if y_style == "line":
             ax.plot(
                 times,
-                dataset_vals,
+                y_vals,
                 color=y_color,
                 linewidth=2,
                 alpha=0.8,
@@ -454,7 +454,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         else:
             ax.scatter(
                 times[valid_both],
-                dataset_vals[valid_both],
+                y_vals[valid_both],
                 s=20,
                 alpha=0.7,
                 color=y_color,
@@ -464,16 +464,16 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
 
         # Statistics box (via central metric registry)
         if show_stats and valid_both.sum() > 0:
-            geometry_mean = float(geometry_vals[valid_both].mean())
+            x_mean = float(x_vals[valid_both].mean())
             stats = annotation_metrics(
-                geometry_vals[valid_both],
-                dataset_vals[valid_both],
+                x_vals[valid_both],
+                y_vals[valid_both],
                 ["N", "MB", "RMSE", "NMB", "R"],
             )
             n = int(stats["N"])
             mb = stats["MB"]
             rmse = stats["RMSE"]
-            nmb = stats["NMB"] if geometry_mean != 0 else 0.0
+            nmb = stats["NMB"] if x_mean != 0 else 0.0
             # Preserve the renderer's <=2-point guard (registry R needs >=2)
             r = stats["R"] if valid_both.sum() > 2 else np.nan
 

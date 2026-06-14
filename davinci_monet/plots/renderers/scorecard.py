@@ -386,9 +386,9 @@ class ScorecardPlotter(BasePlotter):
         for i, metric in enumerate(metrics):
             # Combine data from all datasets
             data = {}
-            for dataset_name, df in stats_dict.items():
+            for y_name, df in stats_dict.items():
                 if metric in df.columns:
-                    data[dataset_name] = df[metric]
+                    data[y_name] = df[metric]
 
             if not data:
                 continue

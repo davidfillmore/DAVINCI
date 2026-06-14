@@ -315,26 +315,26 @@ class GeometryMismatchError(PairingError):
     ----------
     message
         Description of the geometry mismatch.
-    dataset_geometry
-        Geometry type of dataset data.
-    geometry_geometry
-        Geometry type of dataset data.
+    y_geometry
+        Geometry type of the y source.
+    x_geometry
+        Geometry type of the x source.
     """
 
     def __init__(
         self,
         message: str,
-        dataset_geometry: str | None = None,
-        geometry_geometry: str | None = None,
+        y_geometry: str | None = None,
+        x_geometry: str | None = None,
     ) -> None:
         details: dict[str, Any] = {}
-        if dataset_geometry is not None:
-            details["dataset_geometry"] = dataset_geometry
-        if geometry_geometry is not None:
-            details["geometry_geometry"] = geometry_geometry
+        if y_geometry is not None:
+            details["y_geometry"] = y_geometry
+        if x_geometry is not None:
+            details["x_geometry"] = x_geometry
         super().__init__(message, details)
-        self.dataset_geometry = dataset_geometry
-        self.geometry_geometry = geometry_geometry
+        self.y_geometry = y_geometry
+        self.x_geometry = x_geometry
 
 
 class NoOverlapError(PairingError):
@@ -346,30 +346,30 @@ class NoOverlapError(PairingError):
         Description of the overlap issue.
     dimension
         Dimension with no overlap (e.g., 'time', 'space').
-    dataset_range
-        Range of dataset data.
-    geometry_range
-        Range of dataset data.
+    y_range
+        Range of the y source data.
+    x_range
+        Range of the x source data.
     """
 
     def __init__(
         self,
         message: str,
         dimension: str | None = None,
-        dataset_range: tuple[Any, Any] | None = None,
-        geometry_range: tuple[Any, Any] | None = None,
+        y_range: tuple[Any, Any] | None = None,
+        x_range: tuple[Any, Any] | None = None,
     ) -> None:
         details: dict[str, Any] = {}
         if dimension is not None:
             details["dimension"] = dimension
-        if dataset_range is not None:
-            details["dataset_range"] = dataset_range
-        if geometry_range is not None:
-            details["geometry_range"] = geometry_range
+        if y_range is not None:
+            details["y_range"] = y_range
+        if x_range is not None:
+            details["x_range"] = x_range
         super().__init__(message, details)
         self.dimension = dimension
-        self.dataset_range = dataset_range
-        self.geometry_range = geometry_range
+        self.y_range = y_range
+        self.x_range = x_range
 
 
 class InterpolationError(PairingError):

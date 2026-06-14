@@ -93,30 +93,30 @@ class TaylorPlotter(BasePlotter):
         color: str | None = kwargs.pop("color", None)
 
         # Get data and flatten
-        geometry_values = paired_data[x_var].values.flatten()
-        dataset_values = paired_data[y_var].values.flatten()
+        x_values = paired_data[x_var].values.flatten()
+        y_values = paired_data[y_var].values.flatten()
 
         # Remove NaN values
-        mask = np.isfinite(geometry_values) & np.isfinite(dataset_values)
-        geometry_values = geometry_values[mask]
-        dataset_values = dataset_values[mask]
+        mask = np.isfinite(x_values) & np.isfinite(y_values)
+        x_values = x_values[mask]
+        y_values = y_values[mask]
 
         # Calculate statistics
-        geometry_std = np.std(geometry_values)
-        dataset_std = np.std(dataset_values)
-        correlation = np.corrcoef(geometry_values, dataset_values)[0, 1]
+        x_std = np.std(x_values)
+        y_std = np.std(y_values)
+        correlation = np.corrcoef(x_values, y_values)[0, 1]
 
         # Normalize if requested
         if normalize:
-            dataset_std_norm = dataset_std / geometry_std
-            geometry_std_norm = 1.0
+            y_std_norm = y_std / x_std
+            x_std_norm = 1.0
         else:
-            dataset_std_norm = dataset_std
-            geometry_std_norm = geometry_std
+            y_std_norm = y_std
+            x_std_norm = x_std
 
         # Create Taylor diagram
         if ax is None:
-            fig, ax = self._create_taylor_axes(geometry_std_norm, normalize)
+            fig, ax = self._create_taylor_axes(x_std_norm, normalize)
         else:
             fig = ax.get_figure()  # type: ignore[assignment]
 
@@ -137,7 +137,7 @@ class TaylorPlotter(BasePlotter):
         theta = np.arccos(correlation)
         ax.plot(
             theta,
-            dataset_std_norm,
+            y_std_norm,
             marker=m,
             color=c,
             markersize=style.markersize * 1.5,
@@ -151,7 +151,7 @@ class TaylorPlotter(BasePlotter):
         if show_geometry:
             ax.plot(
                 0,  # Perfect correlation
-                geometry_std_norm,
+                x_std_norm,
                 marker="*",
                 color="k",
                 markersize=style.markersize * 2,
@@ -369,9 +369,9 @@ class TaylorPlotter(BasePlotter):
         first_key = next(iter(paired_datasets))
         first_data = paired_datasets[first_key]
 
-        geometry_values = first_data[x_var].values.flatten()
-        geometry_values = geometry_values[np.isfinite(geometry_values)]
-        ref_std = 1.0 if normalize else np.std(geometry_values)
+        x_values = first_data[x_var].values.flatten()
+        x_values = x_values[np.isfinite(x_values)]
+        ref_std = 1.0 if normalize else np.std(x_values)
 
         fig, ax = self._create_taylor_axes(ref_std, normalize)
 

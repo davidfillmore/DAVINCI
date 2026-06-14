@@ -264,20 +264,18 @@ class StatisticsCalculator:
 
         # Group the data
         if isinstance(coord, str):
-            geometry_grouped = x_data.groupby(coord, squeeze=False)
-            dataset_grouped = y_data.groupby(coord, squeeze=False)
+            x_grouped = x_data.groupby(coord, squeeze=False)
+            y_grouped = y_data.groupby(coord, squeeze=False)
         else:
-            geometry_grouped = x_data.groupby(coord, squeeze=False)
-            dataset_grouped = y_data.groupby(coord, squeeze=False)
+            x_grouped = x_data.groupby(coord, squeeze=False)
+            y_grouped = y_data.groupby(coord, squeeze=False)
 
         results = []
-        for (geometry_key, geometry_group), (_, dataset_group) in zip(
-            geometry_grouped, dataset_grouped
-        ):
-            geometry = geometry_group.values.flatten()
-            dataset = dataset_group.values.flatten()
+        for (x_key, x_group), (_, y_group) in zip(x_grouped, y_grouped):
+            geometry = x_group.values.flatten()
+            dataset = y_group.values.flatten()
 
-            row = {name: geometry_key}
+            row = {name: x_key}
             row.update(self._compute_metrics(geometry, dataset, metrics, **kwargs))
             results.append(row)
 
@@ -320,14 +318,12 @@ class StatisticsCalculator:
 
         # This is a simplified implementation - for now, convert to pandas
         # and use pandas groupby
-        geometry_df = x_data.to_dataframe(name="geometry").reset_index()
-        dataset_df = y_data.to_dataframe(name="dataset").reset_index()
+        x_df = x_data.to_dataframe(name="geometry").reset_index()
+        y_df = y_data.to_dataframe(name="dataset").reset_index()
 
         # Merge on common indices
-        common_cols = list(
-            set(geometry_df.columns) & set(dataset_df.columns) - {"geometry", "dataset"}
-        )
-        df = pd.merge(geometry_df, dataset_df, on=common_cols)
+        common_cols = list(set(x_df.columns) & set(y_df.columns) - {"geometry", "dataset"})
+        df = pd.merge(x_df, y_df, on=common_cols)
 
         # Add groupby columns
         group_cols = []

@@ -298,7 +298,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
 
         # Add colorbar
         units = get_variable_units(paired_data, x_var)
-        label = format_label_with_units("Bias (Dataset - Geometry)", units)
+        label = format_label_with_units("Bias (y - x)", units)
         self.add_colorbar(fig, scatter, ax, label=label)
 
         # Use config site_label size if not specified

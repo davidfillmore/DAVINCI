@@ -135,16 +135,16 @@ class PairingStage(BaseStage):
                     f"{', '.join(missing)}"
                 )
                 continue
-            geometry_obj = context.sources[x_source]
-            dataset_obj = context.sources[y_source]
+            x_obj = context.sources[x_source]
+            y_obj = context.sources[y_source]
             # ``x`` is the reference (pairing) geometry that ``y`` is sampled onto.
             # Resolve direction with ``x`` pinned as the reference (the same-shape
             # tie-breaker): migration maps the old ``geometry`` (or first-listed)
             # source to ``x``, preserving the prior reference choice. The call also
             # validates that both source geometries are detectable.
             resolve_pair_direction(
-                self._source_geometry(geometry_obj),
-                self._source_geometry(dataset_obj),
+                self._source_geometry(x_obj),
+                self._source_geometry(y_obj),
                 explicit_geometry="a",
             )
             pair_index += 1
@@ -153,12 +153,12 @@ class PairingStage(BaseStage):
                     index=pair_index,
                     pair_key=str(pair_name),
                     x_source=x_source,
-                    geometry_obj=geometry_obj,
+                    x_obj=x_obj,
                     y_source=y_source,
-                    dataset_obj=dataset_obj,
+                    y_obj=y_obj,
                     x_var=str(x_var),
                     y_var=str(y_var),
-                    radius_of_influence=self._pair_radius(raw_pair, dataset_obj),
+                    radius_of_influence=self._pair_radius(raw_pair, y_obj),
                     strategy_options=self._strategy_options(
                         pairing_config_dict=context.config.get("pairing", {}),
                         pair_spec=raw_pair,
@@ -196,13 +196,13 @@ class PairingStage(BaseStage):
         return PairingEngine()._detect_geometry(data)
 
     @staticmethod
-    def _pair_radius(pair_spec: dict[str, Any], dataset_obj: Any) -> float:
+    def _pair_radius(pair_spec: dict[str, Any], y_obj: Any) -> float:
         if pair_spec.get("radius_of_influence") is not None:
             return float(pair_spec["radius_of_influence"])
-        cfg = getattr(dataset_obj, "config", None)
+        cfg = getattr(y_obj, "config", None)
         if isinstance(cfg, dict) and cfg.get("radius_of_influence") is not None:
             return float(cfg["radius_of_influence"])
-        return float(getattr(dataset_obj, "radius_of_influence", 12000.0))
+        return float(getattr(y_obj, "radius_of_influence", 12000.0))
 
     @staticmethod
     def _strategy_options(
@@ -279,9 +279,9 @@ class PairingStage(BaseStage):
         """
         from davinci_monet.pairing import PairingConfig, PairingEngine
 
-        geometry_ds = self._source_dataset(job.geometry_obj)
-        dataset_ds = self._source_dataset(job.dataset_obj)
-        if geometry_ds is None or dataset_ds is None:
+        x_ds = self._source_dataset(job.x_obj)
+        y_ds = self._source_dataset(job.y_obj)
+        if x_ds is None or y_ds is None:
             return job, None, f"{job.pair_key}: geometry or dataset data is None"
 
         try:
@@ -292,12 +292,12 @@ class PairingStage(BaseStage):
             )
             engine = PairingEngine()
             paired_obj = engine.pair_sources(
-                x_data=geometry_ds,
-                y_data=dataset_ds,
-                geometry_vars=[job.x_var],
-                dataset_vars=[job.y_var],
-                output_geometry=self._source_geometry(job.geometry_obj),
-                dataset_geometry=self._source_geometry(job.dataset_obj),
+                x_data=x_ds,
+                y_data=y_ds,
+                x_vars=[job.x_var],
+                y_vars=[job.y_var],
+                output_geometry=self._source_geometry(job.x_obj),
+                y_geometry=self._source_geometry(job.y_obj),
                 config=pairing_cfg,
                 x_source=job.x_source,
                 y_source=job.y_source,
@@ -354,8 +354,8 @@ class PairingStage(BaseStage):
         eager_jobs: list[SourcePairJob] = []
         dask_jobs: list[SourcePairJob] = []
         for job in jobs:
-            ref_ds = self._source_dataset(job.geometry_obj)
-            comp_ds = self._source_dataset(job.dataset_obj)
+            ref_ds = self._source_dataset(job.x_obj)
+            comp_ds = self._source_dataset(job.y_obj)
             if self._is_dask_backed(ref_ds) or self._is_dask_backed(comp_ds):
                 dask_jobs.append(job)
             else:

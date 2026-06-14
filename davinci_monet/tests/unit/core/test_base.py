@@ -73,8 +73,8 @@ class TestPairedData:
             x_source="airnow",
             geometry=DataGeometry.POINT,
         )
-        assert "dataset_ozone" in paired.dataset_variables
-        assert "dataset_pm25" in paired.dataset_variables
+        assert "dataset_ozone" in paired.y_variables
+        assert "dataset_pm25" in paired.y_variables
 
     def test_geometry_variables(self, paired_dataset: xr.Dataset) -> None:
         """Test listing geometry variables."""
@@ -84,8 +84,8 @@ class TestPairedData:
             x_source="airnow",
             geometry=DataGeometry.POINT,
         )
-        assert "geometry_ozone" in paired.geometry_variables
-        assert "geometry_pm25" in paired.geometry_variables
+        assert "geometry_ozone" in paired.x_variables
+        assert "geometry_pm25" in paired.x_variables
 
     def test_paired_variable_names(self, paired_dataset: xr.Dataset) -> None:
         """Test getting paired variable names."""

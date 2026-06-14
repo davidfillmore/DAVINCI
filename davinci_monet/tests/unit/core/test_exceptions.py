@@ -167,23 +167,23 @@ class TestPairingErrors:
         """Test GeometryMismatchError."""
         error = GeometryMismatchError(
             "Cannot pair incompatible geometries",
-            dataset_geometry="grid",
-            geometry_geometry="track",
+            y_geometry="grid",
+            x_geometry="track",
         )
-        assert error.dataset_geometry == "grid"
-        assert error.geometry_geometry == "track"
+        assert error.y_geometry == "grid"
+        assert error.x_geometry == "track"
 
     def test_no_overlap_error(self) -> None:
         """Test NoOverlapError with dimension ranges."""
         error = NoOverlapError(
             "No temporal overlap",
             dimension="time",
-            dataset_range=("2024-01-01", "2024-01-31"),
-            geometry_range=("2024-02-01", "2024-02-28"),
+            y_range=("2024-01-01", "2024-01-31"),
+            x_range=("2024-02-01", "2024-02-28"),
         )
         assert error.dimension == "time"
-        assert error.dataset_range == ("2024-01-01", "2024-01-31")
-        assert error.geometry_range == ("2024-02-01", "2024-02-28")
+        assert error.y_range == ("2024-01-01", "2024-01-31")
+        assert error.x_range == ("2024-02-01", "2024-02-28")
 
     def test_interpolation_error(self) -> None:
         """Test InterpolationError."""

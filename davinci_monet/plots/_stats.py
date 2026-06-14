@@ -62,15 +62,15 @@ def annotation_metrics(
     The registry metrics re-apply a finite mask internally, so passing arrays
     that are already finite (as the renderers do) leaves the values unchanged.
     """
-    geometry_arr = np.asarray(geometry).flatten()
-    dataset_arr = np.asarray(dataset).flatten()
+    x_arr = np.asarray(geometry).flatten()
+    y_arr = np.asarray(dataset).flatten()
 
-    valid_both = ~np.isnan(geometry_arr) & ~np.isnan(dataset_arr)
-    geometry_valid = geometry_arr[valid_both]
-    dataset_valid = dataset_arr[valid_both]
+    valid_both = ~np.isnan(x_arr) & ~np.isnan(y_arr)
+    x_valid = x_arr[valid_both]
+    y_valid = y_arr[valid_both]
 
     results: dict[str, float] = {}
     for name in metrics:
-        value = get_metric(name).compute(geometry_valid, dataset_valid)
+        value = get_metric(name).compute(x_valid, y_valid)
         results[name] = int(value) if name == "N" else value
     return results

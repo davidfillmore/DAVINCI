@@ -85,6 +85,6 @@ def resolve_paired_var_names(
     """
     from davinci_monet.plots.base import resolve_source_variable
 
-    geometry_name = resolve_source_variable(paired_data, x_var, x_source) or f"geometry_{x_var}"
-    dataset_name = resolve_source_variable(paired_data, x_var, y_source) or f"dataset_{x_var}"
-    return geometry_name, dataset_name
+    x_name = resolve_source_variable(paired_data, x_var, x_source) or f"geometry_{x_var}"
+    y_name = resolve_source_variable(paired_data, x_var, y_source) or f"dataset_{x_var}"
+    return x_name, y_name

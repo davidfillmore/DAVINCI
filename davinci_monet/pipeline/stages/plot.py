@@ -65,7 +65,7 @@ class PlottingStage(BaseStage):
         paired_data: Any,
         *,
         source_label: str,
-        dataset_variable: str,
+        y_variable: str,
         axis: str,
         fallback_name: str | None = None,
     ) -> str | None:
@@ -75,7 +75,7 @@ class PlottingStage(BaseStage):
             candidates.insert(0, str(fallback_name))
 
         seen: set[str] = set()
-        requested = str(dataset_variable)
+        requested = str(y_variable)
         requested_lower = requested.lower()
         for name in candidates:
             name = str(name)
@@ -292,21 +292,21 @@ class PlottingStage(BaseStage):
                 "x_var": x_var,
                 "y_var": y_var,
             }
-            geometry_var_name = self._resolve_paired_dataset_variable(
+            x_var_name = self._resolve_paired_dataset_variable(
                 paired_data,
                 source_label=x_source,
-                dataset_variable=x_var,
+                y_variable=x_var,
                 axis="x",
                 fallback_name=fallback_geometry_name,
             )
-            dataset_var_name = self._resolve_paired_dataset_variable(
+            y_var_name = self._resolve_paired_dataset_variable(
                 paired_data,
                 source_label=y_source,
-                dataset_variable=y_var,
+                y_variable=y_var,
                 axis="y",
                 fallback_name=fallback_dataset_name,
             )
-            if geometry_var_name is None or dataset_var_name is None:
+            if x_var_name is None or y_var_name is None:
                 return None
         else:
             # No pair spec: a plot can name a key already present in
@@ -314,9 +314,9 @@ class PlottingStage(BaseStage):
             pair_vars = iter_paired_variable_xy(paired_data)
             if not pair_vars:
                 return None
-            geometry_var_name, dataset_var_name, x_var = pair_vars[0]
-            x_source = str(paired_data[geometry_var_name].attrs.get("source_label", "geometry"))
-            y_source = str(paired_data[dataset_var_name].attrs.get("source_label", "dataset"))
+            x_var_name, y_var_name, x_var = pair_vars[0]
+            x_source = str(paired_data[x_var_name].attrs.get("source_label", "geometry"))
+            y_source = str(paired_data[y_var_name].attrs.get("source_label", "dataset"))
             var_spec = {"x_var": x_var, "y_var": x_var}
 
         return (
@@ -324,8 +324,8 @@ class PlottingStage(BaseStage):
             x_source,
             y_source,
             var_spec,
-            geometry_var_name,
-            dataset_var_name,
+            x_var_name,
+            y_var_name,
         )
 
     @staticmethod
@@ -400,19 +400,19 @@ class PlottingStage(BaseStage):
             nlevels=nlevels,
         )
 
-        # spatial_overlay needs the raw gridded dataset field for the
+        # spatial_overlay needs the raw gridded y (dataset) field for the
         # contour layer; the paired dataset usually carries sampled
-        # values at geometry locations only. Keep the renderer option
-        # name `dataset_field` for compatibility.
+        # values at geometry locations only. The renderer option name is
+        # `y_field`.
         if plot_type == "spatial_overlay":
-            if "dataset_field" not in plot_options:
+            if "y_field" not in plot_options:
                 source_obj = context.sources.get(y_source) or context.sources.get(x_source)
                 if source_obj is not None:
                     source_ds = source_obj.data if hasattr(source_obj, "data") else source_obj
                     source_vars = getattr(source_ds, "data_vars", {})
                     field_var = y_var if y_var in source_vars else x_var
                     if source_ds is not None and field_var in source_vars:
-                        plot_options["dataset_field"] = source_ds[field_var]
+                        plot_options["y_field"] = source_ds[field_var]
             # Dataset readers differ on coord naming
             # (`latitude`/`longitude` vs `lat`/`lon`). Pick whichever
             # the paired dataset actually carries.
@@ -428,8 +428,8 @@ class PlottingStage(BaseStage):
                         break
 
         snapshot_str = ""
-        if plot_type == "spatial_overlay" and "dataset_field" in plot_options:
-            mf = plot_options["dataset_field"]
+        if plot_type == "spatial_overlay" and "y_field" in plot_options:
+            mf = plot_options["y_field"]
             time_idx = plot_options.get("time_index", 0)
             snapshot_str = timestamp_from_field(mf, time_idx)
         subtitle = build_plot_subtitle(
@@ -457,8 +457,8 @@ class PlottingStage(BaseStage):
         *,
         plotter: Any,
         paired_data: Any,
-        geometry_var_name: str,
-        dataset_var_name: str,
+        x_var_name: str,
+        y_var_name: str,
         plot_spec: dict[str, Any],
         plot_options: dict[str, Any],
         x_source_output_dir: Any,
@@ -477,8 +477,8 @@ class PlottingStage(BaseStage):
         flight_count = 0
         for flight_id, fig in plotter.plot_per_flight(
             paired_data,
-            geometry_var_name,
-            dataset_var_name,
+            x_var_name,
+            y_var_name,
             flight_coord=flight_coord,
             min_points=min_points,
             **plot_options,
@@ -504,8 +504,8 @@ class PlottingStage(BaseStage):
         *,
         plotter: Any,
         paired_data: Any,
-        geometry_var_name: str,
-        dataset_var_name: str,
+        x_var_name: str,
+        y_var_name: str,
         plot_spec: dict[str, Any],
         plot_options: dict[str, Any],
         x_source_output_dir: Any,
@@ -524,8 +524,8 @@ class PlottingStage(BaseStage):
         site_count = 0
         for site_id, fig in plotter.plot_per_site(
             paired_data,
-            geometry_var_name,
-            dataset_var_name,
+            x_var_name,
+            y_var_name,
             site_dim=site_dim,
             min_points=min_points,
             **plot_options,
@@ -550,8 +550,8 @@ class PlottingStage(BaseStage):
         *,
         plotter: Any,
         paired_data: Any,
-        geometry_var_name: str,
-        dataset_var_name: str,
+        x_var_name: str,
+        y_var_name: str,
         plot_options: dict[str, Any],
         x_source_output_dir: Any,
         plot_name: str,
@@ -569,9 +569,7 @@ class PlottingStage(BaseStage):
         from davinci_monet.plots.base import build_series
 
         # Generate single plot via the unified render contract.
-        fig = plotter.render(
-            build_series(paired_data, geometry_var_name, dataset_var_name), **plot_options
-        )
+        fig = plotter.render(build_series(paired_data, x_var_name, y_var_name), **plot_options)
 
         # Save plot (prefixed for ordering)
         output_path = x_source_output_dir / f"{file_index:02d}_{plot_name}.png"
@@ -624,13 +622,13 @@ class PlottingStage(BaseStage):
             x_source,
             y_source,
             var_spec,
-            geometry_var_name,
-            dataset_var_name,
+            x_var_name,
+            y_var_name,
         ) = resolved
 
         paired_data = self._apply_domain_filter(paired_data, plot_spec)
 
-        if geometry_var_name not in paired_data or dataset_var_name not in paired_data:
+        if x_var_name not in paired_data or y_var_name not in paired_data:
             return file_index
 
         plotter_config, plot_options = self._resolve_plot_options(
@@ -662,8 +660,8 @@ class PlottingStage(BaseStage):
             return self._save_per_flight(
                 plotter=plotter,
                 paired_data=paired_data,
-                geometry_var_name=geometry_var_name,
-                dataset_var_name=dataset_var_name,
+                x_var_name=x_var_name,
+                y_var_name=y_var_name,
                 plot_spec=plot_spec,
                 plot_options=plot_options,
                 x_source_output_dir=x_source_output_dir,
@@ -678,8 +676,8 @@ class PlottingStage(BaseStage):
             return self._save_per_site(
                 plotter=plotter,
                 paired_data=paired_data,
-                geometry_var_name=geometry_var_name,
-                dataset_var_name=dataset_var_name,
+                x_var_name=x_var_name,
+                y_var_name=y_var_name,
                 plot_spec=plot_spec,
                 plot_options=plot_options,
                 x_source_output_dir=x_source_output_dir,
@@ -693,8 +691,8 @@ class PlottingStage(BaseStage):
             return self._save_single(
                 plotter=plotter,
                 paired_data=paired_data,
-                geometry_var_name=geometry_var_name,
-                dataset_var_name=dataset_var_name,
+                x_var_name=x_var_name,
+                y_var_name=y_var_name,
                 plot_options=plot_options,
                 x_source_output_dir=x_source_output_dir,
                 plot_name=plot_name,

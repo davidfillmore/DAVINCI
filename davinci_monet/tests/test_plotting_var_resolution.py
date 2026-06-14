@@ -29,9 +29,9 @@ def _paired_with_labels(geometry: str, dataset: str) -> xr.Dataset:
 class TestResolvePairedVarNames:
     def test_prefers_dataset_label_names(self) -> None:
         ds = _paired_with_labels(geometry="airnow", dataset="cam")
-        geometry_name, dataset_name = resolve_paired_var_names(ds, "o3", "airnow", "cam")
-        assert geometry_name == "airnow_o3"
-        assert dataset_name == "cam_o3"
+        x_name, y_name = resolve_paired_var_names(ds, "o3", "airnow", "cam")
+        assert x_name == "airnow_o3"
+        assert y_name == "cam_o3"
 
     def test_prefix_names_are_fallbacks(self) -> None:
         ds = xr.Dataset(
@@ -41,9 +41,9 @@ class TestResolvePairedVarNames:
             },
             coords={"time": np.arange(4)},
         )
-        geometry_name, dataset_name = resolve_paired_var_names(ds, "o3", "airnow", "cam")
-        assert geometry_name == "geometry_o3"
-        assert dataset_name == "dataset_o3"
+        x_name, y_name = resolve_paired_var_names(ds, "o3", "airnow", "cam")
+        assert x_name == "geometry_o3"
+        assert y_name == "dataset_o3"
 
 
 class TestCanonicalVariableName:

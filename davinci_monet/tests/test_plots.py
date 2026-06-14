@@ -1397,12 +1397,12 @@ class TestSpatialPlotters:
         lat = np.linspace(30.0, 50.0, 10)
         lon = np.linspace(-120.0, -100.0, 12)
         rng = np.random.default_rng(0)
-        geometry_vals = rng.uniform(20, 80, (10, 12))
-        dataset_vals = rng.uniform(20, 80, (10, 12))
+        x_vals = rng.uniform(20, 80, (10, 12))
+        y_vals = rng.uniform(20, 80, (10, 12))
         ds = xr.Dataset(
             {
-                "geometry_o3": (("lat", "lon"), geometry_vals, {"units": "ppbv"}),
-                "dataset_o3": (("lat", "lon"), dataset_vals, {"units": "ppbv"}),
+                "geometry_o3": (("lat", "lon"), x_vals, {"units": "ppbv"}),
+                "dataset_o3": (("lat", "lon"), y_vals, {"units": "ppbv"}),
             },
             coords={"lat": lat, "lon": lon},
         )
@@ -1435,12 +1435,12 @@ class TestSpatialPlotters:
         lats = np.linspace(30.0, 50.0, n_sites)
         lons = np.linspace(-120.0, -100.0, n_sites)
         rng = np.random.default_rng(1)
-        geometry_vals = rng.uniform(20, 80, n_sites)
-        dataset_vals = rng.uniform(20, 80, n_sites)
+        x_vals = rng.uniform(20, 80, n_sites)
+        y_vals = rng.uniform(20, 80, n_sites)
         ds = xr.Dataset(
             {
-                "geometry_o3": (("site",), geometry_vals, {"units": "ppbv"}),
-                "dataset_o3": (("site",), dataset_vals, {"units": "ppbv"}),
+                "geometry_o3": (("site",), x_vals, {"units": "ppbv"}),
+                "dataset_o3": (("site",), y_vals, {"units": "ppbv"}),
             },
             coords={
                 "site": site,
@@ -1477,12 +1477,12 @@ class TestSpatialPlotters:
         lats = np.linspace(30.0, 50.0, n_sites)
         lons = np.linspace(-120.0, -100.0, n_sites)
         rng = np.random.default_rng(2)
-        geometry_vals = rng.uniform(20, 80, (n_times, n_sites))
-        dataset_vals = rng.uniform(20, 80, (n_times, n_sites))
+        x_vals = rng.uniform(20, 80, (n_times, n_sites))
+        y_vals = rng.uniform(20, 80, (n_times, n_sites))
         ds = xr.Dataset(
             {
-                "geometry_o3": (("time", "site"), geometry_vals, {"units": "ppbv"}),
-                "dataset_o3": (("time", "site"), dataset_vals, {"units": "ppbv"}),
+                "geometry_o3": (("time", "site"), x_vals, {"units": "ppbv"}),
+                "dataset_o3": (("time", "site"), y_vals, {"units": "ppbv"}),
             },
             coords={
                 "time": times,
@@ -1590,13 +1590,13 @@ class TestSpatialOverlay:
         plotter = SpatialOverlayPlotter()
 
         # Create a dataset field (2D lat/lon) for the contour layer
-        dataset_field = gridded_paired_data["dataset_o3"].isel(time=0)
+        y_field = gridded_paired_data["dataset_o3"].isel(time=0)
 
         fig = plotter.plot(
             simple_paired_data,
             x_var="geometry_o3",
             y_var="dataset_o3",
-            dataset_field=dataset_field,
+            y_field=y_field,
         )
 
         assert fig is not None

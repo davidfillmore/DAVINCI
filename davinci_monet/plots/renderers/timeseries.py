@@ -158,8 +158,8 @@ class TimeSeriesPlotter(BasePlotter):
 
         # Convert to numpy for plotting
         time_values = pd.to_datetime(time.values)
-        geometry_values = x_data.values
-        dataset_values = y_data.values
+        x_values = x_data.values
+        y_values = y_data.values
 
         # Get style configuration
         style = self.config.style
@@ -189,7 +189,7 @@ class TimeSeriesPlotter(BasePlotter):
         # Plot datasets
         ax.plot(
             time_values,
-            geometry_values,
+            x_values,
             color=x_color,
             linestyle=style.x_linestyle,
             marker=style.x_marker if len(time_values) < 50 else None,
@@ -202,7 +202,7 @@ class TimeSeriesPlotter(BasePlotter):
         # Plot dataset
         ax.plot(
             time_values,
-            dataset_values,
+            y_values,
             color=y_color,
             linestyle=style.y_linestyle,
             marker=style.y_marker if len(time_values) < 50 else None,
@@ -598,37 +598,37 @@ class TimeSeriesPlotter(BasePlotter):
 
         # Calculate uncertainty bounds
         if uncertainty_type == "std":
-            geometry_mean = x_data.mean(dim=aggregate_dim)
-            dataset_mean = y_data.mean(dim=aggregate_dim)
+            x_mean = x_data.mean(dim=aggregate_dim)
+            y_mean = y_data.mean(dim=aggregate_dim)
 
             # Suppress warnings for time bins with single datasets (ddof > n)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", "Degrees of freedom", RuntimeWarning)
-                geometry_std = x_data.std(dim=aggregate_dim)
-                dataset_std = y_data.std(dim=aggregate_dim)
+                x_std = x_data.std(dim=aggregate_dim)
+                y_std = y_data.std(dim=aggregate_dim)
 
-            geometry_lower = geometry_mean - geometry_std
-            geometry_upper = geometry_mean + geometry_std
-            dataset_lower = dataset_mean - dataset_std
-            dataset_upper = dataset_mean + dataset_std
+            x_lower = x_mean - x_std
+            x_upper = x_mean + x_std
+            y_lower = y_mean - y_std
+            y_upper = y_mean + y_std
 
         elif uncertainty_type == "iqr":
-            geometry_lower = x_data.quantile(0.25, dim=aggregate_dim)
-            geometry_upper = x_data.quantile(0.75, dim=aggregate_dim)
-            dataset_lower = y_data.quantile(0.25, dim=aggregate_dim)
-            dataset_upper = y_data.quantile(0.75, dim=aggregate_dim)
+            x_lower = x_data.quantile(0.25, dim=aggregate_dim)
+            x_upper = x_data.quantile(0.75, dim=aggregate_dim)
+            y_lower = y_data.quantile(0.25, dim=aggregate_dim)
+            y_upper = y_data.quantile(0.75, dim=aggregate_dim)
 
         else:  # range
-            geometry_lower = x_data.min(dim=aggregate_dim)
-            geometry_upper = x_data.max(dim=aggregate_dim)
-            dataset_lower = y_data.min(dim=aggregate_dim)
-            dataset_upper = y_data.max(dim=aggregate_dim)
+            x_lower = x_data.min(dim=aggregate_dim)
+            x_upper = x_data.max(dim=aggregate_dim)
+            y_lower = y_data.min(dim=aggregate_dim)
+            y_upper = y_data.max(dim=aggregate_dim)
 
         # Plot bands (pair-axis colors, matching the series; R-3)
         ax.fill_between(
             time_values,
-            geometry_lower.values,
-            geometry_upper.values,
+            x_lower.values,
+            x_upper.values,
             color=get_axis_color(
                 paired_data,
                 x_var,
@@ -640,8 +640,8 @@ class TimeSeriesPlotter(BasePlotter):
         )
         ax.fill_between(
             time_values,
-            dataset_lower.values,
-            dataset_upper.values,
+            y_lower.values,
+            y_upper.values,
             color=get_axis_color(
                 paired_data,
                 y_var,
@@ -707,25 +707,25 @@ class TimeSeriesPlotter(BasePlotter):
         if show_uncertainty and aggregate_dim is not None:
             # Need to include uncertainty bands in range calculation
             if uncertainty_type == "std":
-                geometry_mean = x_data.mean(dim=aggregate_dim)
-                dataset_mean = y_data.mean(dim=aggregate_dim)
+                x_mean = x_data.mean(dim=aggregate_dim)
+                y_mean = y_data.mean(dim=aggregate_dim)
 
                 # Suppress warnings for time bins with single datasets (ddof > n)
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", "Degrees of freedom", RuntimeWarning)
-                    geometry_std = x_data.std(dim=aggregate_dim)
-                    dataset_std = y_data.std(dim=aggregate_dim)
+                    x_std = x_data.std(dim=aggregate_dim)
+                    y_std = y_data.std(dim=aggregate_dim)
 
                 data_min = float(
                     min(
-                        np.nanmin(geometry_mean.values - geometry_std.values),
-                        np.nanmin(dataset_mean.values - dataset_std.values),
+                        np.nanmin(x_mean.values - x_std.values),
+                        np.nanmin(y_mean.values - y_std.values),
                     )
                 )
                 data_max = float(
                     max(
-                        np.nanmax(geometry_mean.values + geometry_std.values),
-                        np.nanmax(dataset_mean.values + dataset_std.values),
+                        np.nanmax(x_mean.values + x_std.values),
+                        np.nanmax(y_mean.values + y_std.values),
                     )
                 )
             elif uncertainty_type == "iqr":

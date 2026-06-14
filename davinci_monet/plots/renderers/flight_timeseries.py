@@ -145,7 +145,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
             ncols (int, default 3), min_points (int, default 10),
             time_dim (str, default "time"), flight_coord (str, default "flight"),
             show_stats (bool, default True), scale_factor (float, default 1.0),
-            geometry_style (str, default "scatter"), dataset_style (str, default "line"),
+            x_style (str, default "scatter"), y_style (str, default "line"),
             show_altitude (bool, default True), altitude_var (str|None, default None),
             altitude_units (str, default "km").
 
@@ -170,8 +170,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
         flight_coord: str = kwargs.pop("flight_coord", "flight")
         show_stats: bool = kwargs.pop("show_stats", True)
         scale_factor: float = kwargs.pop("scale_factor", 1.0)
-        geometry_style: str = kwargs.pop("geometry_style", "scatter")
-        dataset_style: str = kwargs.pop("dataset_style", "line")
+        x_style: str = kwargs.pop("x_style", "scatter")
+        y_style: str = kwargs.pop("y_style", "line")
         show_altitude: bool = kwargs.pop("show_altitude", True)
         altitude_var: str | None = kwargs.pop("altitude_var", None)
         altitude_units: str = kwargs.pop("altitude_units", "km")
@@ -195,9 +195,9 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
         for flight in flights:
             mask = paired_data[flight_coord].values == flight
-            geometry_vals = paired_data[x_var].values[mask]
-            dataset_vals = paired_data[y_var].values[mask]
-            valid = ~np.isnan(geometry_vals) & ~np.isnan(dataset_vals)
+            x_vals = paired_data[x_var].values[mask]
+            y_vals = paired_data[y_var].values[mask]
+            valid = ~np.isnan(x_vals) & ~np.isnan(y_vals)
             if valid.sum() >= min_points:
                 valid_flights.append(flight)
 
@@ -232,25 +232,25 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Get data for this flight
             times = pd.to_datetime(paired_data[time_dim].values[mask])
-            geometry_vals = paired_data[x_var].values[mask] * scale_factor
-            dataset_vals = paired_data[y_var].values[mask] * scale_factor
+            x_vals = paired_data[x_var].values[mask] * scale_factor
+            y_vals = paired_data[y_var].values[mask] * scale_factor
 
-            valid_geometry = ~np.isnan(geometry_vals)
-            valid_both = valid_geometry & ~np.isnan(dataset_vals)
+            valid_geometry = ~np.isnan(x_vals)
+            valid_both = valid_geometry & ~np.isnan(y_vals)
 
             # Sort by time for line plots
             sort_idx = np.argsort(times)
             times = times[sort_idx]
-            geometry_vals = geometry_vals[sort_idx]
-            dataset_vals = dataset_vals[sort_idx]
+            x_vals = x_vals[sort_idx]
+            y_vals = y_vals[sort_idx]
             valid_geometry = valid_geometry[sort_idx]
             valid_both = valid_both[sort_idx]
 
             # Plot datasets
-            if geometry_style == "scatter":
+            if x_style == "scatter":
                 panel_ax.scatter(
                     times[valid_geometry],
-                    geometry_vals[valid_geometry],
+                    x_vals[valid_geometry],
                     s=12,
                     alpha=0.7,
                     color=x_color,
@@ -260,7 +260,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
             else:
                 panel_ax.plot(
                     times[valid_geometry],
-                    geometry_vals[valid_geometry],
+                    x_vals[valid_geometry],
                     "o-",
                     color=x_color,
                     markersize=3,
@@ -271,10 +271,10 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 )
 
             # Plot dataset
-            if dataset_style == "line":
+            if y_style == "line":
                 panel_ax.plot(
                     times,
-                    dataset_vals,
+                    y_vals,
                     color=y_color,
                     linewidth=1.5,
                     alpha=0.8,
@@ -284,7 +284,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
             else:
                 panel_ax.scatter(
                     times[valid_both],
-                    dataset_vals[valid_both],
+                    y_vals[valid_both],
                     s=12,
                     alpha=0.7,
                     color=y_color,
@@ -324,12 +324,12 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Compute and display stats (via central metric registry)
             if show_stats and valid_both.sum() > 0:
-                geometry_mean = geometry_vals[valid_both].mean()
+                x_mean = x_vals[valid_both].mean()
                 stats = annotation_metrics(
-                    geometry_vals[valid_both], dataset_vals[valid_both], ["N", "NMB", "R"]
+                    x_vals[valid_both], y_vals[valid_both], ["N", "NMB", "R"]
                 )
                 n = int(stats["N"])
-                nmb = stats["NMB"] if geometry_mean != 0 else 0
+                nmb = stats["NMB"] if x_mean != 0 else 0
                 # Preserve the renderer's <=2-point guard (registry R needs >=2)
                 r = stats["R"] if valid_both.sum() > 2 else np.nan
 
@@ -400,8 +400,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
         flight_coord: str = "flight",
         show_stats: bool = True,
         scale_factor: float = 1.0,
-        geometry_style: str = "scatter",
-        dataset_style: str = "line",
+        x_style: str = "scatter",
+        y_style: str = "line",
         show_altitude: bool = True,
         altitude_var: str | None = None,
         altitude_units: str = "km",
@@ -433,9 +433,9 @@ class FlightTimeSeriesPlotter(BasePlotter):
             If True, show N, NMB, R statistics on each panel.
         scale_factor
             Scale factor for display values.
-        geometry_style
+        x_style
             Style for datasets: 'scatter' or 'line'.
-        dataset_style
+        y_style
             Style for dataset: 'line' or 'scatter'.
         show_altitude
             If True, show aircraft altitude on right y-axis.
@@ -460,8 +460,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
             flight_coord=flight_coord,
             show_stats=show_stats,
             scale_factor=scale_factor,
-            geometry_style=geometry_style,
-            dataset_style=dataset_style,
+            x_style=x_style,
+            y_style=y_style,
             show_altitude=show_altitude,
             altitude_var=altitude_var,
             altitude_units=altitude_units,
@@ -478,8 +478,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
         min_points: int = 10,
         show_stats: bool = True,
         scale_factor: float = 1.0,
-        geometry_style: str = "scatter",
-        dataset_style: str = "line",
+        x_style: str = "scatter",
+        y_style: str = "line",
         show_altitude: bool = True,
         altitude_var: str | None = None,
         altitude_units: str = "km",
@@ -508,9 +508,9 @@ class FlightTimeSeriesPlotter(BasePlotter):
             If True, show N, NMB, R statistics on each panel.
         scale_factor
             Scale factor for display values.
-        geometry_style
+        x_style
             Style for datasets: 'scatter' or 'line'.
-        dataset_style
+        y_style
             Style for dataset: 'line' or 'scatter'.
         show_altitude
             If True, show aircraft altitude on right y-axis.
@@ -561,11 +561,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Get data for this flight
             times = pd.to_datetime(paired_data[time_dim].values[mask])
-            geometry_vals = paired_data[x_var].values[mask] * scale_factor
-            dataset_vals = paired_data[y_var].values[mask] * scale_factor
+            x_vals = paired_data[x_var].values[mask] * scale_factor
+            y_vals = paired_data[y_var].values[mask] * scale_factor
 
-            valid_geometry = ~np.isnan(geometry_vals)
-            valid_both = valid_geometry & ~np.isnan(dataset_vals)
+            valid_geometry = ~np.isnan(x_vals)
+            valid_both = valid_geometry & ~np.isnan(y_vals)
 
             # Check minimum points
             if valid_both.sum() < min_points:
@@ -574,8 +574,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
             # Sort by time
             sort_idx = np.argsort(times)
             times = times[sort_idx]
-            geometry_vals = geometry_vals[sort_idx]
-            dataset_vals = dataset_vals[sort_idx]
+            x_vals = x_vals[sort_idx]
+            y_vals = y_vals[sort_idx]
             valid_geometry = valid_geometry[sort_idx]
             valid_both = valid_both[sort_idx]
 
@@ -586,10 +586,10 @@ class FlightTimeSeriesPlotter(BasePlotter):
             text_cfg = self.config.text
 
             # Plot datasets
-            if geometry_style == "scatter":
+            if x_style == "scatter":
                 ax.scatter(
                     times[valid_geometry],
-                    geometry_vals[valid_geometry],
+                    x_vals[valid_geometry],
                     s=20,
                     alpha=0.7,
                     color=x_color,
@@ -599,7 +599,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
             else:
                 ax.plot(
                     times[valid_geometry],
-                    geometry_vals[valid_geometry],
+                    x_vals[valid_geometry],
                     "o-",
                     color=x_color,
                     markersize=4,
@@ -610,10 +610,10 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 )
 
             # Plot dataset
-            if dataset_style == "line":
+            if y_style == "line":
                 ax.plot(
                     times,
-                    dataset_vals,
+                    y_vals,
                     color=y_color,
                     linewidth=2,
                     alpha=0.8,
@@ -623,7 +623,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
             else:
                 ax.scatter(
                     times[valid_both],
-                    dataset_vals[valid_both],
+                    y_vals[valid_both],
                     s=20,
                     alpha=0.7,
                     color=y_color,
@@ -658,12 +658,12 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Compute and display stats (via central metric registry)
             if show_stats and valid_both.sum() > 0:
-                geometry_mean = geometry_vals[valid_both].mean()
+                x_mean = x_vals[valid_both].mean()
                 stats = annotation_metrics(
-                    geometry_vals[valid_both], dataset_vals[valid_both], ["N", "NMB", "R"]
+                    x_vals[valid_both], y_vals[valid_both], ["N", "NMB", "R"]
                 )
                 n = int(stats["N"])
-                nmb = stats["NMB"] if geometry_mean != 0 else 0
+                nmb = stats["NMB"] if x_mean != 0 else 0
                 # Preserve the renderer's <=2-point guard (registry R needs >=2)
                 r = stats["R"] if valid_both.sum() > 2 else np.nan
 

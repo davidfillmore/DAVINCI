@@ -98,12 +98,12 @@ class TestPointPipeline:
         time_cfg = TimeConfig(start="2024-01-15 00:00", end="2024-01-17 00:00", freq="1h")
 
         # Build dataset with latitude gradient
-        dataset_ds = create_dataset_dataset(
+        y_ds = create_dataset_dataset(
             variables=["O3"], domain=domain, time_config=time_cfg, seed=42
         )
-        lat_vals = dataset_ds.lat.values
+        lat_vals = y_ds.lat.values
         lat_norm = (lat_vals - lat_vals.min()) / (lat_vals.max() - lat_vals.min())
-        dataset_ds["O3"] = dataset_ds["O3"] + 20.0 * lat_norm[:, np.newaxis]
+        y_ds["O3"] = y_ds["O3"] + 20.0 * lat_norm[:, np.newaxis]
 
         # Sample geometry from gradient-enhanced dataset
         scenario = PerfectMatchScenario(
@@ -115,24 +115,24 @@ class TestPointPipeline:
             noise_level=0.0,
             seed=42,
         )
-        geometry_ds = sample_geometry_from(dataset_ds, "point", scenario=scenario)
+        x_ds = sample_geometry_from(y_ds, "point", scenario=scenario)
 
         # Add dataset bias + noise (geometry stay clean)
         rng = np.random.default_rng(42)
-        lon_vals = dataset_ds.lon.values
+        lon_vals = y_ds.lon.values
         lon_norm = (lon_vals - lon_vals.min()) / (lon_vals.max() - lon_vals.min())
-        dataset_ds["O3"] = (
-            dataset_ds["O3"]
+        y_ds["O3"] = (
+            y_ds["O3"]
             + 5.0
             + 6.0 * lon_norm[np.newaxis, :]
-            + rng.normal(0, 3.0, size=dataset_ds["O3"].shape)
+            + rng.normal(0, 3.0, size=y_ds["O3"].shape)
         )
 
         # Write to NetCDF
-        dataset_path = tmp_path / "dataset.nc"
-        geometry_path = tmp_path / "geometry.nc"
-        dataset_ds.to_netcdf(dataset_path)
-        geometry_ds.to_netcdf(geometry_path)
+        y_path = tmp_path / "dataset.nc"
+        x_path = tmp_path / "geometry.nc"
+        y_ds.to_netcdf(y_path)
+        x_ds.to_netcdf(x_path)
 
         output_dir = tmp_path / "output"
         log_dir = tmp_path / "logs"
@@ -147,7 +147,7 @@ class TestPointPipeline:
             "sources": {
                 "synthetic": {
                     "type": "generic",
-                    "files": str(dataset_path),
+                    "files": str(y_path),
                     "radius_of_influence": 50000,
                     "variables": {
                         "O3": {
@@ -160,7 +160,7 @@ class TestPointPipeline:
                 },
                 "surface": {
                     "type": "pt_sfc",
-                    "filename": str(geometry_path),
+                    "filename": str(x_path),
                     "variables": {"O3": {"valid_min": 0, "valid_max": 200, "units": "ppb"}},
                 },
             },
@@ -260,10 +260,10 @@ class TestTrackPipeline:
         n = 200
 
         # Build 2D dataset (surface only — track strategy falls back to surface extraction)
-        dataset_ds = create_dataset_dataset(
+        y_ds = create_dataset_dataset(
             variables=["O3"], domain=domain, time_config=time_cfg, seed=42
         )
-        dataset_ds["O3"] = dataset_ds["O3"] + rng.normal(0, 2.0, size=dataset_ds["O3"].shape)
+        y_ds["O3"] = y_ds["O3"] + rng.normal(0, 2.0, size=y_ds["O3"].shape)
 
         # Build synthetic track geometry
         t = np.linspace(0, 4 * np.pi, n)
@@ -273,7 +273,7 @@ class TestTrackPipeline:
         alts = 1000 + 8000 * (0.5 + 0.5 * np.sin(t / 2))
         flight_ids = np.where(np.arange(n) < 100, "F01", "F02")
 
-        geometry_ds = xr.Dataset(
+        x_ds = xr.Dataset(
             {"O3": ("time", 30.0 + 5.0 * (alts / 1000) + rng.normal(0, 3, n))},
             coords={
                 "time": times,
@@ -285,10 +285,10 @@ class TestTrackPipeline:
             attrs={"geometry": "track"},
         )
 
-        dataset_path = tmp_path / "dataset_track.nc"
-        geometry_path = tmp_path / "geometry_track.nc"
-        dataset_ds.to_netcdf(dataset_path)
-        geometry_ds.to_netcdf(geometry_path)
+        y_path = tmp_path / "dataset_track.nc"
+        x_path = tmp_path / "geometry_track.nc"
+        y_ds.to_netcdf(y_path)
+        x_ds.to_netcdf(x_path)
 
         output_dir = tmp_path / "output"
         log_dir = tmp_path / "logs"
@@ -303,13 +303,13 @@ class TestTrackPipeline:
             "sources": {
                 "synthetic": {
                     "type": "generic",
-                    "files": str(dataset_path),
+                    "files": str(y_path),
                     "radius_of_influence": 100000,
                     "variables": {"O3": {"units": "ppb"}},
                 },
                 "aircraft": {
                     "type": "aircraft",
-                    "filename": str(geometry_path),
+                    "filename": str(x_path),
                     "variables": {"O3": {"units": "ppb"}},
                 },
             },
@@ -372,7 +372,7 @@ class TestGeometryOnlyPipeline:
         alts = 500 + 10000 * (0.5 + 0.5 * np.sin(t))
         flight_ids = np.where(np.arange(n) < 150, "2012-05-29", "2012-05-30")
 
-        geometry_ds = xr.Dataset(
+        x_ds = xr.Dataset(
             {
                 "O3": (
                     "time",
@@ -395,8 +395,8 @@ class TestGeometryOnlyPipeline:
             attrs={"geometry": "track"},
         )
 
-        geometry_path = tmp_path / "geometry_aircraft.nc"
-        geometry_ds.to_netcdf(geometry_path)
+        x_path = tmp_path / "geometry_aircraft.nc"
+        x_ds.to_netcdf(x_path)
 
         output_dir = tmp_path / "output"
         log_dir = tmp_path / "logs"
@@ -412,7 +412,7 @@ class TestGeometryOnlyPipeline:
             "sources": {
                 "dc8": {
                     "type": "aircraft",
-                    "filename": str(geometry_path),
+                    "filename": str(x_path),
                     "variables": {
                         "O3": {"units": "ppbv"},
                         "CO": {"units": "ppbv"},

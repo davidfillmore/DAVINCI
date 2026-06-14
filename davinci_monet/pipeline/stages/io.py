@@ -86,17 +86,17 @@ class SaveResultsStage(BaseStage):
                     # Prefer computed NMB/NME if present; otherwise derive as fallback
                     nmb = _get_metric(var_stats, "NMB", default=float("nan"))
                     nme = _get_metric(var_stats, "NME", default=float("nan"))
-                    geometry_mean = row["Mean_Geometry"]
+                    x_mean = row["Mean_Geometry"]
 
                     if isinstance(nmb, (int, float)) and not math.isnan(float(nmb)):
                         row["NMB_%"] = nmb
                     elif (
-                        isinstance(geometry_mean, (int, float))
-                        and geometry_mean not in (0, -0.0)
-                        and not math.isnan(float(geometry_mean))
+                        isinstance(x_mean, (int, float))
+                        and x_mean not in (0, -0.0)
+                        and not math.isnan(float(x_mean))
                     ):
                         row["NMB_%"] = (
-                            (row["MB"] / geometry_mean) * 100
+                            (row["MB"] / x_mean) * 100
                             if isinstance(row["MB"], (int, float))
                             else float("nan")
                         )

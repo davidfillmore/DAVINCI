@@ -281,8 +281,8 @@ class LMADensityPlotter(BasePlotter):
         **kwargs: Any,
     ) -> None:
         """Overlay aircraft flight tracks on the map."""
-        geometry_datasets: dict[str, xr.Dataset] = kwargs.get("geometry_datasets", {})
-        if not geometry_datasets:
+        x_datasets: dict[str, xr.Dataset] = kwargs.get("geometry_datasets", {})
+        if not x_datasets:
             return
 
         track_colors = {
@@ -290,10 +290,10 @@ class LMADensityPlotter(BasePlotter):
             for i, label in enumerate(flight_tracks.keys())
         }
 
-        for label, geometry_key in flight_tracks.items():
-            if geometry_key not in geometry_datasets:
+        for label, x_key in flight_tracks.items():
+            if x_key not in x_datasets:
                 continue
-            track_ds = geometry_datasets[geometry_key]
+            track_ds = x_datasets[x_key]
 
             if "latitude" not in track_ds.coords or "longitude" not in track_ds.coords:
                 continue

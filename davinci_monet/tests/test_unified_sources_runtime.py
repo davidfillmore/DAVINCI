@@ -86,23 +86,23 @@ def _write_point_source(path: Path) -> None:
 def test_sources_config_pairs_from_pair_variables(tmp_path: Path) -> None:
     from davinci_monet.pipeline.runner import PipelineRunner
 
-    dataset_path = tmp_path / "dataset.nc"
-    geometry_path = tmp_path / "geometry.nc"
-    _write_grid_source(dataset_path)
-    _write_point_source(geometry_path)
+    y_path = tmp_path / "dataset.nc"
+    x_path = tmp_path / "geometry.nc"
+    _write_grid_source(y_path)
+    _write_point_source(x_path)
 
     config = {
         "analysis": {"output_dir": str(tmp_path / "out")},
         "sources": {
             "cam": {
                 "type": "generic",
-                "files": str(dataset_path),
+                "files": str(y_path),
                 "radius_of_influence": 200000,
                 "variables": {"O3": {"units": "ppb"}},
             },
             "airnow": {
                 "type": "pt_sfc",
-                "filename": str(geometry_path),
+                "filename": str(x_path),
                 "variables": {"o3": {"units": "ppb"}},
             },
         },
@@ -133,23 +133,23 @@ def test_sources_config_without_pairs_loads_sources_only(tmp_path: Path) -> None
     """A sources config without ``pairs:`` loads sources and produces no pairs."""
     from davinci_monet.pipeline.runner import PipelineRunner
 
-    dataset_path = tmp_path / "dataset.nc"
-    geometry_path = tmp_path / "geometry.nc"
-    _write_grid_source(dataset_path)
-    _write_point_source(geometry_path)
+    y_path = tmp_path / "dataset.nc"
+    x_path = tmp_path / "geometry.nc"
+    _write_grid_source(y_path)
+    _write_point_source(x_path)
 
     config = {
         "analysis": {"output_dir": str(tmp_path / "out")},
         "sources": {
             "cam": {
                 "type": "generic",
-                "files": str(dataset_path),
+                "files": str(y_path),
                 "radius_of_influence": 200000,
                 "variables": {"O3": {"units": "ppb"}},
             },
             "airnow": {
                 "type": "pt_sfc",
-                "filename": str(geometry_path),
+                "filename": str(x_path),
                 "variables": {"o3": {"units": "ppb"}},
             },
         },
@@ -167,16 +167,16 @@ def test_sources_config_without_pairs_loads_sources_only(tmp_path: Path) -> None
 def test_sources_config_supports_dataset_dataset_pair(tmp_path: Path) -> None:
     from davinci_monet.pipeline.runner import PipelineRunner
 
-    geometry_path = tmp_path / "geometry_grid.nc"
-    dataset_path = tmp_path / "dataset_grid.nc"
-    _write_grid_source(geometry_path, offset=0.0)
-    _write_grid_source(dataset_path, offset=1.0)
+    x_path = tmp_path / "geometry_grid.nc"
+    y_path = tmp_path / "dataset_grid.nc"
+    _write_grid_source(x_path, offset=0.0)
+    _write_grid_source(y_path, offset=1.0)
 
     config = {
         "analysis": {"output_dir": str(tmp_path / "out")},
         "sources": {
-            "cam_grid": {"type": "generic", "files": str(geometry_path)},
-            "cam_offset": {"type": "generic", "files": str(dataset_path)},
+            "cam_grid": {"type": "generic", "files": str(x_path)},
+            "cam_offset": {"type": "generic", "files": str(y_path)},
         },
         "pairs": {
             "cam_grid_cam_offset_o3": {
@@ -516,16 +516,16 @@ def test_unsupported_source_pair_fails_pairing_stage() -> None:
 def test_sources_config_supports_geometry_geometry_grid_pair(tmp_path: Path) -> None:
     from davinci_monet.pipeline.runner import PipelineRunner
 
-    geometry_path = tmp_path / "modis_grid.nc"
-    dataset_path = tmp_path / "viirs_grid.nc"
-    _write_grid_source(geometry_path, offset=0.0)
-    _write_grid_source(dataset_path, offset=1.0)
+    x_path = tmp_path / "modis_grid.nc"
+    y_path = tmp_path / "viirs_grid.nc"
+    _write_grid_source(x_path, offset=0.0)
+    _write_grid_source(y_path, offset=1.0)
 
     config = {
         "analysis": {"output_dir": str(tmp_path / "out")},
         "sources": {
-            "modis": {"type": "generic", "files": str(geometry_path)},
-            "viirs": {"type": "generic", "files": str(dataset_path)},
+            "modis": {"type": "generic", "files": str(x_path)},
+            "viirs": {"type": "generic", "files": str(y_path)},
         },
         "pairs": {
             "modis_viirs_o3": {
@@ -671,31 +671,31 @@ def test_two_explicit_pairs_both_produced_via_executor(tmp_path: Path) -> None:
     """
     from davinci_monet.pipeline.runner import PipelineRunner
 
-    dataset_a = tmp_path / "cam_a.nc"
-    dataset_b = tmp_path / "cam_b.nc"
-    geometry_path = tmp_path / "airnow.nc"
-    _write_grid_source(dataset_a, offset=0.0)
-    _write_grid_source(dataset_b, offset=5.0)
-    _write_point_source(geometry_path)
+    y_a = tmp_path / "cam_a.nc"
+    y_b = tmp_path / "cam_b.nc"
+    x_path = tmp_path / "airnow.nc"
+    _write_grid_source(y_a, offset=0.0)
+    _write_grid_source(y_b, offset=5.0)
+    _write_point_source(x_path)
 
     config = {
         "analysis": {"output_dir": str(tmp_path / "out")},
         "sources": {
             "cam_a": {
                 "type": "generic",
-                "files": str(dataset_a),
+                "files": str(y_a),
                 "radius_of_influence": 200000,
                 "variables": {"O3": {"units": "ppb"}},
             },
             "cam_b": {
                 "type": "generic",
-                "files": str(dataset_b),
+                "files": str(y_b),
                 "radius_of_influence": 200000,
                 "variables": {"O3": {"units": "ppb"}},
             },
             "airnow": {
                 "type": "pt_sfc",
-                "filename": str(geometry_path),
+                "filename": str(x_path),
                 "variables": {"o3": {"units": "ppb"}},
             },
         },
@@ -732,12 +732,12 @@ def test_two_explicit_pairs_with_max_pair_workers(tmp_path: Path) -> None:
     """
     from davinci_monet.pipeline.runner import PipelineRunner
 
-    dataset_a = tmp_path / "cam_a.nc"
-    dataset_b = tmp_path / "cam_b.nc"
-    geometry_path = tmp_path / "airnow.nc"
-    _write_grid_source(dataset_a, offset=0.0)
-    _write_grid_source(dataset_b, offset=5.0)
-    _write_point_source(geometry_path)
+    y_a = tmp_path / "cam_a.nc"
+    y_b = tmp_path / "cam_b.nc"
+    x_path = tmp_path / "airnow.nc"
+    _write_grid_source(y_a, offset=0.0)
+    _write_grid_source(y_b, offset=5.0)
+    _write_point_source(x_path)
 
     config = {
         "analysis": {"output_dir": str(tmp_path / "out")},
@@ -745,19 +745,19 @@ def test_two_explicit_pairs_with_max_pair_workers(tmp_path: Path) -> None:
         "sources": {
             "cam_a": {
                 "type": "generic",
-                "files": str(dataset_a),
+                "files": str(y_a),
                 "radius_of_influence": 200000,
                 "variables": {"O3": {"units": "ppb"}},
             },
             "cam_b": {
                 "type": "generic",
-                "files": str(dataset_b),
+                "files": str(y_b),
                 "radius_of_influence": 200000,
                 "variables": {"O3": {"units": "ppb"}},
             },
             "airnow": {
                 "type": "pt_sfc",
-                "filename": str(geometry_path),
+                "filename": str(x_path),
                 "variables": {"o3": {"units": "ppb"}},
             },
         },

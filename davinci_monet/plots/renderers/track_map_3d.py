@@ -198,20 +198,20 @@ class TrackMap3DPlotter(BasePlotter):
             raise ValueError(f"Altitude variable '{alt_var}' not found")
 
         # Get data values
-        geometry_vals = paired_data[x_var].values
-        dataset_vals = paired_data[y_var].values
+        x_vals = paired_data[x_var].values
+        y_vals = paired_data[y_var].values
 
         # Calculate what to show
         if show_var == "geometry":
-            values = geometry_vals
+            values = x_vals
             default_cmap = "viridis"
             label = get_variable_label(paired_data, x_var, include_prefix=False)
         elif show_var == "dataset":
-            values = dataset_vals
+            values = y_vals
             default_cmap = "viridis"
             label = get_variable_label(paired_data, y_var, include_prefix=False)
         else:  # bias
-            values = dataset_vals - geometry_vals
+            values = y_vals - x_vals
             default_cmap = "RdBu_r"
             # Consistent bias label with other plotters
             label = "Bias (Dataset - Geometry)"
@@ -498,9 +498,9 @@ class TrackMap3DPlotter(BasePlotter):
             flight_data = paired_data.isel(time=mask)
 
             # Check for minimum points
-            geometry_vals = flight_data[x_var].values.flatten()
-            dataset_vals = flight_data[y_var].values.flatten()
-            valid = np.isfinite(geometry_vals) & np.isfinite(dataset_vals)
+            x_vals = flight_data[x_var].values.flatten()
+            y_vals = flight_data[y_var].values.flatten()
+            valid = np.isfinite(x_vals) & np.isfinite(y_vals)
 
             if valid.sum() < min_points:
                 continue

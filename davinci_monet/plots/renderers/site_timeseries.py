@@ -79,7 +79,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
             ncols (int, default 3), min_points (int, default 20),
             time_dim (str, default "time"), site_dim (str, default "site"),
             show_stats (bool, default True), scale_factor (float, default 1.0),
-            geometry_style (str, default "scatter"), dataset_style (str, default "line").
+            x_style (str, default "scatter"), y_style (str, default "line").
 
         Returns
         -------
@@ -102,8 +102,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
         site_dim: str = kwargs.pop("site_dim", "site")
         show_stats: bool = kwargs.pop("show_stats", True)
         scale_factor: float = kwargs.pop("scale_factor", 1.0)
-        geometry_style: str = kwargs.pop("geometry_style", "scatter")
-        dataset_style: str = kwargs.pop("dataset_style", "line")
+        x_style: str = kwargs.pop("x_style", "scatter")
+        y_style: str = kwargs.pop("y_style", "line")
 
         style = self.config.style
 
@@ -116,9 +116,9 @@ class SiteTimeSeriesPlotter(BasePlotter):
 
         for site in sites:
             site_data = paired_data.sel({site_dim: site})
-            geometry_vals = site_data[x_var].values
-            dataset_vals = site_data[y_var].values
-            valid = ~np.isnan(geometry_vals) & ~np.isnan(dataset_vals)
+            x_vals = site_data[x_var].values
+            y_vals = site_data[y_var].values
+            valid = ~np.isnan(x_vals) & ~np.isnan(y_vals)
             if valid.sum() >= min_points:
                 valid_sites.append(site)
 
@@ -147,15 +147,15 @@ class SiteTimeSeriesPlotter(BasePlotter):
             site_data = paired_data.sel({site_dim: site})
 
             # Get data
-            geometry_da = site_data[x_var]
-            dataset_da = site_data[y_var]
+            x_da = site_data[x_var]
+            y_da = site_data[y_var]
             times = pd.to_datetime(site_data[time_dim].values)
 
-            geometry_vals = geometry_da.values * scale_factor
-            dataset_vals = dataset_da.values * scale_factor
+            x_vals = x_da.values * scale_factor
+            y_vals = y_da.values * scale_factor
 
-            valid_geometry = ~np.isnan(geometry_vals)
-            valid_both = valid_geometry & ~np.isnan(dataset_vals)
+            valid_geometry = ~np.isnan(x_vals)
+            valid_both = valid_geometry & ~np.isnan(y_vals)
 
             # Series colors/labels by source axis (R-3): geometry gray, dataset blue,
             # else palette; legends use the source label.
@@ -177,10 +177,10 @@ class SiteTimeSeriesPlotter(BasePlotter):
             y_label = get_series_label(site_data, y_var)
 
             # Plot datasets
-            if geometry_style == "scatter":
+            if x_style == "scatter":
                 panel_ax.scatter(
                     times[valid_geometry],
-                    geometry_vals[valid_geometry],
+                    x_vals[valid_geometry],
                     s=8,
                     alpha=0.6,
                     color=x_color,
@@ -190,7 +190,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
             else:
                 panel_ax.plot(
                     times[valid_geometry],
-                    geometry_vals[valid_geometry],
+                    x_vals[valid_geometry],
                     "o-",
                     color=x_color,
                     markersize=3,
@@ -201,10 +201,10 @@ class SiteTimeSeriesPlotter(BasePlotter):
                 )
 
             # Plot dataset
-            if dataset_style == "line":
+            if y_style == "line":
                 panel_ax.plot(
                     times,
-                    dataset_vals,
+                    y_vals,
                     color=y_color,
                     linewidth=1.5,
                     alpha=0.8,
@@ -214,7 +214,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
             else:
                 panel_ax.scatter(
                     times[valid_both],
-                    dataset_vals[valid_both],
+                    y_vals[valid_both],
                     s=8,
                     alpha=0.6,
                     color=y_color,
@@ -224,12 +224,12 @@ class SiteTimeSeriesPlotter(BasePlotter):
 
             # Compute and display stats
             if show_stats and valid_both.sum() > 0:
-                geometry_mean = geometry_vals[valid_both].mean()
+                x_mean = x_vals[valid_both].mean()
                 stats = annotation_metrics(
-                    geometry_vals[valid_both], dataset_vals[valid_both], ["N", "NMB", "R"]
+                    x_vals[valid_both], y_vals[valid_both], ["N", "NMB", "R"]
                 )
                 n = int(stats["N"])
-                nmb = stats["NMB"] if geometry_mean != 0 else 0
+                nmb = stats["NMB"] if x_mean != 0 else 0
                 # Preserve the renderer's <=2-point guard (registry R needs >=2)
                 r = stats["R"] if valid_both.sum() > 2 else np.nan
 
@@ -322,8 +322,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
         site_dim: str = "site",
         show_stats: bool = True,
         scale_factor: float = 1.0,
-        geometry_style: str = "scatter",
-        dataset_style: str = "line",
+        x_style: str = "scatter",
+        y_style: str = "line",
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Generate site-by-site time series panels.
@@ -352,9 +352,9 @@ class SiteTimeSeriesPlotter(BasePlotter):
             If True, show N, NMB, R statistics on each panel.
         scale_factor
             Scale factor for display (e.g., 1e4 for mol/m2 -> 10^-4 mol/m2).
-        geometry_style
+        x_style
             Style for datasets: 'scatter' or 'line'.
-        dataset_style
+        y_style
             Style for dataset: 'line' or 'scatter'.
         **kwargs
             Additional options.
@@ -373,8 +373,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
             site_dim=site_dim,
             show_stats=show_stats,
             scale_factor=scale_factor,
-            geometry_style=geometry_style,
-            dataset_style=dataset_style,
+            x_style=x_style,
+            y_style=y_style,
             **kwargs,
         )
 

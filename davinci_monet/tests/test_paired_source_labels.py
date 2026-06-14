@@ -41,7 +41,7 @@ class TestPairedSourceLabelPipeline:
         )
         time_cfg = TimeConfig(start="2024-01-15 00:00", end="2024-01-15 06:00", freq="1h")
 
-        dataset_ds = create_dataset_dataset(
+        y_ds = create_dataset_dataset(
             variables=["O3"], domain=domain, time_config=time_cfg, seed=42
         )
         scenario = PerfectMatchScenario(
@@ -53,12 +53,12 @@ class TestPairedSourceLabelPipeline:
             noise_level=0.0,
             seed=42,
         )
-        geometry_ds = sample_geometry_from(dataset_ds, "point", scenario=scenario)
+        x_ds = sample_geometry_from(y_ds, "point", scenario=scenario)
 
-        dataset_path = tmp_path / "dataset.nc"
-        geometry_path = tmp_path / "geometry.nc"
-        dataset_ds.to_netcdf(dataset_path)
-        geometry_ds.to_netcdf(geometry_path)
+        y_path = tmp_path / "dataset.nc"
+        x_path = tmp_path / "geometry.nc"
+        y_ds.to_netcdf(y_path)
+        x_ds.to_netcdf(x_path)
 
         config = {
             "analysis": {
@@ -70,13 +70,13 @@ class TestPairedSourceLabelPipeline:
             "sources": {
                 "cam": {
                     "type": "generic",
-                    "files": str(dataset_path),
+                    "files": str(y_path),
                     "radius_of_influence": 50000,
                     "variables": {"O3": {"units": "ppb"}},
                 },
                 "airnow": {
                     "type": "pt_sfc",
-                    "filename": str(geometry_path),
+                    "filename": str(x_path),
                     "variables": {"O3": {"valid_min": 0, "valid_max": 200, "units": "ppb"}},
                 },
             },
@@ -161,8 +161,8 @@ class TestPairedHelperRobustness:
 
         assert pd.x_source == "airnow"
         assert pd.y_source == "cam"
-        assert pd.geometry_variables == ["airnow_o3"]
-        assert pd.dataset_variables == ["cam_o3"]
+        assert pd.x_variables == ["airnow_o3"]
+        assert pd.y_variables == ["cam_o3"]
         np.testing.assert_array_equal(pd.get_geometry("o3").values, np.ones(3))
         np.testing.assert_array_equal(pd.get_dataset("o3").values, np.zeros(3))
 

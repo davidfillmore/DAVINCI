@@ -245,7 +245,7 @@ class TestPerSiteTimeSeriesPlotter:
             "dataset_o3",
             site="Bangkok",
             min_points=5,
-            geometry_style="line",
+            x_style="line",
         )
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
@@ -258,7 +258,7 @@ class TestPerSiteTimeSeriesPlotter:
             "dataset_o3",
             site="Bangkok",
             min_points=5,
-            dataset_style="scatter",
+            y_style="scatter",
         )
         assert isinstance(fig, plt.Figure)
         plt.close(fig)

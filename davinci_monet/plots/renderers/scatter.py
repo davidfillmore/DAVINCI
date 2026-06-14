@@ -115,15 +115,15 @@ class ScatterPlotter(BasePlotter):
             fig = ax.get_figure()  # type: ignore[assignment]
 
         # Get data and flatten
-        geometry_values = paired_data[x_var].values.flatten()
-        dataset_values = paired_data[y_var].values.flatten()
+        x_values = paired_data[x_var].values.flatten()
+        y_values = paired_data[y_var].values.flatten()
 
         # Remove NaN values
-        mask = np.isfinite(geometry_values) & np.isfinite(dataset_values)
-        geometry_values = geometry_values[mask]
-        dataset_values = dataset_values[mask]
+        mask = np.isfinite(x_values) & np.isfinite(y_values)
+        x_values = x_values[mask]
+        y_values = y_values[mask]
 
-        if len(geometry_values) == 0:
+        if len(x_values) == 0:
             ax.text(
                 0.5,
                 0.5,
@@ -136,7 +136,7 @@ class ScatterPlotter(BasePlotter):
             return fig
 
         # Calculate limits
-        all_values = np.concatenate([geometry_values, dataset_values])
+        all_values = np.concatenate([x_values, y_values])
         vmin = self.config.vmin if self.config.vmin is not None else np.nanmin(all_values)
         vmax = self.config.vmax if self.config.vmax is not None else np.nanmax(all_values)
 
@@ -148,15 +148,15 @@ class ScatterPlotter(BasePlotter):
         # Get style configuration
         style = self.config.style
         ms = marker_size if marker_size is not None else style.markersize
-        a = alpha if alpha is not None else (0.5 if len(geometry_values) > 1000 else style.alpha)
+        a = alpha if alpha is not None else (0.5 if len(x_values) > 1000 else style.alpha)
 
         # Scatter plot
-        if show_density and len(geometry_values) > 10:
+        if show_density and len(x_values) > 10:
             # Density-colored scatter
-            density = self._calculate_density(geometry_values, dataset_values, density_bins)
+            density = self._calculate_density(x_values, y_values, density_bins)
             scatter = ax.scatter(
-                geometry_values,
-                dataset_values,
+                x_values,
+                y_values,
                 c=density,
                 s=ms**2,
                 alpha=a,
@@ -168,8 +168,8 @@ class ScatterPlotter(BasePlotter):
             # Color by another variable
             color_values = paired_data[color_by].values.flatten()[mask]
             scatter = ax.scatter(
-                geometry_values,
-                dataset_values,
+                x_values,
+                y_values,
                 c=color_values,
                 s=ms**2,
                 alpha=a,
@@ -179,8 +179,8 @@ class ScatterPlotter(BasePlotter):
             fig.colorbar(scatter, ax=ax, label=color_label)
         else:
             ax.scatter(
-                geometry_values,
-                dataset_values,
+                x_values,
+                y_values,
                 c=style.y_color,
                 s=ms**2,
                 alpha=a,
@@ -200,11 +200,11 @@ class ScatterPlotter(BasePlotter):
 
         # Regression line
         if show_regression:
-            self._add_regression_line(ax, geometry_values, dataset_values, vmin, vmax)
+            self._add_regression_line(ax, x_values, y_values, vmin, vmax)
 
         # Statistics annotation
         if show_stats:
-            self._add_stats_annotation(ax, geometry_values, dataset_values)
+            self._add_stats_annotation(ax, x_values, y_values)
 
         # Set equal aspect and limits
         ax.set_xlim(vmin, vmax)
@@ -373,9 +373,9 @@ class ScatterPlotter(BasePlotter):
             flight_data = paired_data.isel(time=mask)
 
             # Check for minimum points
-            geometry_vals = flight_data[x_var].values.flatten()
-            dataset_vals = flight_data[y_var].values.flatten()
-            valid = np.isfinite(geometry_vals) & np.isfinite(dataset_vals)
+            x_vals = flight_data[x_var].values.flatten()
+            y_vals = flight_data[y_var].values.flatten()
+            valid = np.isfinite(x_vals) & np.isfinite(y_vals)
 
             if valid.sum() < min_points:
                 continue

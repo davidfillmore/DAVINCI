@@ -826,13 +826,11 @@ class TestSpatialOverlayRenderParity:
         from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
 
         ds = _overlay_ds()
-        dataset_field = _dataset_field_da()
+        y_field = _dataset_field_da()
         plotter = SpatialOverlayPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", dataset_field=dataset_field)
+        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", y_field=y_field)
         plt.close(fig_plot)
-        fig_render = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"), dataset_field=dataset_field
-        )
+        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"), y_field=y_field)
         plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
@@ -841,14 +839,12 @@ class TestSpatialOverlayRenderParity:
         from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
 
         ds = _overlay_ds()
-        dataset_field = _dataset_field_da()
+        y_field = _dataset_field_da()
         plotter = SpatialOverlayPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", dataset_field=dataset_field)
+        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", y_field=y_field)
         n_plot = len(fig_plot.axes)
         plt.close(fig_plot)
-        fig_render = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"), dataset_field=dataset_field
-        )
+        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"), y_field=y_field)
         n_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_plot == n_render
@@ -858,12 +854,10 @@ class TestSpatialOverlayRenderParity:
         from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
 
         ds = _overlay_ds()
-        dataset_field = _dataset_field_da()
+        y_field = _dataset_field_da()
         plotter = SpatialOverlayPlotter()
         # Should succeed when dataset_field is explicitly provided
-        fig = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"), dataset_field=dataset_field
-        )
+        fig = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"), y_field=y_field)
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 

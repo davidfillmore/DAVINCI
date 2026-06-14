@@ -286,7 +286,7 @@ class CurtainPlotter(BasePlotter):
         time_values: np.ndarray,
         alt_values: np.ndarray,
         data_values: np.ndarray,
-        geometry_values: np.ndarray | None,
+        x_values: np.ndarray | None,
         cmap: str,
         show_var: str,
         scatter_size: float | None,

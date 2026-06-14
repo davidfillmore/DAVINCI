@@ -190,9 +190,9 @@ class SourcePairJob:
     index: int
     pair_key: str
     x_source: str
-    geometry_obj: Any
+    x_obj: Any
     y_source: str
-    dataset_obj: Any
+    y_obj: Any
     x_var: str
     y_var: str
     radius_of_influence: float
