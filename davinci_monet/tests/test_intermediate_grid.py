@@ -71,3 +71,26 @@ def test_min_sample_count_masks_sparse_cells():
     # y has only 1 sample in the cell -> masked to NaN under min_sample_count=2
     ya = paired["y_AOD"].squeeze("time", drop=True)
     assert np.isnan(ya.sel(lat=10.5, lon=20.5, method="nearest").item())
+
+
+def test_engine_routes_method_grid_to_symmetric():
+    from davinci_monet.pairing.engine import PairingEngine
+
+    x = _point_ds([10.2, 10.7], [20.2, 20.6], [1.0, 3.0], "aod")
+    y = _point_ds([10.4], [20.4], [2.0], "AOD")
+    paired = PairingEngine().pair_sources(
+        x_data=x,
+        y_data=y,
+        x_vars=["aod"],
+        y_vars=["AOD"],
+        x_source="obs",
+        y_source="mod",
+        method="grid",
+        horizontal_res=1.0,
+        time_resolution="1D",
+        min_sample_count=1,
+    )
+    data = getattr(paired, "data", paired)
+    assert isinstance(data, xr.Dataset)
+    assert "x_aod" in data and "y_AOD" in data
+    assert list(data["x_aod"].dims) == ["time", "lon", "lat"]

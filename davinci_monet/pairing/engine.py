@@ -200,6 +200,7 @@ class PairingEngine:
         config: PairingConfig | None = None,
         x_source: str = "x",
         y_source: str = "y",
+        method: str = "auto",
         **kwargs: Any,
     ) -> PairedData:
         """Pair two sources.
@@ -207,9 +208,47 @@ class PairingEngine:
         ``y_data`` is sampled onto ``x_data``. The paired output uses
         ``<source_label>_<dataset_variable>`` variable names with ``axis``,
         ``source_label``, and ``dataset_variable`` attrs.
+
+        When ``method == "grid"`` the engine bypasses geometry auto-selection
+        and routes both sources through ``IntermediateGridStrategy``'s
+        symmetric path, binning each onto a common ``(time, lon, lat)`` grid.
         """
         if config is None:
             config = PairingConfig()
+
+        if method == "grid":
+            from davinci_monet.pairing.strategies.intermediate_grid import (
+                IntermediateGridStrategy,
+            )
+
+            grid_strategy = IntermediateGridStrategy()
+            grid_paired_ds = grid_strategy.pair_sources(
+                x_data=x_data,
+                y_data=y_data,
+                x_var=str(x_vars[0]) if x_vars else None,
+                y_var=str(y_vars[0]) if y_vars else None,
+                x_source=x_source,
+                y_source=y_source,
+                horizontal_res=kwargs.get("horizontal_res"),
+                extent=kwargs.get("extent"),
+                time_resolution=kwargs.get("time_resolution", "1D"),
+                min_sample_count=kwargs.get("min_sample_count", 1),
+            )
+            return PairedData.from_sources(
+                data=grid_paired_ds,
+                x_source=x_source,
+                y_source=y_source,
+                geometry=DataGeometry.GRID,
+                pairing_info={
+                    "x_source": x_source,
+                    "source_label": y_source,
+                    "geometry": DataGeometry.GRID.name,
+                    "y_geometry": DataGeometry.GRID.name,
+                    "method": "grid",
+                    "strategy": grid_strategy.__class__.__name__,
+                },
+            )
+
         if output_geometry is None:
             output_geometry = self._detect_geometry(x_data)
         if y_geometry is None:
