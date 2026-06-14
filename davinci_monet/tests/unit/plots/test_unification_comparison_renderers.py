@@ -36,12 +36,12 @@ def _paired_ds(n: int = 30, seed: int = 0) -> xr.Dataset:
             "geometry_o3": (
                 "time",
                 rng.uniform(20, 60, n),
-                {"pair_axis": "geometry", "units": "ppb"},
+                {"axis": "x", "units": "ppb"},
             ),
             "dataset_o3": (
                 "time",
                 rng.uniform(20, 60, n),
-                {"pair_axis": "dataset", "units": "ppb"},
+                {"axis": "y", "units": "ppb"},
             ),
         },
         coords={"time": times},
@@ -344,12 +344,12 @@ def _track_ds(n: int = 30, seed: int = 0) -> xr.Dataset:
             "geometry_o3": (
                 "time",
                 rng.uniform(20, 60, n),
-                {"pair_axis": "geometry", "units": "ppb"},
+                {"axis": "x", "units": "ppb"},
             ),
             "dataset_o3": (
                 "time",
                 rng.uniform(20, 60, n),
-                {"pair_axis": "dataset", "units": "ppb"},
+                {"axis": "y", "units": "ppb"},
             ),
         },
         coords={
@@ -432,12 +432,12 @@ def _spatial_point_ds(n_sites: int = 5, seed: int = 0) -> xr.Dataset:
             "geometry_o3": (
                 ("time", "site"),
                 geometry,
-                {"pair_axis": "geometry"},
+                {"axis": "x"},
             ),
             "dataset_o3": (
                 ("time", "site"),
                 dataset,
-                {"pair_axis": "dataset"},
+                {"axis": "y"},
             ),
         },
         coords={
@@ -560,12 +560,12 @@ def _site_ds(n_times: int = 50, n_sites: int = 3, seed: int = 0) -> xr.Dataset:
             "geometry_o3": (
                 ("site", "time"),
                 geometry,
-                {"pair_axis": "geometry", "units": "ppb"},
+                {"axis": "x", "units": "ppb"},
             ),
             "dataset_o3": (
                 ("site", "time"),
                 dataset,
-                {"pair_axis": "dataset", "units": "ppb"},
+                {"axis": "y", "units": "ppb"},
             ),
         },
         coords={
@@ -646,12 +646,12 @@ def _flight_ds(n_per_flight: int = 30, n_flights: int = 2, seed: int = 0) -> xr.
             "geometry_o3": (
                 "time",
                 all_geometry_arr,
-                {"pair_axis": "geometry", "units": "ppb"},
+                {"axis": "x", "units": "ppb"},
             ),
             "dataset_o3": (
                 "time",
                 all_dataset_arr,
-                {"pair_axis": "dataset", "units": "ppb"},
+                {"axis": "y", "units": "ppb"},
             ),
         },
         coords={
@@ -789,12 +789,12 @@ def _overlay_ds(n_sites: int = 5, seed: int = 0) -> xr.Dataset:
             "geometry_o3": (
                 "site",
                 rng.uniform(20, 60, n_sites),
-                {"pair_axis": "geometry", "units": "ppb"},
+                {"axis": "x", "units": "ppb"},
             ),
             "dataset_o3": (
                 "site",
                 rng.uniform(20, 60, n_sites),
-                {"pair_axis": "dataset", "units": "ppb"},
+                {"axis": "y", "units": "ppb"},
             ),
         },
         coords={
@@ -826,13 +826,11 @@ class TestSpatialOverlayRenderParity:
         from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
 
         ds = _overlay_ds()
-        dataset_field = _dataset_field_da()
+        y_field = _dataset_field_da()
         plotter = SpatialOverlayPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", dataset_field=dataset_field)
+        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", y_field=y_field)
         plt.close(fig_plot)
-        fig_render = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"), dataset_field=dataset_field
-        )
+        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"), y_field=y_field)
         plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
@@ -841,14 +839,12 @@ class TestSpatialOverlayRenderParity:
         from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
 
         ds = _overlay_ds()
-        dataset_field = _dataset_field_da()
+        y_field = _dataset_field_da()
         plotter = SpatialOverlayPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", dataset_field=dataset_field)
+        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", y_field=y_field)
         n_plot = len(fig_plot.axes)
         plt.close(fig_plot)
-        fig_render = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"), dataset_field=dataset_field
-        )
+        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"), y_field=y_field)
         n_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_plot == n_render
@@ -858,12 +854,10 @@ class TestSpatialOverlayRenderParity:
         from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
 
         ds = _overlay_ds()
-        dataset_field = _dataset_field_da()
+        y_field = _dataset_field_da()
         plotter = SpatialOverlayPlotter()
         # Should succeed when dataset_field is explicitly provided
-        fig = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"), dataset_field=dataset_field
-        )
+        fig = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"), y_field=y_field)
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
@@ -890,12 +884,12 @@ def _track_3d_ds(n: int = 40, seed: int = 0) -> xr.Dataset:
             "geometry_o3": (
                 "time",
                 rng.uniform(20, 60, n),
-                {"pair_axis": "geometry", "units": "ppb"},
+                {"axis": "x", "units": "ppb"},
             ),
             "dataset_o3": (
                 "time",
                 rng.uniform(20, 60, n),
-                {"pair_axis": "dataset", "units": "ppb"},
+                {"axis": "y", "units": "ppb"},
             ),
         },
         coords={
@@ -935,12 +929,12 @@ def _flight_3d_ds(n_per_flight: int = 30, n_flights: int = 2, seed: int = 0) -> 
             "geometry_o3": (
                 "time",
                 np.concatenate(all_geometry),
-                {"pair_axis": "geometry", "units": "ppb"},
+                {"axis": "x", "units": "ppb"},
             ),
             "dataset_o3": (
                 "time",
                 np.concatenate(all_dataset),
-                {"pair_axis": "dataset", "units": "ppb"},
+                {"axis": "y", "units": "ppb"},
             ),
         },
         coords={

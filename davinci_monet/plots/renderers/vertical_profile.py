@@ -31,13 +31,13 @@ class VerticalProfilePlotter(BasePlotter):
 
     def plot(  # type: ignore[override]
         self,
-        geometry_data: xr.Dataset,
+        x_data: xr.Dataset,
         variable: str,
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Single-source convenience wrapper; ``render`` is the unified entry."""
-        return self.render(build_series(geometry_data, variable), ax=ax, **kwargs)
+        return self.render(build_series(x_data, variable), ax=ax, **kwargs)
 
     def render(
         self,
@@ -59,7 +59,7 @@ class VerticalProfilePlotter(BasePlotter):
         colors = series_colors(series)
         multi = len(series) > 1
         for s, color in zip(series, colors):
-            label = s.dataset_label or get_variable_label(
+            label = s.source_label or get_variable_label(
                 s.dataset, s.var_name, include_prefix=False
             )
             if mode == "binned":

@@ -49,7 +49,7 @@ from davinci_monet.plots.base import (
     get_variable_label,
     get_variable_units,
     merge_config_dicts,
-    resolve_dataset_variable,
+    resolve_source_variable,
 )
 
 # Registry and factory
@@ -141,7 +141,7 @@ __all__ = [
     # Utilities
     "merge_config_dicts",
     "get_variable_label",
-    "resolve_dataset_variable",
+    "resolve_source_variable",
     "get_variable_units",
     "format_label_with_units",
     "calculate_symmetric_limits",

@@ -94,7 +94,7 @@ class AQSReader:
         **kwargs: Any,
     ) -> xr.Dataset:
         """Open AQS data from files."""
-        file_list = validate_file_list(file_paths, dataset_label="AQS")
+        file_list = validate_file_list(file_paths, source_label="AQS")
 
         def _open() -> xr.Dataset:
             if len(file_list) > 1:
@@ -121,7 +121,7 @@ class AQSReader:
     ) -> xr.Dataset:
         """Open AQS data using monetio API."""
         try:
-            import monetio.geometry.aqs as aqs_module
+            import monetio.obs.aqs as aqs_module
         except ImportError as e:
             raise ImportError(
                 "monetio is required for AQS API queries. " "Install with: pip install monetio"

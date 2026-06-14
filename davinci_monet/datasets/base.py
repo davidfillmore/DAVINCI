@@ -29,7 +29,7 @@ def resample_dataset(
 
     Resamples bare datasets in the unified source loader: average to ``freq``,
     optionally drop bins with fewer than ``min_count`` datasets, and
-    optionally emit an ``geometry_count`` variable.
+    optionally emit an ``sample_count`` variable.
     """
     if "time" not in data.dims:
         return data
@@ -40,7 +40,7 @@ def resample_dataset(
         if data_vars:
             counts = resampler.count()[data_vars[0]]
             if track_count:
-                result["geometry_count"] = counts
+                result["sample_count"] = counts
             if min_count is not None:
                 mask = counts >= min_count
                 for var in data_vars:

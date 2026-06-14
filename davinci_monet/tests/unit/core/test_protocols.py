@@ -85,8 +85,8 @@ class TestPlotterProtocol:
             def plot(
                 self,
                 paired_data: Any,
-                geometry_var: str,
-                dataset_var: str,
+                x_var: str,
+                y_var: str,
                 **kwargs: Any,
             ) -> Any:
                 return None
@@ -177,8 +177,8 @@ class TestStatisticsCalculatorProtocol:
             def compute(
                 self,
                 paired_data: Any,
-                geometry_var: str,
-                dataset_var: str,
+                x_var: str,
+                y_var: str,
                 metrics: Sequence[str] | None = None,
                 groupby: str | Sequence[str] | None = None,
                 **kwargs: Any,
@@ -203,8 +203,8 @@ class TestSpatialPlotterProtocol:
             def plot(
                 self,
                 paired_data: Any,
-                geometry_var: str,
-                dataset_var: str,
+                x_var: str,
+                y_var: str,
                 domain: tuple[float, float, float, float] | None = None,
                 projection: Any | None = None,
                 **kwargs: Any,

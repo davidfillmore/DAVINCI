@@ -91,7 +91,7 @@ class OMPSL3O3Reader:
         xr.Dataset
             OMPS datasets with grid dimensions.
         """
-        file_list = validate_file_list(file_paths, dataset_label="OMPS")
+        file_list = validate_file_list(file_paths, source_label="OMPS")
 
         # Try monetio first
         try:

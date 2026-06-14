@@ -37,7 +37,7 @@ class SwathGridStrategy(BasePairingStrategy):
     --------
     >>> strategy = SwathGridStrategy()
     >>> paired = strategy.pair_sources(
-    ...     dataset_data, satellite_data,
+    ...     y_data, satellite_data,
     ...     grid_mode="match_dataset",
     ...     time_resolution="1D",
     ... )
@@ -50,8 +50,8 @@ class SwathGridStrategy(BasePairingStrategy):
 
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
@@ -87,12 +87,12 @@ class SwathGridStrategy(BasePairingStrategy):
                 Grid spacing in degrees (for grid_mode="resolution").
             - ntime, nlat, nlon : int
                 Explicit grid dimensions (for grid_mode="explicit").
-            - min_geometry_count : int
+            - min_sample_count : int
                 Minimum pixel count per cell. Cells below this are
                 masked to NaN. Default 1.
-            - geometry_var : str
+            - x_var : str
                 Geometry variable name to bin.
-            - dataset_var : str
+            - y_var : str
                 Dataset variable name to extract.
 
         Returns
@@ -101,30 +101,30 @@ class SwathGridStrategy(BasePairingStrategy):
             Paired dataset on common grid with geometry, dataset, and count
             variables.
         """
-        dataset = dataset_data
-        geometry = geometry_data
+        dataset = y_data
+        geometry = x_data
 
         grid_mode = kwargs.get("grid_mode", "match_dataset")
         time_resolution = kwargs.get("time_resolution", "1D")
-        min_geometry_count = kwargs.get("min_geometry_count", 1)
-        geometry_var = kwargs.get("geometry_var") or kwargs.get("geometry_var")
-        dataset_var = kwargs.get("dataset_var") or kwargs.get("dataset_var")
+        min_sample_count = kwargs.get("min_sample_count", 1)
+        x_var = kwargs.get("x_var") or kwargs.get("x_var")
+        y_var = kwargs.get("y_var") or kwargs.get("y_var")
 
         # Extract surface if dataset has vertical dimension
-        dataset_proc = dataset
+        y_proc = dataset
         for dim_name in ["lev", "z", "level"]:
-            if dim_name in dataset_proc.dims:
-                dataset_proc = self._extract_surface(dataset_proc, dim_name)
+            if dim_name in y_proc.dims:
+                y_proc = self._extract_surface(y_proc, dim_name)
                 break
 
         # Get dataset coordinates
-        dataset_lat, dataset_lon = self._get_dataset_coords(dataset_proc)
+        y_lat, y_lon = self._get_dataset_coords(y_proc)
 
         # Determine analysis time range from dataset
-        if "time" in dataset_proc.dims:
-            dataset_times = pd.DatetimeIndex(dataset_proc["time"].values)
-            t_start = dataset_times.min()
-            t_end = dataset_times.max()
+        if "time" in y_proc.dims:
+            y_times = pd.DatetimeIndex(y_proc["time"].values)
+            t_start = y_times.min()
+            t_end = y_times.max()
         else:
             raise PairingError("Dataset dataset must have a time dimension")
 
@@ -132,17 +132,17 @@ class SwathGridStrategy(BasePairingStrategy):
         consumed = {
             "grid_mode",
             "time_resolution",
-            "min_geometry_count",
-            "geometry_var",
-            "dataset_var",
-            "geometry_var",
-            "dataset_var",
+            "min_sample_count",
+            "x_var",
+            "y_var",
+            "x_var",
+            "y_var",
         }
         grid_kwargs = {k: v for k, v in kwargs.items() if k not in consumed}
         time_edges, lon_edges, lat_edges, time_centers, lon_centers, lat_centers = self._build_grid(
             grid_mode=grid_mode,
-            dataset_lat=dataset_lat,
-            dataset_lon=dataset_lon,
+            y_lat=y_lat,
+            y_lon=y_lon,
             t_start=t_start,
             t_end=t_end,
             time_resolution=time_resolution,
@@ -154,17 +154,17 @@ class SwathGridStrategy(BasePairingStrategy):
         nlat = len(lat_centers)
 
         # Determine which geometry variable to bin
-        if geometry_var is None:
+        if x_var is None:
             data_var_names = list(geometry.data_vars)
             if len(data_var_names) == 0:
                 raise PairingError("No data variables in dataset dataset")
-            geometry_var = data_var_names[0]
+            x_var = data_var_names[0]
 
         # Extract flat arrays from geometry
-        geometry_lat, geometry_lon = self._get_geometry_coords(geometry)
-        lat_flat = geometry_lat.values.flatten().astype(np.float64)
-        lon_flat = geometry_lon.values.flatten().astype(np.float64)
-        data_flat = geometry[geometry_var].values.flatten().astype(np.float64)
+        x_lat, x_lon = self._get_geometry_coords(geometry)
+        lat_flat = x_lat.values.flatten().astype(np.float64)
+        lon_flat = x_lon.values.flatten().astype(np.float64)
+        data_flat = geometry[x_var].values.flatten().astype(np.float64)
 
         # Handle longitude convention: shift -180..180 to 0..360 if needed
         if lon_edges[0] >= 0 and np.any(lon_flat < 0):
@@ -172,7 +172,7 @@ class SwathGridStrategy(BasePairingStrategy):
 
         # Get dataset timestamps as epoch seconds, aligned to the same
         # flattening order as ``data_flat`` (i.e. the binned geometry variable).
-        time_flat = self._get_geometry_timestamps(geometry, len(data_flat), align_var=geometry_var)
+        time_flat = self._get_geometry_timestamps(geometry, len(data_flat), align_var=x_var)
 
         # Allocate accumulation arrays
         count_grid = np.zeros((ntime, nlon, nlat), dtype=np.int32)
@@ -194,18 +194,18 @@ class SwathGridStrategy(BasePairingStrategy):
         # Normalize: sum → mean
         normalize_grid(count_grid, data_grid)
 
-        # Apply min_geometry_count filter
-        if min_geometry_count > 1:
-            data_grid[count_grid < min_geometry_count] = np.nan
+        # Apply min_sample_count filter
+        if min_sample_count > 1:
+            data_grid[count_grid < min_sample_count] = np.nan
 
         # Build datetime coordinates from time centers (epoch seconds)
         time_coords = pd.to_datetime(time_centers, unit="s")
 
         # Create gridded geometry dataset
-        geometry_gridded = xr.Dataset(
+        x_gridded = xr.Dataset(
             {
-                f"geometry_{geometry_var}": (["time", "lon", "lat"], data_grid.astype(np.float32)),
-                "geometry_count": (["time", "lon", "lat"], count_grid),
+                f"geometry_{x_var}": (["time", "lon", "lat"], data_grid.astype(np.float32)),
+                "sample_count": (["time", "lon", "lat"], count_grid),
             },
             coords={
                 "time": time_coords,
@@ -215,34 +215,34 @@ class SwathGridStrategy(BasePairingStrategy):
         )
 
         # Extract dataset variable on same grid
-        if dataset_var is None:
-            dataset_data_vars = list(dataset_proc.data_vars)
-            if len(dataset_data_vars) == 0:
+        if y_var is None:
+            y_data_vars = list(y_proc.data_vars)
+            if len(y_data_vars) == 0:
                 raise PairingError("No data variables in dataset dataset")
-            dataset_var = str(dataset_data_vars[0])
+            y_var = str(y_data_vars[0])
 
-        dataset_on_grid = self._align_dataset_to_grid(
-            dataset_proc,
-            dataset_var,
+        y_on_grid = self._align_dataset_to_grid(
+            y_proc,
+            y_var,
             time_coords,
             lon_centers,
             lat_centers,
-            dataset_lat,
-            dataset_lon,
+            y_lat,
+            y_lon,
             grid_mode,
         )
 
         # Create paired output
-        paired = geometry_gridded.copy()
-        paired[f"dataset_{dataset_var}"] = dataset_on_grid
+        paired = x_gridded.copy()
+        paired[f"dataset_{y_var}"] = y_on_grid
 
         return paired
 
     def _build_grid(
         self,
         grid_mode: str,
-        dataset_lat: xr.DataArray,
-        dataset_lon: xr.DataArray,
+        y_lat: xr.DataArray,
+        y_lon: xr.DataArray,
         t_start: pd.Timestamp,
         t_end: pd.Timestamp,
         time_resolution: str,
@@ -273,12 +273,12 @@ class SwathGridStrategy(BasePairingStrategy):
         time_edges = edges_from_centers(time_centers_epoch)
 
         if grid_mode == "match_dataset":
-            if dataset_lat.ndim != 1 or dataset_lon.ndim != 1:
+            if y_lat.ndim != 1 or y_lon.ndim != 1:
                 raise PairingError(
                     "match_dataset grid mode requires 1D dataset lat/lon " "(rectilinear grid)"
                 )
-            lat_centers = dataset_lat.values.astype(np.float64)
-            lon_centers = dataset_lon.values.astype(np.float64)
+            lat_centers = y_lat.values.astype(np.float64)
+            lon_centers = y_lon.values.astype(np.float64)
             lat_edges = edges_from_centers(lat_centers)
             lon_edges = edges_from_centers(lon_centers)
 
@@ -364,12 +364,12 @@ class SwathGridStrategy(BasePairingStrategy):
     def _align_dataset_to_grid(
         self,
         dataset: xr.Dataset,
-        dataset_var: str,
+        y_var: str,
         time_coords: pd.DatetimeIndex,
         lon_centers: np.ndarray,
         lat_centers: np.ndarray,
-        dataset_lat: xr.DataArray,
-        dataset_lon: xr.DataArray,
+        y_lat: xr.DataArray,
+        y_lon: xr.DataArray,
         grid_mode: str,
     ) -> xr.DataArray:
         """Extract dataset variable aligned to the target grid.
@@ -383,7 +383,7 @@ class SwathGridStrategy(BasePairingStrategy):
         xr.DataArray
             Dataset data on (time, lon, lat) grid.
         """
-        var_data = dataset[dataset_var]
+        var_data = dataset[y_var]
 
         # Select nearest dataset times
         if "time" in var_data.dims:
@@ -392,8 +392,8 @@ class SwathGridStrategy(BasePairingStrategy):
 
         if grid_mode == "match_dataset":
             # Already on dataset grid — just ensure dim order is (time, lon, lat)
-            lat_dim = dataset_lat.dims[0]
-            lon_dim = dataset_lon.dims[0]
+            lat_dim = y_lat.dims[0]
+            lon_dim = y_lon.dims[0]
             # Transpose to (time, lon, lat) to match our output convention
             dim_order: list[str] = []
             if "time" in var_data.dims:
@@ -411,8 +411,8 @@ class SwathGridStrategy(BasePairingStrategy):
             return var_data.astype(np.float32)
         else:
             # Interpolate dataset to target grid
-            lat_dim = dataset_lat.dims[0]
-            lon_dim = dataset_lon.dims[0]
+            lat_dim = y_lat.dims[0]
+            lon_dim = y_lon.dims[0]
             var_interp = var_data.interp(
                 {lat_dim: lat_centers, lon_dim: lon_centers},
                 method="nearest",

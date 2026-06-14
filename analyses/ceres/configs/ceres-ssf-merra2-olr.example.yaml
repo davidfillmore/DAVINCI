@@ -26,16 +26,13 @@ sources:
     variables:
       toa_lw_up:
         units: W m-2
-        geometry_min: 0
-        geometry_max: 500
+        valid_min: 0
+        valid_max: 500
 
 pairs:
   merra2_vs_ssf_olr:
-    sources: [merra2, ceres]
-    geometry: ceres
-    variables:
-      merra2: LWTUP
-      ceres: toa_lw_up
+    x: { source: ceres, variable: toa_lw_up }
+    y: { source: merra2, variable: LWTUP }
 
 plots:
   olr_bias:

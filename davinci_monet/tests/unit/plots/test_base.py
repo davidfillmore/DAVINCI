@@ -252,7 +252,7 @@ class TestGetVariableLabel:
         assert result == r"PM$_{2.5}$"
 
     def test_include_prefix_parameter(self):
-        """include_prefix is retained but must not synthesize pair_axis labels."""
+        """include_prefix is retained but must not synthesize axis labels."""
         empty_ds = xr.Dataset()
         with_prefix = get_variable_label(empty_ds, "geometry_pm25", include_prefix=True)
         without_prefix = get_variable_label(empty_ds, "geometry_pm25", include_prefix=False)

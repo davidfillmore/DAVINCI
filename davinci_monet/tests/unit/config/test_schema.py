@@ -125,8 +125,8 @@ class TestVariableConfig:
             {
                 "unit_scale": 1000.0,
                 "unit_scale_method": "+",
-                "geometry_min": 0.0,
-                "geometry_max": 100.0,
+                "valid_min": 0.0,
+                "valid_max": 100.0,
                 "nan_value": -1.0,
                 "rename": "new_name",
                 "ylabel_plot": "Label",
@@ -208,19 +208,19 @@ class TestDataProcConfig:
     def test_default_values(self) -> None:
         """Test default values."""
         config = DataProcConfig()
-        assert config.rem_geometry_nan is True
+        assert config.rem_nan is True
         assert config.ts_select_time == "time"
         assert config.set_axis is False
 
     def test_all_fields(self) -> None:
         """Test all fields."""
         config = DataProcConfig(
-            rem_geometry_nan=False,
+            rem_nan=False,
             ts_select_time="time_local",
             ts_avg_window="h",
             set_axis=True,
         )
-        assert config.rem_geometry_nan is False
+        assert config.rem_nan is False
         assert config.ts_select_time == "time_local"
 
 
@@ -252,11 +252,11 @@ class TestPlotGroupConfig:
             PlotGroupConfig,
             {
                 "type": "boxplot",
-                "data_proc": {"rem_geometry_nan": False, "set_axis": True},
+                "data_proc": {"rem_nan": False, "set_axis": True},
             },
         )
         assert isinstance(config.data_proc, DataProcConfig)
-        assert config.data_proc.rem_geometry_nan is False
+        assert config.data_proc.rem_nan is False
 
 
 class TestStatsConfig:
@@ -377,9 +377,8 @@ class TestMonetConfig:
                 },
                 "pairs": {
                     "cmaq_airnow_o3": {
-                        "sources": ["cmaq", "airnow"],
-                        "geometry": "airnow",
-                        "variables": {"cmaq": "OZONE", "airnow": "OZONE"},
+                        "x": {"source": "airnow", "variable": "OZONE"},
+                        "y": {"source": "cmaq", "variable": "OZONE"},
                     }
                 },
                 "plots": {
@@ -408,9 +407,8 @@ class TestMonetConfig:
                 },
                 "pairs": {
                     "a_b": {
-                        "sources": ["a", "b"],
-                        "geometry": "a",
-                        "variables": {"a": "O3", "b": "O3"},
+                        "x": {"source": "a", "variable": "O3"},
+                        "y": {"source": "b", "variable": "O3"},
                     }
                 },
             },
@@ -418,8 +416,10 @@ class TestMonetConfig:
 
         assert "a_b" in config.pairs
         assert config.pairs["a_b"].sources == ["a", "b"]
-        assert config.pairs["a_b"].geometry == "a"
-        assert config.pairs["a_b"].variables == {"a": "O3", "b": "O3"}
+        assert config.pairs["a_b"].x.source == "a"
+        assert config.pairs["a_b"].x.variable == "O3"
+        assert config.pairs["a_b"].y.source == "b"
+        assert config.pairs["a_b"].y.variable == "O3"
 
 
 class TestExtraFieldsHandling:

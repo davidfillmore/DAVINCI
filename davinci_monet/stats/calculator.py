@@ -96,8 +96,8 @@ class StatisticsCalculator:
     def compute(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str | None = None,
-        dataset_var: str | None = None,
+        x_var: str | None = None,
+        y_var: str | None = None,
         metrics: Sequence[str] | None = None,
         groupby: str | Sequence[str] | None = None,
         **kwargs: Any,
@@ -112,9 +112,9 @@ class StatisticsCalculator:
             List of metric names. If None, uses config.metrics.
         groupby
             Optional dimension(s) to group by.
-        geometry_var
+        x_var
             Name of geometry variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         **kwargs
             Additional options passed to individual metrics.
@@ -125,22 +125,22 @@ class StatisticsCalculator:
             Statistics table with metrics as columns.
         """
         metrics = list(metrics) if metrics is not None else self.config.metrics
-        if geometry_var is None or dataset_var is None:
-            raise ValueError("Both geometry_var and dataset_var are required")
+        if x_var is None or y_var is None:
+            raise ValueError("Both x_var and y_var are required")
 
         # Get data arrays
-        geometry_data = paired_data[geometry_var]
-        dataset_data = paired_data[dataset_var]
+        x_data = paired_data[x_var]
+        y_data = paired_data[y_var]
 
         if groupby is not None:
-            return self._compute_grouped(geometry_data, dataset_data, metrics, groupby, **kwargs)
+            return self._compute_grouped(x_data, y_data, metrics, groupby, **kwargs)
         else:
-            return self._compute_overall(geometry_data, dataset_data, metrics, **kwargs)
+            return self._compute_overall(x_data, y_data, metrics, **kwargs)
 
     def _compute_overall(
         self,
-        geometry_data: xr.DataArray,
-        dataset_data: xr.DataArray,
+        x_data: xr.DataArray,
+        y_data: xr.DataArray,
         metrics: list[str],
         **kwargs: Any,
     ) -> pd.DataFrame:
@@ -148,7 +148,7 @@ class StatisticsCalculator:
 
         Parameters
         ----------
-        geometry_data, dataset_data
+        x_data, y_data
             Data arrays.
         metrics
             List of metric names.
@@ -160,8 +160,8 @@ class StatisticsCalculator:
         pd.DataFrame
             Single-row DataFrame with statistics.
         """
-        geometry = geometry_data.values.flatten()
-        dataset = dataset_data.values.flatten()
+        geometry = x_data.values.flatten()
+        dataset = y_data.values.flatten()
 
         results = self._compute_metrics(geometry, dataset, metrics, **kwargs)
         df = pd.DataFrame([results])
@@ -173,8 +173,8 @@ class StatisticsCalculator:
 
     def _compute_grouped(
         self,
-        geometry_data: xr.DataArray,
-        dataset_data: xr.DataArray,
+        x_data: xr.DataArray,
+        y_data: xr.DataArray,
         metrics: list[str],
         groupby: str | Sequence[str],
         **kwargs: Any,
@@ -183,7 +183,7 @@ class StatisticsCalculator:
 
         Parameters
         ----------
-        geometry_data, dataset_data
+        x_data, y_data
             Data arrays.
         metrics
             List of metric names.
@@ -208,13 +208,13 @@ class StatisticsCalculator:
                 # Create grouping coordinate
                 if dim == "time":
                     if accessor == "month":
-                        group_coord = geometry_data.time.dt.month
+                        group_coord = x_data.time.dt.month
                     elif accessor == "hour":
-                        group_coord = geometry_data.time.dt.hour
+                        group_coord = x_data.time.dt.hour
                     elif accessor == "dayofweek":
-                        group_coord = geometry_data.time.dt.dayofweek
+                        group_coord = x_data.time.dt.dayofweek
                     elif accessor == "season":
-                        group_coord = geometry_data.time.dt.season
+                        group_coord = x_data.time.dt.season
                     else:
                         raise ValueError(f"Unknown time accessor: {accessor}")
                     parsed_groupby.append((g, group_coord))
@@ -226,19 +226,15 @@ class StatisticsCalculator:
         # Simple case: single dimension groupby
         if len(parsed_groupby) == 1:
             name, coord = parsed_groupby[0]
-            return self._compute_single_groupby(
-                geometry_data, dataset_data, metrics, name, coord, **kwargs
-            )
+            return self._compute_single_groupby(x_data, y_data, metrics, name, coord, **kwargs)
 
         # Multi-dimensional groupby
-        return self._compute_multi_groupby(
-            geometry_data, dataset_data, metrics, parsed_groupby, **kwargs
-        )
+        return self._compute_multi_groupby(x_data, y_data, metrics, parsed_groupby, **kwargs)
 
     def _compute_single_groupby(
         self,
-        geometry_data: xr.DataArray,
-        dataset_data: xr.DataArray,
+        x_data: xr.DataArray,
+        y_data: xr.DataArray,
         metrics: list[str],
         name: str,
         coord: Any,
@@ -248,7 +244,7 @@ class StatisticsCalculator:
 
         Parameters
         ----------
-        geometry_data, dataset_data
+        x_data, y_data
             Data arrays.
         metrics
             List of metric names.
@@ -268,20 +264,18 @@ class StatisticsCalculator:
 
         # Group the data
         if isinstance(coord, str):
-            geometry_grouped = geometry_data.groupby(coord, squeeze=False)
-            dataset_grouped = dataset_data.groupby(coord, squeeze=False)
+            x_grouped = x_data.groupby(coord, squeeze=False)
+            y_grouped = y_data.groupby(coord, squeeze=False)
         else:
-            geometry_grouped = geometry_data.groupby(coord, squeeze=False)
-            dataset_grouped = dataset_data.groupby(coord, squeeze=False)
+            x_grouped = x_data.groupby(coord, squeeze=False)
+            y_grouped = y_data.groupby(coord, squeeze=False)
 
         results = []
-        for (geometry_key, geometry_group), (_, dataset_group) in zip(
-            geometry_grouped, dataset_grouped
-        ):
-            geometry = geometry_group.values.flatten()
-            dataset = dataset_group.values.flatten()
+        for (x_key, x_group), (_, y_group) in zip(x_grouped, y_grouped):
+            geometry = x_group.values.flatten()
+            dataset = y_group.values.flatten()
 
-            row = {name: geometry_key}
+            row = {name: x_key}
             row.update(self._compute_metrics(geometry, dataset, metrics, **kwargs))
             results.append(row)
 
@@ -295,8 +289,8 @@ class StatisticsCalculator:
 
     def _compute_multi_groupby(
         self,
-        geometry_data: xr.DataArray,
-        dataset_data: xr.DataArray,
+        x_data: xr.DataArray,
+        y_data: xr.DataArray,
         metrics: list[str],
         parsed_groupby: list[tuple[str, Any]],
         **kwargs: Any,
@@ -305,7 +299,7 @@ class StatisticsCalculator:
 
         Parameters
         ----------
-        geometry_data, dataset_data
+        x_data, y_data
             Data arrays.
         metrics
             List of metric names.
@@ -324,14 +318,12 @@ class StatisticsCalculator:
 
         # This is a simplified implementation - for now, convert to pandas
         # and use pandas groupby
-        geometry_df = geometry_data.to_dataframe(name="geometry").reset_index()
-        dataset_df = dataset_data.to_dataframe(name="dataset").reset_index()
+        x_df = x_data.to_dataframe(name="geometry").reset_index()
+        y_df = y_data.to_dataframe(name="dataset").reset_index()
 
         # Merge on common indices
-        common_cols = list(
-            set(geometry_df.columns) & set(dataset_df.columns) - {"geometry", "dataset"}
-        )
-        df = pd.merge(geometry_df, dataset_df, on=common_cols)
+        common_cols = list(set(x_df.columns) & set(y_df.columns) - {"geometry", "dataset"})
+        df = pd.merge(x_df, y_df, on=common_cols)
 
         # Add groupby columns
         group_cols = []
@@ -439,8 +431,8 @@ class StatisticsCalculator:
     def compute_summary(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str | None = None,
-        dataset_var: str | None = None,
+        x_var: str | None = None,
+        y_var: str | None = None,
         metrics: Sequence[str] | None = None,
         **kwargs: Any,
     ) -> dict[str, float]:
@@ -452,9 +444,9 @@ class StatisticsCalculator:
             Paired dataset.
         metrics
             List of metric names.
-        geometry_var
+        x_var
             Geometry variable name.
-        dataset_var
+        y_var
             Dataset variable name.
         **kwargs
             Additional options.
@@ -466,8 +458,8 @@ class StatisticsCalculator:
         """
         df = self.compute(
             paired_data,
-            geometry_var,
-            dataset_var,
+            x_var,
+            y_var,
             metrics=metrics,
             **kwargs,
         )
@@ -481,8 +473,8 @@ class StatisticsCalculator:
 
 def calculate_statistics(
     paired_data: xr.Dataset,
-    geometry_var: str | None = None,
-    dataset_var: str | None = None,
+    x_var: str | None = None,
+    y_var: str | None = None,
     metrics: Sequence[str] | None = None,
     groupby: str | Sequence[str] | None = None,
     config: StatisticsConfig | dict[str, Any] | None = None,
@@ -502,9 +494,9 @@ def calculate_statistics(
         Optional dimension(s) to group by.
     config
         Statistics configuration.
-    geometry_var
+    x_var
         Name of geometry variable.
-    dataset_var
+    y_var
         Name of dataset variable.
     **kwargs
         Additional options.
@@ -533,8 +525,8 @@ def calculate_statistics(
     calc = StatisticsCalculator(config=config)
     return calc.compute(
         paired_data,
-        geometry_var,
-        dataset_var,
+        x_var,
+        y_var,
         metrics=metrics,
         groupby=groupby,
         **kwargs,

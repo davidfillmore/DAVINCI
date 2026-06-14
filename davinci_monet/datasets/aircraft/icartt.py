@@ -74,7 +74,7 @@ class ICARTTReader:
             Aircraft datasets with dimension (time,) and
             lat/lon/alt coordinates.
         """
-        file_list = validate_file_list(file_paths, dataset_label="ICARTT")
+        file_list = validate_file_list(file_paths, source_label="ICARTT")
 
         # Try monetio first
         try:

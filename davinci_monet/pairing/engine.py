@@ -61,8 +61,8 @@ class PairingEngine:
     --------
     >>> engine = PairingEngine()
     >>> paired = engine.pair_sources(
-    ...     geometry=geometry_data,
-    ...     dataset=dataset_data,
+    ...     geometry=x_data,
+    ...     dataset=y_data,
     ...     geometry_vars=["O3"],
     ...     dataset_vars=["OZONE"],
     ... )
@@ -143,18 +143,18 @@ class PairingEngine:
     def supports_pairing_combination(
         self,
         geometry: DataGeometry,
-        dataset_geometry: DataGeometry,
+        y_geometry: DataGeometry,
     ) -> bool:
         """Return whether the engine can pair this geometry combination."""
         return (
             geometry,
-            dataset_geometry,
+            y_geometry,
         ) in self.supported_pairing_combinations()
 
     def get_strategy_for(
         self,
         geometry: DataGeometry,
-        dataset_geometry: DataGeometry,
+        y_geometry: DataGeometry,
     ) -> PairingStrategy:
         """Get the strategy for a ``(geometry, dataset)`` geometry pair.
 
@@ -180,10 +180,10 @@ class PairingEngine:
         PairingError
             If the combination is not supported.
         """
-        if not self.supports_pairing_combination(geometry, dataset_geometry):
+        if not self.supports_pairing_combination(geometry, y_geometry):
             raise PairingError(
                 f"Unsupported pairing combination "
-                f"(geometry={geometry.name}, dataset={dataset_geometry.name}). "
+                f"(geometry={geometry.name}, dataset={y_geometry.name}). "
                 f"Supported combinations sample a GRID dataset onto a "
                 f"{[g.name for g in self._strategies.keys()]} geometry."
             )
@@ -191,65 +191,65 @@ class PairingEngine:
 
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
-        geometry_vars: Sequence[str],
-        dataset_vars: Sequence[str],
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
+        x_vars: Sequence[str],
+        y_vars: Sequence[str],
         output_geometry: DataGeometry | None = None,
-        dataset_geometry: DataGeometry | None = None,
+        y_geometry: DataGeometry | None = None,
         config: PairingConfig | None = None,
-        geometry_label: str = "geometry",
-        dataset_label: str = "dataset",
+        x_source: str = "geometry",
+        y_source: str = "dataset",
         **kwargs: Any,
     ) -> PairedData:
         """Pair two sources.
 
         ``dataset`` is sampled onto ``geometry``. The paired output uses
-        ``<dataset_label>_<dataset_variable>`` variable names with ``pair_axis``,
-        ``dataset_label``, and ``dataset_variable`` attrs.
+        ``<source_label>_<dataset_variable>`` variable names with ``axis``,
+        ``source_label``, and ``dataset_variable`` attrs.
         """
         if config is None:
             config = PairingConfig()
         if output_geometry is None:
-            output_geometry = self._detect_geometry(geometry_data)
-        if dataset_geometry is None:
-            dataset_geometry = self._detect_geometry(dataset_data)
+            output_geometry = self._detect_geometry(x_data)
+        if y_geometry is None:
+            y_geometry = self._detect_geometry(y_data)
 
         if config.require_overlap:
-            self._check_temporal_overlap(dataset_data, geometry_data)
+            self._check_temporal_overlap(y_data, x_data)
 
-        strategy = self.get_strategy_for(output_geometry, dataset_geometry)
+        strategy = self.get_strategy_for(output_geometry, y_geometry)
         paired_ds = strategy.pair_sources(
-            geometry_data=geometry_data,
-            dataset_data=dataset_data,
+            x_data=x_data,
+            y_data=y_data,
             radius_of_influence=config.radius_of_influence,
             time_tolerance=config.time_tolerance,
             vertical_method=config.vertical_method,
             horizontal_method=config.horizontal_method,
             time_method=config.time_method,
-            geometry_vars=list(geometry_vars),
-            dataset_vars=list(dataset_vars),
-            geometry_var=str(geometry_vars[0]) if geometry_vars else None,
-            dataset_var=str(dataset_vars[0]) if dataset_vars else None,
+            x_vars=list(x_vars),
+            y_vars=list(y_vars),
+            x_var=str(x_vars[0]) if x_vars else None,
+            y_var=str(y_vars[0]) if y_vars else None,
             **kwargs,
         )
         result_ds = self._assemble_paired_dataset(
             paired_ds,
-            geometry_vars=geometry_vars,
-            dataset_vars=dataset_vars,
-            geometry_label=geometry_label,
-            dataset_label=dataset_label,
+            x_vars=x_vars,
+            y_vars=y_vars,
+            x_source=x_source,
+            y_source=y_source,
         )
         return PairedData.from_sources(
             data=result_ds,
-            geometry_label=geometry_label,
-            dataset_label=dataset_label,
+            x_source=x_source,
+            y_source=y_source,
             geometry=output_geometry,
             pairing_info={
-                "geometry_label": geometry_label,
-                "dataset_label": dataset_label,
+                "x_source": x_source,
+                "source_label": y_source,
                 "geometry": output_geometry.name,
-                "dataset_geometry": dataset_geometry.name,
+                "dataset_geometry": y_geometry.name,
                 "radius_of_influence": config.radius_of_influence,
                 "time_tolerance": config.time_tolerance,
                 "vertical_method": config.vertical_method,
@@ -269,56 +269,56 @@ class PairingEngine:
     def _assemble_paired_dataset(
         self,
         paired_ds: xr.Dataset,
-        geometry_vars: Sequence[str],
-        dataset_vars: Sequence[str],
-        geometry_label: str,
-        dataset_label: str,
+        x_vars: Sequence[str],
+        y_vars: Sequence[str],
+        x_source: str,
+        y_source: str,
     ) -> xr.Dataset:
         """Build a source-label paired dataset from strategy output."""
         data_vars: dict[str, xr.DataArray] = {}
         coords = dict(paired_ds.coords)
 
-        for geometry_var, dataset_var in zip(geometry_vars, dataset_vars):
-            geometry_name = str(geometry_var)
-            dataset_name = str(dataset_var)
-            geometry_key = self._select_var(
+        for x_var, y_var in zip(x_vars, y_vars):
+            x_name = str(x_var)
+            y_name = str(y_var)
+            x_key = self._select_var(
                 paired_ds,
-                [geometry_name, f"geometry_{geometry_name}"],
+                [x_name, f"geometry_{x_name}"],
             )
-            dataset_key = self._select_var(
+            y_key = self._select_var(
                 paired_ds,
                 [
-                    dataset_name,
-                    f"dataset_{dataset_name}",
-                    f"dataset_{geometry_name}",
+                    y_name,
+                    f"dataset_{y_name}",
+                    f"dataset_{x_name}",
                 ],
             )
 
-            if geometry_key is None or dataset_key is None:
+            if x_key is None or y_key is None:
                 continue
 
-            geometry_output = f"{geometry_label}_{geometry_name}"
-            dataset_output = f"{dataset_label}_{dataset_name}"
-            geometry_da = paired_ds[geometry_key].copy()
-            dataset_da = paired_ds[dataset_key].copy()
-            geometry_da.attrs.update(
+            x_output = f"{x_source}_{x_name}"
+            y_output = f"{y_source}_{y_name}"
+            x_da = paired_ds[x_key].copy()
+            y_da = paired_ds[y_key].copy()
+            x_da.attrs.update(
                 {
-                    "pair_axis": "geometry",
-                    "dataset_label": geometry_label,
-                    "dataset_variable": geometry_name,
-                    "canonical_name": geometry_name,
+                    "axis": "x",
+                    "source_label": x_source,
+                    "dataset_variable": x_name,
+                    "canonical_name": x_name,
                 }
             )
-            dataset_da.attrs.update(
+            y_da.attrs.update(
                 {
-                    "pair_axis": "dataset",
-                    "dataset_label": dataset_label,
-                    "dataset_variable": dataset_name,
-                    "canonical_name": geometry_name,
+                    "axis": "y",
+                    "source_label": y_source,
+                    "dataset_variable": y_name,
+                    "canonical_name": x_name,
                 }
             )
-            data_vars[geometry_output] = geometry_da
-            data_vars[dataset_output] = dataset_da
+            data_vars[x_output] = x_da
+            data_vars[y_output] = y_da
 
         result = xr.Dataset(data_vars, coords=coords)
         result.attrs = dict(paired_ds.attrs)
@@ -404,21 +404,21 @@ class PairingEngine:
         if "time" not in dataset.dims or "time" not in geometry.dims:
             return
 
-        dataset_times = dataset["time"].values
-        geometry_times = geometry["time"].values
+        y_times = dataset["time"].values
+        x_times = geometry["time"].values
 
-        if len(dataset_times) == 0 or len(geometry_times) == 0:
+        if len(y_times) == 0 or len(x_times) == 0:
             return
 
-        dataset_start = dataset_times.min()
-        dataset_end = dataset_times.max()
-        geometry_start = geometry_times.min()
-        geometry_end = geometry_times.max()
+        y_start = y_times.min()
+        y_end = y_times.max()
+        x_start = x_times.min()
+        x_end = x_times.max()
 
-        if dataset_end < geometry_start or geometry_end < dataset_start:
+        if y_end < x_start or x_end < y_start:
             raise NoOverlapError(
-                f"No temporal overlap between dataset ({dataset_start} to {dataset_end}) "
-                f"and geometry ({geometry_start} to {geometry_end})"
+                f"No temporal overlap between dataset ({y_start} to {y_end}) "
+                f"and geometry ({x_start} to {x_end})"
             )
 
 

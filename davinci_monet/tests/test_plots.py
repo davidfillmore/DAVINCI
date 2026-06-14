@@ -181,8 +181,8 @@ class TestPlotConfig:
         config = PlotConfig()
         assert config.figure.figsize == (8, 5)  # FigureConfig default
         assert config.text.fontsize == 14.0  # Axis label size
-        assert config.style.geometry_color == DATASET_A_COLOR  # NCAR gray
-        assert config.style.dataset_color == DATASET_B_COLOR  # NCAR blue
+        assert config.style.x_color == DATASET_A_COLOR  # NCAR gray
+        assert config.style.y_color == DATASET_B_COLOR  # NCAR blue
         assert config.debug is False
 
     def test_from_dict(self):
@@ -211,7 +211,7 @@ class TestPlotConfig:
         config_dict = {
             "fig_dict": {"figsize": (8, 6)},
             "text_dict": {"fontsize": 11},
-            "plot_dict": {"geometry_color": "red"},
+            "plot_dict": {"x_color": "red"},
             "domain_type": "conus",
         }
 
@@ -467,7 +467,7 @@ class TestTimeSeriesPlotter:
         """Test custom labels."""
         from davinci_monet.plots import PlotConfig, TimeSeriesPlotter
 
-        config = PlotConfig(geometry_label="Custom Geometry", dataset_label="Custom Dataset")
+        config = PlotConfig(x_label="Custom Geometry", y_label="Custom Dataset")
         plotter = TimeSeriesPlotter(config=config)
 
         fig = plotter.plot(
@@ -893,15 +893,15 @@ class TestScatterPlotter:
         assert len(flight_plots) == 0
 
     def test_source_named_axis_labels(self, simple_paired_data):
-        """Fix C: geometry_label/dataset_label config produces source-named scatter axes.
+        """Fix C: x_label/y_label config produces source-named scatter axes.
 
-        When PlotConfig.geometry_label and dataset_label are set, the scatter renderer
+        When PlotConfig.x_label and y_label are set, the scatter renderer
         must use them as axis labels (no 'Dataset'/'Dataset' prefix), and the
         units suffix must not produce a bare '(1)'.
         """
         from davinci_monet.plots import PlotConfig, ScatterPlotter
 
-        config = PlotConfig(geometry_label="MODIS Terra AOD", dataset_label="MERRA-2 AOD")
+        config = PlotConfig(x_label="MODIS Terra AOD", y_label="MERRA-2 AOD")
         plotter = ScatterPlotter(config=config)
         fig = plotter.plot(
             simple_paired_data,
@@ -932,12 +932,12 @@ class TestScatterPlotter:
         plt.close(fig)
 
     def test_dataset_label_attrs_qualify_default_axis_labels(self, simple_paired_data):
-        """Scatter axes use source identity without pair_axis-derived words."""
+        """Scatter axes use source identity without axis-derived words."""
         from davinci_monet.plots import ScatterPlotter
 
         data = simple_paired_data.copy()
-        data["geometry_o3"].attrs.update({"pair_axis": "geometry", "dataset_label": "airnow"})
-        data["dataset_o3"].attrs.update({"pair_axis": "dataset", "dataset_label": "cam"})
+        data["geometry_o3"].attrs.update({"axis": "x", "source_label": "airnow"})
+        data["dataset_o3"].attrs.update({"axis": "y", "source_label": "cam"})
 
         fig = ScatterPlotter().plot(data, "geometry_o3", "dataset_o3")
 
@@ -1397,12 +1397,12 @@ class TestSpatialPlotters:
         lat = np.linspace(30.0, 50.0, 10)
         lon = np.linspace(-120.0, -100.0, 12)
         rng = np.random.default_rng(0)
-        geometry_vals = rng.uniform(20, 80, (10, 12))
-        dataset_vals = rng.uniform(20, 80, (10, 12))
+        x_vals = rng.uniform(20, 80, (10, 12))
+        y_vals = rng.uniform(20, 80, (10, 12))
         ds = xr.Dataset(
             {
-                "geometry_o3": (("lat", "lon"), geometry_vals, {"units": "ppbv"}),
-                "dataset_o3": (("lat", "lon"), dataset_vals, {"units": "ppbv"}),
+                "geometry_o3": (("lat", "lon"), x_vals, {"units": "ppbv"}),
+                "dataset_o3": (("lat", "lon"), y_vals, {"units": "ppbv"}),
             },
             coords={"lat": lat, "lon": lon},
         )
@@ -1435,12 +1435,12 @@ class TestSpatialPlotters:
         lats = np.linspace(30.0, 50.0, n_sites)
         lons = np.linspace(-120.0, -100.0, n_sites)
         rng = np.random.default_rng(1)
-        geometry_vals = rng.uniform(20, 80, n_sites)
-        dataset_vals = rng.uniform(20, 80, n_sites)
+        x_vals = rng.uniform(20, 80, n_sites)
+        y_vals = rng.uniform(20, 80, n_sites)
         ds = xr.Dataset(
             {
-                "geometry_o3": (("site",), geometry_vals, {"units": "ppbv"}),
-                "dataset_o3": (("site",), dataset_vals, {"units": "ppbv"}),
+                "geometry_o3": (("site",), x_vals, {"units": "ppbv"}),
+                "dataset_o3": (("site",), y_vals, {"units": "ppbv"}),
             },
             coords={
                 "site": site,
@@ -1477,12 +1477,12 @@ class TestSpatialPlotters:
         lats = np.linspace(30.0, 50.0, n_sites)
         lons = np.linspace(-120.0, -100.0, n_sites)
         rng = np.random.default_rng(2)
-        geometry_vals = rng.uniform(20, 80, (n_times, n_sites))
-        dataset_vals = rng.uniform(20, 80, (n_times, n_sites))
+        x_vals = rng.uniform(20, 80, (n_times, n_sites))
+        y_vals = rng.uniform(20, 80, (n_times, n_sites))
         ds = xr.Dataset(
             {
-                "geometry_o3": (("time", "site"), geometry_vals, {"units": "ppbv"}),
-                "dataset_o3": (("time", "site"), dataset_vals, {"units": "ppbv"}),
+                "geometry_o3": (("time", "site"), x_vals, {"units": "ppbv"}),
+                "dataset_o3": (("time", "site"), y_vals, {"units": "ppbv"}),
             },
             coords={
                 "time": times,
@@ -1590,13 +1590,13 @@ class TestSpatialOverlay:
         plotter = SpatialOverlayPlotter()
 
         # Create a dataset field (2D lat/lon) for the contour layer
-        dataset_field = gridded_paired_data["dataset_o3"].isel(time=0)
+        y_field = gridded_paired_data["dataset_o3"].isel(time=0)
 
         fig = plotter.plot(
             simple_paired_data,
-            geometry_var="geometry_o3",
-            dataset_var="dataset_o3",
-            dataset_field=dataset_field,
+            x_var="geometry_o3",
+            y_var="dataset_o3",
+            y_field=y_field,
         )
 
         assert fig is not None
@@ -1610,13 +1610,13 @@ class TestSpatialOverlay:
 
         plotter = SpatialOverlayPlotter()
 
-        # When dataset_field is None, plotter should fall back to dataset_var from paired_data
+        # When dataset_field is None, plotter should fall back to y_var from paired_data
         # This may not produce contours (1D data), but should not crash
         try:
             fig = plotter.plot(
                 simple_paired_data,
-                geometry_var="geometry_o3",
-                dataset_var="dataset_o3",
+                x_var="geometry_o3",
+                y_var="dataset_o3",
             )
             assert fig is not None
             plt.close(fig)
@@ -1712,8 +1712,8 @@ class TestScorecardPlotterMultiVariable:
         plotter = ScorecardPlotter()
         fig = plotter.plot(
             ds,
-            geometry_var="geometry_o3",
-            dataset_var="dataset_o3",
+            x_var="geometry_o3",
+            y_var="dataset_o3",
         )
 
         assert fig is not None

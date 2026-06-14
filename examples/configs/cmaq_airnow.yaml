@@ -29,33 +29,27 @@ sources:
     filename: /data/geometry/AirNow_202407.nc
     variables:
       o3:
-        geometry_min: 0
-        geometry_max: 200
+        valid_min: 0
+        valid_max: 200
       pm25:
-        geometry_min: 0
-        geometry_max: 500
+        valid_min: 0
+        valid_max: 500
       no2:
-        geometry_min: 0
-        geometry_max: 100
+        valid_min: 0
+        valid_max: 100
       co:
-        geometry_min: 0
-        geometry_max: 10
+        valid_min: 0
+        valid_max: 10
 
 # One binary pair per variable. The plots below geometry cmaq_v54_airnow (O3).
 pairs:
   cmaq_v54_airnow:
-    sources: [cmaq_v54, airnow]
-    geometry: airnow
-    variables:
-      cmaq_v54: O3
-      airnow: o3
+    x: { source: airnow, variable: o3 }
+    y: { source: cmaq_v54, variable: O3 }
 
   cmaq_v54_airnow_pm25:
-    sources: [cmaq_v54, airnow]
-    geometry: airnow
-    variables:
-      cmaq_v54: PM25_TOT
-      airnow: pm25
+    x: { source: airnow, variable: pm25 }
+    y: { source: cmaq_v54, variable: PM25_TOT }
 
 plots:
   timeseries_o3:

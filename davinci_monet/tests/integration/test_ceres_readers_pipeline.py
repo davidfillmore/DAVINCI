@@ -96,9 +96,8 @@ def test_ceres_ebaf_pipeline(tmp_path: Path) -> None:
         },
         "pairs": {
             "dataset_vs_ceres_olr": {
-                "sources": ["dataset", "ceres"],
-                "geometry": "ceres",
-                "variables": {"dataset": "OLR", "ceres": "toa_lw_all_mon"},
+                "x": {"source": "ceres", "variable": "toa_lw_all_mon"},
+                "y": {"source": "dataset", "variable": "OLR"},
             }
         },
         "plots": {
@@ -218,9 +217,8 @@ def test_ceres_syn1deg_pipeline(tmp_path: Path) -> None:
         },
         "pairs": {
             "dataset_vs_syn_olr": {
-                "sources": ["dataset", "ceres"],
-                "geometry": "ceres",
-                "variables": {"dataset": "OLR", "ceres": "geometry_all_toa_lw_reg"},
+                "x": {"source": "ceres", "variable": "geometry_all_toa_lw_reg"},
+                "y": {"source": "dataset", "variable": "OLR"},
             }
         },
         "plots": {
@@ -329,9 +327,8 @@ def test_ceres_ssf_pipeline(tmp_path: Path) -> None:
         },
         "pairs": {
             "dataset_vs_ssf_olr": {
-                "sources": ["dataset", "ceres"],
-                "geometry": "ceres",
-                "variables": {"dataset": "OLR", "ceres": "toa_lw_up"},
+                "x": {"source": "ceres", "variable": "toa_lw_up"},
+                "y": {"source": "dataset", "variable": "OLR"},
             }
         },
         "plots": {

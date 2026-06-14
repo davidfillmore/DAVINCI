@@ -41,8 +41,8 @@ class TestPairedData:
         """Test pair label generation."""
         paired = PairedData(
             data=paired_dataset,
-            dataset_label="cmaq",
-            geometry_label="airnow",
+            y_source="cmaq",
+            x_source="airnow",
             geometry=DataGeometry.POINT,
         )
         assert paired.pair_label == "airnow_cmaq"
@@ -53,46 +53,46 @@ class TestPairedData:
         """construction is the preferred paired-data API."""
         paired = PairedData.from_sources(
             data=paired_dataset,
-            geometry_label="airnow",
-            dataset_label="cam",
+            x_source="airnow",
+            y_source="cam",
             geometry=DataGeometry.POINT,
             pairing_info={"strategy": "PointStrategy"},
         )
 
-        assert paired.geometry_label == "airnow"
-        assert paired.dataset_label == "cam"
-        assert paired.geometry_label == "airnow"
-        assert paired.dataset_label == "cam"
+        assert paired.x_source == "airnow"
+        assert paired.y_source == "cam"
+        assert paired.x_source == "airnow"
+        assert paired.y_source == "cam"
         assert paired.pairing_info["strategy"] == "PointStrategy"
 
     def test_dataset_variables(self, paired_dataset: xr.Dataset) -> None:
         """Test listing dataset variables."""
         paired = PairedData(
             data=paired_dataset,
-            dataset_label="cmaq",
-            geometry_label="airnow",
+            y_source="cmaq",
+            x_source="airnow",
             geometry=DataGeometry.POINT,
         )
-        assert "dataset_ozone" in paired.dataset_variables
-        assert "dataset_pm25" in paired.dataset_variables
+        assert "dataset_ozone" in paired.y_variables
+        assert "dataset_pm25" in paired.y_variables
 
     def test_geometry_variables(self, paired_dataset: xr.Dataset) -> None:
         """Test listing geometry variables."""
         paired = PairedData(
             data=paired_dataset,
-            dataset_label="cmaq",
-            geometry_label="airnow",
+            y_source="cmaq",
+            x_source="airnow",
             geometry=DataGeometry.POINT,
         )
-        assert "geometry_ozone" in paired.geometry_variables
-        assert "geometry_pm25" in paired.geometry_variables
+        assert "geometry_ozone" in paired.x_variables
+        assert "geometry_pm25" in paired.x_variables
 
     def test_paired_variable_names(self, paired_dataset: xr.Dataset) -> None:
         """Test getting paired variable names."""
         paired = PairedData(
             data=paired_dataset,
-            dataset_label="cmaq",
-            geometry_label="airnow",
+            y_source="cmaq",
+            x_source="airnow",
             geometry=DataGeometry.POINT,
         )
         pairs = paired.paired_variable_names
@@ -103,8 +103,8 @@ class TestPairedData:
         """Test getting geometry variable."""
         paired = PairedData(
             data=paired_dataset,
-            dataset_label="cmaq",
-            geometry_label="airnow",
+            y_source="cmaq",
+            x_source="airnow",
             geometry=DataGeometry.POINT,
         )
         # With prefix
@@ -118,8 +118,8 @@ class TestPairedData:
         """Test getting dataset variable."""
         paired = PairedData(
             data=paired_dataset,
-            dataset_label="cmaq",
-            geometry_label="airnow",
+            y_source="cmaq",
+            x_source="airnow",
             geometry=DataGeometry.POINT,
         )
         # With prefix
@@ -133,8 +133,8 @@ class TestPairedData:
         """Test getting paired arrays."""
         paired = PairedData(
             data=paired_dataset,
-            dataset_label="cmaq",
-            geometry_label="airnow",
+            y_source="cmaq",
+            x_source="airnow",
             geometry=DataGeometry.POINT,
         )
         geometry, dataset = paired.get_pair("ozone")
@@ -145,8 +145,8 @@ class TestPairedData:
         """Test counting data points."""
         paired = PairedData(
             data=paired_dataset,
-            dataset_label="cmaq",
-            geometry_label="airnow",
+            y_source="cmaq",
+            x_source="airnow",
             geometry=DataGeometry.POINT,
         )
         assert paired.n_points == 50  # 10 times * 5 sites
@@ -155,8 +155,8 @@ class TestPairedData:
         """Test conversion to DataFrame."""
         paired = PairedData(
             data=paired_dataset,
-            dataset_label="cmaq",
-            geometry_label="airnow",
+            y_source="cmaq",
+            x_source="airnow",
             geometry=DataGeometry.POINT,
         )
         df = paired.to_dataframe()
@@ -168,8 +168,8 @@ class TestPairedData:
         """Test subsetting paired data by time."""
         paired = PairedData(
             data=paired_dataset,
-            dataset_label="cmaq",
-            geometry_label="airnow",
+            y_source="cmaq",
+            x_source="airnow",
             geometry=DataGeometry.POINT,
         )
         subset = paired.subset_time(start=2, end=5)  # type: ignore[arg-type]

@@ -10,7 +10,7 @@ from typing import Any
 
 import xarray as xr
 
-from davinci_monet.core.base import iter_paired_variable_pairs
+from davinci_monet.core.base import iter_paired_variable_xy
 from davinci_monet.pipeline.stages.base import (
     BaseStage,
     PipelineContext,
@@ -44,7 +44,7 @@ class StatisticsStage(BaseStage):
         start = time.time()
         all_stats: dict[str, dict[str, dict[str, float]]] = {}
         source_items = sources if sources is not None else iter_single_source_datasets(context)
-        for dataset_label, _source_obj, ds in source_items:
+        for source_label, _source_obj, ds in source_items:
             source_stats: dict[str, dict[str, float]] = {}
             for var_name in ds.data_vars:
                 var_key = str(var_name)
@@ -64,7 +64,7 @@ class StatisticsStage(BaseStage):
                     "p75": float(np.percentile(values, 75)),
                     "p90": float(np.percentile(values, 90)),
                 }
-            all_stats[dataset_label] = source_stats
+            all_stats[source_label] = source_stats
         return self._create_result(
             StageStatus.COMPLETED,
             data=all_stats,
@@ -152,11 +152,11 @@ class StatisticsStage(BaseStage):
         calculator = StatisticsCalculator(calc_config)
 
         # Pair geometry and dataset variables by canonical name.
-        for geometry_var, dataset_var, base_name in iter_paired_variable_pairs(paired_data):
+        for x_var, y_var, base_name in iter_paired_variable_xy(paired_data):
             df = calculator.compute(
                 paired_data,
-                geometry_var=geometry_var,
-                dataset_var=dataset_var,
+                x_var=x_var,
+                y_var=y_var,
                 metrics=list(metrics) if metrics else None,
             )
 
@@ -208,25 +208,25 @@ class StatisticsStage(BaseStage):
         flights = np.unique(paired_data["flight"].values)
         flight_stats: list[dict[str, Any]] = []
 
-        var_pairs = iter_paired_variable_pairs(paired_data)
+        var_pairs = iter_paired_variable_xy(paired_data)
 
         for flight in flights:
             mask = paired_data["flight"].values == flight
             flight_data = paired_data.isel(time=mask)
 
-            for geometry_var, dataset_var, base_name in var_pairs:
-                if geometry_var not in flight_data or dataset_var not in flight_data:
+            for x_var, y_var, base_name in var_pairs:
+                if x_var not in flight_data or y_var not in flight_data:
                     continue
 
-                dataset_vals = flight_data[dataset_var].values.flatten()
-                geometry_vals = flight_data[geometry_var].values.flatten()
+                y_vals = flight_data[y_var].values.flatten()
+                x_vals = flight_data[x_var].values.flatten()
 
                 # Remove NaNs
-                valid = ~(np.isnan(dataset_vals) | np.isnan(geometry_vals))
+                valid = ~(np.isnan(y_vals) | np.isnan(x_vals))
                 if valid.sum() < 3:
                     continue
 
-                m, o = dataset_vals[valid], geometry_vals[valid]
+                m, o = y_vals[valid], x_vals[valid]
                 diff = m - o
 
                 row: dict[str, Any] = {

@@ -60,13 +60,13 @@ def sample_paired_dataset() -> xr.Dataset:
 
     # Simulated dataset and geometry data with some correlation
     np.random.seed(42)
-    geometry_vals = 50 + 20 * np.random.randn(n_times)
-    dataset_vals = geometry_vals + 5 + 3 * np.random.randn(n_times)  # Bias of ~5
+    x_vals = 50 + 20 * np.random.randn(n_times)
+    y_vals = x_vals + 5 + 3 * np.random.randn(n_times)  # Bias of ~5
 
     return xr.Dataset(
         {
-            "dataset_o3": (["time"], dataset_vals),
-            "geometry_o3": (["time"], geometry_vals),
+            "dataset_o3": (["time"], y_vals),
+            "geometry_o3": (["time"], x_vals),
             "latitude": (["time"], np.full(n_times, 40.0)),
             "longitude": (["time"], np.full(n_times, -105.0)),
         },
@@ -333,9 +333,8 @@ class TestPairingStage:
             config={
                 "pairs": {
                     "dataset_geometry": {
-                        "sources": ["dataset", "geometry"],
-                        "geometry": "geometry",
-                        "variables": {"dataset": "v", "geometry": "v"},
+                        "x": {"source": "geometry", "variable": "v"},
+                        "y": {"source": "dataset", "variable": "v"},
                     }
                 }
             }
@@ -387,9 +386,8 @@ class TestPairingStage:
             config={
                 "pairs": {
                     "met_vs_ceres": {
-                        "sources": ["met", "ceres"],
-                        "geometry": "ceres",
-                        "variables": {"met": "flux", "ceres": "flux"},
+                        "x": {"source": "ceres", "variable": "flux"},
+                        "y": {"source": "met", "variable": "flux"},
                         "time_resolution": "1h",
                     }
                 },
@@ -584,9 +582,9 @@ class TestPlottingStage:
             analysis_config={"start_time": "2003-01-01", "end_time": "2003-12-31"},
             title=title,
             paired_data=context_with_paired.paired["test_dataset_test_geometry"],
-            var_spec={"geometry_var": "o3", "dataset_var": "o3"},
-            geometry_label="test_geometry",
-            dataset_label="test_dataset",
+            var_spec={"x_var": "o3", "y_var": "o3"},
+            x_source="test_geometry",
+            y_source="test_dataset",
         )
 
         assert plotter_config["title"] == title

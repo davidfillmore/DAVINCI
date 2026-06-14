@@ -18,7 +18,12 @@ def _context_with_results(plot_paths: list[str]) -> PipelineContext:
         config={
             "analysis": {"start_time": "2024-02-01", "end_time": "2024-02-03"},
             "sources": {"cam": {"type": "cesm_fv"}, "airnow": {"type": "pt_sfc"}},
-            "pairs": {"cam_vs_airnow_o3": {"sources": ["cam", "airnow"]}},
+            "pairs": {
+                "cam_vs_airnow_o3": {
+                    "x": {"source": "airnow", "variable": "o3"},
+                    "y": {"source": "cam", "variable": "O3"},
+                }
+            },
         }
     )
     ctx.results["statistics"] = StageResult(

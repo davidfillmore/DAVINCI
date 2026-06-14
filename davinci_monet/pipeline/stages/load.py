@@ -22,7 +22,7 @@ class LoadSourcesStage(BaseStage):
     """Standard data-source loading stage.
 
     Loads the ``sources:`` config directly through ``source_registry``. Loaded
-    datasets are tagged with ``dataset_label`` and ``geometry`` in
+    datasets are tagged with ``source_label`` and ``geometry`` in
     ``context.sources``.
     """
 
@@ -70,7 +70,7 @@ class LoadSourcesStage(BaseStage):
                 )
 
         # No source config at all: any pre-populated sources (tests/direct
-        # stage use) just get their datasets tagged with dataset_label /
+        # stage use) just get their datasets tagged with source_label /
         # geometry so downstream stages can rely on those attrs.
         for label, obj in list(context.sources.items()):
             self._tag_source(label, obj)
@@ -181,8 +181,8 @@ class LoadSourcesStage(BaseStage):
             "radius_of_influence",
             "display_name",
             "resample",
-            "min_geometry_count",
-            "track_geometry_count",
+            "min_sample_count",
+            "track_sample_count",
             "files_vert",
             "files_surf",
             "projection",
@@ -243,8 +243,8 @@ class LoadSourcesStage(BaseStage):
             data = resample_dataset(
                 data,
                 str(resample_freq),
-                min_count=cfg.get("min_geometry_count"),
-                track_count=bool(cfg.get("track_geometry_count")),
+                min_count=cfg.get("min_sample_count"),
+                track_count=bool(cfg.get("track_sample_count")),
             )
 
         geometry = self._data_geometry(getattr(reader, "geometry"))
@@ -306,7 +306,7 @@ class LoadSourcesStage(BaseStage):
 
     @staticmethod
     def _tag_source(label: str, obj: Any) -> None:
-        """Tag a pre-populated source's dataset with dataset_label/geometry.
+        """Tag a pre-populated source's dataset with source_label/geometry.
 
         Used for sources placed directly in ``context.sources`` (direct stage /
         unit-test use) that bypassed :meth:`_load_unified_source`.
@@ -316,15 +316,15 @@ class LoadSourcesStage(BaseStage):
             return
         try:
             geometry = obj.geometry
-            geometry_name = geometry.name.lower() if hasattr(geometry, "name") else str(geometry)
+            x_name = geometry.name.lower() if hasattr(geometry, "name") else str(geometry)
         except Exception:
-            geometry_name = "unknown"
-        data.attrs["dataset_label"] = label
-        data.attrs["geometry"] = geometry_name
+            x_name = "unknown"
+        data.attrs["source_label"] = label
+        data.attrs["geometry"] = x_name
 
     @staticmethod
     def _register_source(context: PipelineContext, label: str, obj: SourceData) -> None:
         """Register a loaded source in the canonical ``context.sources`` view."""
         context.sources[label] = obj
-        obj.data.attrs["dataset_label"] = label
+        obj.data.attrs["source_label"] = label
         obj.data.attrs["geometry"] = obj.geometry.name.lower()

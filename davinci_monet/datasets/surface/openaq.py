@@ -112,7 +112,7 @@ class OpenAQReader:
         **kwargs: Any,
     ) -> xr.Dataset:
         """Open OpenAQ data from files."""
-        file_list = validate_file_list(file_paths, dataset_label="OpenAQ")
+        file_list = validate_file_list(file_paths, source_label="OpenAQ")
 
         def _open() -> xr.Dataset:
             if len(file_list) > 1:
@@ -144,7 +144,7 @@ class OpenAQReader:
         # Select appropriate monetio module
         if api_version == 3:
             try:
-                import monetio.geometry.openaq_v3 as openaq_module
+                import monetio.obs.openaq_v3 as openaq_module
             except ImportError as e:
                 raise ImportError(
                     "monetio is required for OpenAQ API queries. "
@@ -152,10 +152,10 @@ class OpenAQReader:
                 ) from e
         else:
             try:
-                import monetio.geometry.openaq_v2 as openaq_module
+                import monetio.obs.openaq_v2 as openaq_module
             except ImportError:
                 try:
-                    import monetio.geometry.openaq as openaq_module
+                    import monetio.obs.openaq as openaq_module
                 except ImportError as e:
                     raise ImportError(
                         "monetio is required for OpenAQ API queries. "

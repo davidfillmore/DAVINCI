@@ -78,7 +78,7 @@ class MERRA2Reader:
         # Filter macOS resource-fork sidecars before validation so the count
         # reflects real data files (external drives carry ``._*.nc4``).
         real = [Path(f) for f in file_paths if not Path(f).name.startswith("._")]
-        file_list = validate_file_list(real, dataset_label="MERRA-2")
+        file_list = validate_file_list(real, source_label="MERRA-2")
 
         def _open() -> xr.Dataset:
             if len(file_list) > 1:

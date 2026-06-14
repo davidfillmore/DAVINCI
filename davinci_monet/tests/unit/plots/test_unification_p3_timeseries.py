@@ -23,16 +23,16 @@ from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 from davinci_monet.plots.style import NCAR_PRIMARY
 
 
-def _multisite_series(n_t: int = 12, n_s: int = 6, dataset_label: str = "airnow") -> PlotSeries:
+def _multisite_series(n_t: int = 12, n_s: int = 6, source_label: str = "airnow") -> PlotSeries:
     rng = np.random.default_rng(0)
     times = np.datetime64("2024-02-01") + np.arange(n_t) * np.timedelta64(1, "h")
     ds = xr.Dataset(
         {"o3": (("time", "site"), rng.uniform(10, 60, (n_t, n_s)), {"units": "ppb"})},
         coords={"time": times, "site": np.arange(n_s)},
     )
-    ds["o3"].attrs["pair_axis"] = "geometry"
-    ds["o3"].attrs["dataset_label"] = dataset_label
-    return PlotSeries(ds, "o3", "o3", "geometry", dataset_label, 0)
+    ds["o3"].attrs["axis"] = "x"
+    ds["o3"].attrs["source_label"] = source_label
+    return PlotSeries(ds, "o3", "o3", "x", source_label, 0)
 
 
 class TestTimeseriesRenderSingleSource:
@@ -48,7 +48,7 @@ class TestTimeseriesRenderSingleSource:
         plt.close(fig)
 
     def test_single_dataset_labelled_by_source(self) -> None:
-        fig = TimeSeriesPlotter().render([_multisite_series(dataset_label="pandora")])
+        fig = TimeSeriesPlotter().render([_multisite_series(source_label="pandora")])
         assert fig.axes[0].get_lines()[0].get_label() == "pandora"
         plt.close(fig)
 
@@ -86,19 +86,19 @@ class TestTimeseriesRenderPaired:
                 "airnow_o3": (
                     "time",
                     rng.uniform(10, 60, 10),
-                    {"pair_axis": "geometry", "dataset_label": "airnow"},
+                    {"axis": "x", "source_label": "airnow"},
                 ),
                 "cam_o3": (
                     "time",
                     rng.uniform(10, 60, 10),
-                    {"pair_axis": "dataset", "dataset_label": "cam"},
+                    {"axis": "y", "source_label": "cam"},
                 ),
             },
             coords={"time": t},
         )
-        geometry_series = PlotSeries(ds, "airnow_o3", "o3", "geometry", "airnow", 0)
-        dataset_series = PlotSeries(ds, "cam_o3", "o3", "dataset", "cam", 1)
-        fig = TimeSeriesPlotter().render([geometry_series, dataset_series])
+        x_series = PlotSeries(ds, "airnow_o3", "o3", "x", "airnow", 0)
+        y_series = PlotSeries(ds, "cam_o3", "o3", "y", "cam", 1)
+        fig = TimeSeriesPlotter().render([x_series, y_series])
         # Two series (geometry + dataset) on the axes.
         assert len(fig.axes[0].get_lines()) == 2
         plt.close(fig)

@@ -47,8 +47,8 @@ class CurtainPlotter(BasePlotter):
     >>> plotter = CurtainPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     geometry_var="geometry_o3",
-    ...     dataset_var="dataset_o3",
+    ...     x_var="geometry_o3",
+    ...     y_var="dataset_o3",
     ...     alt_var="altitude",
     ... )
     """
@@ -84,11 +84,11 @@ class CurtainPlotter(BasePlotter):
             raise NotImplementedError(
                 f"CurtainPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
-        paired_data = geometry_series.dataset
-        geometry_var = geometry_series.var_name
-        dataset_var = dataset_series.var_name
+        x_series = next((s for s in series if s.axis == "x"), series[0])
+        y_series = next((s for s in series if s.axis == "y"), series[1])
+        paired_data = x_series.dataset
+        x_var = x_series.var_name
+        y_var = y_series.var_name
 
         alt_var: str = kwargs.pop("alt_var", "altitude")
         time_dim: str = kwargs.pop("time_dim", "time")
@@ -106,18 +106,18 @@ class CurtainPlotter(BasePlotter):
             fig = ax.get_figure()  # type: ignore[assignment]
 
         # Get data
-        geometry_data = paired_data[geometry_var]
-        dataset_data = paired_data[dataset_var]
+        x_data = paired_data[x_var]
+        y_data = paired_data[y_var]
 
         # Calculate bias if needed
         if show_var == "bias":
-            plot_data = dataset_data - geometry_data
+            plot_data = y_data - x_data
             default_cmap = "RdBu_r"
         elif show_var == "geometry":
-            plot_data = geometry_data
+            plot_data = x_data
             default_cmap = "viridis"
         else:
-            plot_data = dataset_data
+            plot_data = y_data
             default_cmap = "viridis"
 
         cmap = cmap or default_cmap
@@ -145,7 +145,7 @@ class CurtainPlotter(BasePlotter):
                 time_values,
                 alt_values,
                 data_values,
-                geometry_data.values if show_scatter else None,
+                x_data.values if show_scatter else None,
                 cmap,
                 show_var,
                 scatter_size,
@@ -182,13 +182,13 @@ class CurtainPlotter(BasePlotter):
         self.apply_text_style(ax)
 
         # Labels
-        units = get_variable_units(paired_data, geometry_var)
+        units = get_variable_units(paired_data, x_var)
 
         if show_var == "bias":
             ylabel_text = "Bias (Dataset - Geometry)"
         else:
             ylabel_text = get_variable_label(
-                paired_data, geometry_var if show_var == "geometry" else dataset_var
+                paired_data, x_var if show_var == "geometry" else y_var
             )
 
         alt_units = get_variable_units(paired_data, alt_var) or "m"
@@ -202,7 +202,7 @@ class CurtainPlotter(BasePlotter):
         if self.config.title:
             self.set_title(ax, self.config.title)
         else:
-            var_label = get_variable_label(paired_data, geometry_var)
+            var_label = get_variable_label(paired_data, x_var)
             self.set_title(ax, f"{var_label} Curtain ({show_var.title()})")
 
         # Invert y-axis if needed (e.g., for pressure)
@@ -217,8 +217,8 @@ class CurtainPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         ax: matplotlib.axes.Axes | None = None,
         alt_var: str = "altitude",
         time_dim: str = "time",
@@ -236,9 +236,9 @@ class CurtainPlotter(BasePlotter):
         ----------
         paired_data
             Paired dataset with dataset and dataset variables.
-        geometry_var
+        x_var
             Name of dataset variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         ax
             Optional axes to plot on.
@@ -267,7 +267,7 @@ class CurtainPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, geometry_var, dataset_var),
+            build_series(paired_data, x_var, y_var),
             ax=ax,
             alt_var=alt_var,
             time_dim=time_dim,
@@ -286,7 +286,7 @@ class CurtainPlotter(BasePlotter):
         time_values: np.ndarray,
         alt_values: np.ndarray,
         data_values: np.ndarray,
-        geometry_values: np.ndarray | None,
+        x_values: np.ndarray | None,
         cmap: str,
         show_var: str,
         scatter_size: float | None,
@@ -446,8 +446,8 @@ class CurtainPlotter(BasePlotter):
 
 def plot_curtain(
     paired_data: xr.Dataset,
-    geometry_var: str,
-    dataset_var: str,
+    x_var: str,
+    y_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
@@ -457,9 +457,9 @@ def plot_curtain(
     ----------
     paired_data
         Paired dataset with dataset and dataset variables.
-    geometry_var
+    x_var
         Name of dataset variable.
-    dataset_var
+    y_var
         Name of dataset variable.
     config
         Plot configuration.
@@ -475,4 +475,4 @@ def plot_curtain(
         config = PlotConfig.from_dict(config)
 
     plotter = CurtainPlotter(config=config)
-    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)
+    return plotter.plot(paired_data, x_var, y_var, **kwargs)

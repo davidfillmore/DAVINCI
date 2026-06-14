@@ -1,0 +1,146 @@
+"""Single-source spatial field renderer: per-shape render mode + surface slicing.
+
+The mark must be chosen by data SHAPE and verified PROGRAMMATICALLY (per the
+geometry-aware-rendering rule — never "scatter for everything"):
+- grid / swath  -> QuadMesh (pcolormesh)
+- point / track / profile -> PathCollection (scatter)
+"""
+
+from __future__ import annotations
+
+import matplotlib
+
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import pytest  # noqa: E402
+import xarray as xr  # noqa: E402
+from matplotlib.collections import PathCollection, QuadMesh  # noqa: E402
+
+from davinci_monet.plots.base import build_series  # noqa: E402
+from davinci_monet.plots.renderers.spatial.field import SpatialPlotter  # noqa: E402
+from davinci_monet.tests.synthetic.geometries import (  # noqa: E402
+    create_gridded_geometries,
+    create_point_geometries,
+    create_profile_geometries,
+    create_swath_geometries,
+    create_track_geometries,
+)
+
+
+def _render(ds: xr.Dataset, var: str) -> tuple[plt.Figure, plt.Axes]:
+    fig = SpatialPlotter().render(build_series(ds, var))
+    return fig, fig.axes[0]  # GeoAxes is created first; colorbar is a later axes
+
+
+def _has(ax: plt.Axes, cls: type) -> bool:
+    return any(isinstance(c, cls) for c in ax.collections)
+
+
+@pytest.mark.parametrize(
+    "maker,var",
+    [
+        (create_point_geometries, "O3"),
+        (create_track_geometries, "O3"),
+        (create_profile_geometries, "O3"),
+    ],
+)
+def test_scatter_shapes_render_as_pathcollection(maker, var):
+    ds = maker()
+    fig, ax = _render(ds, var)
+    assert _has(ax, PathCollection), f"{ds.attrs['geometry']} should render as scatter"
+    assert not _has(ax, QuadMesh), f"{ds.attrs['geometry']} must NOT pcolormesh"
+    assert len(fig.axes) >= 2, "expected a colorbar axes"
+    plt.close(fig)
+
+
+@pytest.mark.parametrize(
+    "maker,var",
+    [
+        (create_gridded_geometries, "NO2"),
+        (create_swath_geometries, "NO2"),
+    ],
+)
+def test_mesh_shapes_render_as_quadmesh(maker, var):
+    ds = maker()
+    fig, ax = _render(ds, var)
+    assert _has(ax, QuadMesh), f"{ds.attrs['geometry']} should render as pcolormesh"
+    assert not _has(ax, PathCollection), f"{ds.attrs['geometry']} must NOT scatter"
+    assert len(fig.axes) >= 2, "expected a colorbar axes"
+    plt.close(fig)
+
+
+def test_single_series_required():
+    series = build_series(create_point_geometries(), "O3")
+    with pytest.raises(NotImplementedError, match="exactly 1 series"):
+        SpatialPlotter().render(series + series)
+
+
+def test_grid_slices_surface_not_toa():
+    """A 3-D grid with pressure ascending in index must slice the SURFACE (last)."""
+    nt, nlev, nlat, nlon = 3, 3, 4, 5
+    lev = np.array([100.0, 500.0, 1000.0])  # hPa increasing with index (CESM-style)
+    lat = np.linspace(20, 50, nlat)
+    lon = np.linspace(-120, -90, nlon)
+    # value == level index, broadcast over time/lat/lon
+    data = np.broadcast_to(
+        np.arange(nlev, dtype=float)[None, :, None, None], (nt, nlev, nlat, nlon)
+    ).copy()
+    ds = xr.Dataset(
+        {"O3": (["time", "lev", "lat", "lon"], data, {"units": "ppb"})},
+        coords={
+            "time": np.arange(nt),
+            "lev": ("lev", lev),
+            "lat": ("lat", lat),
+            "lon": ("lon", lon),
+            "latitude": ("lat", lat),
+            "longitude": ("lon", lon),
+        },
+        attrs={"geometry": "grid"},
+    )
+    fig, ax = _render(ds, "O3")
+    qm = next(c for c in ax.collections if isinstance(c, QuadMesh))
+    arr = np.asarray(qm.get_array(), dtype=float)
+    # Surface level (index -1) == 2.0; TOA (index 0) == 0.0.
+    assert np.nanmin(arr) == pytest.approx(2.0)
+    assert np.nanmax(arr) == pytest.approx(2.0)
+    plt.close(fig)
+
+
+@pytest.mark.integration
+def test_spatial_runs_through_pipeline(tmp_path):
+    """A ``type: spatial`` single-source plot generates a PNG via run_from_config."""
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    ds = create_gridded_geometries(variables=["NO2"])
+    source_path = tmp_path / "grid.nc"
+    ds.to_netcdf(source_path)
+
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "sources": {
+            "sat": {
+                "type": "generic",
+                "files": str(source_path),
+                "variables": {"NO2": {"units": "molec/cm2"}},
+            }
+        },
+        "plots": {
+            "no2_map": {
+                "type": "spatial",
+                "source": "sat",
+                "variable": "NO2",
+            }
+        },
+    }
+
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+
+    assert result.success, getattr(result, "error", None)
+    ctx = result.context
+    assert ctx is not None
+    plots = ctx.results["plotting"].data["plots_generated"]
+    pngs = [p for p in plots if p.endswith(".png")]
+    assert len(pngs) == 1
+    assert "no2_map" in pngs[0]

@@ -144,7 +144,7 @@ class PerfectMatchScenario(Scenario):
         site_lats = rng.uniform(self.domain.lat_min, self.domain.lat_max, n_sites)
 
         # Sample dataset at dataset locations
-        geometry_data: dict[str, Any] = {}
+        x_data: dict[str, Any] = {}
         for var in self.variables:
             # Interpolate dataset to dataset locations
             sampled = dataset[var].interp(
@@ -154,9 +154,9 @@ class PerfectMatchScenario(Scenario):
             )
             if self.noise_level > 0:
                 sampled = add_random_noise(sampled, self.noise_level, seed=self.seed)
-            geometry_data[var] = sampled
+            x_data[var] = sampled
 
-        geometry = xr.Dataset(geometry_data)
+        geometry = xr.Dataset(x_data)
         geometry.coords["longitude"] = ("site", site_lons)
         geometry.coords["latitude"] = ("site", site_lats)
         geometry.coords["site_id"] = ("site", [f"SITE{i:03d}" for i in range(n_sites)])
@@ -180,7 +180,7 @@ class PerfectMatchScenario(Scenario):
         track_times = dataset.time.values[time_indices]
 
         # Sample dataset at track locations
-        geometry_data: dict[str, Any] = {}
+        x_data: dict[str, Any] = {}
         for var in self.variables:
             sampled_values = []
             for i, (lon, lat, tidx) in enumerate(zip(track_lons, track_lats, time_indices)):
@@ -189,9 +189,9 @@ class PerfectMatchScenario(Scenario):
             sampled = xr.DataArray(sampled_values, dims=["time"])
             if self.noise_level > 0:
                 sampled = add_random_noise(sampled, self.noise_level, seed=self.seed)
-            geometry_data[var] = sampled
+            x_data[var] = sampled
 
-        geometry = xr.Dataset(geometry_data)
+        geometry = xr.Dataset(x_data)
         geometry.coords["time"] = ("time", track_times)
         geometry.coords["longitude"] = ("time", track_lons)
         geometry.coords["latitude"] = ("time", track_lats)
@@ -228,7 +228,7 @@ class PerfectMatchScenario(Scenario):
     def _generate_grid_geometry(self, dataset: xr.Dataset) -> xr.Dataset:
         """Generate gridded datasets from dataset."""
         # Regrid dataset to coarser dataset grid
-        geometry_domain = Domain(
+        x_domain = Domain(
             lon_min=self.domain.lon_min,
             lon_max=self.domain.lon_max,
             lat_min=self.domain.lat_min,
@@ -238,7 +238,7 @@ class PerfectMatchScenario(Scenario):
         )
         geometry = create_gridded_geometries(
             variables=self.variables,
-            domain=geometry_domain,
+            domain=x_domain,
             time_config=self.time_config,
             seed=self.seed,
         )
@@ -381,7 +381,7 @@ class MismatchScenario(Scenario):
 
         # Create offset domain/time for datasets
         if self.mismatch_type in ["spatial", "both"]:
-            geometry_domain = Domain(
+            x_domain = Domain(
                 lon_min=self.domain.lon_min + self.domain.lon_range * (1 - self.overlap_fraction),
                 lon_max=self.domain.lon_max + self.domain.lon_range * (1 - self.overlap_fraction),
                 lat_min=self.domain.lat_min,
@@ -390,36 +390,36 @@ class MismatchScenario(Scenario):
                 n_lat=self.domain.n_lat,
             )
         else:
-            geometry_domain = self.domain
+            x_domain = self.domain
 
         if self.mismatch_type in ["temporal", "both"]:
             import pandas as pd
 
             original_range = self.time_config.time_range
             offset = pd.Timedelta(hours=int(len(original_range) * (1 - self.overlap_fraction)))
-            geometry_time_config = TimeConfig(
+            x_time_config = TimeConfig(
                 start=pd.Timestamp(self.time_config.start) + offset,
                 end=pd.Timestamp(self.time_config.end) + offset,
                 freq=self.time_config.freq,
             )
         else:
-            geometry_time_config = self.time_config
+            x_time_config = self.time_config
 
         # Generate datasets with offset
         if self.geometry == DataGeometry.POINT:
             geometry = create_point_geometries(
                 n_sites=self.n_geometry,
                 variables=self.variables,
-                domain=geometry_domain,
-                time_config=geometry_time_config,
+                domain=x_domain,
+                time_config=x_time_config,
                 seed=self.seed,
             )
         else:
             geometry = create_point_geometries(
                 n_sites=self.n_geometry,
                 variables=self.variables,
-                domain=geometry_domain,
-                time_config=geometry_time_config,
+                domain=x_domain,
+                time_config=x_time_config,
                 seed=self.seed,
             )
 
@@ -433,7 +433,7 @@ class MismatchScenario(Scenario):
 
 
 def sample_geometry_from(
-    dataset_ds: xr.Dataset,
+    y_ds: xr.Dataset,
     geometry: str = "point",
     *,
     scenario: "PerfectMatchScenario | None" = None,
@@ -475,7 +475,7 @@ def sample_geometry_from(
     if geom_key not in _dispatch:
         valid = ", ".join(_dispatch)
         raise ValueError(f"Unknown geometry {geometry!r}. Valid choices: {valid}")
-    return _dispatch[geom_key](dataset_ds)
+    return _dispatch[geom_key](y_ds)
 
 
 def create_scenario(

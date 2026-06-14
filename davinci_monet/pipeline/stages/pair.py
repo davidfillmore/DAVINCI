@@ -11,7 +11,7 @@ from typing import Any
 
 import xarray as xr
 
-from davinci_monet.core.base import iter_paired_variable_pairs
+from davinci_monet.core.base import iter_paired_variable_xy
 from davinci_monet.core.exceptions import PipelineError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.pipeline.stages.base import (
@@ -37,7 +37,8 @@ class PairingStage(BaseStage):
         """Validate that sources are loaded and pairable."""
         pairs_config = context.config.get("pairs")
         if isinstance(pairs_config, dict) and any(
-            isinstance(pair, dict) and bool(pair.get("sources")) for pair in pairs_config.values()
+            isinstance(pair, dict) and bool(pair.get("x")) and bool(pair.get("y"))
+            for pair in pairs_config.values()
         ):
             return True
         if pairs_config and len(context.sources) >= 2:
@@ -87,7 +88,11 @@ class PairingStage(BaseStage):
     ) -> tuple[list[SourcePairJob], list[str]]:
         """Build pair jobs from the explicit ``pairs:`` block.
 
-        Each pair must be in unified form (``sources: [a, b]``).
+        Each pair is an ordered ``(x, y)``. ``x`` is the horizontal/reference
+        axis; ``y`` is vertical. ``x.source`` is the reference (pairing) geometry
+        that ``y.source`` is sampled onto; pairing *direction* still follows shape
+        precedence (irregular outranks grid), with ``x`` as the same-shape
+        tie-breaker.
         """
         from davinci_monet.pairing.direction import resolve_pair_direction
 
@@ -103,85 +108,63 @@ class PairingStage(BaseStage):
             if not isinstance(raw_pair, dict):
                 errors.append(f"Pair '{pair_name}' must be a mapping")
                 continue
-            if raw_pair.get("sources"):
-                srcs = raw_pair.get("sources") or []
-                if len(srcs) != 2:
-                    errors.append(f"Pair '{pair_name}' must list exactly two sources; got {srcs!r}")
-                    continue
-                a_label, b_label = str(srcs[0]), str(srcs[1])
-                if a_label not in context.sources or b_label not in context.sources:
-                    missing = [
-                        label for label in (a_label, b_label) if label not in context.sources
-                    ]
-                    errors.append(
-                        f"Pair '{pair_name}' names unknown source(s): " f"{', '.join(missing)}"
-                    )
-                    continue
-                a_obj = context.sources[a_label]
-                b_obj = context.sources[b_label]
-                a_geom = self._source_geometry(a_obj)
-                b_geom = self._source_geometry(b_obj)
-                explicit_geometry_label = raw_pair.get("geometry")
-                explicit_pos = None
-                if explicit_geometry_label is not None:
-                    if explicit_geometry_label == a_label:
-                        explicit_pos = "a"
-                    elif explicit_geometry_label == b_label:
-                        explicit_pos = "b"
-                    else:
-                        errors.append(
-                            f"Pair '{pair_name}' names unknown source "
-                            f"'{explicit_geometry_label}'. Expected one of {srcs}."
-                        )
-                        continue
-                geometry_choice, dataset_choice = resolve_pair_direction(
-                    a_geom, b_geom, explicit_geometry=explicit_pos
+            x_axis = raw_pair.get("x")
+            y_axis = raw_pair.get("y")
+            if not isinstance(x_axis, dict) or not isinstance(y_axis, dict):
+                errors.append(f"Pair '{pair_name}' must declare nested 'x:' and 'y:' axes.")
+                continue
+            x_source = str(x_axis.get("source") or "")
+            y_source = str(y_axis.get("source") or "")
+            x_var = x_axis.get("variable")
+            y_var = y_axis.get("variable")
+            if not x_source or not y_source:
+                errors.append(f"Pair '{pair_name}' axes must each name a 'source'.")
+                continue
+            if x_source not in context.sources or y_source not in context.sources:
+                missing = [label for label in (x_source, y_source) if label not in context.sources]
+                errors.append(
+                    f"Pair '{pair_name}' names unknown source(s): " f"{', '.join(missing)}"
                 )
-                if explicit_pos == "b" or (
-                    explicit_pos is None and geometry_choice is b_geom and dataset_choice is a_geom
-                ):
-                    geometry_label, geometry_obj = b_label, b_obj
-                    dataset_label, dataset_obj = a_label, a_obj
-                else:
-                    geometry_label, geometry_obj = a_label, a_obj
-                    dataset_label, dataset_obj = b_label, b_obj
-                vmap = raw_pair.get("variables") or {}
-                geometry_var = vmap.get(geometry_label)
-                dataset_var = vmap.get(dataset_label)
-                if not geometry_var or not dataset_var:
-                    missing = [
-                        label
-                        for label, value in (
-                            (geometry_label, geometry_var),
-                            (dataset_label, dataset_var),
-                        )
-                        if not value
-                    ]
-                    errors.append(
-                        f"Pair '{pair_name}' missing variable mapping for source(s): "
-                        f"{', '.join(missing)}"
-                    )
-                    continue
-                pair_index += 1
-                jobs.append(
-                    SourcePairJob(
-                        index=pair_index,
-                        pair_key=str(pair_name),
-                        geometry_label=geometry_label,
-                        geometry_obj=geometry_obj,
-                        dataset_label=dataset_label,
-                        dataset_obj=dataset_obj,
-                        geometry_var=str(geometry_var),
-                        dataset_var=str(dataset_var),
-                        radius_of_influence=self._pair_radius(raw_pair, dataset_obj),
-                        strategy_options=self._strategy_options(
-                            pairing_config_dict=context.config.get("pairing", {}),
-                            pair_spec=raw_pair,
-                        ),
-                    )
+                continue
+            if not x_var or not y_var:
+                missing = [
+                    label for label, value in ((x_source, x_var), (y_source, y_var)) if not value
+                ]
+                errors.append(
+                    f"Pair '{pair_name}' missing variable for axis source(s): "
+                    f"{', '.join(missing)}"
                 )
-            else:
-                errors.append(f"Pair '{pair_name}' must declare 'sources: [a, b]' and 'variables'.")
+                continue
+            x_obj = context.sources[x_source]
+            y_obj = context.sources[y_source]
+            # ``x`` is the reference (pairing) geometry that ``y`` is sampled onto.
+            # Resolve direction with ``x`` pinned as the reference (the same-shape
+            # tie-breaker): migration maps the old ``geometry`` (or first-listed)
+            # source to ``x``, preserving the prior reference choice. The call also
+            # validates that both source geometries are detectable.
+            resolve_pair_direction(
+                self._source_geometry(x_obj),
+                self._source_geometry(y_obj),
+                explicit_geometry="a",
+            )
+            pair_index += 1
+            jobs.append(
+                SourcePairJob(
+                    index=pair_index,
+                    pair_key=str(pair_name),
+                    x_source=x_source,
+                    x_obj=x_obj,
+                    y_source=y_source,
+                    y_obj=y_obj,
+                    x_var=str(x_var),
+                    y_var=str(y_var),
+                    radius_of_influence=self._pair_radius(raw_pair, y_obj),
+                    strategy_options=self._strategy_options(
+                        pairing_config_dict=context.config.get("pairing", {}),
+                        pair_spec=raw_pair,
+                    ),
+                )
+            )
         return jobs, errors
 
     @staticmethod
@@ -213,13 +196,13 @@ class PairingStage(BaseStage):
         return PairingEngine()._detect_geometry(data)
 
     @staticmethod
-    def _pair_radius(pair_spec: dict[str, Any], dataset_obj: Any) -> float:
+    def _pair_radius(pair_spec: dict[str, Any], y_obj: Any) -> float:
         if pair_spec.get("radius_of_influence") is not None:
             return float(pair_spec["radius_of_influence"])
-        cfg = getattr(dataset_obj, "config", None)
+        cfg = getattr(y_obj, "config", None)
         if isinstance(cfg, dict) and cfg.get("radius_of_influence") is not None:
             return float(cfg["radius_of_influence"])
-        return float(getattr(dataset_obj, "radius_of_influence", 12000.0))
+        return float(getattr(y_obj, "radius_of_influence", 12000.0))
 
     @staticmethod
     def _strategy_options(
@@ -229,9 +212,8 @@ class PairingStage(BaseStage):
     ) -> dict[str, Any]:
         """Return strategy-specific options from global and pair config."""
         control_keys = {
-            "sources",
-            "geometry",
-            "variables",
+            "x",
+            "y",
             "radius_of_influence",
             "time_tolerance",
             "time_method",
@@ -297,9 +279,9 @@ class PairingStage(BaseStage):
         """
         from davinci_monet.pairing import PairingConfig, PairingEngine
 
-        geometry_ds = self._source_dataset(job.geometry_obj)
-        dataset_ds = self._source_dataset(job.dataset_obj)
-        if geometry_ds is None or dataset_ds is None:
+        x_ds = self._source_dataset(job.x_obj)
+        y_ds = self._source_dataset(job.y_obj)
+        if x_ds is None or y_ds is None:
             return job, None, f"{job.pair_key}: geometry or dataset data is None"
 
         try:
@@ -310,15 +292,15 @@ class PairingStage(BaseStage):
             )
             engine = PairingEngine()
             paired_obj = engine.pair_sources(
-                geometry_data=geometry_ds,
-                dataset_data=dataset_ds,
-                geometry_vars=[job.geometry_var],
-                dataset_vars=[job.dataset_var],
-                output_geometry=self._source_geometry(job.geometry_obj),
-                dataset_geometry=self._source_geometry(job.dataset_obj),
+                x_data=x_ds,
+                y_data=y_ds,
+                x_vars=[job.x_var],
+                y_vars=[job.y_var],
+                output_geometry=self._source_geometry(job.x_obj),
+                y_geometry=self._source_geometry(job.y_obj),
                 config=pairing_cfg,
-                geometry_label=job.geometry_label,
-                dataset_label=job.dataset_label,
+                x_source=job.x_source,
+                y_source=job.y_source,
                 **job.strategy_options,
             )
             return job, paired_obj, None
@@ -372,8 +354,8 @@ class PairingStage(BaseStage):
         eager_jobs: list[SourcePairJob] = []
         dask_jobs: list[SourcePairJob] = []
         for job in jobs:
-            ref_ds = self._source_dataset(job.geometry_obj)
-            comp_ds = self._source_dataset(job.dataset_obj)
+            ref_ds = self._source_dataset(job.x_obj)
+            comp_ds = self._source_dataset(job.y_obj)
             if self._is_dask_backed(ref_ds) or self._is_dask_backed(comp_ds):
                 dask_jobs.append(job)
             else:
@@ -399,7 +381,7 @@ class PairingStage(BaseStage):
             paired_data = paired_obj.data
             context.paired[job.pair_key] = paired_obj
             paired_count += 1
-            n_vars = len(iter_paired_variable_pairs(paired_data))
+            n_vars = len(iter_paired_variable_xy(paired_data))
             n_points = paired_data.sizes.get("time", paired_data.sizes.get("x", 0))
             timing_str = f" [{_format_duration(time.time() - pair_start)}]" if debug else ""
             context.log_progress(

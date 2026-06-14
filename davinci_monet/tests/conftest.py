@@ -109,7 +109,7 @@ def dataset_3d(small_domain: Domain, short_time_config: TimeConfig) -> xr.Datase
 
 
 @pytest.fixture
-def dataset_single_var(small_domain: Domain, short_time_config: TimeConfig) -> xr.Dataset:
+def y_single_var(small_domain: Domain, short_time_config: TimeConfig) -> xr.Dataset:
     """Dataset with single variable (O3)."""
     return create_dataset_dataset(
         variables=["O3"],

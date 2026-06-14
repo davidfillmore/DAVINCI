@@ -9,6 +9,7 @@ This subpackage provides map-based visualization:
 from davinci_monet.plots.renderers.spatial.base import (
     BaseSpatialPlotter,
     MapConfig,
+    draw_spatial_field,
     get_domain_extent,
     get_projection,
 )
@@ -17,6 +18,7 @@ from davinci_monet.plots.renderers.spatial.distribution import (
     SpatialDistributionPlotter,
     plot_spatial_distribution,
 )
+from davinci_monet.plots.renderers.spatial.field import SpatialPlotter
 from davinci_monet.plots.renderers.spatial.overlay import (
     SpatialOverlayPlotter,
     plot_spatial_overlay,
@@ -26,12 +28,14 @@ __all__ = [
     # Base classes
     "BaseSpatialPlotter",
     "MapConfig",
+    "draw_spatial_field",
     "get_domain_extent",
     "get_projection",
     # Plotters
     "SpatialBiasPlotter",
     "SpatialOverlayPlotter",
     "SpatialDistributionPlotter",
+    "SpatialPlotter",
     # Convenience functions
     "plot_spatial_bias",
     "plot_spatial_overlay",

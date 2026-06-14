@@ -161,11 +161,11 @@ class TestMismatchScenario:
         dataset, geometry = scenario.generate()
 
         # Time ranges should be offset
-        dataset_times = dataset.time.values
-        geometry_times = geometry.time.values
+        y_times = dataset.time.values
+        x_times = geometry.time.values
 
         # Check they're not identical
-        assert not np.array_equal(dataset_times, geometry_times)
+        assert not np.array_equal(y_times, x_times)
 
     def test_both_mismatch(self) -> None:
         """Test combined spatial and temporal mismatch."""

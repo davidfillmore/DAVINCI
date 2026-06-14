@@ -20,20 +20,18 @@ def _paired_with_labels(geometry: str, dataset: str) -> xr.Dataset:
         coords={"time": np.arange(n)},
     )
     ds[f"{geometry}_o3"].attrs.update(
-        {"pair_axis": "geometry", "dataset_label": geometry, "canonical_name": "o3"}
+        {"axis": "x", "source_label": geometry, "canonical_name": "o3"}
     )
-    ds[f"{dataset}_o3"].attrs.update(
-        {"pair_axis": "dataset", "dataset_label": dataset, "canonical_name": "o3"}
-    )
+    ds[f"{dataset}_o3"].attrs.update({"axis": "y", "source_label": dataset, "canonical_name": "o3"})
     return ds
 
 
 class TestResolvePairedVarNames:
     def test_prefers_dataset_label_names(self) -> None:
         ds = _paired_with_labels(geometry="airnow", dataset="cam")
-        geometry_name, dataset_name = resolve_paired_var_names(ds, "o3", "airnow", "cam")
-        assert geometry_name == "airnow_o3"
-        assert dataset_name == "cam_o3"
+        x_name, y_name = resolve_paired_var_names(ds, "o3", "airnow", "cam")
+        assert x_name == "airnow_o3"
+        assert y_name == "cam_o3"
 
     def test_prefix_names_are_fallbacks(self) -> None:
         ds = xr.Dataset(
@@ -43,9 +41,9 @@ class TestResolvePairedVarNames:
             },
             coords={"time": np.arange(4)},
         )
-        geometry_name, dataset_name = resolve_paired_var_names(ds, "o3", "airnow", "cam")
-        assert geometry_name == "geometry_o3"
-        assert dataset_name == "dataset_o3"
+        x_name, y_name = resolve_paired_var_names(ds, "o3", "airnow", "cam")
+        assert x_name == "geometry_o3"
+        assert y_name == "dataset_o3"
 
 
 class TestCanonicalVariableName:
@@ -79,8 +77,8 @@ class TestGetVariableLabelPreserved:
                     "time",
                     np.array([1.0, 2.0]),
                     {
-                        "pair_axis": "dataset",
-                        "dataset_label": "merra2",
+                        "axis": "y",
+                        "source_label": "merra2",
                         "dataset_variable": "LWTUP",
                         "canonical_name": "toa_lw_up",
                     },

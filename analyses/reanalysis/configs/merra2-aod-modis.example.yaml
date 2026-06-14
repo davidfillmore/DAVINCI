@@ -21,16 +21,13 @@ sources:
     files: ${REANALYSIS_DATA}/modis/*.nc
     variables:
       aod_550nm:
-        geometry_min: 0
-        geometry_max: 5
+        valid_min: 0
+        valid_max: 5
 
 pairs:
   merra2_vs_modis:
-    sources: [merra2, modis]
-    geometry: modis
-    variables:
-      merra2: TOTEXTTAU
-      modis: aod_550nm
+    x: { source: modis, variable: aod_550nm }
+    y: { source: merra2, variable: TOTEXTTAU }
 
 plots:
   aod_bias:

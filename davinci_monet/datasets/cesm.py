@@ -74,7 +74,7 @@ class CESMFVReader:
         xr.Dataset
             CESM data with standardized dimensions (time, z, lat, lon).
         """
-        file_list = validate_file_list(file_paths, dataset_label="CESM")
+        file_list = validate_file_list(file_paths, source_label="CESM")
 
         # Try monetio first
         try:
@@ -190,7 +190,7 @@ class CESMSEReader:
         xr.Dataset
             CESM data with unstructured grid dimensions.
         """
-        file_list = validate_file_list(file_paths, dataset_label="CESM")
+        file_list = validate_file_list(file_paths, source_label="CESM")
 
         # Try monetio first
         try:

@@ -163,11 +163,8 @@ sources:
 
 pairs:
   test_dataset_test_geometry:
-    sources: [test_dataset, test_geometry]
-    geometry: test_geometry
-    variables:
-      test_dataset: O3
-      test_geometry: o3
+    x: { source: test_geometry, variable: o3 }
+    y: { source: test_dataset, variable: O3 }
 """
         config_file = tmp_path / "config.yaml"
         config_file.write_text(config_content)
@@ -222,11 +219,8 @@ sources:
 
 pairs:
   test_dataset_test_geometry:
-    sources: [test_dataset, test_geometry]
-    geometry: test_geometry
-    variables:
-      test_dataset: O3
-      test_geometry: o3
+    x: { source: test_geometry, variable: o3 }
+    y: { source: test_dataset, variable: O3 }
 """
         config_file = tmp_path / "valid_config.yaml"
         config_file.write_text(config_content)
@@ -564,11 +558,8 @@ sources:
 
 pairs:
   dataset1_geometry1:
-    sources: [dataset1, geometry1]
-    geometry: geometry1
-    variables:
-      dataset1: O3
-      geometry1: o3
+    x: { source: geometry1, variable: o3 }
+    y: { source: dataset1, variable: O3 }
 
 plots:
   timeseries_plot:

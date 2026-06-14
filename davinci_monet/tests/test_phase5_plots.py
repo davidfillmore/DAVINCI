@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import xarray as xr
 
-from davinci_monet.plots.base import resolve_dataset_variable
+from davinci_monet.plots.base import resolve_source_variable
 from davinci_monet.plots.style import (
     DATASET_A_COLOR,
     DATASET_B_COLOR,
@@ -35,12 +35,12 @@ class TestGetColorForVariable:
 class TestResolveSourceVariable:
     def test_prefers_dataset_label_prefixed_name(self) -> None:
         ds = xr.Dataset({"cam_o3": ("x", [1.0]), "o3": ("x", [2.0])})
-        assert resolve_dataset_variable(ds, "o3", "cam") == "cam_o3"
+        assert resolve_source_variable(ds, "o3", "cam") == "cam_o3"
 
     def test_falls_back_to_canonical_name(self) -> None:
         ds = xr.Dataset({"o3": ("x", [2.0])})
-        assert resolve_dataset_variable(ds, "o3", "airnow") == "o3"
+        assert resolve_source_variable(ds, "o3", "airnow") == "o3"
 
     def test_returns_none_when_absent(self) -> None:
         ds = xr.Dataset({"pm25": ("x", [2.0])})
-        assert resolve_dataset_variable(ds, "o3", "airnow") is None
+        assert resolve_source_variable(ds, "o3", "airnow") is None

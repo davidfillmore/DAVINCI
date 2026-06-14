@@ -103,7 +103,7 @@ class GenericL2Reader:
         xr.Dataset
             L2 satellite datasets with swath dimensions.
         """
-        file_list = validate_file_list(file_paths, dataset_label="Satellite L2")
+        file_list = validate_file_list(file_paths, source_label="Satellite L2")
 
         ds = self._open_files(file_list, variables, group=group, **kwargs)
 

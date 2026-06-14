@@ -50,47 +50,35 @@ sources:
     filename: ../data/openaq_asiaq_202402.nc
     variables:
       o3:
-        geometry_min: 0
-        geometry_max: 200
+        valid_min: 0
+        valid_max: 200
       no2:
-        geometry_min: 0
-        geometry_max: 100
+        valid_min: 0
+        valid_max: 100
       co:
-        geometry_min: 0
-        geometry_max: 5000
+        valid_min: 0
+        valid_max: 5000
       pm25:
-        geometry_min: 0
-        geometry_max: 500
+        valid_min: 0
+        valid_max: 500
 
 # One binary pair per variable. The plots below geometry the O3 pair.
 pairs:
   cesm_asiaq_openaq_asia:
-    sources: [cesm_asiaq, openaq_asia]
-    geometry: openaq_asia
-    variables:
-      cesm_asiaq: O3
-      openaq_asia: o3
+    x: { source: openaq_asia, variable: o3 }
+    y: { source: cesm_asiaq, variable: O3 }
 
   cesm_asiaq_openaq_asia_no2:
-    sources: [cesm_asiaq, openaq_asia]
-    geometry: openaq_asia
-    variables:
-      cesm_asiaq: NO2
-      openaq_asia: no2
+    x: { source: openaq_asia, variable: no2 }
+    y: { source: cesm_asiaq, variable: NO2 }
 
   cesm_asiaq_openaq_asia_co:
-    sources: [cesm_asiaq, openaq_asia]
-    geometry: openaq_asia
-    variables:
-      cesm_asiaq: CO
-      openaq_asia: co
+    x: { source: openaq_asia, variable: co }
+    y: { source: cesm_asiaq, variable: CO }
 
   cesm_asiaq_openaq_asia_pm25:
-    sources: [cesm_asiaq, openaq_asia]
-    geometry: openaq_asia
-    variables:
-      cesm_asiaq: PM25
-      openaq_asia: pm25
+    x: { source: openaq_asia, variable: pm25 }
+    y: { source: cesm_asiaq, variable: PM25 }
 
 # Plotting configuration
 plots:

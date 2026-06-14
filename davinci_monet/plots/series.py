@@ -3,10 +3,10 @@
 Provides:
 - build_series: resolve var-args into an ordered list of PlotSeries
 - series_colors: per-series colors under the unified, count-aware rule
-- get_dataset_color: plot color for a paired series by pair_axis
-- dataset_label: source label for a single-source dataset
+- get_axis_color: plot color for a paired series by axis
+- source_label: source label for a single-source dataset
 - get_series_label: legend label for a paired series
-- resolve_dataset_variable: resolve a variable name by source label
+- resolve_source_variable: resolve a variable name by source label
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from davinci_monet.core.base import (
     PlotSeries,
-    paired_variable_pair_axis,
+    paired_variable_axis,
 )
 from davinci_monet.plots.labels import canonical_variable_name, get_variable_label
 from davinci_monet.plots.style import DATASET_A_COLOR, DATASET_B_COLOR, NCAR_PALETTE, NCAR_PRIMARY
@@ -29,12 +29,12 @@ def build_series(dataset: xr.Dataset, *var_args: Any) -> list[PlotSeries]:
 
     Accepts the three call shapes the unified facade supports:
 
-    - ``build_series(ds, geometry_var, dataset_var)`` → 2 series
+    - ``build_series(ds, x_var, y_var)`` → 2 series
     - ``build_series(ds, variable)`` → 1 series
     - ``build_series(ds, [v1, ..., vN])`` → N series
 
     A trailing positional ``matplotlib`` Axes (``plot(ds, var, ax)``) is
-    ignored for series building. ``pair_axis``/``dataset_label``/``canonical``
+    ignored for series building. ``axis``/``source_label``/``canonical``
     are read from the dataset's attrs, with the ``geometry_``/``dataset_``
     prefix fallback.
     """
@@ -50,18 +50,18 @@ def build_series(dataset: xr.Dataset, *var_args: Any) -> list[PlotSeries]:
 
     series: list[PlotSeries] = []
     for i, name in enumerate(names):
-        # Prefer the per-variable dataset_label (paired/tagged data); fall back to
+        # Prefer the per-variable source_label (paired/tagged data); fall back to
         # the dataset-level label that single-source geometry datasets carry.
-        dataset_label = (
-            dataset[name].attrs.get("dataset_label") if name in dataset.data_vars else None
-        ) or dataset.attrs.get("dataset_label")
+        source_label = (
+            dataset[name].attrs.get("source_label") if name in dataset.data_vars else None
+        ) or dataset.attrs.get("source_label")
         series.append(
             PlotSeries(
                 dataset=dataset,
                 var_name=name,
                 canonical=canonical_variable_name(dataset, name),
-                pair_axis=paired_variable_pair_axis(dataset, name),
-                dataset_label=str(dataset_label) if dataset_label else None,
+                axis=paired_variable_axis(dataset, name),
+                source_label=str(source_label) if source_label else None,
                 index=i,
             )
         )
@@ -71,17 +71,17 @@ def build_series(dataset: xr.Dataset, *var_args: Any) -> list[PlotSeries]:
 def series_colors(
     series: list[PlotSeries],
     *,
-    geometry_color: str | None = None,
-    dataset_color: str | None = None,
+    x_color: str | None = None,
+    y_color: str | None = None,
 ) -> list[str]:
     """Per-series colors under the unified, count-aware rule.
 
     - **1 series** → ``NCAR_PRIMARY``.
-    - **2 series** → geometry in ``geometry_color`` (gray) and dataset in
-      ``dataset_color`` (blue), preserving today's comparison contrast.
+    - **2 series** → geometry in ``x_color`` (gray) and dataset in
+      ``y_color`` (blue), preserving today's comparison contrast.
     - **N > 2 series** → distinct ``NCAR_PALETTE`` colors cycled by ``index``.
 
-    ``geometry_color``/``dataset_color`` let a caller pass the active ``StyleConfig``
+    ``x_color``/``y_color`` let a caller pass the active ``StyleConfig``
     colors; they default to the module ``DATASET_A_COLOR``/``DATASET_B_COLOR``.
     """
     n = len(series)
@@ -90,45 +90,41 @@ def series_colors(
     if n == 2:
         out: list[str] = []
         for s in series:
-            is_dataset = s.pair_axis == "dataset" or (s.pair_axis is None and s.index == 1)
-            out.append(
-                (dataset_color or DATASET_B_COLOR)
-                if is_dataset
-                else (geometry_color or DATASET_A_COLOR)
-            )
+            is_dataset = s.axis == "y" or (s.axis is None and s.index == 1)
+            out.append((y_color or DATASET_B_COLOR) if is_dataset else (x_color or DATASET_A_COLOR))
         return out
     return [NCAR_PALETTE[s.index % len(NCAR_PALETTE)] for s in series]
 
 
-def get_dataset_color(
+def get_axis_color(
     dataset: xr.Dataset,
     var_name: str,
     index: int = 0,
     *,
-    geometry_color: str | None = None,
-    dataset_color: str | None = None,
+    x_color: str | None = None,
+    y_color: str | None = None,
 ) -> str:
-    """Plot color for a paired series by pair_axis.
+    """Plot color for a paired series by axis.
 
-    ``geometry_color``/``dataset_color`` let a caller supply the active ``StyleConfig``
+    ``x_color``/``y_color`` let a caller supply the active ``StyleConfig``
     colors so a customised style is honoured for the geometry/dataset axes.
     """
-    pair_axis = paired_variable_pair_axis(dataset, var_name)
-    if pair_axis == "geometry":
-        return geometry_color or DATASET_A_COLOR
-    if pair_axis == "dataset":
-        return dataset_color or DATASET_B_COLOR
+    axis = paired_variable_axis(dataset, var_name)
+    if axis == "x":
+        return x_color or DATASET_A_COLOR
+    if axis == "y":
+        return y_color or DATASET_B_COLOR
     return NCAR_PALETTE[index % len(NCAR_PALETTE)]
 
 
-def dataset_label(dataset: xr.Dataset, default: str | None = None) -> str | None:
+def source_label(dataset: xr.Dataset, default: str | None = None) -> str | None:
     """Source label for a single-source dataset.
 
     Single-source datasets carry their source label in the dataset-level ``attrs``
     (set by the loading stage), not per-variable. Returns it so a source plot
     can self-identify its source, or ``default`` when absent.
     """
-    label = dataset.attrs.get("dataset_label")
+    label = dataset.attrs.get("source_label")
     return str(label) if label else default
 
 
@@ -139,7 +135,7 @@ def get_series_label(
 ) -> str:
     """Legend label for a paired series (renderer rewire R-3).
 
-    Prefers an explicit ``custom_label``, then the variable's ``dataset_label``
+    Prefers an explicit ``custom_label``, then the variable's ``source_label``
     attr (the source's identity in a unified pair, e.g. ``airnow`` / ``cam``),
     and finally falls back to the standard variable label. Use this for the
     *series* legend; axis labels that name the variable should keep using
@@ -148,20 +144,20 @@ def get_series_label(
     if custom_label:
         return custom_label
     if var_name in dataset:
-        dataset_label = dataset[var_name].attrs.get("dataset_label")
-        if dataset_label:
-            return str(dataset_label)
+        source_label = dataset[var_name].attrs.get("source_label")
+        if source_label:
+            return str(source_label)
     return get_variable_label(dataset, var_name)
 
 
-def resolve_dataset_variable(
+def resolve_source_variable(
     dataset: xr.Dataset,
     canonical_var: str,
-    dataset_label: str,
+    source_label: str,
 ) -> str | None:
     """Resolve a variable name by source label (Phase 5, additive).
 
-    Supports the unified source-label naming (``<dataset_label>_<canonical>``,
+    Supports the unified source-label naming (``<source_label>_<canonical>``,
     e.g. ``cam_o3``) while falling back to the bare canonical name. Returns the
     matching variable name present in the dataset, or ``None`` if neither is
     found. Does not alter the existing ``dataset_``/``geometry_`` prefix handling.
@@ -172,7 +168,7 @@ def resolve_dataset_variable(
         Dataset to search.
     canonical_var
         Canonical (unprefixed) variable name, e.g. ``"o3"``.
-    dataset_label
+    source_label
         Source label used as a prefix, e.g. ``"cam"`` or ``"airnow"``.
 
     Returns
@@ -180,7 +176,7 @@ def resolve_dataset_variable(
     str | None
         The resolved variable name, or ``None`` if absent.
     """
-    for candidate in (f"{dataset_label}_{canonical_var}", canonical_var):
+    for candidate in (f"{source_label}_{canonical_var}", canonical_var):
         if candidate in dataset.data_vars or candidate in dataset.coords:
             return candidate
     return None
@@ -189,8 +185,8 @@ def resolve_dataset_variable(
 __all__ = [
     "build_series",
     "series_colors",
-    "get_dataset_color",
-    "dataset_label",
+    "get_axis_color",
+    "source_label",
     "get_series_label",
-    "resolve_dataset_variable",
+    "resolve_source_variable",
 ]

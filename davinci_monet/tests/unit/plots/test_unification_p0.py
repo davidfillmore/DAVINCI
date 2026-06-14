@@ -2,7 +2,7 @@
 
 Pure-addition foundation — no behavior change to existing renderers:
 - PlotSeries value object + iter_canonical_variable_series (N-capable sibling of
-  iter_paired_variable_pairs), with a guard that the binary read path stays stable.
+  iter_paired_variable_xy), with a guard that the binary read path stays stable.
 - build_series: resolve facade var-args (paired / single / N-list / trailing-Axes)
   into a PlotSeries list.
 - BasePlotter.render() default delegating to plot() for the 2-series case.
@@ -18,26 +18,26 @@ import xarray as xr
 from davinci_monet.core.base import (
     PlotSeries,
     iter_canonical_variable_series,
-    iter_paired_variable_pairs,
+    iter_paired_variable_xy,
 )
 
 
 def _paired(*specs: tuple[str, str, str]) -> xr.Dataset:
     """Build a paired-style dataset.
 
-    Each spec is (var_name, pair_axis, dataset_label); values are a 3-long
+    Each spec is (var_name, axis, source_label); values are a 3-long
     time series so the dataset is realistic.
     """
     data = {}
-    for name, pair_axis, label in specs:
+    for name, axis, label in specs:
         canonical_name = name.split("_", 1)[1] if "_" in name else name
         data[name] = xr.DataArray(
             np.array([1.0, 2.0, 3.0]),
             dims=("time",),
             attrs={
-                "pair_axis": pair_axis,
+                "axis": axis,
                 "canonical_name": canonical_name,
-                "dataset_label": label,
+                "source_label": label,
             },
         )
     return xr.Dataset(data, coords={"time": np.arange(3)})
@@ -50,48 +50,48 @@ def _paired(*specs: tuple[str, str, str]) -> xr.Dataset:
 
 class TestIterCanonicalVariableSeries:
     def test_single_source_one_series(self) -> None:
-        ds = _paired(("airnow_o3", "geometry", "airnow"))
+        ds = _paired(("airnow_o3", "x", "airnow"))
         groups = iter_canonical_variable_series(ds)
         assert list(groups) == ["o3"]
         assert len(groups["o3"]) == 1
         s = groups["o3"][0]
         assert isinstance(s, PlotSeries)
-        assert (s.var_name, s.canonical, s.pair_axis, s.dataset_label, s.index) == (
+        assert (s.var_name, s.canonical, s.axis, s.source_label, s.index) == (
             "airnow_o3",
             "o3",
-            "geometry",
+            "x",
             "airnow",
             0,
         )
 
     def test_paired_two_series_grouped_by_canonical(self) -> None:
         ds = _paired(
-            ("airnow_o3", "geometry", "airnow"),
-            ("cam_o3", "dataset", "cam"),
+            ("airnow_o3", "x", "airnow"),
+            ("cam_o3", "y", "cam"),
         )
         groups = iter_canonical_variable_series(ds)
         assert list(groups) == ["o3"]
         series = groups["o3"]
-        assert [s.pair_axis for s in series] == ["geometry", "dataset"]
+        assert [s.axis for s in series] == ["x", "y"]
         assert [s.index for s in series] == [0, 1]
 
     def test_n_source_same_canonical_grouped(self) -> None:
         ds = _paired(
-            ("airnow_o3", "geometry", "airnow"),
-            ("cam_o3", "dataset", "cam"),
-            ("cam2_o3", "dataset", "cam2"),
+            ("airnow_o3", "x", "airnow"),
+            ("cam_o3", "y", "cam"),
+            ("cam2_o3", "y", "cam2"),
         )
         groups = iter_canonical_variable_series(ds)
         assert list(groups) == ["o3"]
-        assert [s.dataset_label for s in groups["o3"]] == ["airnow", "cam", "cam2"]
+        assert [s.source_label for s in groups["o3"]] == ["airnow", "cam", "cam2"]
         assert [s.index for s in groups["o3"]] == [0, 1, 2]
 
     def test_multiple_canonicals_kept_separate(self) -> None:
         ds = _paired(
-            ("airnow_o3", "geometry", "airnow"),
-            ("cam_o3", "dataset", "cam"),
-            ("airnow_pm25", "geometry", "airnow"),
-            ("cam_pm25", "dataset", "cam"),
+            ("airnow_o3", "x", "airnow"),
+            ("cam_o3", "y", "cam"),
+            ("airnow_pm25", "x", "airnow"),
+            ("cam_pm25", "y", "cam"),
         )
         groups = iter_canonical_variable_series(ds)
         assert set(groups) == {"o3", "pm25"}
@@ -105,12 +105,12 @@ class TestIterPairedVariablePairsUnchanged:
 
     def test_first_dataset_wins_with_extra_source(self) -> None:
         ds = _paired(
-            ("airnow_o3", "geometry", "airnow"),
-            ("cam_o3", "dataset", "cam"),
-            ("cam2_o3", "dataset", "cam2"),
+            ("airnow_o3", "x", "airnow"),
+            ("cam_o3", "y", "cam"),
+            ("cam2_o3", "y", "cam2"),
         )
         # Only the FIRST dataset (cam_o3) pairs with the geometry.
-        assert iter_paired_variable_pairs(ds) == [("airnow_o3", "cam_o3", "o3")]
+        assert iter_paired_variable_xy(ds) == [("airnow_o3", "cam_o3", "o3")]
 
     def test_prefix_order_preserved(self) -> None:
         # geometry_/dataset_ names, dataset variables appearing in b-then-a order.
@@ -124,7 +124,7 @@ class TestIterPairedVariablePairsUnchanged:
             coords={"t": [0]},
         )
         # Dataset-appearance order is b, then a.
-        assert iter_paired_variable_pairs(ds) == [
+        assert iter_paired_variable_xy(ds) == [
             ("geometry_b", "dataset_b", "b"),
             ("geometry_a", "dataset_a", "a"),
         ]
@@ -138,9 +138,9 @@ class TestIterPairedVariablePairsUnchanged:
 class TestBuildSeries:
     def _ds(self) -> xr.Dataset:
         return _paired(
-            ("airnow_o3", "geometry", "airnow"),
-            ("cam_o3", "dataset", "cam"),
-            ("cam2_o3", "dataset", "cam2"),
+            ("airnow_o3", "x", "airnow"),
+            ("cam_o3", "y", "cam"),
+            ("cam2_o3", "y", "cam2"),
         )
 
     def test_paired_two_args(self) -> None:
@@ -196,14 +196,14 @@ class TestRenderDefault:
         class StubPlotter(BasePlotter):
             name = "stub"
 
-            def plot(self, paired_data, geometry_var, dataset_var, ax=None, **kwargs):
-                calls.append((geometry_var, dataset_var))
+            def plot(self, paired_data, x_var, y_var, ax=None, **kwargs):
+                calls.append((x_var, y_var))
                 fig, _ax = self.create_figure()
                 return fig
 
         ds = _paired(
-            ("airnow_o3", "geometry", "airnow"),
-            ("cam_o3", "dataset", "cam"),
+            ("airnow_o3", "x", "airnow"),
+            ("cam_o3", "y", "cam"),
         )
         series = build_series(ds, "airnow_o3", "cam_o3")
         fig = StubPlotter().render(series)
@@ -213,7 +213,7 @@ class TestRenderDefault:
 
     def test_render_uses_geometry_series_dataset(self) -> None:
         """render() must pass the geometry dataset (not series[0].dataset) so that
-        when pair_axis ordering flips the positional assumption, the correct
+        when axis ordering flips the positional assumption, the correct
         paired dataset is still forwarded to plot()."""
         import matplotlib
 
@@ -227,21 +227,21 @@ class TestRenderDefault:
         class StubPlotter(BasePlotter):
             name = "stub_geometry_ds"
 
-            def plot(self, paired_data, geometry_var, dataset_var, ax=None, **kwargs):
+            def plot(self, paired_data, x_var, y_var, ax=None, **kwargs):
                 received_datasets.append(id(paired_data))
                 fig, _ax = self.create_figure()
                 return fig
 
         ds = _paired(
-            ("airnow_o3", "geometry", "airnow"),
-            ("cam_o3", "dataset", "cam"),
+            ("airnow_o3", "x", "airnow"),
+            ("cam_o3", "y", "cam"),
         )
         # Build series dataset-first so series[0] is NOT the geometry.
         series = build_series(ds, "cam_o3", "airnow_o3")
-        geometry_series = next(s for s in series if s.pair_axis == "geometry")
+        x_series = next(s for s in series if s.axis == "x")
         StubPlotter().render(series)
         # plot() must receive the geometry dataset, not series[0].dataset.
-        assert received_datasets == [id(geometry_series.dataset)]
+        assert received_datasets == [id(x_series.dataset)]
         plt.close("all")
 
 
@@ -281,7 +281,7 @@ class TestRegistryAliases:
         class _RealPlot(BasePlotter):
             name = "p0_real_plot"
 
-            def plot(self, paired_data, geometry_var, dataset_var, ax=None, **kwargs):
+            def plot(self, paired_data, x_var, y_var, ax=None, **kwargs):
                 fig, _ = self.create_figure()
                 return fig
 

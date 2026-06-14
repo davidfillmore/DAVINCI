@@ -148,8 +148,8 @@ class PairingStrategy(Protocol):
     @abstractmethod
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         **kwargs: Any,
     ) -> xr.Dataset:
         """Pair two  sources.
@@ -175,8 +175,8 @@ class PairingEngine(Protocol):
     @abstractmethod
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         **kwargs: Any,
     ) -> xr.Dataset:
         """Pair two  sources using the appropriate strategy.
@@ -209,8 +209,8 @@ class Plotter(Protocol):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Generate a plot from paired data.
@@ -219,9 +219,9 @@ class Plotter(Protocol):
         ----------
         paired_data
             Paired Dataset containing dataset and dataset variables.
-        geometry_var
+        x_var
             Name of the dataset variable to plot.
-        dataset_var
+        y_var
             Name of the dataset variable to plot.
         **kwargs
             Plot-specific options (colors, labels, domains, etc.).
@@ -276,8 +276,8 @@ class SpatialPlotter(Protocol):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         domain: tuple[float, float, float, float] | None = None,
         projection: Any | None = None,
         **kwargs: Any,
@@ -288,9 +288,9 @@ class SpatialPlotter(Protocol):
         ----------
         paired_data
             Paired Dataset.
-        geometry_var
+        x_var
             Compatibility name for geometry variable.
-        dataset_var
+        y_var
             Compatibility name for dataset variable.
         domain
             Geographic extent (lon_min, lon_max, lat_min, lat_max).
@@ -365,8 +365,8 @@ class StatisticsCalculator(Protocol):
     def compute(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         metrics: Sequence[str] | None = None,
         groupby: str | Sequence[str] | None = None,
         **kwargs: Any,
@@ -377,9 +377,9 @@ class StatisticsCalculator(Protocol):
         ----------
         paired_data
             Paired Dataset.
-        geometry_var
+        x_var
             Geometry variable name.
-        dataset_var
+        y_var
             Dataset variable name.
         metrics
             List of metric names to compute. If None, compute all.

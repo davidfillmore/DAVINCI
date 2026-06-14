@@ -37,17 +37,17 @@ def _format_duration(seconds: float) -> str:
         return f"{mins}m{secs:.0f}s"
 
 
-def tag_dataset_label(
+def tag_source_label(
     data: Any,
     *,
-    dataset_label: str,
+    source_label: str,
 ) -> Any:
-    """Attach a dataset label to each variable of a single-source dataset."""
+    """Attach a source label to each variable of a single-source dataset."""
     if data is None or not hasattr(data, "data_vars"):
         return data
     for name in data.data_vars:
         var = data[name]
-        var.attrs.setdefault("dataset_label", dataset_label)
+        var.attrs.setdefault("source_label", source_label)
     return data
 
 
@@ -72,9 +72,9 @@ def iter_single_source_datasets(
 
 def resolve_paired_var_names(
     paired_data: Any,
-    geometry_var: str,
-    geometry_label: str,
-    dataset_label: str,
+    x_var: str,
+    x_source: str,
+    y_source: str,
 ) -> tuple[str, str]:
     """Resolve the (geometry, dataset) variable names to plot from a paired dataset.
 
@@ -83,14 +83,8 @@ def resolve_paired_var_names(
     returned names are concrete strings; the caller checks membership before
     plotting.
     """
-    from davinci_monet.plots.base import resolve_dataset_variable
+    from davinci_monet.plots.base import resolve_source_variable
 
-    geometry_name = (
-        resolve_dataset_variable(paired_data, geometry_var, geometry_label)
-        or f"geometry_{geometry_var}"
-    )
-    dataset_name = (
-        resolve_dataset_variable(paired_data, geometry_var, dataset_label)
-        or f"dataset_{geometry_var}"
-    )
-    return geometry_name, dataset_name
+    x_name = resolve_source_variable(paired_data, x_var, x_source) or f"geometry_{x_var}"
+    y_name = resolve_source_variable(paired_data, x_var, y_source) or f"dataset_{x_var}"
+    return x_name, y_name

@@ -75,7 +75,7 @@ class CMAQReader:
         xr.Dataset
             CMAQ data with standardized dimensions (time, z, lat, lon).
         """
-        file_list = validate_file_list(file_paths, dataset_label="CMAQ")
+        file_list = validate_file_list(file_paths, source_label="CMAQ")
 
         # Try to use monetio if available
         try:

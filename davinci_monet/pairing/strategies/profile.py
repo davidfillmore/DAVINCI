@@ -32,7 +32,7 @@ class ProfileStrategy(BasePairingStrategy):
     Examples
     --------
     >>> strategy = ProfileStrategy()
-    >>> paired = strategy.pair_sources(dataset_data, sonde_data,
+    >>> paired = strategy.pair_sources(y_data, sonde_data,
     ...                        vertical_method='log')
     """
 
@@ -43,8 +43,8 @@ class ProfileStrategy(BasePairingStrategy):
 
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "linear",
@@ -77,30 +77,30 @@ class ProfileStrategy(BasePairingStrategy):
         xr.Dataset
             Paired dataset with dataset and geometry profiles.
         """
-        dataset = dataset_data
-        geometry = geometry_data
+        dataset = y_data
+        geometry = x_data
 
         level_coord = kwargs.get("level_coord", "level")
         interp_to_geometry_levels = kwargs.get("interp_to_geometry_levels", True)
 
         # Get coordinates
-        dataset_lat, dataset_lon = self._get_dataset_coords(dataset)
-        geometry_lat, geometry_lon = self._get_geometry_coords(geometry)
+        y_lat, y_lon = self._get_dataset_coords(dataset)
+        x_lat, x_lon = self._get_geometry_coords(geometry)
 
         # Get profile location (may be single point or time-varying)
-        if geometry_lat.ndim == 0:
+        if x_lat.ndim == 0:
             # Single location
-            profile_lat = float(geometry_lat.values)
-            profile_lon = float(geometry_lon.values)
+            profile_lat = float(x_lat.values)
+            profile_lon = float(x_lon.values)
         else:
             # Take first value (assume profile at fixed location)
-            profile_lat = float(geometry_lat.values.flat[0])
-            profile_lon = float(geometry_lon.values.flat[0])
+            profile_lat = float(x_lat.values.flat[0])
+            profile_lon = float(x_lon.values.flat[0])
 
         # Find nearest dataset column
         lat_idx, lon_idx = self._find_nearest_indices(
-            dataset_lat,
-            dataset_lon,
+            y_lat,
+            y_lon,
             xr.DataArray([profile_lat]),
             xr.DataArray([profile_lon]),
             radius_of_influence=radius_of_influence,
@@ -113,38 +113,38 @@ class ProfileStrategy(BasePairingStrategy):
             )
 
         # Extract dataset column at profile location
-        dataset_column = self._extract_column(
+        y_column = self._extract_column(
             dataset,
-            dataset_lat,
-            dataset_lon,
+            y_lat,
+            y_lon,
             int(lat_idx.values[0]),
             int(lon_idx.values[0]),
         )
 
         # Interpolate dataset to dataset times if needed
-        if "time" in dataset_column.dims and "time" in geometry.dims:
-            geometry_times = geometry["time"]
-            dataset_column = self._interpolate_time(
-                dataset_column, geometry_times, "nearest", time_tolerance=time_tolerance
+        if "time" in y_column.dims and "time" in geometry.dims:
+            x_times = geometry["time"]
+            y_column = self._interpolate_time(
+                y_column, x_times, "nearest", time_tolerance=time_tolerance
             )
 
         # Handle vertical interpolation
         if interp_to_geometry_levels and level_coord in geometry.dims:
-            geometry_levels = geometry[level_coord]
-            dataset_column = self._interpolate_vertical(
-                dataset_column, geometry_levels, level_coord="z", method=vertical_method
+            x_levels = geometry[level_coord]
+            y_column = self._interpolate_vertical(
+                y_column, x_levels, level_coord="z", method=vertical_method
             )
 
         # Create paired output
-        paired = self._create_paired_output(geometry, dataset_column, level_coord)
+        paired = self._create_paired_output(geometry, y_column, level_coord)
 
         return paired
 
     def _extract_column(
         self,
         dataset: xr.Dataset,
-        dataset_lat: xr.DataArray,
-        dataset_lon: xr.DataArray,
+        y_lat: xr.DataArray,
+        y_lon: xr.DataArray,
         lat_idx: int,
         lon_idx: int,
     ) -> xr.Dataset:
@@ -165,12 +165,12 @@ class ProfileStrategy(BasePairingStrategy):
             Dataset data at single column with (time, z) dims.
         """
         # Determine dimension names
-        if dataset_lat.ndim == 1:
-            lat_dim = dataset_lat.dims[0]
-            lon_dim = dataset_lon.dims[0]
+        if y_lat.ndim == 1:
+            lat_dim = y_lat.dims[0]
+            lon_dim = y_lon.dims[0]
         else:
-            lat_dim = dataset_lat.dims[0]
-            lon_dim = dataset_lat.dims[1]
+            lat_dim = y_lat.dims[0]
+            lon_dim = y_lat.dims[1]
 
         # Extract column
         return dataset.isel({lat_dim: lat_idx, lon_dim: lon_idx})
@@ -178,7 +178,7 @@ class ProfileStrategy(BasePairingStrategy):
     def _create_paired_output(
         self,
         geometry: xr.Dataset,
-        dataset_column: xr.Dataset,
+        y_column: xr.Dataset,
         level_coord: str,
     ) -> xr.Dataset:
         """Create the final paired output dataset.
@@ -199,9 +199,9 @@ class ProfileStrategy(BasePairingStrategy):
         """
         # Combine coordinates
         coords = dict(geometry.coords)
-        for coord in dataset_column.coords:
+        for coord in y_column.coords:
             if coord not in coords:
-                coords[coord] = dataset_column.coords[coord]
+                coords[coord] = y_column.coords[coord]
 
         # Combine data variables
         data_vars: dict[str, Any] = {}
@@ -211,8 +211,8 @@ class ProfileStrategy(BasePairingStrategy):
             data_vars[str(var)] = geometry[var]
 
         # Add dataset variables with prefix
-        for var in dataset_column.data_vars:
-            dataset_var_name = f"dataset_{var}"
-            data_vars[dataset_var_name] = dataset_column[var]
+        for var in y_column.data_vars:
+            y_var_name = f"dataset_{var}"
+            data_vars[y_var_name] = y_column[var]
 
         return xr.Dataset(data_vars, coords=coords)

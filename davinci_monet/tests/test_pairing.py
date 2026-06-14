@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from davinci_monet.core.base import iter_paired_variable_pairs
+from davinci_monet.core.base import iter_paired_variable_xy
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.pairing import (
     BasePairingStrategy,
@@ -306,35 +306,33 @@ class TestBasePairingStrategy:
     def test_find_nearest_indices(self, dataset_2d: xr.Dataset) -> None:
         """Test finding nearest grid indices."""
         strategy = PointStrategy()
-        dataset_lat = dataset_2d["lat"]
-        dataset_lon = dataset_2d["lon"]
+        y_lat = dataset_2d["lat"]
+        y_lon = dataset_2d["lon"]
 
-        geometry_lat = xr.DataArray([40.0])
-        geometry_lon = xr.DataArray([-100.0])
+        x_lat = xr.DataArray([40.0])
+        x_lon = xr.DataArray([-100.0])
 
-        lat_idx, lon_idx = strategy._find_nearest_indices(
-            dataset_lat, dataset_lon, geometry_lat, geometry_lon
-        )
+        lat_idx, lon_idx = strategy._find_nearest_indices(y_lat, y_lon, x_lat, x_lon)
 
         # Check that indices are valid
-        assert 0 <= lat_idx.values[0] < len(dataset_lat)
-        assert 0 <= lon_idx.values[0] < len(dataset_lon)
+        assert 0 <= lat_idx.values[0] < len(y_lat)
+        assert 0 <= lon_idx.values[0] < len(y_lon)
 
     def test_find_nearest_with_radius_filter(self, dataset_2d: xr.Dataset) -> None:
         """Test that radius of influence filters distant points."""
         strategy = PointStrategy()
-        dataset_lat = dataset_2d["lat"]
-        dataset_lon = dataset_2d["lon"]
+        y_lat = dataset_2d["lat"]
+        y_lon = dataset_2d["lon"]
 
         # Point far outside the grid
-        geometry_lat = xr.DataArray([0.0])  # Very far south
-        geometry_lon = xr.DataArray([0.0])  # Very far east
+        x_lat = xr.DataArray([0.0])  # Very far south
+        x_lon = xr.DataArray([0.0])  # Very far east
 
         lat_idx, lon_idx = strategy._find_nearest_indices(
-            dataset_lat,
-            dataset_lon,
-            geometry_lat,
-            geometry_lon,
+            y_lat,
+            y_lon,
+            x_lat,
+            x_lon,
             radius_of_influence=100000.0,  # 100 km - too small
         )
 
@@ -360,10 +358,10 @@ class TestBasePairingStrategy:
         snap to the nearest dataset time as before.
         """
         strategy = PointStrategy()
-        dataset_times = pd.date_range("2024-01-01", periods=5, freq="h")
+        y_times = pd.date_range("2024-01-01", periods=5, freq="h")
         dataset = xr.Dataset(
             {"o3": ("time", np.arange(1.0, 6.0))},
-            coords={"time": dataset_times},
+            coords={"time": y_times},
         )
         # Target a day after the dataset window: nearest dataset time is ~20h away.
         targets = xr.DataArray(pd.to_datetime(["2024-01-02 00:00"]), dims=["time"])
@@ -446,8 +444,8 @@ class TestPointStrategy:
         """Test basic point pairing."""
         strategy = PointStrategy()
         paired = strategy.pair_sources(
-            geometry_data=point_geometry,
-            dataset_data=dataset_2d,
+            x_data=point_geometry,
+            y_data=dataset_2d,
             radius_of_influence=100000.0,
         )
 
@@ -464,8 +462,8 @@ class TestPointStrategy:
         """Test pairing with 3D dataset (extracts surface)."""
         strategy = PointStrategy()
         paired = strategy.pair_sources(
-            geometry_data=point_geometry,
-            dataset_data=dataset_3d,
+            x_data=point_geometry,
+            y_data=dataset_3d,
             radius_of_influence=200000.0,
         )
 
@@ -485,8 +483,8 @@ class TestPointStrategy:
         """
         # 2 dataset timesteps 12 hours apart, with values 10.0 and 20.0
         # 13 geometry timesteps spanning the same window (hourly)
-        dataset_times = pd.date_range("2024-01-01 00:00", periods=2, freq="12h")
-        geometry_times = pd.date_range("2024-01-01 00:00", periods=13, freq="h")
+        y_times = pd.date_range("2024-01-01 00:00", periods=2, freq="12h")
+        x_times = pd.date_range("2024-01-01 00:00", periods=13, freq="h")
 
         # Build a tiny rectangular-grid dataset around a single site
         lats = np.linspace(34, 36, 5)
@@ -497,15 +495,15 @@ class TestPointStrategy:
         field = np.broadcast_to(tvals, (2, 5, 5)).copy()
         dataset = xr.Dataset(
             {"pm25": (["time", "lat", "lon"], field)},
-            coords={"time": dataset_times, "lat": lats, "lon": lons},
+            coords={"time": y_times, "lat": lats, "lon": lons},
         )
 
         # One geometry site at the center of the dataset grid; geometry values are 0
         # (irrelevant — we're checking the dataset interpolation, not stats)
-        geometry_ds = xr.Dataset(
+        x_ds = xr.Dataset(
             {"pm25": (["time", "site"], np.zeros((13, 1)))},
             coords={
-                "time": geometry_times,
+                "time": x_times,
                 "site": np.arange(1),
                 "latitude": ("site", np.array([35.0])),
                 "longitude": ("site", np.array([-100.0])),
@@ -514,8 +512,8 @@ class TestPointStrategy:
 
         strategy = PointStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry_ds,
-            dataset_data=dataset,
+            x_data=x_ds,
+            y_data=dataset,
             radius_of_influence=200000.0,
             time_method="linear",
         )
@@ -536,8 +534,8 @@ class TestPointStrategy:
     def test_pair_time_method_nearest_still_steps(self) -> None:
         """Default time_method='nearest' must still produce step function.
         Regression guard so we don't accidentally flip the default."""
-        dataset_times = pd.date_range("2024-01-01 00:00", periods=2, freq="12h")
-        geometry_times = pd.date_range("2024-01-01 00:00", periods=13, freq="h")
+        y_times = pd.date_range("2024-01-01 00:00", periods=2, freq="12h")
+        x_times = pd.date_range("2024-01-01 00:00", periods=13, freq="h")
 
         lats = np.linspace(34, 36, 5)
         lons = np.linspace(-101, -99, 5)
@@ -545,12 +543,12 @@ class TestPointStrategy:
         field = np.broadcast_to(tvals, (2, 5, 5)).copy()
         dataset = xr.Dataset(
             {"pm25": (["time", "lat", "lon"], field)},
-            coords={"time": dataset_times, "lat": lats, "lon": lons},
+            coords={"time": y_times, "lat": lats, "lon": lons},
         )
         geometry = xr.Dataset(
             {"pm25": (["time", "site"], np.zeros((13, 1)))},
             coords={
-                "time": geometry_times,
+                "time": x_times,
                 "site": np.arange(1),
                 "latitude": ("site", np.array([35.0])),
                 "longitude": ("site", np.array([-100.0])),
@@ -558,8 +556,8 @@ class TestPointStrategy:
         )
 
         paired = PointStrategy().pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
+            x_data=geometry,
+            y_data=dataset,
             radius_of_influence=200000.0,
         )
         m = paired["dataset_pm25"].values.squeeze()
@@ -601,8 +599,8 @@ class TestPointStrategy:
         # 200 km radius matches dataset_2d's ~100 km grid spacing; Delhi/Chennai
         # are still ~10,000 km from any in-domain cell so they're dropped.
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset_2d,
+            x_data=geometry,
+            y_data=dataset_2d,
             radius_of_influence=200000.0,
         )
 
@@ -645,8 +643,8 @@ class TestTrackStrategy:
         """Test basic track pairing."""
         strategy = TrackStrategy()
         paired = strategy.pair_sources(
-            geometry_data=track_geometry,
-            dataset_data=dataset_3d,
+            x_data=track_geometry,
+            y_data=dataset_3d,
             radius_of_influence=200000.0,
         )
 
@@ -690,8 +688,8 @@ class TestTrackStrategy:
 
         strategy = TrackStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset_3d,
+            x_data=geometry,
+            y_data=dataset_3d,
             radius_of_influence=200000.0,
         )
 
@@ -764,22 +762,22 @@ class TestTrackStrategy:
         # Pair with vertical interpolation
         strategy = TrackStrategy()
         paired = strategy.pair_sources(
-            geometry_data=track,
-            dataset_data=dataset,
+            x_data=track,
+            y_data=dataset,
             radius_of_influence=500000.0,
         )
 
         # Verify dataset O3 values show altitude dependence
-        dataset_o3 = paired["O3"].values
+        y_o3 = paired["O3"].values
 
         # Surface (0m, ~1000 hPa) should have O3 near 40 ppb
-        assert dataset_o3[0] < 50, f"Surface O3 should be ~40 ppb, got {dataset_o3[0]:.1f}"
+        assert y_o3[0] < 50, f"Surface O3 should be ~40 ppb, got {y_o3[0]:.1f}"
 
         # High altitude (9000m, ~300 hPa) should have higher O3 near 80 ppb
-        assert dataset_o3[-1] > 60, f"High altitude O3 should be >60 ppb, got {dataset_o3[-1]:.1f}"
+        assert y_o3[-1] > 60, f"High altitude O3 should be >60 ppb, got {y_o3[-1]:.1f}"
 
         # O3 should generally increase with altitude
-        assert dataset_o3[-1] > dataset_o3[0], "O3 should increase with altitude"
+        assert y_o3[-1] > y_o3[0], "O3 should increase with altitude"
 
 
 # =============================================================================
@@ -800,11 +798,11 @@ class TestProfileStrategy:
         strategy = ProfileStrategy()
 
         # Need to add a z coordinate that matches dataset
-        dataset_with_pressure = dataset_3d.assign_coords(z=dataset_3d["z"])
+        y_with_pressure = dataset_3d.assign_coords(z=dataset_3d["z"])
 
         paired = strategy.pair_sources(
-            geometry_data=profile_geometry,
-            dataset_data=dataset_with_pressure,
+            x_data=profile_geometry,
+            y_data=y_with_pressure,
             radius_of_influence=200000.0,
         )
 
@@ -829,8 +827,8 @@ class TestSwathStrategy:
         """Test basic swath pairing."""
         strategy = SwathStrategy()
         paired = strategy.pair_sources(
-            geometry_data=swath_geometry,
-            dataset_data=dataset_2d,
+            x_data=swath_geometry,
+            y_data=dataset_2d,
             radius_of_influence=200000.0,
         )
 
@@ -874,8 +872,8 @@ class TestSwathStrategy:
 
         strategy = SwathStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset_2d,
+            x_data=geometry,
+            y_data=dataset_2d,
             radius_of_influence=200000.0,
         )
 
@@ -921,8 +919,8 @@ class TestGridStrategy:
         """Test regridding dataset to dataset grid."""
         strategy = GridStrategy()
         paired = strategy.pair_sources(
-            geometry_data=gridded_geometry,
-            dataset_data=dataset_2d,
+            x_data=gridded_geometry,
+            y_data=dataset_2d,
             regrid_to="geometry",
         )
 
@@ -940,8 +938,8 @@ class TestGridStrategy:
         """Test regridding datasets to dataset grid."""
         strategy = GridStrategy()
         paired = strategy.pair_sources(
-            geometry_data=gridded_geometry,
-            dataset_data=dataset_2d,
+            x_data=gridded_geometry,
+            y_data=dataset_2d,
             regrid_to="dataset",
         )
 
@@ -979,14 +977,14 @@ class TestPairingWorkflow:
         )
 
         paired = PairingEngine().pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
-            geometry_vars=["GEOMETRY_AOD"],
-            dataset_vars=["DATASET_AOD"],
+            x_data=geometry,
+            y_data=dataset,
+            x_vars=["GEOMETRY_AOD"],
+            y_vars=["DATASET_AOD"],
             output_geometry=DataGeometry.GRID,
-            dataset_geometry=DataGeometry.GRID,
-            geometry_label="sensor",
-            dataset_label="reanalysis",
+            y_geometry=DataGeometry.GRID,
+            x_source="sensor",
+            y_source="reanalysis",
             config=PairingConfig(time_tolerance=timedelta(hours=1)),
         )
 
@@ -994,11 +992,11 @@ class TestPairingWorkflow:
         assert all(
             not str(name).startswith(("geometry_", "dataset_")) for name in paired.data.data_vars
         )
-        assert paired.data["sensor_GEOMETRY_AOD"].attrs["pair_axis"] == "geometry"
-        assert paired.data["sensor_GEOMETRY_AOD"].attrs["dataset_label"] == "sensor"
-        assert paired.data["reanalysis_DATASET_AOD"].attrs["pair_axis"] == "dataset"
-        assert paired.data["reanalysis_DATASET_AOD"].attrs["dataset_label"] == "reanalysis"
-        assert iter_paired_variable_pairs(paired.data) == [
+        assert paired.data["sensor_GEOMETRY_AOD"].attrs["axis"] == "x"
+        assert paired.data["sensor_GEOMETRY_AOD"].attrs["source_label"] == "sensor"
+        assert paired.data["reanalysis_DATASET_AOD"].attrs["axis"] == "y"
+        assert paired.data["reanalysis_DATASET_AOD"].attrs["source_label"] == "reanalysis"
+        assert iter_paired_variable_xy(paired.data) == [
             ("sensor_GEOMETRY_AOD", "reanalysis_DATASET_AOD", "GEOMETRY_AOD")
         ]
 
@@ -1029,14 +1027,14 @@ class TestPairingWorkflow:
         )
 
         paired = PairingEngine().pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
-            geometry_vars=["B"],
-            dataset_vars=["M2"],
+            x_data=geometry,
+            y_data=dataset,
+            x_vars=["B"],
+            y_vars=["M2"],
             output_geometry=DataGeometry.SWATH,
-            dataset_geometry=DataGeometry.GRID,
-            geometry_label="ceres",
-            dataset_label="merra2",
+            y_geometry=DataGeometry.GRID,
+            x_source="ceres",
+            y_source="merra2",
             config=PairingConfig(time_tolerance=timedelta(hours=1)),
         )
 
@@ -1052,10 +1050,10 @@ class TestPairingWorkflow:
         config = PairingConfig(radius_of_influence=200000.0)
 
         paired = engine.pair_sources(
-            geometry_data=point_geometry,
-            dataset_data=dataset_2d,
-            geometry_vars=["temperature"],
-            dataset_vars=["temperature"],
+            x_data=point_geometry,
+            y_data=dataset_2d,
+            x_vars=["temperature"],
+            y_vars=["temperature"],
             config=config,
         )
 
@@ -1069,10 +1067,10 @@ class TestPairingWorkflow:
         config = PairingConfig(radius_of_influence=200000.0)
 
         paired = engine.pair_sources(
-            geometry_data=track_geometry,
-            dataset_data=dataset_3d,
-            geometry_vars=["ozone"],
-            dataset_vars=["ozone"],
+            x_data=track_geometry,
+            y_data=dataset_3d,
+            x_vars=["ozone"],
+            y_vars=["ozone"],
             config=config,
         )
 
@@ -1086,10 +1084,10 @@ class TestPairingWorkflow:
         config = PairingConfig()
 
         paired = engine.pair_sources(
-            geometry_data=gridded_geometry,
-            dataset_data=dataset_2d,
-            geometry_vars=["temperature"],
-            dataset_vars=["temperature"],
+            x_data=gridded_geometry,
+            y_data=dataset_2d,
+            x_vars=["temperature"],
+            y_vars=["temperature"],
             config=config,
         )
 
@@ -1144,21 +1142,20 @@ def test_grid_pairing_preserves_dataset_when_times_offset() -> None:
     paired = (
         PairingEngine()
         .pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
-            geometry_vars=["aod_550nm"],
-            dataset_vars=["TOTEXTTAU"],
+            x_data=geometry,
+            y_data=dataset,
+            x_vars=["aod_550nm"],
+            y_vars=["TOTEXTTAU"],
             config=PairingConfig(time_tolerance=timedelta(hours=1), time_method="nearest"),
         )
         .data
     )
 
-    ref_var, comp_var, _canonical = iter_paired_variable_pairs(paired)[0]
-    dataset_finite = int(np.isfinite(paired[comp_var]).sum())
+    ref_var, comp_var, _canonical = iter_paired_variable_xy(paired)[0]
+    y_finite = int(np.isfinite(paired[comp_var]).sum())
     covalid = int((np.isfinite(paired[comp_var]) & np.isfinite(paired[ref_var])).sum())
-    assert dataset_finite > 0, (
-        f"regridded dataset is all-NaN (time-label reindex bug); "
-        f"dataset_finite={dataset_finite}"
+    assert y_finite > 0, (
+        f"regridded dataset is all-NaN (time-label reindex bug); " f"dataset_finite={y_finite}"
     )
     assert covalid > 0, (
         f"no co-valid dataset/geometry cells -> stats would be all-NaN; " f"covalid={covalid}"

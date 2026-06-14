@@ -42,7 +42,7 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     )
     time_cfg = TimeConfig(start="2024-01-15 00:00", end="2024-01-16 00:00", freq="3h")
 
-    dataset_ds = create_dataset_dataset(
+    y_ds = create_dataset_dataset(
         variables=["O3"],
         domain=domain,
         time_config=time_cfg,
@@ -58,16 +58,16 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         noise_level=0.0,
         seed=42,
     )
-    geometry_ds = sample_geometry_from(dataset_ds, "point", scenario=scenario)
+    x_ds = sample_geometry_from(y_ds, "point", scenario=scenario)
 
     # Add small bias so stats are non-trivial
     rng = np.random.default_rng(42)
-    dataset_ds["O3"] = dataset_ds["O3"] + 3.0 + rng.normal(0, 2.0, size=dataset_ds["O3"].shape)
+    y_ds["O3"] = y_ds["O3"] + 3.0 + rng.normal(0, 2.0, size=y_ds["O3"].shape)
 
-    dataset_path = tmp_path / "dataset.nc"
-    geometry_path = tmp_path / "geometry.nc"
-    dataset_ds.to_netcdf(dataset_path)
-    geometry_ds.to_netcdf(geometry_path)
+    y_path = tmp_path / "dataset.nc"
+    x_path = tmp_path / "geometry.nc"
+    y_ds.to_netcdf(y_path)
+    x_ds.to_netcdf(x_path)
 
     output_dir = tmp_path / "output"
     log_dir = tmp_path / "logs"
@@ -83,7 +83,7 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         sources:
           synthetic:
             type: generic
-            files: "{dataset_path}"
+            files: "{y_path}"
             radius_of_influence: 50000
             variables:
               O3:
@@ -93,20 +93,21 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
                 vdiff_plot: 10
           surface:
             type: pt_sfc
-            filename: "{geometry_path}"
+            filename: "{x_path}"
             variables:
               O3:
-                geometry_min: 0
-                geometry_max: 200
+                valid_min: 0
+                valid_max: 200
                 units: ppb
 
         pairs:
           synthetic_surface:
-            sources: [synthetic, surface]
-            geometry: surface
-            variables:
-              synthetic: O3
-              surface: O3
+            x:
+              source: surface
+              variable: O3
+            y:
+              source: synthetic
+              variable: O3
 
         plots:
           scatter_o3:

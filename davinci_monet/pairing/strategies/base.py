@@ -33,15 +33,15 @@ class BasePairingStrategy(ABC):
     @abstractmethod
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
         horizontal_method: str = "nearest",
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Sample ``dataset_data`` onto ``geometry_data``."""
+        """Sample ``y_data`` onto ``x_data``."""
         ...
 
     def _get_dataset_coords(self, dataset: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
@@ -131,10 +131,10 @@ class BasePairingStrategy(ABC):
 
     def _find_nearest_indices(
         self,
-        dataset_lat: xr.DataArray,
-        dataset_lon: xr.DataArray,
-        geometry_lat: xr.DataArray,
-        geometry_lon: xr.DataArray,
+        y_lat: xr.DataArray,
+        y_lon: xr.DataArray,
+        x_lat: xr.DataArray,
+        x_lon: xr.DataArray,
         radius_of_influence: float | None = None,
     ) -> tuple[xr.DataArray, xr.DataArray]:
         """Find nearest dataset grid indices for dataset locations.
@@ -154,31 +154,23 @@ class BasePairingStrategy(ABC):
             (lat_indices, lon_indices) for each dataset point.
         """
         # Handle 1D vs 2D dataset grids
-        if dataset_lat.ndim == 1 and dataset_lon.ndim == 1:
+        if y_lat.ndim == 1 and y_lon.ndim == 1:
             # Regular grid - find nearest indices directly
-            lat_idx = self._find_nearest_1d(dataset_lat.values, geometry_lat.values)
-            lon_idx = self._find_nearest_1d(dataset_lon.values, geometry_lon.values)
+            lat_idx = self._find_nearest_1d(y_lat.values, x_lat.values)
+            lon_idx = self._find_nearest_1d(y_lon.values, x_lon.values)
         else:
             # Curvilinear grid - need 2D search
             lat_idx, lon_idx = self._find_nearest_2d(
-                dataset_lat.values, dataset_lon.values, geometry_lat.values, geometry_lon.values
+                y_lat.values, y_lon.values, x_lat.values, x_lon.values
             )
 
         # Apply radius of influence filter if specified
         if radius_of_influence is not None:
             distances = self._haversine_distance(
-                geometry_lat.values,
-                geometry_lon.values,
-                (
-                    dataset_lat.values[lat_idx]
-                    if dataset_lat.ndim == 1
-                    else dataset_lat.values[lat_idx, lon_idx]
-                ),
-                (
-                    dataset_lon.values[lon_idx]
-                    if dataset_lon.ndim == 1
-                    else dataset_lon.values[lat_idx, lon_idx]
-                ),
+                x_lat.values,
+                x_lon.values,
+                (y_lat.values[lat_idx] if y_lat.ndim == 1 else y_lat.values[lat_idx, lon_idx]),
+                (y_lon.values[lon_idx] if y_lon.ndim == 1 else y_lon.values[lat_idx, lon_idx]),
             )
             mask = distances > radius_of_influence
             lat_idx = np.where(mask, -1, lat_idx)
@@ -216,10 +208,10 @@ class BasePairingStrategy(ABC):
 
     def _find_nearest_2d(
         self,
-        dataset_lat: np.ndarray[Any, np.dtype[Any]],
-        dataset_lon: np.ndarray[Any, np.dtype[Any]],
-        geometry_lat: np.ndarray[Any, np.dtype[Any]],
-        geometry_lon: np.ndarray[Any, np.dtype[Any]],
+        y_lat: np.ndarray[Any, np.dtype[Any]],
+        y_lon: np.ndarray[Any, np.dtype[Any]],
+        x_lat: np.ndarray[Any, np.dtype[Any]],
+        x_lon: np.ndarray[Any, np.dtype[Any]],
     ) -> tuple[np.ndarray[Any, np.dtype[Any]], np.ndarray[Any, np.dtype[Any]]]:
         """Find nearest indices in a 2D curvilinear grid.
 
@@ -238,18 +230,16 @@ class BasePairingStrategy(ABC):
         tuple[np.ndarray, np.ndarray]
             (i_indices, j_indices) in the 2D grid.
         """
-        n_geometry = len(geometry_lat)
+        n_geometry = len(x_lat)
         i_idx = np.zeros(n_geometry, dtype=int)
         j_idx = np.zeros(n_geometry, dtype=int)
 
         for k in range(n_geometry):
             # Calculate distance to all grid points
-            dist = self._haversine_distance(
-                geometry_lat[k], geometry_lon[k], dataset_lat, dataset_lon
-            )
+            dist = self._haversine_distance(x_lat[k], x_lon[k], y_lat, y_lon)
             # Find minimum
             flat_idx = np.argmin(dist)
-            i_idx[k], j_idx[k] = np.unravel_index(flat_idx, dataset_lat.shape)
+            i_idx[k], j_idx[k] = np.unravel_index(flat_idx, y_lat.shape)
 
         return i_idx, j_idx
 
@@ -367,9 +357,9 @@ class BasePairingStrategy(ABC):
             return dataset.sel({level_coord: target_levels}, method="nearest")
         elif method == "log":
             # Log-pressure interpolation
-            dataset_log = dataset.assign_coords({level_coord: np.log(dataset[level_coord].values)})
+            y_log = dataset.assign_coords({level_coord: np.log(dataset[level_coord].values)})
             target_log = np.log(target_levels.values)
-            result = dataset_log.interp({level_coord: target_log}, method="linear")
+            result = y_log.interp({level_coord: target_log}, method="linear")
             return result.assign_coords({level_coord: target_levels.values})
         else:
             return dataset.interp(

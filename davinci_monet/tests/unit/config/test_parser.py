@@ -297,15 +297,15 @@ class TestConfigBuilder:
             .add_source("airnow", type="pt_sfc", filename="/data/airnow.nc")
             .add_pair(
                 "cam_airnow_o3",
-                sources=["cam", "airnow"],
-                geometry="airnow",
-                variables={"cam": "O3", "airnow": "o3"},
+                x={"source": "airnow", "variable": "o3"},
+                y={"source": "cam", "variable": "O3"},
             )
             .build()
         )
 
         assert set(config.sources) == {"cam", "airnow"}
-        assert config.pairs["cam_airnow_o3"].geometry == "airnow"
+        assert config.pairs["cam_airnow_o3"].x.source == "airnow"
+        assert config.pairs["cam_airnow_o3"].sources == ["airnow", "cam"]
 
     def test_add_plot(self) -> None:
         """Test adding plot."""

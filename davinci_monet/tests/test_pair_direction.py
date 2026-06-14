@@ -30,22 +30,22 @@ class TestResolvePairDirection:
 
     def test_same_geometry_warns_and_defaults_to_first(self) -> None:
         with pytest.warns(PairDirectionWarning):
-            geometry, dataset_geometry = resolve_pair_direction(G.GRID, G.GRID)
-        assert (geometry, dataset_geometry) == (G.GRID, G.GRID)
+            geometry, y_geometry = resolve_pair_direction(G.GRID, G.GRID)
+        assert (geometry, y_geometry) == (G.GRID, G.GRID)
 
     def test_two_different_irregular_warns_and_defaults_to_first(self) -> None:
         with pytest.warns(PairDirectionWarning):
-            geometry, dataset_geometry = resolve_pair_direction(G.POINT, G.TRACK)
-        assert (geometry, dataset_geometry) == (G.POINT, G.TRACK)
+            geometry, y_geometry = resolve_pair_direction(G.POINT, G.TRACK)
+        assert (geometry, y_geometry) == (G.POINT, G.TRACK)
 
     def test_explicit_geometry_overrides_precedence(self) -> None:
         # Force GRID as the geometry even though POINT would outrank it.
-        geometry, dataset_geometry = resolve_pair_direction(G.POINT, G.GRID, explicit_geometry="b")
-        assert (geometry, dataset_geometry) == (G.GRID, G.POINT)
+        geometry, y_geometry = resolve_pair_direction(G.POINT, G.GRID, explicit_geometry="b")
+        assert (geometry, y_geometry) == (G.GRID, G.POINT)
 
     def test_explicit_geometry_a(self) -> None:
-        geometry, dataset_geometry = resolve_pair_direction(G.GRID, G.POINT, explicit_geometry="a")
-        assert (geometry, dataset_geometry) == (G.GRID, G.POINT)
+        geometry, y_geometry = resolve_pair_direction(G.GRID, G.POINT, explicit_geometry="a")
+        assert (geometry, y_geometry) == (G.GRID, G.POINT)
 
 
 class TestEnginePairDispatch:
@@ -92,8 +92,8 @@ class _SpyStrategy(BasePairingStrategy):
 
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
@@ -108,7 +108,7 @@ class _SpyStrategy(BasePairingStrategy):
                 "horizontal_method": horizontal_method,
             }
         )
-        self.captured = {"dataset": dataset_data, "geometry": geometry_data, "kwargs": kwargs}
+        self.captured = {"dataset": y_data, "geometry": x_data, "kwargs": kwargs}
         return xr.Dataset(attrs={"ok": True})
 
 
@@ -124,9 +124,7 @@ class TestPairSourcesWrapper:
         strat = _SpyStrategy()
         geometry = _coords_ds(10.0, 20.0)
         dataset = _coords_ds(30.0, 40.0)
-        out = strat.pair_sources(
-            geometry_data=geometry, dataset_data=dataset, radius_of_influence=1.0
-        )
+        out = strat.pair_sources(x_data=geometry, y_data=dataset, radius_of_influence=1.0)
         assert out.attrs["ok"] is True
         assert strat.captured["geometry"] is geometry
         assert strat.captured["dataset"] is dataset
@@ -137,10 +135,10 @@ class TestPairSourcesWrapper:
         geometry = _coords_ds(1.0, 2.0)
         dataset = _coords_ds(3.0, 4.0)
 
-        geometry_lat, geometry_lon = strat._get_geometry_coords(geometry)
-        dataset_lat, dataset_lon = strat._get_dataset_coords(dataset)
+        x_lat, x_lon = strat._get_geometry_coords(geometry)
+        y_lat, y_lon = strat._get_dataset_coords(dataset)
 
-        assert geometry_lat.values == pytest.approx(np.array([1.0]))
-        assert geometry_lon.values == pytest.approx(np.array([2.0]))
-        assert dataset_lat.values == pytest.approx(np.array([3.0]))
-        assert dataset_lon.values == pytest.approx(np.array([4.0]))
+        assert x_lat.values == pytest.approx(np.array([1.0]))
+        assert x_lon.values == pytest.approx(np.array([2.0]))
+        assert y_lat.values == pytest.approx(np.array([3.0]))
+        assert y_lon.values == pytest.approx(np.array([4.0]))

@@ -16,7 +16,7 @@ from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
     build_series,
-    get_dataset_color,
+    get_axis_color,
     get_series_label,
 )
 from davinci_monet.plots.registry import register_plotter
@@ -45,8 +45,8 @@ class TaylorPlotter(BasePlotter):
     >>> plotter = TaylorPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     geometry_var="geometry_o3",
-    ...     dataset_var="dataset_o3",
+    ...     x_var="geometry_o3",
+    ...     y_var="dataset_o3",
     ... )
     """
 
@@ -79,67 +79,65 @@ class TaylorPlotter(BasePlotter):
             raise NotImplementedError(
                 f"TaylorPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
-        paired_data = geometry_series.dataset
-        geometry_var = geometry_series.var_name
-        dataset_var = dataset_series.var_name
+        x_series = next((s for s in series if s.axis == "x"), series[0])
+        y_series = next((s for s in series if s.axis == "y"), series[1])
+        paired_data = x_series.dataset
+        x_var = x_series.var_name
+        y_var = y_series.var_name
 
         normalize: bool = kwargs.pop("normalize", True)
         show_geometry: bool = kwargs.pop("show_geometry", True)
-        geometry_label: str | None = kwargs.pop("geometry_label", None)
-        dataset_label: str | None = kwargs.pop("dataset_label", None)
+        x_label: str | None = kwargs.pop("x_label", None)
+        y_label: str | None = kwargs.pop("y_label", None)
         marker: str | None = kwargs.pop("marker", None)
         color: str | None = kwargs.pop("color", None)
 
         # Get data and flatten
-        geometry_values = paired_data[geometry_var].values.flatten()
-        dataset_values = paired_data[dataset_var].values.flatten()
+        x_values = paired_data[x_var].values.flatten()
+        y_values = paired_data[y_var].values.flatten()
 
         # Remove NaN values
-        mask = np.isfinite(geometry_values) & np.isfinite(dataset_values)
-        geometry_values = geometry_values[mask]
-        dataset_values = dataset_values[mask]
+        mask = np.isfinite(x_values) & np.isfinite(y_values)
+        x_values = x_values[mask]
+        y_values = y_values[mask]
 
         # Calculate statistics
-        geometry_std = np.std(geometry_values)
-        dataset_std = np.std(dataset_values)
-        correlation = np.corrcoef(geometry_values, dataset_values)[0, 1]
+        x_std = np.std(x_values)
+        y_std = np.std(y_values)
+        correlation = np.corrcoef(x_values, y_values)[0, 1]
 
         # Normalize if requested
         if normalize:
-            dataset_std_norm = dataset_std / geometry_std
-            geometry_std_norm = 1.0
+            y_std_norm = y_std / x_std
+            x_std_norm = 1.0
         else:
-            dataset_std_norm = dataset_std
-            geometry_std_norm = geometry_std
+            y_std_norm = y_std
+            x_std_norm = x_std
 
         # Create Taylor diagram
         if ax is None:
-            fig, ax = self._create_taylor_axes(geometry_std_norm, normalize)
+            fig, ax = self._create_taylor_axes(x_std_norm, normalize)
         else:
             fig = ax.get_figure()  # type: ignore[assignment]
 
         # Get style
         style = self.config.style
-        m = marker or style.dataset_marker
-        c = color or get_dataset_color(
+        m = marker or style.y_marker
+        c = color or get_axis_color(
             paired_data,
-            dataset_var,
+            y_var,
             1,
-            geometry_color=style.geometry_color,
-            dataset_color=style.dataset_color,
+            x_color=style.x_color,
+            y_color=style.y_color,
         )
-        label = (
-            dataset_label or self.config.dataset_label or get_series_label(paired_data, dataset_var)
-        )
+        label = y_label or self.config.y_label or get_series_label(paired_data, y_var)
 
         # Plot dataset point
         # Taylor diagram uses polar coordinates: theta=arccos(correlation), r=std
         theta = np.arccos(correlation)
         ax.plot(
             theta,
-            dataset_std_norm,
+            y_std_norm,
             marker=m,
             color=c,
             markersize=style.markersize * 1.5,
@@ -153,13 +151,11 @@ class TaylorPlotter(BasePlotter):
         if show_geometry:
             ax.plot(
                 0,  # Perfect correlation
-                geometry_std_norm,
+                x_std_norm,
                 marker="*",
                 color="k",
                 markersize=style.markersize * 2,
-                label=geometry_label
-                or self.config.geometry_label
-                or get_series_label(paired_data, geometry_var),
+                label=x_label or self.config.x_label or get_series_label(paired_data, x_var),
                 linestyle="none",
             )
 
@@ -172,13 +168,13 @@ class TaylorPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         ax: matplotlib.axes.Axes | None = None,
         normalize: bool = True,
         show_geometry: bool = True,
-        geometry_label: str | None = None,
-        dataset_label: str | None = None,
+        x_label: str | None = None,
+        y_label: str | None = None,
         marker: str | None = None,
         color: str | None = None,
         **kwargs: Any,
@@ -189,9 +185,9 @@ class TaylorPlotter(BasePlotter):
         ----------
         paired_data
             Paired dataset with dataset and dataset variables.
-        geometry_var
+        x_var
             Name of dataset variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         ax
             Optional axes to plot on (must be polar). If None, creates new.
@@ -199,9 +195,9 @@ class TaylorPlotter(BasePlotter):
             If True, normalize by dataset standard deviation.
         show_geometry
             If True, show geometry (dataset) point.
-        geometry_label
+        x_label
             Label for geometry point. Defaults to the geometry source label.
-        dataset_label
+        y_label
             Label for dataset point.
         marker
             Marker style for dataset point.
@@ -216,12 +212,12 @@ class TaylorPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, geometry_var, dataset_var),
+            build_series(paired_data, x_var, y_var),
             ax=ax,
             normalize=normalize,
             show_geometry=show_geometry,
-            geometry_label=geometry_label,
-            dataset_label=dataset_label,
+            x_label=x_label,
+            y_label=y_label,
             marker=marker,
             color=color,
             **kwargs,
@@ -335,8 +331,8 @@ class TaylorPlotter(BasePlotter):
     def plot_multiple(
         self,
         paired_datasets: dict[str, xr.Dataset],
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         normalize: bool = True,
         colors: dict[str, str] | None = None,
         markers: dict[str, str] | None = None,
@@ -348,9 +344,9 @@ class TaylorPlotter(BasePlotter):
         ----------
         paired_datasets
             Dictionary mapping dataset names to paired datasets.
-        geometry_var
+        x_var
             Name of dataset variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         normalize
             If True, normalize by dataset standard deviation.
@@ -373,9 +369,9 @@ class TaylorPlotter(BasePlotter):
         first_key = next(iter(paired_datasets))
         first_data = paired_datasets[first_key]
 
-        geometry_values = first_data[geometry_var].values.flatten()
-        geometry_values = geometry_values[np.isfinite(geometry_values)]
-        ref_std = 1.0 if normalize else np.std(geometry_values)
+        x_values = first_data[x_var].values.flatten()
+        x_values = x_values[np.isfinite(x_values)]
+        ref_std = 1.0 if normalize else np.std(x_values)
 
         fig, ax = self._create_taylor_axes(ref_std, normalize)
 
@@ -389,12 +385,12 @@ class TaylorPlotter(BasePlotter):
 
             self.plot(
                 data,
-                geometry_var,
-                dataset_var,
+                x_var,
+                y_var,
                 ax=ax,
                 normalize=normalize,
                 show_geometry=(i == 0),  # Only show geometry once
-                dataset_label=name,
+                y_label=name,
                 color=color,
                 marker=marker,
                 **kwargs,
@@ -405,8 +401,8 @@ class TaylorPlotter(BasePlotter):
 
 def plot_taylor(
     paired_data: xr.Dataset,
-    geometry_var: str,
-    dataset_var: str,
+    x_var: str,
+    y_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
@@ -416,9 +412,9 @@ def plot_taylor(
     ----------
     paired_data
         Paired dataset with dataset and dataset variables.
-    geometry_var
+    x_var
         Name of dataset variable.
-    dataset_var
+    y_var
         Name of dataset variable.
     config
         Plot configuration.
@@ -434,4 +430,4 @@ def plot_taylor(
         config = PlotConfig.from_dict(config)
 
     plotter = TaylorPlotter(config=config)
-    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)
+    return plotter.plot(paired_data, x_var, y_var, **kwargs)

@@ -265,8 +265,8 @@ class SourceConfig(FlexibleSchema):
     radius_of_influence: float = 12000.0
     display_name: str | None = None
     resample: str | None = None
-    min_geometry_count: int | None = None
-    track_geometry_count: bool = False
+    min_sample_count: int | None = None
+    track_sample_count: bool = False
 
     @model_validator(mode="before")
     @classmethod
@@ -303,28 +303,46 @@ class SourceConfig(FlexibleSchema):
         return dict(v)
 
 
-class SourcePairConfig(FlexibleSchema):
-    """Binary pair definition.
+class AxisRef(FlexibleSchema):
+    """One axis of a pair: a source label and the variable to read from it."""
 
-    Pairs use ``sources``/``geometry``/``variables``.
+    source: str
+    variable: str
+
+
+class SourcePairConfig(FlexibleSchema):
+    """Binary pair definition as an ordered (x, y).
+
+    ``x`` is the horizontal/reference axis; ``y`` is vertical. Diffs are ``y - x``.
+    Pairing *direction* (which source is resampled onto which) is decided by shape
+    precedence, not by x/y — x/y is plot-axis assignment only. On a same-shape tie,
+    ``x`` is the reference (pairing) geometry.
     """
 
-    sources: list[str] = Field(default_factory=list)
-    geometry: str | None = None
-    variables: dict[str, str] = Field(default_factory=dict)
+    x: AxisRef
+    y: AxisRef
 
-    @model_validator(mode="after")
-    def validate_pair_shape(self) -> "SourcePairConfig":
-        if not self.sources:
-            raise ValueError("pair must define 'sources' (exactly two source labels)")
-        if len(self.sources) != 2:
-            raise ValueError("pair 'sources' must contain exactly two labels")
-        if self.geometry is not None and self.geometry not in self.sources:
-            raise ValueError("'geometry' must be one of the pair sources")
-        missing = [label for label in self.sources if label not in self.variables]
-        if missing:
-            raise ValueError("pair 'variables' missing source label(s): " + ", ".join(missing))
-        return self
+    @model_validator(mode="before")
+    @classmethod
+    def reject_legacy_shape(cls, data: Any) -> Any:
+        if isinstance(data, dict) and any(k in data for k in ("sources", "geometry", "variables")):
+            raise ValueError(
+                "legacy pair shape (sources:/geometry:/variables:) is no longer "
+                "supported; migrate to nested x:/y:, e.g.\n"
+                "  x: {source: airnow, variable: o3}\n"
+                "  y: {source: cam, variable: O3}"
+            )
+        return data
+
+    @field_validator("x", "y", mode="before")
+    @classmethod
+    def _parse_axis(cls, v: Any) -> Any:
+        return AxisRef(**v) if isinstance(v, dict) else v
+
+    @property
+    def sources(self) -> list[str]:
+        """Compatibility accessor: the two source labels in (x, y) order."""
+        return [self.x.source, self.y.source]
 
 
 class DataProcConfig(FlexibleSchema):
@@ -336,9 +354,9 @@ class DataProcConfig(FlexibleSchema):
         Dictionary-based filtering.
     filter_string
         Pandas query string for filtering.
-    rem_geometry_by_nan_pct
+    rem_by_nan_pct
         Remove datasets by NaN percentage.
-    rem_geometry_nan
+    rem_nan
         Remove NaN datasets.
     ts_select_time
         Time selection for timeseries: 'time' (UTC) or 'time_local'.
@@ -350,8 +368,8 @@ class DataProcConfig(FlexibleSchema):
 
     filter_dict: dict[str, FilterConfig | dict[str, Any]] | None = None
     filter_string: str | None = None
-    rem_geometry_by_nan_pct: dict[str, Any] | None = None
-    rem_geometry_nan: bool = True
+    rem_by_nan_pct: dict[str, Any] | None = None
+    rem_nan: bool = True
     ts_select_time: Literal["time", "time_local"] = "time"
     ts_avg_window: str | None = None
     set_axis: bool = False

@@ -61,58 +61,46 @@ sources:
     filename: ${FIREX_AQ_DATA}/aircraft/merge/firexaq-MRG60-DC8_MERGE_*_R2.ict
     variables:
       O3_CL:
-        geometry_min: 0
-        geometry_max: 200
+        valid_min: 0
+        valid_max: 200
         units: ppb
         ylabel_plot: "O$_3$ (ppb)"
         display_name: "O$_3$"
       CO_DACOM:
-        geometry_min: 0
-        geometry_max: 5000
+        valid_min: 0
+        valid_max: 5000
         units: ppb
         ylabel_plot: "CO (ppb)"
         display_name: "CO"
       NO_CL:
-        geometry_min: 0
-        geometry_max: 50
+        valid_min: 0
+        valid_max: 50
         units: ppb
         ylabel_plot: "NO (ppb)"
         display_name: "NO"
       NO2_CL:
-        geometry_min: 0
-        geometry_max: 50
+        valid_min: 0
+        valid_max: 50
         units: ppb
         ylabel_plot: "NO$_2$ (ppb)"
         display_name: "NO$_2$"
 
 pairs:
   cam_dc8_o3:
-    sources: [cam_firex, dc8]
-    geometry: dc8
-    variables:
-      cam_firex: O3
-      dc8: O3_CL
+    x: { source: dc8, variable: O3_CL }
+    y: { source: cam_firex, variable: O3 }
 
   cam_dc8_co:
-    sources: [cam_firex, dc8]
-    geometry: dc8
-    variables:
-      cam_firex: CO
-      dc8: CO_DACOM
+    x: { source: dc8, variable: CO_DACOM }
+    y: { source: cam_firex, variable: CO }
 
   cam_dc8_no:
-    sources: [cam_firex, dc8]
-    geometry: dc8
-    variables:
-      cam_firex: "NO"
-      dc8: NO_CL
+    x: { source: dc8, variable: NO_CL }
+    y: { source: cam_firex, variable: "NO" }
 
   cam_dc8_no2:
-    sources: [cam_firex, dc8]
-    geometry: dc8
-    variables:
-      cam_firex: NO2
-      dc8: NO2_CL
+    x: { source: dc8, variable: NO2_CL }
+    y: { source: cam_firex, variable: NO2 }
 
 plots:
   dc8_o3_scatter:

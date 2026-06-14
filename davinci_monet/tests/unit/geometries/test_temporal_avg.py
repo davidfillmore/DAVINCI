@@ -110,23 +110,23 @@ class TestTemporalAveraging:
         assert not np.isnan(no2[3])
 
     def test_geometry_count_tracking(self, high_freq_geometry_with_gaps: xr.Dataset) -> None:
-        """Test geometry_count variable is added when requested."""
+        """Test sample_count variable is added when requested."""
         result = resample_dataset(high_freq_geometry_with_gaps, "h", track_count=True)
 
-        assert "geometry_count" in result.data_vars
+        assert "sample_count" in result.data_vars
 
-        counts = result["geometry_count"].values
+        counts = result["sample_count"].values
         assert counts[0] == 6  # Hour 0
         assert counts[1] == 2  # Hour 1
         assert counts[2] == 1  # Hour 2
         assert counts[3] == 6  # Hour 3
 
     def test_geometry_count_with_min_count(self, high_freq_geometry_with_gaps: xr.Dataset) -> None:
-        """Test geometry_count is added when using min_count together with track_count."""
+        """Test sample_count is added when using min_count together with track_count."""
         result = resample_dataset(high_freq_geometry_with_gaps, "h", min_count=3, track_count=True)
 
-        # geometry_count should still be present
-        assert "geometry_count" in result.data_vars
+        # sample_count should still be present
+        assert "sample_count" in result.data_vars
 
         # Values should be filtered by min_count
         no2 = result["no2_column"].values
@@ -157,7 +157,7 @@ class TestTemporalAveraging:
 
         # First hour should have 4 valid geometry (6 - 2 NaN)
         # count() counts non-NaN, so this should work correctly
-        counts = result["geometry_count"].values
+        counts = result["sample_count"].values
         assert counts[0] == 4  # 6 minus 2 NaN
 
     def test_resample_multiple_variables(self, high_freq_geometry: xr.Dataset) -> None:
@@ -166,7 +166,7 @@ class TestTemporalAveraging:
 
         assert "no2_column" in result.data_vars
         assert "o3_column" in result.data_vars
-        assert "geometry_count" in result.data_vars
+        assert "sample_count" in result.data_vars
 
         # Both variables should be resampled
         assert len(result["no2_column"]) == 4
@@ -201,9 +201,9 @@ class TestTemporalAveragingEdgeCases:
         )
         result = resample_dataset(ds, "h", track_count=True)
 
-        # geometry_count should be based on no2_column, not lat/lon
-        assert "geometry_count" in result.data_vars
-        assert result["geometry_count"].values[0] == 6
+        # sample_count should be based on no2_column, not lat/lon
+        assert "sample_count" in result.data_vars
+        assert result["sample_count"].values[0] == 6
 
     def test_resample_daily(self) -> None:
         """Test daily resampling."""
@@ -217,5 +217,5 @@ class TestTemporalAveragingEdgeCases:
         # 48 hourly -> 2 daily averages
         assert len(result["time"]) == 2
         # Each day has 24 geometry
-        assert result["geometry_count"].values[0] == 24
-        assert result["geometry_count"].values[1] == 24
+        assert result["sample_count"].values[0] == 24
+        assert result["sample_count"].values[1] == 24

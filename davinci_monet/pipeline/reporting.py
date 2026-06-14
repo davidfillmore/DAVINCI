@@ -112,8 +112,8 @@ class LogCollector:
         """Parse and log a progress message."""
         # Parse patterns like "Loading dataset: cesm_asiaq (1/2)"
         source_match = re.match(r"\s*Loading source: (\S+)", message)
-        dataset_match = re.match(r"\s*Loading dataset: (\S+)", message)
-        geometry_match = re.match(r"\s*Loading geometry: (\S+)", message)
+        y_match = re.match(r"\s*Loading dataset: (\S+)", message)
+        x_match = re.match(r"\s*Loading geometry: (\S+)", message)
         # Pairing pattern
         pair_match = re.match(r"\s*Pairing: (\S+)", message)
         # New parallel pairing patterns
@@ -123,11 +123,11 @@ class LogCollector:
         if source_match:
             name = source_match.group(1)
             self._start_item(name, "source")
-        elif dataset_match:
-            name = dataset_match.group(1)
+        elif y_match:
+            name = y_match.group(1)
             self._start_item(name, "dataset")
-        elif geometry_match:
-            name = geometry_match.group(1)
+        elif x_match:
+            name = x_match.group(1)
             self._start_item(name, "dataset")
         elif pair_match:
             name = pair_match.group(1)
@@ -228,9 +228,9 @@ class LogCollector:
                     total_points *= ds.sizes[dim]
                 details["paired_points"] = total_points
                 # Count paired geometry/dataset variable pairs.
-                from davinci_monet.core.base import iter_paired_variable_pairs
+                from davinci_monet.core.base import iter_paired_variable_xy
 
-                details["variables"] = len(iter_paired_variable_pairs(ds))
+                details["variables"] = len(iter_paired_variable_xy(ds))
             self.pair_details[pair_key] = details
 
         # Extract statistics
@@ -365,14 +365,14 @@ class LogCollector:
                         return default
 
                     n = _get_metric("N", "n", default="-")
-                    geometry_mean = _get_metric("MG", "geometry_mean")
-                    dataset_mean = _get_metric("MD", "dataset_mean")
+                    x_mean = _get_metric("MG", "geometry_mean")
+                    y_mean = _get_metric("MD", "dataset_mean")
                     mb = _get_metric("MB", "mean_bias")
                     rmse = _get_metric("RMSE", "rmse")
                     r = _get_metric("R", "correlation")
                     # Format values
-                    geometry_str = f"{geometry_mean:.2f}" if geometry_mean is not None else "-"
-                    dataset_str = f"{dataset_mean:.2f}" if dataset_mean is not None else "-"
+                    x_str = f"{x_mean:.2f}" if x_mean is not None else "-"
+                    y_str = f"{y_mean:.2f}" if y_mean is not None else "-"
                     mb_str = f"{mb:+.2f}" if mb is not None else "-"
                     rmse_str = f"{rmse:.2f}" if rmse is not None else "-"
                     r_str = (
@@ -381,7 +381,7 @@ class LogCollector:
                         else "-"
                     )
                     lines.append(
-                        f"| {var_name} | {n} | {geometry_str} | {dataset_str} | {mb_str} | {rmse_str} | {r_str} |"
+                        f"| {var_name} | {n} | {x_str} | {y_str} | {mb_str} | {rmse_str} | {r_str} |"
                     )
                 lines.append("")
 

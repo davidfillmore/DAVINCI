@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import xarray as xr
 
-from davinci_monet.plots.base import get_dataset_color, get_series_label
+from davinci_monet.plots.base import get_axis_color, get_series_label
 from davinci_monet.plots.style import DATASET_A_COLOR, DATASET_B_COLOR, NCAR_PALETTE
 
 
@@ -19,56 +19,53 @@ def _paired_with_aliases() -> xr.Dataset:
         },
         coords={"time": np.arange(n)},
     )
-    ds["cam_o3"].attrs.update({"pair_axis": "dataset", "dataset_label": "cam"})
-    ds["airnow_o3"].attrs.update({"pair_axis": "geometry", "dataset_label": "airnow"})
+    ds["cam_o3"].attrs.update({"axis": "y", "source_label": "cam"})
+    ds["airnow_o3"].attrs.update({"axis": "x", "source_label": "airnow"})
     return ds
 
 
 class TestGetDatasetColor:
     def test_geometry_axis_is_geometry_color(self) -> None:
         ds = _paired_with_aliases()
-        assert get_dataset_color(ds, "airnow_o3", index=0) == DATASET_A_COLOR
+        assert get_axis_color(ds, "airnow_o3", index=0) == DATASET_A_COLOR
 
     def test_dataset_axis_is_dataset_color(self) -> None:
         ds = _paired_with_aliases()
-        assert get_dataset_color(ds, "cam_o3", index=1) == DATASET_B_COLOR
+        assert get_axis_color(ds, "cam_o3", index=1) == DATASET_B_COLOR
 
     def test_unpaired_series_cycle_palette_by_index(self) -> None:
         ds = xr.Dataset(
             {"a_o3": ("time", np.zeros(3)), "b_o3": ("time", np.zeros(3))},
             coords={"time": np.arange(3)},
         )
-        c0 = get_dataset_color(ds, "a_o3", index=0)
-        c1 = get_dataset_color(ds, "b_o3", index=1)
+        c0 = get_axis_color(ds, "a_o3", index=0)
+        c1 = get_axis_color(ds, "b_o3", index=1)
         assert c0 == NCAR_PALETTE[0]
         assert c1 == NCAR_PALETTE[1]
         assert c0 != c1
 
     def test_missing_var_uses_palette(self) -> None:
         ds = _paired_with_aliases()
-        assert get_dataset_color(ds, "not_present", index=2) == NCAR_PALETTE[2 % len(NCAR_PALETTE)]
+        assert get_axis_color(ds, "not_present", index=2) == NCAR_PALETTE[2 % len(NCAR_PALETTE)]
 
     def test_infers_axis_from_prefix_without_attrs(self) -> None:
         # Direct callers (tests, examples, user scripts) pass geometry_/dataset_ vars
-        # that carry no pair_axis attr; they must still map to geometry gray / dataset blue,
+        # that carry no axis attr; they must still map to geometry gray / dataset blue,
         # not the palette.
         ds = xr.Dataset(
             {"geometry_o3": ("time", np.zeros(3)), "dataset_o3": ("time", np.zeros(3))},
             coords={"time": np.arange(3)},
         )
-        assert get_dataset_color(ds, "geometry_o3", index=0) == DATASET_A_COLOR
-        assert get_dataset_color(ds, "dataset_o3", index=1) == DATASET_B_COLOR
+        assert get_axis_color(ds, "geometry_o3", index=0) == DATASET_A_COLOR
+        assert get_axis_color(ds, "dataset_o3", index=1) == DATASET_B_COLOR
 
     def test_style_overrides_honoured_for_geometry_dataset_axes(self) -> None:
         # A customised StyleConfig color is used for geometry/dataset axes.
         ds = _paired_with_aliases()
-        assert get_dataset_color(ds, "airnow_o3", geometry_color="#111111") == "#111111"
-        assert get_dataset_color(ds, "cam_o3", index=1, dataset_color="#222222") == "#222222"
+        assert get_axis_color(ds, "airnow_o3", x_color="#111111") == "#111111"
+        assert get_axis_color(ds, "cam_o3", index=1, y_color="#222222") == "#222222"
         unpaired = xr.Dataset({"x_o3": ("time", np.zeros(2))}, coords={"time": np.arange(2)})
-        assert (
-            get_dataset_color(unpaired, "x_o3", index=1, geometry_color="#111111")
-            == NCAR_PALETTE[1]
-        )
+        assert get_axis_color(unpaired, "x_o3", index=1, x_color="#111111") == NCAR_PALETTE[1]
 
 
 class TestGetSeriesLabel:
@@ -82,8 +79,8 @@ class TestGetSeriesLabel:
         assert get_series_label(ds, "airnow_o3") == "airnow"
         assert get_series_label(ds, "cam_o3") == "cam"
 
-    def test_falls_back_to_variable_label_without_dataset_label(self) -> None:
-        # A var without pair_axis/dataset_label attrs falls back to the standard label.
+    def test_falls_back_to_variable_label_without_source_label(self) -> None:
+        # A var without axis/source_label attrs falls back to the standard label.
         ds = xr.Dataset({"geometry_o3": ("time", np.zeros(3))}, coords={"time": np.arange(3)})
         from davinci_monet.plots.base import get_variable_label
 
@@ -100,8 +97,8 @@ def _ts_paired() -> xr.Dataset:
         },
         coords={"time": np.arange(n)},
     )
-    ds["cam_o3"].attrs.update({"pair_axis": "dataset", "dataset_label": "cam"})
-    ds["airnow_o3"].attrs.update({"pair_axis": "geometry", "dataset_label": "airnow"})
+    ds["cam_o3"].attrs.update({"axis": "y", "source_label": "cam"})
+    ds["airnow_o3"].attrs.update({"axis": "x", "source_label": "airnow"})
     return ds
 
 
@@ -132,7 +129,7 @@ class TestTimeseriesAxisStyling:
         assert "Dataset" not in labels
 
     def test_two_unpaired_sources_get_distinct_palette_colors(self) -> None:
-        # A dataset-vs-dataset style pair (both pair_axis-less here) yields two distinct
+        # A dataset-vs-dataset style pair (both axis-less here) yields two distinct
         # palette colors rather than a single shared color.
         from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 
@@ -145,7 +142,7 @@ class TestTimeseriesAxisStyling:
             coords={"time": np.arange(12)},
         )
         for name, label in (("wrf_o3", "wrf"), ("cam_o3", "cam")):
-            ds[name].attrs["dataset_label"] = label  # pair_axis-less (no geometry/dataset)
+            ds[name].attrs["source_label"] = label  # axis-less (no geometry/dataset)
         fig = TimeSeriesPlotter().plot(ds, "wrf_o3", "cam_o3")
         colors = self._line_colors_by_label(fig)
         assert colors["wrf"] == NCAR_PALETTE[0]
@@ -154,16 +151,14 @@ class TestTimeseriesAxisStyling:
 
 
 class TestTaylorRoleStyling:
-    def test_geometry_label_respects_config_geometry_label(self) -> None:
-        # A PlotConfig.geometry_label override must win over the dataset_label for the
+    def test_geometry_label_respects_config_x_label(self) -> None:
+        # A PlotConfig.x_label override must win over the source label for the
         # Taylor geometry point (parity with the dataset label chain).
         from davinci_monet.plots.base import PlotConfig
         from davinci_monet.plots.renderers.taylor import TaylorPlotter
 
-        ds = _paired_with_aliases()  # geometry renamed to airnow_o3 (dataset_label "airnow")
-        fig = TaylorPlotter(config=PlotConfig(geometry_label="CustomRef")).plot(
-            ds, "airnow_o3", "cam_o3"
-        )
+        ds = _paired_with_aliases()  # geometry renamed to airnow_o3 (source_label "airnow")
+        fig = TaylorPlotter(config=PlotConfig(x_label="CustomRef")).plot(ds, "airnow_o3", "cam_o3")
         labels = {ln.get_label() for ln in fig.axes[0].get_lines()}
         assert "CustomRef" in labels
         assert "airnow" not in labels

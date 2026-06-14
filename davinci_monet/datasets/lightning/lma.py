@@ -104,7 +104,7 @@ class LMAReader:
             LMA datasets with dimensions (time, latitude, longitude)
             and density variables.
         """
-        file_list = validate_file_list(file_paths, dataset_label="LMA")
+        file_list = validate_file_list(file_paths, source_label="LMA")
 
         ds = self._open_netcdf(file_list, variables, **kwargs)
 

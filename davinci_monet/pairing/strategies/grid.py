@@ -32,7 +32,7 @@ class GridStrategy(BasePairingStrategy):
     Examples
     --------
     >>> strategy = GridStrategy()
-    >>> paired = strategy.pair_sources(dataset_data, l3_satellite_data,
+    >>> paired = strategy.pair_sources(y_data, l3_satellite_data,
     ...                        regrid_to='geometry')
     """
 
@@ -43,8 +43,8 @@ class GridStrategy(BasePairingStrategy):
 
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
@@ -77,46 +77,40 @@ class GridStrategy(BasePairingStrategy):
         xr.Dataset
             Paired dataset on common grid.
         """
-        dataset = dataset_data
-        geometry = geometry_data
+        dataset = y_data
+        geometry = x_data
 
         regrid_to = kwargs.get("regrid_to", "geometry")
         extract_surface = kwargs.get("extract_surface", True)
 
         # Get coordinates
-        dataset_lat, dataset_lon = self._get_dataset_coords(dataset)
-        geometry_lat, geometry_lon = self._get_geometry_coords(geometry)
+        y_lat, y_lon = self._get_dataset_coords(dataset)
+        x_lat, x_lon = self._get_geometry_coords(geometry)
 
         # Extract surface if dataset is 3D
         if extract_surface and "z" in dataset.dims:
-            dataset_proc = self._extract_surface(dataset)
+            y_proc = self._extract_surface(dataset)
         else:
-            dataset_proc = dataset
+            y_proc = dataset
 
         # Regrid to common grid
         if regrid_to == "geometry":
             # Regrid dataset to dataset grid
-            dataset_regridded = self._regrid_to_target(
-                dataset_proc, geometry_lat, geometry_lon, method=horizontal_method
-            )
-            geometry_aligned = geometry
+            y_regridded = self._regrid_to_target(y_proc, x_lat, x_lon, method=horizontal_method)
+            x_aligned = geometry
         elif regrid_to == "dataset":
             # Regrid datasets to dataset grid
-            dataset_regridded = dataset_proc
-            geometry_aligned = self._regrid_to_target(
-                geometry, dataset_lat, dataset_lon, method=horizontal_method
-            )
+            y_regridded = y_proc
+            x_aligned = self._regrid_to_target(geometry, y_lat, y_lon, method=horizontal_method)
         else:
             raise PairingError(f"Invalid regrid_to option: {regrid_to}")
 
         # Align temporal dimensions
-        if "time" in dataset_regridded.dims and "time" in geometry_aligned.dims:
-            dataset_regridded, geometry_aligned = self._align_times(
-                dataset_regridded, geometry_aligned, time_tolerance
-            )
+        if "time" in y_regridded.dims and "time" in x_aligned.dims:
+            y_regridded, x_aligned = self._align_times(y_regridded, x_aligned, time_tolerance)
 
         # Create paired output
-        paired = self._create_paired_output(geometry_aligned, dataset_regridded)
+        paired = self._create_paired_output(x_aligned, y_regridded)
 
         return paired
 
@@ -256,8 +250,8 @@ class GridStrategy(BasePairingStrategy):
         tuple[xr.Dataset, xr.Dataset]
             Temporally aligned datasets.
         """
-        dataset_times = dataset["time"].values
-        geometry_times = geometry["time"].values
+        y_times = dataset["time"].values
+        x_times = geometry["time"].values
 
         # Find common times (within tolerance)
         if time_tolerance is not None:
@@ -266,13 +260,13 @@ class GridStrategy(BasePairingStrategy):
             # time labels. Without the relabel, _create_paired_output reindexes
             # the dataset onto the geometry time coordinate and the dataset becomes all
             # NaN whenever dataset/geometry times differ (e.g. MERRA2 00:30 vs MODIS 00:00).
-            dataset_matched = dataset.sel(time=geometry_times, method="nearest")
-            dataset_matched = dataset_matched.assign_coords(time=geometry_times)
-            return dataset_matched, geometry
+            y_matched = dataset.sel(time=x_times, method="nearest")
+            y_matched = y_matched.assign_coords(time=x_times)
+            return y_matched, geometry
         else:
             # Interpolate dataset to geometry times
-            dataset_interp = dataset.interp(time=geometry_times)
-            return dataset_interp, geometry
+            y_interp = dataset.interp(time=x_times)
+            return y_interp, geometry
 
     def _create_paired_output(
         self,
@@ -308,7 +302,7 @@ class GridStrategy(BasePairingStrategy):
 
         # Add dataset variables with prefix
         for var in dataset.data_vars:
-            dataset_var_name = f"dataset_{var}"
-            data_vars[dataset_var_name] = dataset[var]
+            y_var_name = f"dataset_{var}"
+            data_vars[y_var_name] = dataset[var]
 
         return xr.Dataset(data_vars, coords=coords)

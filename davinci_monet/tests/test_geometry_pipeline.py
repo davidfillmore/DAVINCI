@@ -41,16 +41,16 @@ def _create_geometry_dataset() -> xr.Dataset:
 
 
 @pytest.fixture
-def geometry_dataset() -> xr.Dataset:
+def x_dataset() -> xr.Dataset:
     """Synthetic dataset dataset."""
     return _create_geometry_dataset()
 
 
 @pytest.fixture
-def geometry_data(geometry_dataset: xr.Dataset) -> SourceData:
+def x_data(x_dataset: xr.Dataset) -> SourceData:
     """SourceData wrapper around synthetic data."""
     return SourceData(
-        data=geometry_dataset,
+        data=x_dataset,
         label="dc8",
         source_type="aircraft",
         geometry=DataGeometry.TRACK,
@@ -58,7 +58,7 @@ def geometry_data(geometry_dataset: xr.Dataset) -> SourceData:
 
 
 @pytest.fixture
-def geometry_context(geometry_data: SourceData, tmp_path: Any) -> PipelineContext:
+def x_context(x_data: SourceData, tmp_path: Any) -> PipelineContext:
     """PipelineContext with dataset data and geometry-only config."""
     return PipelineContext(
         config={
@@ -80,7 +80,7 @@ def geometry_context(geometry_data: SourceData, tmp_path: Any) -> PipelineContex
                 },
             },
         },
-        sources={"dc8": geometry_data},
+        sources={"dc8": x_data},
     )
 
 
@@ -98,11 +98,11 @@ class TestGeometryPlottingStage:
 
         assert PlottingStage().name == "plotting"
 
-    def test_validate_with_geometry(self, geometry_context: PipelineContext) -> None:
+    def test_validate_with_geometry(self, x_context: PipelineContext) -> None:
         """validate() returns True when datasets exist (geometry-only run)."""
         from davinci_monet.pipeline.stages import PlottingStage
 
-        assert PlottingStage().validate(geometry_context) is True
+        assert PlottingStage().validate(x_context) is True
 
     def test_validate_without_geometry(self) -> None:
         """validate() returns False when there is neither paired nor geometry data."""
@@ -111,11 +111,11 @@ class TestGeometryPlottingStage:
         ctx = PipelineContext(config={})
         assert PlottingStage().validate(ctx) is False
 
-    def test_execute_creates_plots(self, geometry_context: PipelineContext, tmp_path: Any) -> None:
+    def test_execute_creates_plots(self, x_context: PipelineContext, tmp_path: Any) -> None:
         """execute() creates geometry-only plot files in the output dir."""
         from davinci_monet.pipeline.stages import PlottingStage
 
-        result = PlottingStage().execute(geometry_context)
+        result = PlottingStage().execute(x_context)
 
         assert result.status == StageStatus.COMPLETED
         assert result.data["plot_count"] >= 1
@@ -143,17 +143,17 @@ class TestGeometryStatisticsStage:
 
         assert StatisticsStage().name == "statistics"
 
-    def test_validate_with_geometry(self, geometry_context: PipelineContext) -> None:
+    def test_validate_with_geometry(self, x_context: PipelineContext) -> None:
         """validate() returns True when datasets exist (geometry-only run)."""
         from davinci_monet.pipeline.stages import StatisticsStage
 
-        assert StatisticsStage().validate(geometry_context) is True
+        assert StatisticsStage().validate(x_context) is True
 
-    def test_execute_computes_stats(self, geometry_context: PipelineContext) -> None:
-        """execute() returns descriptive stats: geometry_label -> var_name -> metric."""
+    def test_execute_computes_stats(self, x_context: PipelineContext) -> None:
+        """execute() returns descriptive stats: source_label -> var_name -> metric."""
         from davinci_monet.pipeline.stages import StatisticsStage
 
-        result = StatisticsStage().execute(geometry_context)
+        result = StatisticsStage().execute(x_context)
 
         assert result.status == StageStatus.COMPLETED
         # Top level keyed by geometry label
@@ -189,9 +189,7 @@ class TestGeometryOnlyPipelineDetection:
         assert stage_names == ["load_sources", "statistics", "plotting", "save_results", "summary"]
 
     @pytest.mark.integration
-    def test_run_from_config_detects_geometry_only(
-        self, geometry_data: SourceData, tmp_path: Any
-    ) -> None:
+    def test_run_from_config_detects_geometry_only(self, x_data: SourceData, tmp_path: Any) -> None:
         """PipelineRunner.run_from_config with geometry-only config uses geometry pipeline."""
         from davinci_monet.pipeline.runner import PipelineRunner
 

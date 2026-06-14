@@ -189,12 +189,12 @@ class SourcePairJob:
 
     index: int
     pair_key: str
-    geometry_label: str
-    geometry_obj: Any
-    dataset_label: str
-    dataset_obj: Any
-    geometry_var: str
-    dataset_var: str
+    x_source: str
+    x_obj: Any
+    y_source: str
+    y_obj: Any
+    x_var: str
+    y_var: str
     radius_of_influence: float
     strategy_options: dict[str, Any] = field(default_factory=dict)
 

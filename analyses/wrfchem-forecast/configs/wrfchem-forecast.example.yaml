@@ -89,8 +89,8 @@ sources:
     filename: /glade/work/fillmore/Data/AeroNet/AeroNet_${YYYY}${MM}${DD}.nc
     variables:
       aod_500nm:
-        geometry_min: 0.0
-        geometry_max: 5.0
+        valid_min: 0.0
+        valid_max: 5.0
         units: "1"
         ylabel_plot: "AOD (500 nm)"
         display_name: "AOD"
@@ -101,25 +101,16 @@ sources:
 
 pairs:
   wrfchem_airnow_pm25:
-    sources: [WRF-Chem, airnow]
-    geometry: airnow
-    variables:
-      WRF-Chem: PM2_5_DRY
-      airnow: "PM2.5"
+    x: { source: airnow, variable: "PM2.5" }
+    y: { source: WRF-Chem, variable: PM2_5_DRY }
 
   wrfchem_airnow_o3:
-    sources: [WRF-Chem, airnow]
-    geometry: airnow
-    variables:
-      WRF-Chem: o3
-      airnow: OZONE
+    x: { source: airnow, variable: OZONE }
+    y: { source: WRF-Chem, variable: o3 }
 
   wrfchem_aeronet_aod:
-    sources: [WRF-Chem, aeronet]
-    geometry: aeronet
-    variables:
-      WRF-Chem: AOD2D_OUT
-      aeronet: aod_500nm
+    x: { source: aeronet, variable: aod_500nm }
+    y: { source: WRF-Chem, variable: AOD2D_OUT }
 
 plots:
 

@@ -50,13 +50,11 @@ sources:
 
 pairs:
   merra2_vs_terra:
-    sources: [merra2, modis_terra]
-    geometry: modis_terra
-    variables: { merra2: TOTEXTTAU, modis_terra: aod_550nm }
+    x: { source: modis_terra, variable: aod_550nm }
+    y: { source: merra2, variable: TOTEXTTAU }
   merra2_vs_aqua:
-    sources: [merra2, modis_aqua]
-    geometry: modis_aqua
-    variables: { merra2: TOTEXTTAU, modis_aqua: aod_550nm }
+    x: { source: modis_aqua, variable: aod_550nm }
+    y: { source: merra2, variable: TOTEXTTAU }
 
 plots:
   terra_aod_spatial_bias:
@@ -72,15 +70,15 @@ plots:
     pairs: [merra2_vs_terra]
     show_density: true
     title: "AOD: MERRA2 vs MODIS Terra"
-    geometry_label: "MODIS Terra AOD"
-    dataset_label: "MERRA-2 AOD"
+    x_label: "MODIS Terra AOD"
+    y_label: "MERRA-2 AOD"
   aqua_aod_scatter:
     type: scatter
     pairs: [merra2_vs_aqua]
     show_density: true
     title: "AOD: MERRA2 vs MODIS Aqua"
-    geometry_label: "MODIS Aqua AOD"
-    dataset_label: "MERRA-2 AOD"
+    x_label: "MODIS Aqua AOD"
+    y_label: "MERRA-2 AOD"
   # Split per pair so each legend names its own MODIS source via geometry_label
   # (one timeseries spec covering both pairs would label both with one label).
   # No aggregate_dim: the timeseries renderer auto-averages all non-time dims
@@ -89,14 +87,14 @@ plots:
     type: timeseries
     pairs: [merra2_vs_terra]
     title: "Global-Mean Monthly AOD - Terra"
-    geometry_label: "MODIS Terra"
-    dataset_label: "MERRA-2"
+    x_label: "MODIS Terra"
+    y_label: "MERRA-2"
   aqua_aod_timeseries:
     type: timeseries
     pairs: [merra2_vs_aqua]
     title: "Global-Mean Monthly AOD - Aqua"
-    geometry_label: "MODIS Aqua"
-    dataset_label: "MERRA-2"
+    x_label: "MODIS Aqua"
+    y_label: "MERRA-2"
 
 stats:
   output_table: true

@@ -51,9 +51,9 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
     >>> plotter = SpatialOverlayPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     geometry_var="geometry_o3",
-    ...     dataset_var="dataset_o3",
-    ...     dataset_field=dataset_data["o3"],
+    ...     x_var="geometry_o3",
+    ...     y_var="dataset_o3",
+    ...     y_field=y_data["o3"],
     ... )
     """
 
@@ -76,11 +76,11 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
             Optional GeoAxes to plot on.
         **kwargs
             Forwarded kwargs; renderer-specific ones:
-            dataset_field (xr.DataArray|None, default None),
+            y_field (xr.DataArray|None, default None),
             lat_var (str, default "latitude"),
             lon_var (str, default "longitude"),
-            dataset_lat (str, default "lat"),
-            dataset_lon (str, default "lon"),
+            y_lat (str, default "lat"),
+            y_lon (str, default "lon"),
             time_index (int, default 0),
             level_index (int|str|None, default "surface"; "surface" auto-detects
               the surface level — last index for CESM-style ascending-pressure
@@ -88,8 +88,8 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
             cmap (str, default "viridis"),
             n_levels (int, default 15),
             marker_size (float|None, default None),
-            geometry_edgecolor (str, default "black"),
-            geometry_linewidth (float, default 0.5).
+            x_edgecolor (str, default "black"),
+            x_linewidth (float, default 0.5).
 
         Returns
         -------
@@ -100,24 +100,24 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
             raise NotImplementedError(
                 f"SpatialOverlayPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
-        paired_data = geometry_series.dataset
-        geometry_var = geometry_series.var_name
-        dataset_var = dataset_series.var_name
+        x_series = next((s for s in series if s.axis == "x"), series[0])
+        y_series = next((s for s in series if s.axis == "y"), series[1])
+        paired_data = x_series.dataset
+        x_var = x_series.var_name
+        y_var = y_series.var_name
 
-        dataset_field: xr.DataArray | None = kwargs.pop("dataset_field", None)
+        y_field: xr.DataArray | None = kwargs.pop("y_field", None)
         lat_var: str = kwargs.pop("lat_var", "latitude")
         lon_var: str = kwargs.pop("lon_var", "longitude")
-        dataset_lat: str = kwargs.pop("dataset_lat", "lat")
-        dataset_lon: str = kwargs.pop("dataset_lon", "lon")
+        y_lat: str = kwargs.pop("y_lat", "lat")
+        y_lon: str = kwargs.pop("y_lon", "lon")
         time_index: int = kwargs.pop("time_index", 0)
         level_index: int | str | None = kwargs.pop("level_index", "surface")
         cmap: str = kwargs.pop("cmap", "viridis")
         n_levels: int = kwargs.pop("n_levels", 15)
         marker_size: float | None = kwargs.pop("marker_size", None)
-        geometry_edgecolor: str = kwargs.pop("geometry_edgecolor", "black")
-        geometry_linewidth: float = kwargs.pop("geometry_linewidth", 0.5)
+        x_edgecolor: str = kwargs.pop("x_edgecolor", "black")
+        x_linewidth: float = kwargs.pop("x_linewidth", 0.5)
 
         import cartopy.crs as ccrs
 
@@ -131,51 +131,51 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         self.add_map_features(ax)
 
         # Get dataset field for contouring
-        if dataset_field is None:
-            if dataset_var in paired_data:
-                dataset_field = paired_data[dataset_var]
+        if y_field is None:
+            if y_var in paired_data:
+                y_field = paired_data[y_var]
             else:
-                raise ValueError(f"No dataset field provided and {dataset_var} not in paired_data")
+                raise ValueError(f"No dataset field provided and {y_var} not in paired_data")
 
         # Select time/level slice if needed
-        if "time" in dataset_field.dims and dataset_field.dims.index("time") >= 0:
-            if len(dataset_field.time) > 1:
-                dataset_field = dataset_field.isel(time=time_index)
+        if "time" in y_field.dims and y_field.dims.index("time") >= 0:
+            if len(y_field.time) > 1:
+                y_field = y_field.isel(time=time_index)
 
         if level_index is not None:
             for dim in ["z", "level", "lev", "vertical"]:
-                if dim in dataset_field.dims:
+                if dim in y_field.dims:
                     idx = (
-                        surface_level_index(dataset_field, dim)
+                        surface_level_index(y_field, dim)
                         if level_index == "surface"
                         else level_index
                     )
-                    dataset_field = dataset_field.isel({dim: idx})
+                    y_field = y_field.isel({dim: idx})
                     break
 
         # Get dataset coordinates
-        if dataset_lat in dataset_field.coords:
-            dataset_lats = dataset_field[dataset_lat].values
-            dataset_lons = dataset_field[dataset_lon].values
-        elif dataset_lat in dataset_field.dims:
-            dataset_lats = dataset_field[dataset_lat].values
-            dataset_lons = dataset_field[dataset_lon].values
+        if y_lat in y_field.coords:
+            y_lats = y_field[y_lat].values
+            y_lons = y_field[y_lon].values
+        elif y_lat in y_field.dims:
+            y_lats = y_field[y_lat].values
+            y_lons = y_field[y_lon].values
         else:
             # Try common alternatives
             for lat_name in ["lat", "latitude", "y"]:
-                if lat_name in dataset_field.coords:
-                    dataset_lats = dataset_field[lat_name].values
+                if lat_name in y_field.coords:
+                    y_lats = y_field[lat_name].values
                     break
             for lon_name in ["lon", "longitude", "x"]:
-                if lon_name in dataset_field.coords:
-                    dataset_lons = dataset_field[lon_name].values
+                if lon_name in y_field.coords:
+                    y_lons = y_field[lon_name].values
                     break
 
         # Get value limits
         all_values = np.concatenate(
             [
-                dataset_field.values.flatten(),
-                paired_data[geometry_var].values.flatten(),
+                y_field.values.flatten(),
+                paired_data[x_var].values.flatten(),
             ]
         )
         all_values = all_values[np.isfinite(all_values)]
@@ -187,17 +187,17 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         levels = np.linspace(vmin, vmax, n_levels)
 
         # Plot dataset field as filled contours
-        if dataset_lats.ndim == 1:
+        if y_lats.ndim == 1:
             # Regular grid
-            lon_grid, lat_grid = np.meshgrid(dataset_lons, dataset_lats)
+            lon_grid, lat_grid = np.meshgrid(y_lons, y_lats)
         else:
             # Already 2D
-            lon_grid, lat_grid = dataset_lons, dataset_lats
+            lon_grid, lat_grid = y_lons, y_lats
 
         contour = ax.contourf(
             lon_grid,
             lat_grid,
-            dataset_field.values,
+            y_field.values,
             levels=levels,
             cmap=cmap,
             extend="both",
@@ -205,35 +205,35 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         )
 
         # Get dataset data
-        geometry_data = paired_data[geometry_var]
-        if "time" in geometry_data.dims:
-            geometry_data = geometry_data.mean(dim="time")
+        x_data = paired_data[x_var]
+        if "time" in x_data.dims:
+            x_data = x_data.mean(dim="time")
 
         # Get dataset coordinates
         if lat_var in paired_data.coords:
-            geometry_lats = paired_data[lat_var].values
-            geometry_lons = paired_data[lon_var].values
+            x_lats = paired_data[lat_var].values
+            x_lons = paired_data[lon_var].values
         else:
-            geometry_lats = paired_data[lat_var].values
-            geometry_lons = paired_data[lon_var].values
+            x_lats = paired_data[lat_var].values
+            x_lons = paired_data[lon_var].values
 
-        geometry_values = geometry_data.values.flatten()
-        geometry_lats_flat = (
-            np.broadcast_to(geometry_lats, geometry_data.shape).flatten()
-            if geometry_lats.ndim < geometry_data.ndim
-            else geometry_lats.flatten()
+        x_values = x_data.values.flatten()
+        x_lats_flat = (
+            np.broadcast_to(x_lats, x_data.shape).flatten()
+            if x_lats.ndim < x_data.ndim
+            else x_lats.flatten()
         )
-        geometry_lons_flat = (
-            np.broadcast_to(geometry_lons, geometry_data.shape).flatten()
-            if geometry_lons.ndim < geometry_data.ndim
-            else geometry_lons.flatten()
+        x_lons_flat = (
+            np.broadcast_to(x_lons, x_data.shape).flatten()
+            if x_lons.ndim < x_data.ndim
+            else x_lons.flatten()
         )
 
         # Remove NaN values
-        mask = np.isfinite(geometry_values)
-        geometry_values = geometry_values[mask]
-        geometry_lats_flat = geometry_lats_flat[mask]
-        geometry_lons_flat = geometry_lons_flat[mask]
+        mask = np.isfinite(x_values)
+        x_values = x_values[mask]
+        x_lats_flat = x_lats_flat[mask]
+        x_lons_flat = x_lons_flat[mask]
 
         # Get marker size
         style = self.config.style
@@ -241,24 +241,24 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
 
         # Overlay dataset scatter
         scatter = ax.scatter(
-            geometry_lons_flat,
-            geometry_lats_flat,
-            c=geometry_values,
+            x_lons_flat,
+            x_lats_flat,
+            c=x_values,
             s=ms**2,
             cmap=cmap,
             vmin=vmin,
             vmax=vmax,
             transform=ccrs.PlateCarree(),
-            edgecolors=geometry_edgecolor,
-            linewidths=geometry_linewidth,
+            edgecolors=x_edgecolor,
+            linewidths=x_linewidth,
             zorder=5,
         )
 
         # Add colorbar. The contour and scatter share this scale, so the label
         # is the chemistry variable itself.
-        units = get_variable_units(paired_data, geometry_var)
+        units = get_variable_units(paired_data, x_var)
         label = format_label_with_units(
-            get_variable_label(paired_data, geometry_var, include_prefix=False) or geometry_var,
+            get_variable_label(paired_data, x_var, include_prefix=False) or x_var,
             units,
         )
         self.add_colorbar(fig, contour, ax, label=label)
@@ -267,7 +267,7 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         if self.config.title:
             self.set_title(ax, self.config.title)
         else:
-            var_label = get_variable_label(paired_data, geometry_var)
+            var_label = get_variable_label(paired_data, x_var)
             self.set_title(ax, f"{var_label}: Dataset (contour) vs Geometry (points)")
 
         return fig
@@ -275,21 +275,21 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         ax: matplotlib.axes.Axes | None = None,
-        dataset_field: xr.DataArray | None = None,
+        y_field: xr.DataArray | None = None,
         lat_var: str = "latitude",
         lon_var: str = "longitude",
-        dataset_lat: str = "lat",
-        dataset_lon: str = "lon",
+        y_lat: str = "lat",
+        y_lon: str = "lon",
         time_index: int = 0,
         level_index: int | str | None = "surface",
         cmap: str = "viridis",
         n_levels: int = 15,
         marker_size: float | None = None,
-        geometry_edgecolor: str = "black",
-        geometry_linewidth: float = 0.5,
+        x_edgecolor: str = "black",
+        x_linewidth: float = 0.5,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Generate a spatial overlay plot.
@@ -300,23 +300,23 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         ----------
         paired_data
             Paired dataset with dataset and dataset variables.
-        geometry_var
+        x_var
             Name of dataset variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         ax
             Optional GeoAxes to plot on.
-        dataset_field
-            Optional separate dataset field for contouring.
-            If None, tries to use dataset_var from paired_data.
+        y_field
+            Optional separate y (dataset) field for contouring.
+            If None, tries to use y_var from paired_data.
         lat_var
             Name of latitude coordinate for datasets.
         lon_var
             Name of longitude coordinate for datasets.
-        dataset_lat
-            Name of latitude dimension in dataset field.
-        dataset_lon
-            Name of longitude dimension in dataset field.
+        y_lat
+            Name of latitude dimension in y field.
+        y_lon
+            Name of longitude dimension in y field.
         time_index
             Time index to plot if dataset has time dimension.
         level_index
@@ -330,10 +330,10 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
             Number of contour levels.
         marker_size
             Override marker size.
-        geometry_edgecolor
-            Edge color for dataset markers.
-        geometry_linewidth
-            Edge line width for dataset markers.
+        x_edgecolor
+            Edge color for x (geometry) markers.
+        x_linewidth
+            Edge line width for x (geometry) markers.
         **kwargs
             Additional plotting arguments.
 
@@ -343,28 +343,28 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, geometry_var, dataset_var),
+            build_series(paired_data, x_var, y_var),
             ax=ax,
-            dataset_field=dataset_field,
+            y_field=y_field,
             lat_var=lat_var,
             lon_var=lon_var,
-            dataset_lat=dataset_lat,
-            dataset_lon=dataset_lon,
+            y_lat=y_lat,
+            y_lon=y_lon,
             time_index=time_index,
             level_index=level_index,
             cmap=cmap,
             n_levels=n_levels,
             marker_size=marker_size,
-            geometry_edgecolor=geometry_edgecolor,
-            geometry_linewidth=geometry_linewidth,
+            x_edgecolor=x_edgecolor,
+            x_linewidth=x_linewidth,
             **kwargs,
         )
 
 
 def plot_spatial_overlay(
     paired_data: xr.Dataset,
-    geometry_var: str,
-    dataset_var: str,
+    x_var: str,
+    y_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     map_config: MapConfig | dict[str, Any] | None = None,
     **kwargs: Any,
@@ -375,9 +375,9 @@ def plot_spatial_overlay(
     ----------
     paired_data
         Paired dataset with dataset and dataset variables.
-    geometry_var
+    x_var
         Name of dataset variable.
-    dataset_var
+    y_var
         Name of dataset variable.
     config
         Plot configuration.
@@ -397,4 +397,4 @@ def plot_spatial_overlay(
         map_config = MapConfig.from_dict(map_config)
 
     plotter = SpatialOverlayPlotter(config=config, map_config=map_config)
-    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)
+    return plotter.plot(paired_data, x_var, y_var, **kwargs)
