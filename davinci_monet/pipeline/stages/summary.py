@@ -43,7 +43,8 @@ class SummaryStage(BaseStage):
         # SKIPPED with a warning rather than propagating to the runner, which
         # would otherwise mark the whole run FAILED.
         try:
-            cfg = validate_schema(SummaryConfig, context.config.get("summary") or {})
+            config = context.config_dict()
+            cfg = validate_schema(SummaryConfig, config.get("summary") or {})
             if not cfg.enabled:
                 return self._create_result(
                     StageStatus.SKIPPED,
@@ -54,7 +55,7 @@ class SummaryStage(BaseStage):
             payload = collect_payload(context, cfg)
             result = generate_summary(payload, cfg=cfg)
 
-            output_dir = Path(context.config.get("analysis", {}).get("output_dir") or ".")
+            output_dir = Path(config.get("analysis", {}).get("output_dir") or ".")
             output_dir.mkdir(parents=True, exist_ok=True)
             out_path = output_dir / cfg.output_filename
             out_path.write_text(result.markdown)

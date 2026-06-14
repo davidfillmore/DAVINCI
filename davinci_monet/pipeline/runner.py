@@ -17,7 +17,8 @@ from typing import Any, Callable, Literal, Sequence, TextIO
 
 from tqdm import tqdm
 
-from davinci_monet.core.exceptions import PipelineError
+from davinci_monet.config.schema import MonetConfig
+from davinci_monet.core.exceptions import ConfigurationError, PipelineError
 from davinci_monet.pipeline.display import ProgressFormatter
 from davinci_monet.pipeline.lifecycle import PipelineResourcePolicy
 from davinci_monet.pipeline.progress import create_progress_callback
@@ -243,7 +244,7 @@ class PipelineRunner:
         context
             Pipeline context containing configuration.
         """
-        analysis_config = context.config.get("analysis", {})
+        analysis_config = context.config_dict().get("analysis", {})
         style_config = analysis_config.get("style")
 
         if style_config is None:
@@ -321,7 +322,7 @@ class PipelineRunner:
         log_collector: LogCollector | None = None
         formatter = ProgressFormatter(show_output=self._show_progress)
 
-        analysis_config = context.config.get("analysis", {})
+        analysis_config = context.config_dict().get("analysis", {})
         log_dir = analysis_config.get("log_dir")
         config_path = context.metadata.get("config_path")
 
@@ -472,7 +473,7 @@ class PipelineRunner:
 
         return result
 
-    def run_from_config(self, config: dict[str, Any] | str) -> PipelineResult:
+    def run_from_config(self, config: dict[str, Any] | str | MonetConfig) -> PipelineResult:
         """Execute pipeline from configuration.
 
         Parameters
@@ -490,18 +491,18 @@ class PipelineRunner:
         ConfigurationError
             If configuration is empty or missing required sections.
         """
-        from davinci_monet.core.exceptions import ConfigurationError
+        from davinci_monet.config import load_config, validate_config
 
         config_path: str | None = None
         if isinstance(config, str):
             config_path = config
-            from davinci_monet.config import load_config
-            from davinci_monet.core.schema_utils import dump_schema
+            config_model = load_config(config)
+        elif isinstance(config, MonetConfig):
+            config_model = config
+        else:
+            config_model = validate_config(config)
 
-            config = dump_schema(load_config(config))
-
-        # Validate that config has something to process.
-        sources_config = config.get("sources") or {}
+        sources_config = config_model.sources
 
         if not sources_config:
             raise ConfigurationError(
@@ -513,7 +514,7 @@ class PipelineRunner:
         # single-source runs: pairing skips when there are no pairs, while
         # statistics/plotting dispatch on the available source state.
 
-        context = PipelineContext(config=config)
+        context = PipelineContext(config=config_model)
         if config_path:
             context.metadata["config_path"] = config_path
         return self.run(context)
@@ -687,7 +688,7 @@ class PipelineBuilder:
 
 
 def run_analysis(
-    config: dict[str, Any] | str,
+    config: dict[str, Any] | str | MonetConfig,
     show_progress: bool = True,
     show_plots: bool = False,
     preview_format: Literal["pdf", "png"] = "pdf",

@@ -199,6 +199,99 @@ class TestValidateConfig:
         with pytest.raises(ConfigurationError, match="Extra inputs"):
             validate_config({"unsupported_group": {"test": {"type": "cmaq"}}})
 
+    def test_invalid_plot_type_rejected_at_validation(self) -> None:
+        """Unknown plot types fail during config validation, not plotting."""
+        with pytest.raises(ConfigurationError, match="Unknown plot type 'fake_plot_type_xyz'"):
+            validate_config(
+                {
+                    "sources": {"cam": {"type": "generic"}},
+                    "plots": {"bad": {"type": "fake_plot_type_xyz", "data": []}},
+                }
+            )
+
+    def test_strict_rejects_extra_analysis_field(self) -> None:
+        """Strict mode rejects unknown core schema fields."""
+        with pytest.raises(ConfigurationError, match="analysis.extra_field"):
+            validate_config(
+                {
+                    "analysis": {"start_time": "2024-01-01", "extra_field": "nope"},
+                    "sources": {"cam": {"type": "generic"}},
+                },
+                strict=True,
+            )
+
+    def test_strict_rejects_extra_pairing_field(self) -> None:
+        """Strict mode rejects unknown fields in modeled runtime sections."""
+        with pytest.raises(ConfigurationError, match="pairing.extra_field"):
+            validate_config(
+                {
+                    "sources": {"cam": {"type": "generic"}},
+                    "pairing": {"max_pair_workers": 2, "extra_field": "nope"},
+                },
+                strict=True,
+            )
+
+    def test_strict_allows_source_reader_extra_fields(self) -> None:
+        """Reader-specific source kwargs remain an extension point in strict mode."""
+        cfg = validate_config(
+            {
+                "sources": {
+                    "cam": {
+                        "type": "generic",
+                        "reader_specific_kwarg": "passed-through",
+                    }
+                }
+            },
+            strict=True,
+        )
+
+        assert getattr(cfg.sources["cam"], "reader_specific_kwarg") == "passed-through"
+
+    def test_strict_allows_renderer_specific_plot_kwargs(self) -> None:
+        """Renderer-specific plot kwargs remain an extension point in strict mode."""
+        cfg = validate_config(
+            {
+                "sources": {"cam": {"type": "generic"}},
+                "plots": {
+                    "plot1": {
+                        "type": "timeseries",
+                        "data": [],
+                        "renderer_specific_kwarg": "passed-through",
+                    }
+                },
+            },
+            strict=True,
+        )
+
+        assert getattr(cfg.plots["plot1"], "renderer_specific_kwarg") == "passed-through"
+
+    def test_load_config_strict_preserves_extra_field_error(self) -> None:
+        """load_config reports the same strict extra-field error as validate_config."""
+        with pytest.raises(
+            ConfigurationError,
+            match=r"^Strict validation rejected extra field\(s\): analysis\.extra_field$",
+        ):
+            load_config(
+                """
+analysis:
+  extra_field: nope
+sources:
+  cam:
+    type: generic
+""",
+                strict=True,
+            )
+
+    def test_flexible_allows_extra_analysis_field_for_back_compat(self) -> None:
+        """Default validation remains compatible with existing flexible configs."""
+        cfg = validate_config(
+            {
+                "analysis": {"start_time": "2024-01-01", "extra_field": "allowed"},
+                "sources": {"cam": {"type": "generic"}},
+            }
+        )
+        assert cfg.analysis.start_time is not None
+
     def test_validate_empty_config(self) -> None:
         """Test validating empty config."""
         config = validate_config({})

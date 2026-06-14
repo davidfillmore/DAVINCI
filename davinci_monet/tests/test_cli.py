@@ -188,7 +188,7 @@ pairs:
 # =============================================================================
 
 
-class TestValidateCommand:
+class TestCLIValidate:
     """Tests for the validate command."""
 
     def test_validate_missing_file(self) -> None:
@@ -269,6 +269,30 @@ sources:
         result = runner.invoke(app, ["validate", str(config_file)])
         assert result.exit_code == 0
         assert "Validation passed" in result.stdout
+
+    def test_validate_strict_mode_rejects_core_extra_field(self, tmp_path: Path) -> None:
+        """The --strict flag changes validation behavior."""
+        config_file = tmp_path / "config_extra.yaml"
+        config_file.write_text(
+            """
+analysis:
+  start_time: 2024-01-01
+  end_time: 2024-01-02
+  extra_field: should_fail_in_strict_mode
+
+sources:
+  test_dataset:
+    type: generic
+"""
+        )
+
+        from typer.testing import CliRunner
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["validate", "--strict", str(config_file)])
+
+        assert result.exit_code != 0
+        assert "analysis.extra_field" in result.stdout
 
     @pytest.fixture
     def invalid_config(self, tmp_path: Path) -> Path:

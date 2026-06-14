@@ -35,7 +35,8 @@ class PairingStage(BaseStage):
 
     def validate(self, context: PipelineContext) -> bool:
         """Validate that sources are loaded and pairable."""
-        pairs_config = context.config.get("pairs")
+        config = context.config_dict()
+        pairs_config = config.get("pairs")
         if isinstance(pairs_config, dict) and any(
             isinstance(pair, dict) and bool(pair.get("x")) and bool(pair.get("y"))
             for pair in pairs_config.values()
@@ -56,7 +57,8 @@ class PairingStage(BaseStage):
         start = time.time()
 
         # Get pairing configuration
-        pairing_config_dict = context.config.get("pairing", {})
+        config = context.config_dict()
+        pairing_config_dict = config.get("pairing", {})
 
         source_jobs, source_pair_errors = self._build_source_pair_jobs(context)
         if source_pair_errors:
@@ -99,7 +101,8 @@ class PairingStage(BaseStage):
         jobs: list[SourcePairJob] = []
         errors: list[str] = []
         pair_index = 0
-        pairs_config = context.config.get("pairs")
+        config = context.config_dict()
+        pairs_config = config.get("pairs")
 
         if not isinstance(pairs_config, dict):
             return [], errors
@@ -160,7 +163,7 @@ class PairingStage(BaseStage):
                     y_var=str(y_var),
                     radius_of_influence=self._pair_radius(raw_pair, y_obj),
                     strategy_options=self._strategy_options(
-                        pairing_config_dict=context.config.get("pairing", {}),
+                        pairing_config_dict=config.get("pairing", {}),
                         pair_spec=raw_pair,
                     ),
                 )
@@ -349,7 +352,8 @@ class PairingStage(BaseStage):
         """
         import time
 
-        debug = context.config.get("analysis", {}).get("debug", False)
+        config = context.config_dict()
+        debug = config.get("analysis", {}).get("debug", False)
         paired_count = 0
         execution_errors: list[str] = []
         context.log_progress(f"    parallel_start: {len(jobs)}")

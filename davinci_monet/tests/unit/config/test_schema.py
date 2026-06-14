@@ -47,6 +47,11 @@ class TestAnalysisConfig:
         config = AnalysisConfig(start_time="2024-01-01T14:30:00")
         assert config.start_time == datetime(2024, 1, 1, 14, 30, 0)
 
+    def test_datetime_parsing_minute_precision(self) -> None:
+        """Test space-separated datetimes without seconds."""
+        config = AnalysisConfig(start_time="2024-01-15 00:00")
+        assert config.start_time == datetime(2024, 1, 15, 0, 0)
+
     def test_output_dir_path_conversion(self) -> None:
         """Test output_dir is converted to Path."""
         config = AnalysisConfig(output_dir="/path/to/output")
