@@ -18,7 +18,7 @@ from davinci_monet.plots.base import (
     PlotConfig,
     build_series,
     format_label_with_units,
-    get_dataset_color,
+    get_axis_color,
     get_series_label,
     get_variable_label,
     get_variable_units,
@@ -148,14 +148,14 @@ class DiurnalPlotter(BasePlotter):
         )
 
         # Series colors by source axis (geometry gray, dataset blue, else palette) (R-3).
-        x_color = get_dataset_color(
+        x_color = get_axis_color(
             paired_data,
             x_var,
             0,
             x_color=style.x_color,
             y_color=style.y_color,
         )
-        y_color = get_dataset_color(
+        y_color = get_axis_color(
             paired_data,
             y_var,
             1,

@@ -25,7 +25,7 @@ from davinci_monet.plots.base import (
     PlotConfig,
     build_series,
     format_label_with_units,
-    get_dataset_color,
+    get_axis_color,
     get_series_label,
     get_variable_label,
     get_variable_units,
@@ -181,8 +181,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
         # Series colors/labels by source axis (R-3): geometry gray, dataset blue, else
         # palette; legends use the source label.
         sc_geometry, sc_dataset = style.x_color, style.y_color
-        x_color = get_dataset_color(paired_data, x_var, 0, x_color=sc_geometry, y_color=sc_dataset)
-        y_color = get_dataset_color(paired_data, y_var, 1, x_color=sc_geometry, y_color=sc_dataset)
+        x_color = get_axis_color(paired_data, x_var, 0, x_color=sc_geometry, y_color=sc_dataset)
+        y_color = get_axis_color(paired_data, y_var, 1, x_color=sc_geometry, y_color=sc_dataset)
         geometry_label = get_series_label(paired_data, x_var)
         dataset_label = get_series_label(paired_data, y_var)
 
@@ -531,8 +531,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
         # Series colors/labels by source axis (R-3): geometry gray, dataset blue, else
         # palette; legends use the source label.
         sc_geometry, sc_dataset = style.x_color, style.y_color
-        x_color = get_dataset_color(paired_data, x_var, 0, x_color=sc_geometry, y_color=sc_dataset)
-        y_color = get_dataset_color(paired_data, y_var, 1, x_color=sc_geometry, y_color=sc_dataset)
+        x_color = get_axis_color(paired_data, x_var, 0, x_color=sc_geometry, y_color=sc_dataset)
+        y_color = get_axis_color(paired_data, y_var, 1, x_color=sc_geometry, y_color=sc_dataset)
         geometry_label = get_series_label(paired_data, x_var)
         dataset_label = get_series_label(paired_data, y_var)
 

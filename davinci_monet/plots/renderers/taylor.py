@@ -16,7 +16,7 @@ from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
     build_series,
-    get_dataset_color,
+    get_axis_color,
     get_series_label,
 )
 from davinci_monet.plots.registry import register_plotter
@@ -123,7 +123,7 @@ class TaylorPlotter(BasePlotter):
         # Get style
         style = self.config.style
         m = marker or style.y_marker
-        c = color or get_dataset_color(
+        c = color or get_axis_color(
             paired_data,
             y_var,
             1,

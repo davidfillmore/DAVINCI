@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import xarray as xr
 
-from davinci_monet.plots.base import get_dataset_color, get_series_label
+from davinci_monet.plots.base import get_axis_color, get_series_label
 from davinci_monet.plots.style import DATASET_A_COLOR, DATASET_B_COLOR, NCAR_PALETTE
 
 
@@ -27,26 +27,26 @@ def _paired_with_aliases() -> xr.Dataset:
 class TestGetDatasetColor:
     def test_geometry_axis_is_geometry_color(self) -> None:
         ds = _paired_with_aliases()
-        assert get_dataset_color(ds, "airnow_o3", index=0) == DATASET_A_COLOR
+        assert get_axis_color(ds, "airnow_o3", index=0) == DATASET_A_COLOR
 
     def test_dataset_axis_is_dataset_color(self) -> None:
         ds = _paired_with_aliases()
-        assert get_dataset_color(ds, "cam_o3", index=1) == DATASET_B_COLOR
+        assert get_axis_color(ds, "cam_o3", index=1) == DATASET_B_COLOR
 
     def test_unpaired_series_cycle_palette_by_index(self) -> None:
         ds = xr.Dataset(
             {"a_o3": ("time", np.zeros(3)), "b_o3": ("time", np.zeros(3))},
             coords={"time": np.arange(3)},
         )
-        c0 = get_dataset_color(ds, "a_o3", index=0)
-        c1 = get_dataset_color(ds, "b_o3", index=1)
+        c0 = get_axis_color(ds, "a_o3", index=0)
+        c1 = get_axis_color(ds, "b_o3", index=1)
         assert c0 == NCAR_PALETTE[0]
         assert c1 == NCAR_PALETTE[1]
         assert c0 != c1
 
     def test_missing_var_uses_palette(self) -> None:
         ds = _paired_with_aliases()
-        assert get_dataset_color(ds, "not_present", index=2) == NCAR_PALETTE[2 % len(NCAR_PALETTE)]
+        assert get_axis_color(ds, "not_present", index=2) == NCAR_PALETTE[2 % len(NCAR_PALETTE)]
 
     def test_infers_axis_from_prefix_without_attrs(self) -> None:
         # Direct callers (tests, examples, user scripts) pass geometry_/dataset_ vars
@@ -56,16 +56,16 @@ class TestGetDatasetColor:
             {"geometry_o3": ("time", np.zeros(3)), "dataset_o3": ("time", np.zeros(3))},
             coords={"time": np.arange(3)},
         )
-        assert get_dataset_color(ds, "geometry_o3", index=0) == DATASET_A_COLOR
-        assert get_dataset_color(ds, "dataset_o3", index=1) == DATASET_B_COLOR
+        assert get_axis_color(ds, "geometry_o3", index=0) == DATASET_A_COLOR
+        assert get_axis_color(ds, "dataset_o3", index=1) == DATASET_B_COLOR
 
     def test_style_overrides_honoured_for_geometry_dataset_axes(self) -> None:
         # A customised StyleConfig color is used for geometry/dataset axes.
         ds = _paired_with_aliases()
-        assert get_dataset_color(ds, "airnow_o3", x_color="#111111") == "#111111"
-        assert get_dataset_color(ds, "cam_o3", index=1, y_color="#222222") == "#222222"
+        assert get_axis_color(ds, "airnow_o3", x_color="#111111") == "#111111"
+        assert get_axis_color(ds, "cam_o3", index=1, y_color="#222222") == "#222222"
         unpaired = xr.Dataset({"x_o3": ("time", np.zeros(2))}, coords={"time": np.arange(2)})
-        assert get_dataset_color(unpaired, "x_o3", index=1, x_color="#111111") == NCAR_PALETTE[1]
+        assert get_axis_color(unpaired, "x_o3", index=1, x_color="#111111") == NCAR_PALETTE[1]
 
 
 class TestGetSeriesLabel:

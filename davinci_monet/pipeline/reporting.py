@@ -228,9 +228,9 @@ class LogCollector:
                     total_points *= ds.sizes[dim]
                 details["paired_points"] = total_points
                 # Count paired geometry/dataset variable pairs.
-                from davinci_monet.core.base import iter_paired_variable_pairs
+                from davinci_monet.core.base import iter_paired_variable_xy
 
-                details["variables"] = len(iter_paired_variable_pairs(ds))
+                details["variables"] = len(iter_paired_variable_xy(ds))
             self.pair_details[pair_key] = details
 
         # Extract statistics

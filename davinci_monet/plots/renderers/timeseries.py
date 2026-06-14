@@ -17,7 +17,7 @@ from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
     format_label_with_units,
-    get_dataset_color,
+    get_axis_color,
     get_series_label,
     get_variable_label,
     get_variable_units,
@@ -175,14 +175,14 @@ class TimeSeriesPlotter(BasePlotter):
 
         # Series colors by source axis (geometry gray, dataset blue, else palette); a
         # customised StyleConfig still wins for the geometry/dataset axes (R-3).
-        x_color = get_dataset_color(
+        x_color = get_axis_color(
             paired_data,
             x_var,
             0,
             x_color=style.x_color,
             y_color=style.y_color,
         )
-        y_color = get_dataset_color(
+        y_color = get_axis_color(
             paired_data,
             y_var,
             1,
@@ -633,7 +633,7 @@ class TimeSeriesPlotter(BasePlotter):
             time_values,
             geometry_lower.values,
             geometry_upper.values,
-            color=get_dataset_color(
+            color=get_axis_color(
                 paired_data,
                 x_var,
                 0,
@@ -646,7 +646,7 @@ class TimeSeriesPlotter(BasePlotter):
             time_values,
             dataset_lower.values,
             dataset_upper.values,
-            color=get_dataset_color(
+            color=get_axis_color(
                 paired_data,
                 y_var,
                 1,

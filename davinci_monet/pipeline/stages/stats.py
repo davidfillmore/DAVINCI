@@ -10,7 +10,7 @@ from typing import Any
 
 import xarray as xr
 
-from davinci_monet.core.base import iter_paired_variable_pairs
+from davinci_monet.core.base import iter_paired_variable_xy
 from davinci_monet.pipeline.stages.base import (
     BaseStage,
     PipelineContext,
@@ -152,7 +152,7 @@ class StatisticsStage(BaseStage):
         calculator = StatisticsCalculator(calc_config)
 
         # Pair geometry and dataset variables by canonical name.
-        for x_var, y_var, base_name in iter_paired_variable_pairs(paired_data):
+        for x_var, y_var, base_name in iter_paired_variable_xy(paired_data):
             df = calculator.compute(
                 paired_data,
                 x_var=x_var,
@@ -208,7 +208,7 @@ class StatisticsStage(BaseStage):
         flights = np.unique(paired_data["flight"].values)
         flight_stats: list[dict[str, Any]] = []
 
-        var_pairs = iter_paired_variable_pairs(paired_data)
+        var_pairs = iter_paired_variable_xy(paired_data)
 
         for flight in flights:
             mask = paired_data["flight"].values == flight

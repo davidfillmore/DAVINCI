@@ -53,11 +53,11 @@ from davinci_monet.plots.plot_config import (
 # Re-export series/color helpers
 from davinci_monet.plots.series import (
     build_series,
-    dataset_label,
-    get_dataset_color,
+    get_axis_color,
     get_series_label,
-    resolve_dataset_variable,
+    resolve_source_variable,
     series_colors,
+    source_label,
 )
 
 if TYPE_CHECKING:
@@ -448,8 +448,8 @@ __all__ = [
     # Series/color helpers
     "build_series",
     "series_colors",
-    "get_dataset_color",
-    "dataset_label",
+    "get_axis_color",
+    "source_label",
     "get_series_label",
-    "resolve_dataset_variable",
+    "resolve_source_variable",
 ]

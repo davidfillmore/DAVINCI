@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from davinci_monet.core.base import iter_paired_variable_pairs, paired_canonical_name
+from davinci_monet.core.base import iter_paired_variable_xy, paired_canonical_name
 from davinci_monet.core.schema_utils import dump_schema, is_schema_object
 from davinci_monet.pipeline.stages.base import (
     BaseStage,
@@ -18,7 +18,7 @@ from davinci_monet.pipeline.stages.base import (
 )
 from davinci_monet.pipeline.stages.helpers import (
     iter_single_source_datasets,
-    tag_dataset_label,
+    tag_source_label,
 )
 from davinci_monet.pipeline.stages.plot_options import (
     build_comparison_plot_options,
@@ -191,7 +191,7 @@ class PlottingStage(BaseStage):
 
                 try:
                     # Tag the single source so build_series picks up its source label.
-                    tag_dataset_label(subset, dataset_label=dataset_label)
+                    tag_source_label(subset, dataset_label=dataset_label)
                     render_kwargs = dict(flight_kwargs)
                     plotter.config.subtitle = render_kwargs.pop("subtitle", None)
                     result = plotter.render(build_series(subset, variable), **render_kwargs)
@@ -267,7 +267,7 @@ class PlottingStage(BaseStage):
         paired_data = paired_obj.data if hasattr(paired_obj, "data") else paired_obj
 
         if "sources" in pair_spec:
-            pair_vars = iter_paired_variable_pairs(paired_data)
+            pair_vars = iter_paired_variable_xy(paired_data)
             if not pair_vars:
                 return None
             fallback_geometry_name, fallback_dataset_name, fallback_var = pair_vars[0]
@@ -313,7 +313,7 @@ class PlottingStage(BaseStage):
         else:
             # No pair spec: a plot can name a key already present in
             # context.paired. Recover labels and variables from paired attrs.
-            pair_vars = iter_paired_variable_pairs(paired_data)
+            pair_vars = iter_paired_variable_xy(paired_data)
             if not pair_vars:
                 return None
             geometry_var_name, dataset_var_name, x_var = pair_vars[0]

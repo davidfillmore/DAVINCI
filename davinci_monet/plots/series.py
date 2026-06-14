@@ -3,10 +3,10 @@
 Provides:
 - build_series: resolve var-args into an ordered list of PlotSeries
 - series_colors: per-series colors under the unified, count-aware rule
-- get_dataset_color: plot color for a paired series by pair_axis
-- dataset_label: source label for a single-source dataset
+- get_axis_color: plot color for a paired series by pair_axis
+- source_label: source label for a single-source dataset
 - get_series_label: legend label for a paired series
-- resolve_dataset_variable: resolve a variable name by source label
+- resolve_source_variable: resolve a variable name by source label
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from davinci_monet.core.base import (
     PlotSeries,
-    paired_variable_pair_axis,
+    paired_variable_axis,
 )
 from davinci_monet.plots.labels import canonical_variable_name, get_variable_label
 from davinci_monet.plots.style import DATASET_A_COLOR, DATASET_B_COLOR, NCAR_PALETTE, NCAR_PRIMARY
@@ -60,7 +60,7 @@ def build_series(dataset: xr.Dataset, *var_args: Any) -> list[PlotSeries]:
                 dataset=dataset,
                 var_name=name,
                 canonical=canonical_variable_name(dataset, name),
-                pair_axis=paired_variable_pair_axis(dataset, name),
+                pair_axis=paired_variable_axis(dataset, name),
                 dataset_label=str(dataset_label) if dataset_label else None,
                 index=i,
             )
@@ -96,7 +96,7 @@ def series_colors(
     return [NCAR_PALETTE[s.index % len(NCAR_PALETTE)] for s in series]
 
 
-def get_dataset_color(
+def get_axis_color(
     dataset: xr.Dataset,
     var_name: str,
     index: int = 0,
@@ -109,7 +109,7 @@ def get_dataset_color(
     ``x_color``/``y_color`` let a caller supply the active ``StyleConfig``
     colors so a customised style is honoured for the geometry/dataset axes.
     """
-    pair_axis = paired_variable_pair_axis(dataset, var_name)
+    pair_axis = paired_variable_axis(dataset, var_name)
     if pair_axis == "geometry":
         return x_color or DATASET_A_COLOR
     if pair_axis == "dataset":
@@ -117,7 +117,7 @@ def get_dataset_color(
     return NCAR_PALETTE[index % len(NCAR_PALETTE)]
 
 
-def dataset_label(dataset: xr.Dataset, default: str | None = None) -> str | None:
+def source_label(dataset: xr.Dataset, default: str | None = None) -> str | None:
     """Source label for a single-source dataset.
 
     Single-source datasets carry their source label in the dataset-level ``attrs``
@@ -150,7 +150,7 @@ def get_series_label(
     return get_variable_label(dataset, var_name)
 
 
-def resolve_dataset_variable(
+def resolve_source_variable(
     dataset: xr.Dataset,
     canonical_var: str,
     dataset_label: str,
@@ -185,8 +185,8 @@ def resolve_dataset_variable(
 __all__ = [
     "build_series",
     "series_colors",
-    "get_dataset_color",
-    "dataset_label",
+    "get_axis_color",
+    "source_label",
     "get_series_label",
-    "resolve_dataset_variable",
+    "resolve_source_variable",
 ]

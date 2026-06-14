@@ -43,7 +43,7 @@ from davinci_monet.pipeline.stages.helpers import (
     _format_size,
     iter_single_source_datasets,
     resolve_paired_var_names,
-    tag_dataset_label,
+    tag_source_label,
 )
 from davinci_monet.pipeline.stages.io import SaveResultsStage
 from davinci_monet.pipeline.stages.load import LoadSourcesStage
@@ -62,7 +62,7 @@ __all__ = [
     "SourceData",
     "SourcePairJob",
     # Module-level helpers
-    "tag_dataset_label",
+    "tag_source_label",
     "iter_single_source_datasets",
     "resolve_paired_var_names",
     "_format_size",

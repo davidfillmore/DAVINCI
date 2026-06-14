@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from davinci_monet.core.base import iter_paired_variable_pairs
+from davinci_monet.core.base import iter_paired_variable_xy
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.pairing import (
     BasePairingStrategy,
@@ -998,7 +998,7 @@ class TestPairingWorkflow:
         assert paired.data["sensor_GEOMETRY_AOD"].attrs["dataset_label"] == "sensor"
         assert paired.data["reanalysis_DATASET_AOD"].attrs["pair_axis"] == "dataset"
         assert paired.data["reanalysis_DATASET_AOD"].attrs["dataset_label"] == "reanalysis"
-        assert iter_paired_variable_pairs(paired.data) == [
+        assert iter_paired_variable_xy(paired.data) == [
             ("sensor_GEOMETRY_AOD", "reanalysis_DATASET_AOD", "GEOMETRY_AOD")
         ]
 
@@ -1153,7 +1153,7 @@ def test_grid_pairing_preserves_dataset_when_times_offset() -> None:
         .data
     )
 
-    ref_var, comp_var, _canonical = iter_paired_variable_pairs(paired)[0]
+    ref_var, comp_var, _canonical = iter_paired_variable_xy(paired)[0]
     dataset_finite = int(np.isfinite(paired[comp_var]).sum())
     covalid = int((np.isfinite(paired[comp_var]) & np.isfinite(paired[ref_var])).sum())
     assert dataset_finite > 0, (

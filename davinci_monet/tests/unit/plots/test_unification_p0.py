@@ -2,7 +2,7 @@
 
 Pure-addition foundation — no behavior change to existing renderers:
 - PlotSeries value object + iter_canonical_variable_series (N-capable sibling of
-  iter_paired_variable_pairs), with a guard that the binary read path stays stable.
+  iter_paired_variable_xy), with a guard that the binary read path stays stable.
 - build_series: resolve facade var-args (paired / single / N-list / trailing-Axes)
   into a PlotSeries list.
 - BasePlotter.render() default delegating to plot() for the 2-series case.
@@ -18,7 +18,7 @@ import xarray as xr
 from davinci_monet.core.base import (
     PlotSeries,
     iter_canonical_variable_series,
-    iter_paired_variable_pairs,
+    iter_paired_variable_xy,
 )
 
 
@@ -110,7 +110,7 @@ class TestIterPairedVariablePairsUnchanged:
             ("cam2_o3", "dataset", "cam2"),
         )
         # Only the FIRST dataset (cam_o3) pairs with the geometry.
-        assert iter_paired_variable_pairs(ds) == [("airnow_o3", "cam_o3", "o3")]
+        assert iter_paired_variable_xy(ds) == [("airnow_o3", "cam_o3", "o3")]
 
     def test_prefix_order_preserved(self) -> None:
         # geometry_/dataset_ names, dataset variables appearing in b-then-a order.
@@ -124,7 +124,7 @@ class TestIterPairedVariablePairsUnchanged:
             coords={"t": [0]},
         )
         # Dataset-appearance order is b, then a.
-        assert iter_paired_variable_pairs(ds) == [
+        assert iter_paired_variable_xy(ds) == [
             ("geometry_b", "dataset_b", "b"),
             ("geometry_a", "dataset_a", "a"),
         ]

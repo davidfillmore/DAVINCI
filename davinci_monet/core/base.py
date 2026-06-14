@@ -21,7 +21,7 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.types import TimeRange
 
 
-def paired_variable_pair_axis(dataset: xr.Dataset, var_name: str) -> str | None:
+def paired_variable_axis(dataset: xr.Dataset, var_name: str) -> str | None:
     """Return whether a paired variable belongs to geometry or dataset data."""
     if var_name in dataset.data_vars:
         pair_axis = dataset[var_name].attrs.get("pair_axis")
@@ -56,7 +56,7 @@ def paired_canonical_name(dataset: xr.Dataset, var_name: str) -> str:
     return var_name
 
 
-def iter_paired_variable_pairs(dataset: xr.Dataset) -> list[tuple[str, str, str]]:
+def iter_paired_variable_xy(dataset: xr.Dataset) -> list[tuple[str, str, str]]:
     """Pair geometry variables with their dataset counterparts.
     counterparts by canonical name (renderer rewire R-5).
 
@@ -67,7 +67,7 @@ def iter_paired_variable_pairs(dataset: xr.Dataset) -> list[tuple[str, str, str]
     datasets: dict[str, str] = {}
     for v in dataset.data_vars:
         name = str(v)
-        pair_axis = paired_variable_pair_axis(dataset, name)
+        pair_axis = paired_variable_axis(dataset, name)
         if pair_axis not in ("geometry", "dataset"):
             continue
         canonical = paired_canonical_name(dataset, name)
@@ -110,7 +110,7 @@ class PlotSeries:
 def iter_canonical_variable_series(dataset: xr.Dataset) -> dict[str, list[PlotSeries]]:
     """Group a dataset's source variables by canonical name into :class:`PlotSeries`.
 
-    N-capable sibling of :func:`iter_paired_variable_pairs`: where that returns a
+    N-capable sibling of :func:`iter_paired_variable_xy`: where that returns a
     single ``(geometry, dataset)`` pair per canonical, this returns *every*
     source variable for each canonical as an ordered list (1 → single series,
     2 → geometry + dataset, N → multi-source overlay). Variables are included
@@ -121,7 +121,7 @@ def iter_canonical_variable_series(dataset: xr.Dataset) -> dict[str, list[PlotSe
     groups: dict[str, list[PlotSeries]] = {}
     for v in dataset.data_vars:
         name = str(v)
-        pair_axis = paired_variable_pair_axis(dataset, name)
+        pair_axis = paired_variable_axis(dataset, name)
         dataset_label = dataset[name].attrs.get("dataset_label")
         if dataset_label is None and pair_axis is None:
             continue
@@ -198,7 +198,7 @@ class PairedData:
         return [
             str(v)
             for v in self.data.data_vars
-            if paired_variable_pair_axis(self.data, str(v)) == "geometry"
+            if paired_variable_axis(self.data, str(v)) == "geometry"
         ]
 
     @property
@@ -207,34 +207,28 @@ class PairedData:
         return [
             str(v)
             for v in self.data.data_vars
-            if paired_variable_pair_axis(self.data, str(v)) == "dataset"
+            if paired_variable_axis(self.data, str(v)) == "dataset"
         ]
 
     @property
     def paired_variable_names(self) -> list[tuple[str, str]]:
         """List of (x_var, y_var) pairs, matched by canonical name."""
-        return [(x_var, y_var) for x_var, y_var, _ in iter_paired_variable_pairs(self.data)]
+        return [(x_var, y_var) for x_var, y_var, _ in iter_paired_variable_xy(self.data)]
 
     def _resolve_pair_axis_var(self, variable: str, pair_axis: str) -> str | None:
         """Resolve a paired variable for ``pair_axis``."""
         wanted = "geometry" if pair_axis == "geometry" else "dataset"
-        if (
-            variable in self.data.data_vars
-            and paired_variable_pair_axis(self.data, variable) == wanted
-        ):
+        if variable in self.data.data_vars and paired_variable_axis(self.data, variable) == wanted:
             return variable
         prefix = "geometry_" if wanted == "geometry" else "dataset_"
         prefixed = variable if variable.startswith(prefix) else f"{prefix}{variable}"
-        if (
-            prefixed in self.data.data_vars
-            and paired_variable_pair_axis(self.data, prefixed) == wanted
-        ):
+        if prefixed in self.data.data_vars and paired_variable_axis(self.data, prefixed) == wanted:
             return prefixed
         target = paired_canonical_name(self.data, variable)
         for v in self.data.data_vars:
             name = str(v)
             if (
-                paired_variable_pair_axis(self.data, name) == wanted
+                paired_variable_axis(self.data, name) == wanted
                 and paired_canonical_name(self.data, name) == target
             ):
                 return name

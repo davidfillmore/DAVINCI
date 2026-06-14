@@ -21,7 +21,7 @@ from davinci_monet.plots.base import (
     PlotConfig,
     build_series,
     format_label_with_units,
-    get_dataset_color,
+    get_axis_color,
     get_series_label,
     get_variable_label,
     get_variable_units,
@@ -159,14 +159,14 @@ class SiteTimeSeriesPlotter(BasePlotter):
 
             # Series colors/labels by source axis (R-3): geometry gray, dataset blue,
             # else palette; legends use the source label.
-            x_color = get_dataset_color(
+            x_color = get_axis_color(
                 site_data,
                 x_var,
                 0,
                 x_color=style.x_color,
                 y_color=style.y_color,
             )
-            y_color = get_dataset_color(
+            y_color = get_axis_color(
                 site_data,
                 y_var,
                 1,

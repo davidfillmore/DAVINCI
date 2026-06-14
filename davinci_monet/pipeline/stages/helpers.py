@@ -37,7 +37,7 @@ def _format_duration(seconds: float) -> str:
         return f"{mins}m{secs:.0f}s"
 
 
-def tag_dataset_label(
+def tag_source_label(
     data: Any,
     *,
     dataset_label: str,
@@ -83,10 +83,10 @@ def resolve_paired_var_names(
     returned names are concrete strings; the caller checks membership before
     plotting.
     """
-    from davinci_monet.plots.base import resolve_dataset_variable
+    from davinci_monet.plots.base import resolve_source_variable
 
     geometry_name = (
-        resolve_dataset_variable(paired_data, x_var, geometry_label) or f"geometry_{x_var}"
+        resolve_source_variable(paired_data, x_var, geometry_label) or f"geometry_{x_var}"
     )
-    dataset_name = resolve_dataset_variable(paired_data, x_var, dataset_label) or f"dataset_{x_var}"
+    dataset_name = resolve_source_variable(paired_data, x_var, dataset_label) or f"dataset_{x_var}"
     return geometry_name, dataset_name

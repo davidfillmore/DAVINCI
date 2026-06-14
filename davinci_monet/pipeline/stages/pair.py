@@ -11,7 +11,7 @@ from typing import Any
 
 import xarray as xr
 
-from davinci_monet.core.base import iter_paired_variable_pairs
+from davinci_monet.core.base import iter_paired_variable_xy
 from davinci_monet.core.exceptions import PipelineError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.pipeline.stages.base import (
@@ -399,7 +399,7 @@ class PairingStage(BaseStage):
             paired_data = paired_obj.data
             context.paired[job.pair_key] = paired_obj
             paired_count += 1
-            n_vars = len(iter_paired_variable_pairs(paired_data))
+            n_vars = len(iter_paired_variable_xy(paired_data))
             n_points = paired_data.sizes.get("time", paired_data.sizes.get("x", 0))
             timing_str = f" [{_format_duration(time.time() - pair_start)}]" if debug else ""
             context.log_progress(

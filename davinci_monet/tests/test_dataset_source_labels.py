@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import xarray as xr
 
-from davinci_monet.plots.base import dataset_label
+from davinci_monet.plots.base import source_label
 from davinci_monet.plots.style import NCAR_PRIMARY
 
 
@@ -30,11 +30,11 @@ def _geometry_timeseries_ds(dataset_label: str | None = None) -> xr.Dataset:
 class TestDatasetSourceLabel:
     def test_returns_dataset_label_attr(self) -> None:
         ds = _geometry_timeseries_ds(dataset_label="pandora")
-        assert dataset_label(ds) == "pandora"
+        assert source_label(ds) == "pandora"
 
     def test_returns_none_when_absent(self) -> None:
         ds = _geometry_timeseries_ds()
-        assert dataset_label(ds) is None
+        assert source_label(ds) is None
 
 
 class TestGeometryTimeseriesSourceLabel:

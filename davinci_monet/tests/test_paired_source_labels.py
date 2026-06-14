@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from davinci_monet.core.base import PairedData, iter_paired_variable_pairs
+from davinci_monet.core.base import PairedData, iter_paired_variable_xy
 from davinci_monet.core.protocols import DataGeometry
 
 
@@ -132,7 +132,7 @@ class TestPairedHelperRobustness:
         )
         ds["Dataset_O3"].attrs["pair_axis"] = "dataset"
         ds["geometry_O3"].attrs["pair_axis"] = "geometry"
-        assert iter_paired_variable_pairs(ds) == [("geometry_O3", "Dataset_O3", "O3")]
+        assert iter_paired_variable_xy(ds) == [("geometry_O3", "Dataset_O3", "O3")]
 
     def test_geometry_dataset_resolve_canonical(self) -> None:
         ds = xr.Dataset(
