@@ -34,6 +34,10 @@ class LMADensityPlotter(BasePlotter):
         **kwargs: Any,
     ) -> Any:
         """Unified entry: render a single LMA source (may return hourly list)."""
+        if len(series) != 1:
+            raise NotImplementedError(
+                f"LMADensityPlotter.render requires exactly 1 series; got {len(series)}."
+            )
         s = series[0]
         return self.plot(s.dataset, s.var_name, **kwargs)
 

@@ -91,7 +91,7 @@ class DiurnalPlotter(BasePlotter):
 
         time_dim: str = kwargs.pop("time_dim", "time")
         show_spread: Literal["none", "std", "iqr", "range"] = kwargs.pop("show_spread", "iqr")
-        aggregate_dim: str | None = kwargs.pop("aggregate_dim", None)
+        kwargs.pop("aggregate_dim", None)  # accepted for back-compat but unused
         x_label: str | None = kwargs.pop("x_label", None)
         y_label: str | None = kwargs.pop("y_label", None)
         utc_offset: int = kwargs.pop("utc_offset", 0)
@@ -223,7 +223,6 @@ class DiurnalPlotter(BasePlotter):
         ax: matplotlib.axes.Axes | None = None,
         time_dim: str = "time",
         show_spread: Literal["none", "std", "iqr", "range"] = "iqr",
-        aggregate_dim: str | None = None,
         x_label: str | None = None,
         y_label: str | None = None,
         utc_offset: int = 0,
@@ -245,8 +244,6 @@ class DiurnalPlotter(BasePlotter):
             Name of time dimension.
         show_spread
             Type of spread to show ('none', 'std', 'iqr', 'range').
-        aggregate_dim
-            Optional additional dimension to aggregate (e.g., 'site').
         x_label
             Custom label for the x series.
         y_label
@@ -266,7 +263,6 @@ class DiurnalPlotter(BasePlotter):
             ax=ax,
             time_dim=time_dim,
             show_spread=show_spread,
-            aggregate_dim=aggregate_dim,
             x_label=x_label,
             y_label=y_label,
             utc_offset=utc_offset,

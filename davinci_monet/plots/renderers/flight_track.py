@@ -1,4 +1,4 @@
-"""3D flight track map renderer for dataset-only data.
+"""3D flight track map renderer for single-source geometry data.
 
 Renders a 3D plot showing an aircraft flight path with longitude, latitude,
 and altitude axes, colored by a variable value (e.g., O3 concentration).
@@ -29,6 +29,8 @@ if TYPE_CHECKING:
     import matplotlib.figure
     import xarray as xr
 
+    from davinci_monet.core.base import PlotSeries
+
 
 @register_plotter("flight_track")
 class FlightTrackPlotter(BasePlotter):
@@ -53,11 +55,15 @@ class FlightTrackPlotter(BasePlotter):
 
     def render(
         self,
-        series: list[Any],
+        series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
     ) -> Any:
         """Unified entry: render a single source's flight track."""
+        if len(series) != 1:
+            raise NotImplementedError(
+                f"FlightTrackPlotter.render requires exactly 1 series; got {len(series)}."
+            )
         s = series[0]
         return self.plot(s.dataset, s.var_name, **kwargs)
 
@@ -89,6 +95,10 @@ class FlightTrackPlotter(BasePlotter):
         border_color: str = "gray",
         border_alpha: float = 0.5,
         border_linewidth: float = 0.5,
+        city_labels: dict[str, list[float]] | None = None,
+        city_marker_size: float = 50,
+        city_marker_color: str = "red",
+        city_font_size: float = 10,
         show_surface_map: bool = False,
         surface_map_resolution: int = 250,
         land_color: str = "#E8E8E8",
@@ -147,6 +157,15 @@ class FlightTrackPlotter(BasePlotter):
             Transparency of borders.
         border_linewidth
             Line width for borders.
+        city_labels
+            Dictionary of city names to [lat, lon] coordinates.
+            Cities will be plotted as markers on the surface plane.
+        city_marker_size
+            Size of city markers.
+        city_marker_color
+            Color for city markers.
+        city_font_size
+            Font size for city labels.
         show_surface_map
             If True, render a filled map image on the z=0 plane.
         surface_map_resolution
@@ -241,6 +260,10 @@ class FlightTrackPlotter(BasePlotter):
             border_color=border_color,
             border_alpha=border_alpha,
             border_linewidth=border_linewidth,
+            city_labels=city_labels,
+            city_marker_size=city_marker_size,
+            city_marker_color=city_marker_color,
+            city_font_size=city_font_size,
             show_surface_map=show_surface_map,
             surface_map_resolution=surface_map_resolution,
             land_color=land_color,
