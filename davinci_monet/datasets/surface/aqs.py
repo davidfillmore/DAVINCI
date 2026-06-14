@@ -121,7 +121,7 @@ class AQSReader:
     ) -> xr.Dataset:
         """Open AQS data using monetio API."""
         try:
-            import monetio.geometry.aqs as aqs_module
+            import monetio.obs.aqs as aqs_module
         except ImportError as e:
             raise ImportError(
                 "monetio is required for AQS API queries. " "Install with: pip install monetio"

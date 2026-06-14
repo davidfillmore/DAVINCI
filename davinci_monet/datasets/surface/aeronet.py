@@ -128,7 +128,7 @@ class AERONETReader:
     ) -> xr.Dataset:
         """Open AERONET data using monetio API."""
         try:
-            import monetio.geometry.aeronet as aeronet_module
+            import monetio.obs.aeronet as aeronet_module
         except ImportError as e:
             raise ImportError(
                 "monetio is required for AERONET API queries. " "Install with: pip install monetio"
@@ -212,7 +212,7 @@ def _dataframe_to_xarray(df: pd.DataFrame) -> xr.Dataset:
     Parameters
     ----------
     df
-        DataFrame from monetio.geometry.aeronet.add_data().
+        DataFrame from monetio.obs.aeronet.add_data().
 
     Returns
     -------

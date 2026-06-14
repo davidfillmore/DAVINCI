@@ -118,7 +118,7 @@ class AirNowReader:
     ) -> xr.Dataset:
         """Open AirNow data using monetio API."""
         try:
-            import monetio.geometry.airnow as airnow_module
+            import monetio.obs.airnow as airnow_module
         except ImportError as e:
             raise ImportError(
                 "monetio is required for AirNow API queries. " "Install with: pip install monetio"

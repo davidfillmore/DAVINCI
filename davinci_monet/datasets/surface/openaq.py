@@ -144,7 +144,7 @@ class OpenAQReader:
         # Select appropriate monetio module
         if api_version == 3:
             try:
-                import monetio.geometry.openaq_v3 as openaq_module
+                import monetio.obs.openaq_v3 as openaq_module
             except ImportError as e:
                 raise ImportError(
                     "monetio is required for OpenAQ API queries. "
@@ -152,10 +152,10 @@ class OpenAQReader:
                 ) from e
         else:
             try:
-                import monetio.geometry.openaq_v2 as openaq_module
+                import monetio.obs.openaq_v2 as openaq_module
             except ImportError:
                 try:
-                    import monetio.geometry.openaq as openaq_module
+                    import monetio.obs.openaq as openaq_module
                 except ImportError as e:
                     raise ImportError(
                         "monetio is required for OpenAQ API queries. "
