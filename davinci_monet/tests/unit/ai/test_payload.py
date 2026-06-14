@@ -73,6 +73,61 @@ def test_collect_payload_supports_typed_config() -> None:
     assert payload.pairs_summary == ["cam_vs_airnow_o3"]
 
 
+def test_collect_payload_skips_malformed_config_sections() -> None:
+    ctx = _context_with_results(["00_o3_scatter.png"])
+    assert isinstance(ctx.config, dict)
+    ctx.config["sources"] = ["not-a-source-map"]
+    ctx.config["pairs"] = ["not-a-pair-map"]
+
+    payload = collect_payload(ctx, SummaryConfig(enabled=True))
+
+    assert payload.sources_summary == []
+    assert payload.pairs_summary == []
+
+
+def test_collect_payload_skips_malformed_stats_entries() -> None:
+    ctx = _context_with_results([])
+    ctx.results["statistics"] = StageResult(
+        stage_name="statistics",
+        status=StageStatus.COMPLETED,
+        data={
+            "bad_pair": ["not-a-stat-map"],
+            "cam_vs_airnow_o3": {
+                100: {"N": 9},
+                "_metadata": {"ignored": True},
+                "O3": ["not-a-metric-map"],
+                "PM25": {"N": 12, "_internal": "drop"},
+            },
+        },
+    )
+
+    payload = collect_payload(ctx, SummaryConfig(enabled=True))
+
+    assert len(payload.stats_rows) == 1
+    assert payload.stats_rows[0]["pair"] == "cam_vs_airnow_o3"
+    assert payload.stats_rows[0]["variable"] == "PM25"
+    assert payload.stats_rows[0]["metrics"] == {"N": 12}
+
+
+def test_collect_payload_skips_non_mapping_stage_payloads() -> None:
+    ctx = _context_with_results([])
+    ctx.results["statistics"] = StageResult(
+        stage_name="statistics",
+        status=StageStatus.COMPLETED,
+        data=["not-a-stat-payload"],
+    )
+    ctx.results["plotting"] = StageResult(
+        stage_name="plotting",
+        status=StageStatus.COMPLETED,
+        data=["not-a-plot-payload"],
+    )
+
+    payload = collect_payload(ctx, SummaryConfig(enabled=True))
+
+    assert payload.stats_rows == []
+    assert payload.images == []
+
+
 def test_collect_payload_caps_images_when_no_plots_list() -> None:
     paths = [f"{i:02d}_plot.png" for i in range(12)]
     ctx = _context_with_results(paths)

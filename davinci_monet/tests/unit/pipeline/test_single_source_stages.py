@@ -1,11 +1,8 @@
-"""P2 of the renderer unification: collapse the geometry/paired stage fork.
+"""Single-source statistics and plotting stage behavior.
 
-The unified PlottingStage / StatisticsStage handle geometry-only runs (early-dispatch
-when there are datasets but no pairs), the geometry stages leave the pipeline
-builds, and geometry descriptive stats are written to a separate
-``statistics_descriptive.csv`` (Q3) while the paired ``statistics_summary.csv``
-stays byte-identical. These are unit tests: they call stage ``execute`` directly
-(consistent with the existing geometry-stage tests), not through the pipeline.
+The standard PlottingStage and StatisticsStage handle source-only runs when
+there are loaded sources but no pairs, and descriptive statistics are written to
+``statistics_descriptive.csv`` while paired summaries remain separate.
 """
 
 from __future__ import annotations

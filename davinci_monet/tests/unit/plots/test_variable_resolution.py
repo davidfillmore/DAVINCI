@@ -1,8 +1,8 @@
-"""Phase 5 tests: variable color resolver + source-label variable resolver.
+"""Variable color and source-label variable resolution tests.
 
 Timeseries site-aggregation (formerly the geometry_timeseries opt-in) is now the
 unified renderer's default — covered by
-tests/unit/plots/test_unification_p3_timeseries.py.
+tests/unit/plots/test_timeseries_renderer.py.
 """
 
 from __future__ import annotations

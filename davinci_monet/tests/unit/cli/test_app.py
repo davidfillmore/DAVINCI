@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -182,6 +183,50 @@ pairs:
         # Config parses but pipeline fails on missing data files
         assert result.exit_code != 0
 
+    def test_run_invokes_pipeline_runner_with_plot_options(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test run command forwards CLI options into the pipeline runner."""
+        from typer.testing import CliRunner
+
+        import davinci_monet.pipeline.runner as runner_module
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("analysis: {}\nsources: {}\n")
+        captured: dict[str, object] = {}
+
+        def fake_pipeline_run(config_path: str, **kwargs: object) -> SimpleNamespace:
+            captured["config_path"] = config_path
+            captured.update(kwargs)
+            return SimpleNamespace(
+                success=True,
+                total_duration_seconds=1.25,
+                completed_stages=["load_sources", "plotting"],
+            )
+
+        monkeypatch.setattr(runner_module, "run_analysis", fake_pipeline_run)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            [
+                "run",
+                "--show-plots",
+                "--preview-format",
+                "png",
+                str(config_file),
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert captured == {
+            "config_path": str(config_file),
+            "show_progress": True,
+            "show_plots": True,
+            "preview_format": "png",
+        }
+        assert "Analysis complete" in result.stdout
+
 
 # =============================================================================
 # Test Validate Command
@@ -314,6 +359,41 @@ analysis:
 
         assert result.exit_code != 0
 
+    def test_validate_show_config_uses_strict_loader(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test validate command forwards strict mode and prints parsed config."""
+        from typer.testing import CliRunner
+
+        import davinci_monet.config as config_module
+        from davinci_monet.config.parser import validate_config
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("analysis: {}\nsources: {}\n")
+        captured: dict[str, object] = {}
+        parsed_config = validate_config(
+            {
+                "analysis": {"start_time": "2024-01-01", "end_time": "2024-01-02"},
+                "sources": {"mock_source": {"type": "generic"}},
+            }
+        )
+
+        def fake_load_config(path: Path, strict: bool = False) -> object:
+            captured["path"] = path
+            captured["strict"] = strict
+            return parsed_config
+
+        monkeypatch.setattr(config_module, "load_config", fake_load_config)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["validate", "--strict", "--show", str(config_file)])
+
+        assert result.exit_code == 0
+        assert captured == {"path": config_file, "strict": True}
+        assert "Mode: strict" in result.stdout
+        assert "Parsed configuration" in result.stdout
+        assert '"mock_source"' in result.stdout
+
 
 # =============================================================================
 # Test Get Data Commands
@@ -404,6 +484,85 @@ class TestGetDataCommands:
         assert "longitude" in ds.coords
         assert "time_local" in ds.data_vars
         assert ds["time_local"].dtype == np.dtype("datetime64[ns]")
+
+    def test_get_airnow_invokes_download_conversion_and_writer(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test get airnow orchestrates download, conversion, and output writing."""
+        import sys
+        from types import ModuleType
+
+        from typer.testing import CliRunner
+
+        import davinci_monet.cli.commands.get_data as get_data_module
+        import davinci_monet.datasets.surface.airnow as airnow_module
+
+        fake_monetio = ModuleType("monetio")
+        calls: dict[str, object] = {}
+
+        def fake_add_data(
+            dates: object,
+            *,
+            download: bool,
+            wide_fmt: bool,
+            n_procs: int,
+            daily: bool,
+        ) -> object:
+            calls["dates"] = dates
+            calls["download"] = download
+            calls["wide_fmt"] = wide_fmt
+            calls["n_procs"] = n_procs
+            calls["daily_download"] = daily
+            return object()
+
+        fake_monetio.airnow = SimpleNamespace(add_data=fake_add_data)  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "monetio", fake_monetio)
+
+        converted_dataset = object()
+
+        def fake_dataframe_to_xarray(dataframe: object, *, daily: bool) -> object:
+            calls["dataframe"] = dataframe
+            calls["daily_convert"] = daily
+            return converted_dataset
+
+        def fake_write_dataset(ds: object, output_path: Path, *, compress: bool) -> bool:
+            calls["written_dataset"] = ds
+            calls["output_path"] = output_path
+            calls["compress"] = compress
+            return True
+
+        monkeypatch.setattr(airnow_module, "_dataframe_to_xarray", fake_dataframe_to_xarray)
+        monkeypatch.setattr(get_data_module, "_write_dataset_safe", fake_write_dataset)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            [
+                "get",
+                "airnow",
+                "--start-date",
+                "2024-01-01",
+                "--end-date",
+                "2024-01-01",
+                "--dst",
+                str(tmp_path),
+                "-o",
+                "airnow.nc",
+                "--num-workers",
+                "2",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert calls["download"] is False
+        assert calls["wide_fmt"] is True
+        assert calls["n_procs"] == 2
+        assert calls["daily_download"] is False
+        assert calls["daily_convert"] is False
+        assert calls["written_dataset"] is converted_dataset
+        assert calls["output_path"] == tmp_path / "airnow.nc"
+        assert calls["compress"] is True
+        assert "Output written to" in result.stdout
 
     def test_get_aqs_help(self) -> None:
         """Test get aqs help."""

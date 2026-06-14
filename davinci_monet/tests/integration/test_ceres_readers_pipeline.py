@@ -3,7 +3,7 @@
 Exercises PipelineRunner.run_from_config() with CERES EBAF (GRID), SYN1deg
 (GRID), and SSF (SWATH) sources against a synthetic gridded dataset — the same
 path a user takes with ``davinci-monet run``. EBAF and SYN1deg tests cover
-Phase 2; SSF tests cover Phase 3.
+gridded L3 reader paths; SSF tests cover swath reader paths.
 """
 
 from __future__ import annotations
@@ -173,7 +173,7 @@ def test_real_ebaf_file_opens() -> None:
 
 
 # ---------------------------------------------------------------------------
-# SYN1deg pipeline (Phase 2)
+# SYN1deg pipeline
 # ---------------------------------------------------------------------------
 
 
@@ -244,7 +244,7 @@ def test_ceres_syn1deg_pipeline(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# SYN1deg real-data smoke (Phase 2)
+# SYN1deg real-data smoke
 # ---------------------------------------------------------------------------
 
 _IO_SYN_MONTH = Path("/Volumes/Io/CERES/SYN1deg/month")
@@ -282,7 +282,7 @@ def test_real_syn1deg_zonal_means_correlate_with_ebaf() -> None:
 
 
 # ---------------------------------------------------------------------------
-# SSF pipeline (Phase 3)
+# SSF pipeline
 # ---------------------------------------------------------------------------
 
 
@@ -355,7 +355,7 @@ def test_ceres_ssf_pipeline(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# SSF real-data smoke (Phase 3)
+# SSF real-data smoke
 # ---------------------------------------------------------------------------
 
 _IO_SSF_TERRA = Path("/Volumes/Io/CERES/SSF/Terra-FM1")

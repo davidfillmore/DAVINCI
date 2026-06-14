@@ -1,12 +1,7 @@
-"""P0 of the renderer unification (docs/superpowers/specs/2026-06-06-renderer-unification-design.md).
+"""Core plot-series helpers and renderer compatibility behavior.
 
-Pure-addition foundation — no behavior change to existing renderers:
-- PlotSeries value object + iter_canonical_variable_series (N-capable sibling of
-  iter_paired_variable_xy), with a guard that the binary read path stays stable.
-- build_series: resolve facade var-args (paired / single / N-list / trailing-Axes)
-  into a PlotSeries list.
-- BasePlotter.render() default delegating to plot() for the 2-series case.
-- Registry alternate-name support (register_alias) resolved by get/has.
+These tests cover PlotSeries grouping, facade argument resolution, binary paired
+iteration compatibility, default render delegation, and registry aliases.
 """
 
 from __future__ import annotations

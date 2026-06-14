@@ -1,8 +1,4 @@
-"""P1 of the renderer unification: single-source tagging + count-aware color rule.
-
-Pure additions consumed later (P2 wires tagging into the stage; P3 wires colors
-into render()). No behavior change to existing renderers here.
-"""
+"""Single-source tagging and count-aware plot-series color rules."""
 
 from __future__ import annotations
 

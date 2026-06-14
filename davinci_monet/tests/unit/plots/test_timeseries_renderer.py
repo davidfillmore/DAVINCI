@@ -1,4 +1,4 @@
-"""P3 of the renderer unification — timeseries merged onto render(series).
+"""Timeseries renderer behavior for one, two, and many source series.
 
 The canonical TimeSeriesPlotter gains a render() that handles 1/2/N source
 series: 1 → single aggregated line (the spaghetti fix), 2 → x-vs-y
