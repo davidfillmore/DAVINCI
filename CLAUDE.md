@@ -440,6 +440,20 @@ geometries (point/track/profile/swath) outrank GRID, so a gridded source is
 sampled onto them. x/y assignment is plot-axis labeling only and does not affect
 which source drives the spatial sampling.
 
+**Intermediate gridding** (`method: grid`) bins both sources onto a common uniform grid instead of
+sampling one onto the other — useful when both sources have irregular/incompatible geometries:
+
+```yaml
+pairs:
+  a_vs_b:
+    x: {source: aeronet, variable: aod_500nm}
+    y: {source: cam,     variable: AODVISdn}
+    method: grid          # intermediate gridding: bin BOTH sources onto a common grid
+    grid: { horizontal_res: 0.5, time_resolution: 1D, min_sample_count: 1 }
+```
+
+`method: grid` bins both sources onto a uniform `(time, lon, lat)` grid and pairs cell-to-cell (symmetric); default `method: auto` keeps geometry-based pairing. 3-D altitude grids are Phase 2.
+
 ## Working Example: ASIA-AQ Analysis
 
 Geometry implementation in `analyses/asia-aq/`:
