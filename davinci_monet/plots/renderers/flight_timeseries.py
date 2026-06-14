@@ -1,7 +1,7 @@
 """Flight-by-flight time series plot renderer for DAVINCI.
 
-This module provides multi-panel time series plots showing model vs observations
-for individual aircraft flights. Designed for track observations where each
+This module provides multi-panel time series plots showing dataset vs datasets
+for individual aircraft flights. Designed for track datasets where each
 flight (identified by date) is plotted in a separate panel.
 
 Aircraft altitude is displayed on the right y-axis to provide context for
@@ -25,13 +25,13 @@ from davinci_monet.plots.base import (
     PlotConfig,
     build_series,
     format_label_with_units,
-    format_plot_title,
-    get_role_color,
+    get_dataset_color,
     get_series_label,
     get_variable_label,
     get_variable_units,
 )
 from davinci_monet.plots.registry import register_plotter
+from davinci_monet.plots.titles import title_for_labeled_subset
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -105,7 +105,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
     """Plotter for flight-by-flight time series comparisons.
 
     Creates a multi-panel figure with one subplot per flight,
-    showing both model and observation time series along the flight track.
+    showing both dataset and dataset time series along the flight track.
 
     Parameters
     ----------
@@ -117,8 +117,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
     >>> plotter = FlightTimeSeriesPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     obs_var="obs_O3_ROZE_STCLAIR",
-    ...     model_var="model_O3_ROZE_STCLAIR",
+    ...     geometry_var="geometry_O3_ROZE_STCLAIR",
+    ...     dataset_var="dataset_O3_ROZE_STCLAIR",
     ...     ncols=3,
     ... )
     """
@@ -137,7 +137,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one reference (obs) and one comparand (model).
+            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
         ax
             Ignored for this plot type (creates own figure).
         **kwargs
@@ -145,7 +145,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
             ncols (int, default 3), min_points (int, default 10),
             time_dim (str, default "time"), flight_coord (str, default "flight"),
             show_stats (bool, default True), scale_factor (float, default 1.0),
-            obs_style (str, default "scatter"), model_style (str, default "line"),
+            geometry_style (str, default "scatter"), dataset_style (str, default "line"),
             show_altitude (bool, default True), altitude_var (str|None, default None),
             altitude_units (str, default "km").
 
@@ -158,11 +158,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
             raise NotImplementedError(
                 f"FlightTimeSeriesPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        ref = next((s for s in series if s.pair_role == "reference"), series[0])
-        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
-        paired_data = ref.dataset
-        obs_var = ref.var_name
-        model_var = comp.var_name
+        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = geometry_series.dataset
+        geometry_var = geometry_series.var_name
+        dataset_var = dataset_series.var_name
 
         ncols: int = kwargs.pop("ncols", 3)
         min_points: int = kwargs.pop("min_points", 10)
@@ -170,23 +170,25 @@ class FlightTimeSeriesPlotter(BasePlotter):
         flight_coord: str = kwargs.pop("flight_coord", "flight")
         show_stats: bool = kwargs.pop("show_stats", True)
         scale_factor: float = kwargs.pop("scale_factor", 1.0)
-        obs_style: str = kwargs.pop("obs_style", "scatter")
-        model_style: str = kwargs.pop("model_style", "line")
+        geometry_style: str = kwargs.pop("geometry_style", "scatter")
+        dataset_style: str = kwargs.pop("dataset_style", "line")
         show_altitude: bool = kwargs.pop("show_altitude", True)
         altitude_var: str | None = kwargs.pop("altitude_var", None)
         altitude_units: str = kwargs.pop("altitude_units", "km")
 
         style = self.config.style
 
-        # Series colors/labels by source role (R-3): obs gray, model blue, else
+        # Series colors/labels by source axis (R-3): geometry gray, dataset blue, else
         # palette; legends use the source label.
-        sc_obs, sc_model = style.obs_color, style.model_color
-        obs_color = get_role_color(paired_data, obs_var, 0, obs_color=sc_obs, model_color=sc_model)
-        model_color = get_role_color(
-            paired_data, model_var, 1, obs_color=sc_obs, model_color=sc_model
+        sc_geometry, sc_dataset = style.geometry_color, style.dataset_color
+        geometry_color = get_dataset_color(
+            paired_data, geometry_var, 0, geometry_color=sc_geometry, dataset_color=sc_dataset
         )
-        obs_label = get_series_label(paired_data, obs_var)
-        model_label = get_series_label(paired_data, model_var)
+        dataset_color = get_dataset_color(
+            paired_data, dataset_var, 1, geometry_color=sc_geometry, dataset_color=sc_dataset
+        )
+        geometry_label = get_series_label(paired_data, geometry_var)
+        dataset_label = get_series_label(paired_data, dataset_var)
 
         # Get unique flights and filter by data availability
         if flight_coord not in paired_data.coords:
@@ -197,9 +199,9 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
         for flight in flights:
             mask = paired_data[flight_coord].values == flight
-            obs_vals = paired_data[obs_var].values[mask]
-            mod_vals = paired_data[model_var].values[mask]
-            valid = ~np.isnan(obs_vals) & ~np.isnan(mod_vals)
+            geometry_vals = paired_data[geometry_var].values[mask]
+            dataset_vals = paired_data[dataset_var].values[mask]
+            valid = ~np.isnan(geometry_vals) & ~np.isnan(dataset_vals)
             if valid.sum() >= min_points:
                 valid_flights.append(flight)
 
@@ -234,63 +236,63 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Get data for this flight
             times = pd.to_datetime(paired_data[time_dim].values[mask])
-            obs_vals = paired_data[obs_var].values[mask] * scale_factor
-            mod_vals = paired_data[model_var].values[mask] * scale_factor
+            geometry_vals = paired_data[geometry_var].values[mask] * scale_factor
+            dataset_vals = paired_data[dataset_var].values[mask] * scale_factor
 
-            valid_obs = ~np.isnan(obs_vals)
-            valid_both = valid_obs & ~np.isnan(mod_vals)
+            valid_geometry = ~np.isnan(geometry_vals)
+            valid_both = valid_geometry & ~np.isnan(dataset_vals)
 
             # Sort by time for line plots
             sort_idx = np.argsort(times)
             times = times[sort_idx]
-            obs_vals = obs_vals[sort_idx]
-            mod_vals = mod_vals[sort_idx]
-            valid_obs = valid_obs[sort_idx]
+            geometry_vals = geometry_vals[sort_idx]
+            dataset_vals = dataset_vals[sort_idx]
+            valid_geometry = valid_geometry[sort_idx]
             valid_both = valid_both[sort_idx]
 
-            # Plot observations
-            if obs_style == "scatter":
+            # Plot datasets
+            if geometry_style == "scatter":
                 panel_ax.scatter(
-                    times[valid_obs],
-                    obs_vals[valid_obs],
+                    times[valid_geometry],
+                    geometry_vals[valid_geometry],
                     s=12,
                     alpha=0.7,
-                    color=obs_color,
-                    label=obs_label,
+                    color=geometry_color,
+                    label=geometry_label,
                     zorder=3,
                 )
             else:
                 panel_ax.plot(
-                    times[valid_obs],
-                    obs_vals[valid_obs],
+                    times[valid_geometry],
+                    geometry_vals[valid_geometry],
                     "o-",
-                    color=obs_color,
+                    color=geometry_color,
                     markersize=3,
                     linewidth=0.5,
                     alpha=0.7,
-                    label=obs_label,
+                    label=geometry_label,
                     zorder=3,
                 )
 
-            # Plot model
-            if model_style == "line":
+            # Plot dataset
+            if dataset_style == "line":
                 panel_ax.plot(
                     times,
-                    mod_vals,
-                    color=model_color,
+                    dataset_vals,
+                    color=dataset_color,
                     linewidth=1.5,
                     alpha=0.8,
-                    label=model_label,
+                    label=dataset_label,
                     zorder=2,
                 )
             else:
                 panel_ax.scatter(
                     times[valid_both],
-                    mod_vals[valid_both],
+                    dataset_vals[valid_both],
                     s=12,
                     alpha=0.7,
-                    color=model_color,
-                    label=model_label,
+                    color=dataset_color,
+                    label=dataset_label,
                     zorder=2,
                 )
 
@@ -326,12 +328,12 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Compute and display stats (via central metric registry)
             if show_stats and valid_both.sum() > 0:
-                obs_mean = obs_vals[valid_both].mean()
+                geometry_mean = geometry_vals[valid_both].mean()
                 stats = annotation_metrics(
-                    obs_vals[valid_both], mod_vals[valid_both], ["N", "NMB", "R"]
+                    geometry_vals[valid_both], dataset_vals[valid_both], ["N", "NMB", "R"]
                 )
                 n = int(stats["N"])
-                nmb = stats["NMB"] if obs_mean != 0 else 0
+                nmb = stats["NMB"] if geometry_mean != 0 else 0
                 # Preserve the renderer's <=2-point guard (registry R needs >=2)
                 r = stats["R"] if valid_both.sum() > 2 else np.nan
 
@@ -363,8 +365,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Y-axis label on left column
             if idx % ncols == 0:
-                units = get_variable_units(paired_data, obs_var)
-                ylabel = get_variable_label(paired_data, obs_var, include_prefix=False)
+                units = get_variable_units(paired_data, geometry_var)
+                ylabel = get_variable_label(paired_data, geometry_var, include_prefix=False)
                 ylabel = format_label_with_units(ylabel, units)
                 panel_ax.set_ylabel(ylabel, fontsize=self.config.text.legend_small)
 
@@ -380,8 +382,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
         # Main title
         if self.config.title:
-            fig.suptitle(
-                format_plot_title(self.config.title), fontsize=self.config.text.fontsize, y=1.02
+            self.set_figure_title(
+                fig,
+                self.config.title,
+                y=1.02,
+                fontsize=self.config.text.fontsize,
             )
 
         plt.tight_layout()
@@ -390,8 +395,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         ax: matplotlib.axes.Axes | None = None,
         ncols: int = 3,
         min_points: int = 10,
@@ -399,8 +404,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
         flight_coord: str = "flight",
         show_stats: bool = True,
         scale_factor: float = 1.0,
-        obs_style: str = "scatter",
-        model_style: str = "line",
+        geometry_style: str = "scatter",
+        dataset_style: str = "line",
         show_altitude: bool = True,
         altitude_var: str | None = None,
         altitude_units: str = "km",
@@ -413,11 +418,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+            Paired dataset with dataset and dataset variables.
+        geometry_var
+            Name of dataset variable.
+        dataset_var
+            Name of dataset variable.
         ax
             Ignored for this plot type (creates own figure).
         ncols
@@ -432,10 +437,10 @@ class FlightTimeSeriesPlotter(BasePlotter):
             If True, show N, NMB, R statistics on each panel.
         scale_factor
             Scale factor for display values.
-        obs_style
-            Style for observations: 'scatter' or 'line'.
-        model_style
-            Style for model: 'line' or 'scatter'.
+        geometry_style
+            Style for datasets: 'scatter' or 'line'.
+        dataset_style
+            Style for dataset: 'line' or 'scatter'.
         show_altitude
             If True, show aircraft altitude on right y-axis.
         altitude_var
@@ -451,7 +456,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, obs_var, model_var),
+            build_series(paired_data, geometry_var, dataset_var),
             ax=ax,
             ncols=ncols,
             min_points=min_points,
@@ -459,8 +464,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
             flight_coord=flight_coord,
             show_stats=show_stats,
             scale_factor=scale_factor,
-            obs_style=obs_style,
-            model_style=model_style,
+            geometry_style=geometry_style,
+            dataset_style=dataset_style,
             show_altitude=show_altitude,
             altitude_var=altitude_var,
             altitude_units=altitude_units,
@@ -470,15 +475,15 @@ class FlightTimeSeriesPlotter(BasePlotter):
     def plot_per_flight(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         time_dim: str = "time",
         flight_coord: str = "flight",
         min_points: int = 10,
         show_stats: bool = True,
         scale_factor: float = 1.0,
-        obs_style: str = "scatter",
-        model_style: str = "line",
+        geometry_style: str = "scatter",
+        dataset_style: str = "line",
         show_altitude: bool = True,
         altitude_var: str | None = None,
         altitude_units: str = "km",
@@ -492,11 +497,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+            Paired dataset with dataset and dataset variables.
+        geometry_var
+            Name of dataset variable.
+        dataset_var
+            Name of dataset variable.
         time_dim
             Name of time dimension.
         flight_coord
@@ -507,10 +512,10 @@ class FlightTimeSeriesPlotter(BasePlotter):
             If True, show N, NMB, R statistics on each panel.
         scale_factor
             Scale factor for display values.
-        obs_style
-            Style for observations: 'scatter' or 'line'.
-        model_style
-            Style for model: 'line' or 'scatter'.
+        geometry_style
+            Style for datasets: 'scatter' or 'line'.
+        dataset_style
+            Style for dataset: 'line' or 'scatter'.
         show_altitude
             If True, show aircraft altitude on right y-axis.
         altitude_var
@@ -527,15 +532,17 @@ class FlightTimeSeriesPlotter(BasePlotter):
         """
         style = self.config.style
 
-        # Series colors/labels by source role (R-3): obs gray, model blue, else
+        # Series colors/labels by source axis (R-3): geometry gray, dataset blue, else
         # palette; legends use the source label.
-        sc_obs, sc_model = style.obs_color, style.model_color
-        obs_color = get_role_color(paired_data, obs_var, 0, obs_color=sc_obs, model_color=sc_model)
-        model_color = get_role_color(
-            paired_data, model_var, 1, obs_color=sc_obs, model_color=sc_model
+        sc_geometry, sc_dataset = style.geometry_color, style.dataset_color
+        geometry_color = get_dataset_color(
+            paired_data, geometry_var, 0, geometry_color=sc_geometry, dataset_color=sc_dataset
         )
-        obs_label = get_series_label(paired_data, obs_var)
-        model_label = get_series_label(paired_data, model_var)
+        dataset_color = get_dataset_color(
+            paired_data, dataset_var, 1, geometry_color=sc_geometry, dataset_color=sc_dataset
+        )
+        geometry_label = get_series_label(paired_data, geometry_var)
+        dataset_label = get_series_label(paired_data, dataset_var)
 
         # Check for flight coordinate
         if flight_coord not in paired_data.coords:
@@ -562,11 +569,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Get data for this flight
             times = pd.to_datetime(paired_data[time_dim].values[mask])
-            obs_vals = paired_data[obs_var].values[mask] * scale_factor
-            mod_vals = paired_data[model_var].values[mask] * scale_factor
+            geometry_vals = paired_data[geometry_var].values[mask] * scale_factor
+            dataset_vals = paired_data[dataset_var].values[mask] * scale_factor
 
-            valid_obs = ~np.isnan(obs_vals)
-            valid_both = valid_obs & ~np.isnan(mod_vals)
+            valid_geometry = ~np.isnan(geometry_vals)
+            valid_both = valid_geometry & ~np.isnan(dataset_vals)
 
             # Check minimum points
             if valid_both.sum() < min_points:
@@ -575,9 +582,9 @@ class FlightTimeSeriesPlotter(BasePlotter):
             # Sort by time
             sort_idx = np.argsort(times)
             times = times[sort_idx]
-            obs_vals = obs_vals[sort_idx]
-            mod_vals = mod_vals[sort_idx]
-            valid_obs = valid_obs[sort_idx]
+            geometry_vals = geometry_vals[sort_idx]
+            dataset_vals = dataset_vals[sort_idx]
+            valid_geometry = valid_geometry[sort_idx]
             valid_both = valid_both[sort_idx]
 
             # Create single-panel figure
@@ -586,49 +593,49 @@ class FlightTimeSeriesPlotter(BasePlotter):
             # Text settings - use absolute point sizes from config
             text_cfg = self.config.text
 
-            # Plot observations
-            if obs_style == "scatter":
+            # Plot datasets
+            if geometry_style == "scatter":
                 ax.scatter(
-                    times[valid_obs],
-                    obs_vals[valid_obs],
+                    times[valid_geometry],
+                    geometry_vals[valid_geometry],
                     s=20,
                     alpha=0.7,
-                    color=obs_color,
-                    label=obs_label,
+                    color=geometry_color,
+                    label=geometry_label,
                     zorder=3,
                 )
             else:
                 ax.plot(
-                    times[valid_obs],
-                    obs_vals[valid_obs],
+                    times[valid_geometry],
+                    geometry_vals[valid_geometry],
                     "o-",
-                    color=obs_color,
+                    color=geometry_color,
                     markersize=4,
                     linewidth=0.8,
                     alpha=0.7,
-                    label=obs_label,
+                    label=geometry_label,
                     zorder=3,
                 )
 
-            # Plot model
-            if model_style == "line":
+            # Plot dataset
+            if dataset_style == "line":
                 ax.plot(
                     times,
-                    mod_vals,
-                    color=model_color,
+                    dataset_vals,
+                    color=dataset_color,
                     linewidth=2,
                     alpha=0.8,
-                    label=model_label,
+                    label=dataset_label,
                     zorder=2,
                 )
             else:
                 ax.scatter(
                     times[valid_both],
-                    mod_vals[valid_both],
+                    dataset_vals[valid_both],
                     s=20,
                     alpha=0.7,
-                    color=model_color,
-                    label=model_label,
+                    color=dataset_color,
+                    label=dataset_label,
                     zorder=2,
                 )
 
@@ -659,12 +666,12 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Compute and display stats (via central metric registry)
             if show_stats and valid_both.sum() > 0:
-                obs_mean = obs_vals[valid_both].mean()
+                geometry_mean = geometry_vals[valid_both].mean()
                 stats = annotation_metrics(
-                    obs_vals[valid_both], mod_vals[valid_both], ["N", "NMB", "R"]
+                    geometry_vals[valid_both], dataset_vals[valid_both], ["N", "NMB", "R"]
                 )
                 n = int(stats["N"])
-                nmb = stats["NMB"] if obs_mean != 0 else 0
+                nmb = stats["NMB"] if geometry_mean != 0 else 0
                 # Preserve the renderer's <=2-point guard (registry R needs >=2)
                 r = stats["R"] if valid_both.sum() > 2 else np.nan
 
@@ -683,22 +690,26 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
                 )
 
-            # Title
-            if self.config.title:
-                ax.set_title(
-                    format_plot_title(f"{self.config.title} - Flight {flight_str}"),
-                    fontsize=text_cfg.title_fontsize,
-                )
-            else:
-                ax.set_title(f"Flight {flight_str}", fontsize=text_cfg.title_fontsize)
+            # Title/subtitle for this flight.
+            title, flight_subtitle = title_for_labeled_subset(
+                self.config.title,
+                flight_str,
+                label_prefix="Flight",
+            )
+            self.set_title(
+                ax,
+                title,
+                subtitle=flight_subtitle,
+                fontsize=text_cfg.title_fontsize,
+            )
 
             ax.set_ylim(bottom=0)
             ax.grid(True, alpha=0.3)
             ax.legend(loc="upper left", fontsize=text_cfg.legend)
 
             # Y-axis label
-            units = get_variable_units(paired_data, obs_var)
-            ylabel = get_variable_label(paired_data, obs_var, include_prefix=False)
+            units = get_variable_units(paired_data, geometry_var)
+            ylabel = get_variable_label(paired_data, geometry_var, include_prefix=False)
             ylabel = format_label_with_units(ylabel, units)
             ax.set_ylabel(ylabel, fontsize=text_cfg.fontsize)
 
@@ -718,8 +729,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
 def plot_flight_timeseries(
     paired_data: xr.Dataset,
-    obs_var: str,
-    model_var: str,
+    geometry_var: str,
+    dataset_var: str,
     title: str | None = None,
     ncols: int = 3,
     min_points: int = 10,
@@ -734,11 +745,11 @@ def plot_flight_timeseries(
     Parameters
     ----------
     paired_data
-        Paired dataset with model and observation variables.
-    obs_var
-        Name of observation variable.
-    model_var
-        Name of model variable.
+        Paired dataset with dataset and dataset variables.
+    geometry_var
+        Name of dataset variable.
+    dataset_var
+        Name of dataset variable.
     title
         Plot title.
     ncols
@@ -765,8 +776,8 @@ def plot_flight_timeseries(
     plotter = FlightTimeSeriesPlotter(config)
     return plotter.plot(
         paired_data,
-        obs_var,
-        model_var,
+        geometry_var,
+        dataset_var,
         ncols=ncols,
         min_points=min_points,
         scale_factor=scale_factor,

@@ -5,7 +5,7 @@ Provides:
 - format_plot_title: apply chemical formula subscripts to a title string
 - format_variable_display_name: friendly name from a raw variable identifier
 - get_variable_label: best display label from a dataset variable
-- canonical_variable_name: strip source-label / legacy prefix from a variable name
+- canonical_variable_name: strip source-label / geometry/dataset prefix from a variable name
 - get_variable_units: read units attr from a dataset variable
 - format_units: rewrite raw unit strings to LaTeX form
 - format_label_with_units: combine a label and its units
@@ -64,7 +64,7 @@ VARIABLE_DISPLAY_NAMES: dict[str, str] = {
     "no2_column": r"NO$_2$ Column",
     "o3_column": r"O$_3$ Column",
     "trop_no2": r"Tropospheric NO$_2$",
-    # Model variables (uppercase)
+    # Dataset variables (uppercase)
     "PM25": r"PM$_{2.5}$",
     "O3": r"O$_3$",
     "NO2": r"NO$_2$",
@@ -143,8 +143,8 @@ def format_plot_title(title: str) -> str:
 
     Examples
     --------
-    >>> format_plot_title("PM2.5 Model vs Observations")
-    'PM$_{2.5}$ Model vs Observations'
+    >>> format_plot_title("PM2.5 Dataset vs Datasets")
+    'PM$_{2.5}$ Dataset vs Datasets'
     >>> format_plot_title("NO2 Time Series")
     'NO$_2$ Time Series'
     """
@@ -168,31 +168,25 @@ def format_variable_display_name(var_name: str, include_prefix: bool = True) -> 
     var_name
         Raw variable name.
     include_prefix
-        If True, include "Observed"/"Modeled" prefix for obs_/model_ variables.
-        Set to False for shared axes (e.g., time series y-axis).
+        Prefixes are not rendered in labels.
 
     Returns
     -------
     str
         Formatted display name.
     """
-    # Strip obs_/model_ prefixes for lookup
+    # Strip geometry/dataset prefixes for lookup.
     base_name = var_name
-    prefix = ""
-    if var_name.startswith("obs_"):
-        base_name = var_name[4:]
-        if include_prefix:
-            prefix = "Observed "
-    elif var_name.startswith("model_"):
-        base_name = var_name[6:]
-        if include_prefix:
-            prefix = "Modeled "
+    if var_name.startswith("geometry_"):
+        base_name = var_name[len("geometry_") :]
+    elif var_name.startswith("dataset_"):
+        base_name = var_name[len("dataset_") :]
 
     # Check lookup table (try exact match first, then lowercase)
     if base_name in VARIABLE_DISPLAY_NAMES:
-        return prefix + VARIABLE_DISPLAY_NAMES[base_name]
+        return VARIABLE_DISPLAY_NAMES[base_name]
     if base_name.lower() in VARIABLE_DISPLAY_NAMES:
-        return prefix + VARIABLE_DISPLAY_NAMES[base_name.lower()]
+        return VARIABLE_DISPLAY_NAMES[base_name.lower()]
 
     # Basic formatting: replace underscores, apply title case
     formatted = base_name.replace("_", " ")
@@ -203,22 +197,25 @@ def format_variable_display_name(var_name: str, include_prefix: bool = True) -> 
         word.upper() if word.lower() in _DISPLAY_ACRONYMS else word for word in formatted.split(" ")
     )
 
-    return prefix + formatted
+    return formatted
 
 
 def canonical_variable_name(dataset: xr.Dataset, var_name: str) -> str:
     """Strip a paired variable's prefix to its canonical (unprefixed) name.
 
-    Handles both the source-label naming (``<source_label>_<canonical>``, e.g.
-    ``cam_o3`` -> ``o3``, derived from the variable's ``source_label`` attr) and
-    the legacy ``obs_``/``model_`` prefixes (``obs_o3`` -> ``o3``). Names with no
-    recognised prefix are returned unchanged.
+    Handles source-label naming (``<dataset_label>_<canonical>``, e.g.
+    ``cam_o3`` -> ``o3``, derived from the variable's ``dataset_label`` attr) and
+    the ``geometry_``/``dataset_`` prefixes. Names with no recognized prefix are
+    returned unchanged.
     """
     if var_name in dataset:
-        source_label = dataset[var_name].attrs.get("source_label")
-        if source_label and var_name.startswith(f"{source_label}_"):
-            return var_name[len(source_label) + 1 :]
-    for prefix in ("obs_", "model_"):
+        canonical = dataset[var_name].attrs.get("canonical_name")
+        if canonical:
+            return str(canonical)
+        dataset_label = dataset[var_name].attrs.get("dataset_label")
+        if dataset_label and var_name.startswith(f"{dataset_label}_"):
+            return var_name[len(dataset_label) + 1 :]
+    for prefix in ("geometry_", "dataset_"):
         if var_name.startswith(prefix):
             return var_name[len(prefix) :]
     return var_name
@@ -245,8 +242,7 @@ def get_variable_label(
     custom_label
         Custom label to use (overrides all other sources).
     include_prefix
-        If True, include "Observed"/"Modeled" prefix for obs_/model_ variables.
-        Set to False for shared axes (e.g., time series y-axis).
+        Prefixes are not rendered in labels.
 
     Returns
     -------
@@ -265,13 +261,11 @@ def get_variable_label(
             return str(attrs["long_name"])
         if attrs.get("standard_name"):
             return str(attrs["standard_name"])
-        # Source-label-named paired vars (e.g. ``cam_o3``) carry role/source_label
-        # attrs; translate to the legacy ``obs_``/``model_`` form so the prefix-
-        # based Observed/Modeled formatting + canonical lookup is preserved (R-2).
-        role = attrs.get("role")
-        if role in ("obs", "model"):
-            canonical = canonical_variable_name(dataset, var_name)
-            var_name = f"obs_{canonical}" if role == "obs" else f"model_{canonical}"
+        # Pair-axis metadata drives pairing and styling only; labels should name
+        # the quantity.
+        pair_axis = attrs.get("pair_axis")
+        if pair_axis in ("geometry", "dataset"):
+            var_name = canonical_variable_name(dataset, var_name)
 
     # Fall back to automatic formatting
     return format_variable_display_name(var_name, include_prefix=include_prefix)

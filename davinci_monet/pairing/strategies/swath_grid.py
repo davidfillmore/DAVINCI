@@ -1,7 +1,7 @@
 """Swath-to-grid pairing strategy using numba-accelerated binning.
 
 Bins satellite L2 swath pixels onto a uniform (time, lon, lat) grid,
-then pairs with model data on the same grid. This is the recommended
+then pairs with dataset data on the same grid. This is the recommended
 strategy for all L2 satellite products at scale.
 
 Ported from the MELODIES-MONET intermediate grid approach
@@ -27,18 +27,18 @@ class SwathGridStrategy(BasePairingStrategy):
     """Pairing strategy that bins satellite swath data onto a uniform grid.
 
     The strategy:
-    1. Defines a target grid (from model, resolution, or explicit dims)
+    1. Defines a target grid (from dataset, resolution, or explicit dims)
     2. Bins all swath pixels into grid cells using numba-accelerated loop
     3. Normalizes (mean = sum / count)
-    4. Aligns model data on the same grid
-    5. Returns paired dataset with obs, model, and pixel counts
+    4. Aligns dataset data on the same grid
+    5. Returns paired dataset with geometry, dataset, and pixel counts
 
     Examples
     --------
     >>> strategy = SwathGridStrategy()
-    >>> paired = strategy.pair(
-    ...     model_data, satellite_data,
-    ...     grid_mode="match_model",
+    >>> paired = strategy.pair_sources(
+    ...     dataset_data, satellite_data,
+    ...     grid_mode="match_dataset",
     ...     time_resolution="1D",
     ... )
     """
@@ -48,24 +48,24 @@ class SwathGridStrategy(BasePairingStrategy):
         """Return SWATH geometry."""
         return DataGeometry.SWATH
 
-    def pair(
+    def pair_sources(
         self,
-        model: xr.Dataset,
-        obs: xr.Dataset,
+        geometry_data: xr.Dataset,
+        dataset_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
         horizontal_method: str = "nearest",
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Pair swath observations with model by binning onto a common grid.
+        """Pair swath datasets with dataset by binning onto a common grid.
 
         Parameters
         ----------
-        model
-            Model Dataset with dims (time, [z], lat, lon).
-        obs
-            Observation Dataset with swath dimensions and 2D lat/lon.
+        dataset
+            Dataset Dataset with dims (time, [z], lat, lon).
+        geometry
+            Dataset Dataset with swath dimensions and 2D lat/lon.
         radius_of_influence
             Not used (kept for interface compatibility).
         time_tolerance
@@ -78,8 +78,8 @@ class SwathGridStrategy(BasePairingStrategy):
             Strategy-specific options:
 
             - grid_mode : str
-                Grid definition mode: "match_model", "resolution", or
-                "explicit". Default "match_model".
+                Grid definition mode: "match_dataset", "resolution", or
+                "explicit". Default "match_dataset".
             - time_resolution : str
                 Pandas frequency string for temporal binning (e.g. "1D").
                 Default "1D".
@@ -87,59 +87,62 @@ class SwathGridStrategy(BasePairingStrategy):
                 Grid spacing in degrees (for grid_mode="resolution").
             - ntime, nlat, nlon : int
                 Explicit grid dimensions (for grid_mode="explicit").
-            - min_obs_count : int
+            - min_geometry_count : int
                 Minimum pixel count per cell. Cells below this are
                 masked to NaN. Default 1.
-            - reference_var : str
-                Reference variable name to bin.
-            - comparand_var : str
-                Comparand variable name to extract.
+            - geometry_var : str
+                Geometry variable name to bin.
+            - dataset_var : str
+                Dataset variable name to extract.
 
         Returns
         -------
         xr.Dataset
-            Paired dataset on common grid with obs, model, and count
+            Paired dataset on common grid with geometry, dataset, and count
             variables.
         """
-        grid_mode = kwargs.get("grid_mode", "match_model")
-        time_resolution = kwargs.get("time_resolution", "1D")
-        min_obs_count = kwargs.get("min_obs_count", 1)
-        obs_var = kwargs.get("reference_var") or kwargs.get("obs_var")
-        model_var = kwargs.get("comparand_var") or kwargs.get("model_var")
+        dataset = dataset_data
+        geometry = geometry_data
 
-        # Extract surface if model has vertical dimension
-        model_proc = model
+        grid_mode = kwargs.get("grid_mode", "match_dataset")
+        time_resolution = kwargs.get("time_resolution", "1D")
+        min_geometry_count = kwargs.get("min_geometry_count", 1)
+        geometry_var = kwargs.get("geometry_var") or kwargs.get("geometry_var")
+        dataset_var = kwargs.get("dataset_var") or kwargs.get("dataset_var")
+
+        # Extract surface if dataset has vertical dimension
+        dataset_proc = dataset
         for dim_name in ["lev", "z", "level"]:
-            if dim_name in model_proc.dims:
-                model_proc = self._extract_surface(model_proc, dim_name)
+            if dim_name in dataset_proc.dims:
+                dataset_proc = self._extract_surface(dataset_proc, dim_name)
                 break
 
-        # Get model coordinates
-        model_lat, model_lon = self._get_model_coords(model_proc)
+        # Get dataset coordinates
+        dataset_lat, dataset_lon = self._get_dataset_coords(dataset_proc)
 
-        # Determine analysis time range from model
-        if "time" in model_proc.dims:
-            model_times = pd.DatetimeIndex(model_proc["time"].values)
-            t_start = model_times.min()
-            t_end = model_times.max()
+        # Determine analysis time range from dataset
+        if "time" in dataset_proc.dims:
+            dataset_times = pd.DatetimeIndex(dataset_proc["time"].values)
+            t_start = dataset_times.min()
+            t_end = dataset_times.max()
         else:
-            raise PairingError("Model dataset must have a time dimension")
+            raise PairingError("Dataset dataset must have a time dimension")
 
         # Build target grid (filter kwargs to avoid duplicating named params)
         consumed = {
             "grid_mode",
             "time_resolution",
-            "min_obs_count",
-            "reference_var",
-            "comparand_var",
-            "obs_var",
-            "model_var",
+            "min_geometry_count",
+            "geometry_var",
+            "dataset_var",
+            "geometry_var",
+            "dataset_var",
         }
         grid_kwargs = {k: v for k, v in kwargs.items() if k not in consumed}
         time_edges, lon_edges, lat_edges, time_centers, lon_centers, lat_centers = self._build_grid(
             grid_mode=grid_mode,
-            model_lat=model_lat,
-            model_lon=model_lon,
+            dataset_lat=dataset_lat,
+            dataset_lon=dataset_lon,
             t_start=t_start,
             t_end=t_end,
             time_resolution=time_resolution,
@@ -150,26 +153,26 @@ class SwathGridStrategy(BasePairingStrategy):
         nlon = len(lon_centers)
         nlat = len(lat_centers)
 
-        # Determine which obs variable to bin
-        if obs_var is None:
-            data_var_names = list(obs.data_vars)
+        # Determine which geometry variable to bin
+        if geometry_var is None:
+            data_var_names = list(geometry.data_vars)
             if len(data_var_names) == 0:
-                raise PairingError("No data variables in observation dataset")
-            obs_var = data_var_names[0]
+                raise PairingError("No data variables in dataset dataset")
+            geometry_var = data_var_names[0]
 
-        # Extract flat arrays from obs
-        obs_lat, obs_lon = self._get_obs_coords(obs)
-        lat_flat = obs_lat.values.flatten().astype(np.float64)
-        lon_flat = obs_lon.values.flatten().astype(np.float64)
-        data_flat = obs[obs_var].values.flatten().astype(np.float64)
+        # Extract flat arrays from geometry
+        geometry_lat, geometry_lon = self._get_geometry_coords(geometry)
+        lat_flat = geometry_lat.values.flatten().astype(np.float64)
+        lon_flat = geometry_lon.values.flatten().astype(np.float64)
+        data_flat = geometry[geometry_var].values.flatten().astype(np.float64)
 
         # Handle longitude convention: shift -180..180 to 0..360 if needed
         if lon_edges[0] >= 0 and np.any(lon_flat < 0):
             lon_flat = np.where(lon_flat < 0, lon_flat + 360.0, lon_flat)
 
-        # Get observation timestamps as epoch seconds, aligned to the same
-        # flattening order as ``data_flat`` (i.e. the binned obs variable).
-        time_flat = self._get_obs_timestamps(obs, len(data_flat), align_var=obs_var)
+        # Get dataset timestamps as epoch seconds, aligned to the same
+        # flattening order as ``data_flat`` (i.e. the binned geometry variable).
+        time_flat = self._get_geometry_timestamps(geometry, len(data_flat), align_var=geometry_var)
 
         # Allocate accumulation arrays
         count_grid = np.zeros((ntime, nlon, nlat), dtype=np.int32)
@@ -191,18 +194,18 @@ class SwathGridStrategy(BasePairingStrategy):
         # Normalize: sum → mean
         normalize_grid(count_grid, data_grid)
 
-        # Apply min_obs_count filter
-        if min_obs_count > 1:
-            data_grid[count_grid < min_obs_count] = np.nan
+        # Apply min_geometry_count filter
+        if min_geometry_count > 1:
+            data_grid[count_grid < min_geometry_count] = np.nan
 
         # Build datetime coordinates from time centers (epoch seconds)
         time_coords = pd.to_datetime(time_centers, unit="s")
 
-        # Create gridded obs dataset
-        obs_gridded = xr.Dataset(
+        # Create gridded geometry dataset
+        geometry_gridded = xr.Dataset(
             {
-                f"obs_{obs_var}": (["time", "lon", "lat"], data_grid.astype(np.float32)),
-                "obs_count": (["time", "lon", "lat"], count_grid),
+                f"geometry_{geometry_var}": (["time", "lon", "lat"], data_grid.astype(np.float32)),
+                "geometry_count": (["time", "lon", "lat"], count_grid),
             },
             coords={
                 "time": time_coords,
@@ -211,35 +214,35 @@ class SwathGridStrategy(BasePairingStrategy):
             },
         )
 
-        # Extract model variable on same grid
-        if model_var is None:
-            model_data_vars = list(model_proc.data_vars)
-            if len(model_data_vars) == 0:
-                raise PairingError("No data variables in model dataset")
-            model_var = str(model_data_vars[0])
+        # Extract dataset variable on same grid
+        if dataset_var is None:
+            dataset_data_vars = list(dataset_proc.data_vars)
+            if len(dataset_data_vars) == 0:
+                raise PairingError("No data variables in dataset dataset")
+            dataset_var = str(dataset_data_vars[0])
 
-        model_on_grid = self._align_model_to_grid(
-            model_proc,
-            model_var,
+        dataset_on_grid = self._align_dataset_to_grid(
+            dataset_proc,
+            dataset_var,
             time_coords,
             lon_centers,
             lat_centers,
-            model_lat,
-            model_lon,
+            dataset_lat,
+            dataset_lon,
             grid_mode,
         )
 
         # Create paired output
-        paired = obs_gridded.copy()
-        paired[f"model_{model_var}"] = model_on_grid
+        paired = geometry_gridded.copy()
+        paired[f"dataset_{dataset_var}"] = dataset_on_grid
 
         return paired
 
     def _build_grid(
         self,
         grid_mode: str,
-        model_lat: xr.DataArray,
-        model_lon: xr.DataArray,
+        dataset_lat: xr.DataArray,
+        dataset_lon: xr.DataArray,
         t_start: pd.Timestamp,
         t_end: pd.Timestamp,
         time_resolution: str,
@@ -269,13 +272,13 @@ class SwathGridStrategy(BasePairingStrategy):
         time_centers_epoch = time_range.values.astype("datetime64[s]").astype(np.float64)
         time_edges = edges_from_centers(time_centers_epoch)
 
-        if grid_mode == "match_model":
-            if model_lat.ndim != 1 or model_lon.ndim != 1:
+        if grid_mode == "match_dataset":
+            if dataset_lat.ndim != 1 or dataset_lon.ndim != 1:
                 raise PairingError(
-                    "match_model grid mode requires 1D model lat/lon " "(rectilinear grid)"
+                    "match_dataset grid mode requires 1D dataset lat/lon " "(rectilinear grid)"
                 )
-            lat_centers = model_lat.values.astype(np.float64)
-            lon_centers = model_lon.values.astype(np.float64)
+            lat_centers = dataset_lat.values.astype(np.float64)
+            lon_centers = dataset_lon.values.astype(np.float64)
             lat_edges = edges_from_centers(lat_centers)
             lon_edges = edges_from_centers(lon_centers)
 
@@ -304,15 +307,15 @@ class SwathGridStrategy(BasePairingStrategy):
 
         return time_edges, lon_edges, lat_edges, time_centers_epoch, lon_centers, lat_centers
 
-    def _get_obs_timestamps(
-        self, obs: xr.Dataset, n_pixels: int, align_var: str | None = None
+    def _get_geometry_timestamps(
+        self, geometry: xr.Dataset, n_pixels: int, align_var: str | None = None
     ) -> np.ndarray:
-        """Extract observation timestamps as flat epoch-second array.
+        """Extract dataset timestamps as flat epoch-second array.
 
         Parameters
         ----------
-        obs
-            Observation dataset.
+        geometry
+            Dataset dataset.
         n_pixels
             Total number of pixels (for broadcasting).
         align_var
@@ -326,8 +329,8 @@ class SwathGridStrategy(BasePairingStrategy):
         np.ndarray
             Flat float64 array of epoch seconds, one per pixel.
         """
-        if "time" in obs.coords:
-            time_da = obs["time"]
+        if "time" in geometry.coords:
+            time_da = geometry["time"]
             time_vals = time_da.values
             if np.issubdtype(time_vals.dtype, np.datetime64):
                 epoch = time_vals.astype("datetime64[s]").astype(np.float64)
@@ -339,16 +342,16 @@ class SwathGridStrategy(BasePairingStrategy):
                 # ``(scanline, pixel)``). broadcast_like expands ``time`` along
                 # the data var's dims regardless of axis order, where positional
                 # ``np.broadcast_to`` would fail (trailing-axis rule).
-                var_name = align_var if align_var in obs.data_vars else None
-                if var_name is None and obs.data_vars:
-                    var_name = str(list(obs.data_vars)[0])
+                var_name = align_var if align_var in geometry.data_vars else None
+                if var_name is None and geometry.data_vars:
+                    var_name = str(list(geometry.data_vars)[0])
                 if var_name is not None:
                     # ``epoch`` was already converted via .values above (numpy
                     # path), so reuse it directly without recomputing.
                     epoch_da = xr.DataArray(epoch, dims=time_da.dims)
-                    broadcast = epoch_da.broadcast_like(obs[var_name])
+                    broadcast = epoch_da.broadcast_like(geometry[var_name])
                     # Match the C-order .flatten() used for the data values.
-                    epoch_flat = broadcast.transpose(*obs[var_name].dims).values.flatten()
+                    epoch_flat = broadcast.transpose(*geometry[var_name].dims).values.flatten()
                     if len(epoch_flat) == n_pixels:
                         return epoch_flat.astype(np.float64)
                 return np.full(n_pixels, float(epoch.mean()), dtype=np.float64)
@@ -358,39 +361,39 @@ class SwathGridStrategy(BasePairingStrategy):
         # No time coordinate — use a single default timestamp
         return np.zeros(n_pixels, dtype=np.float64)
 
-    def _align_model_to_grid(
+    def _align_dataset_to_grid(
         self,
-        model: xr.Dataset,
-        model_var: str,
+        dataset: xr.Dataset,
+        dataset_var: str,
         time_coords: pd.DatetimeIndex,
         lon_centers: np.ndarray,
         lat_centers: np.ndarray,
-        model_lat: xr.DataArray,
-        model_lon: xr.DataArray,
+        dataset_lat: xr.DataArray,
+        dataset_lon: xr.DataArray,
         grid_mode: str,
     ) -> xr.DataArray:
-        """Extract model variable aligned to the target grid.
+        """Extract dataset variable aligned to the target grid.
 
-        For match_model mode, the grid is already the model grid so
+        For match_dataset mode, the grid is already the dataset grid so
         we just select the nearest times. For other modes, we interpolate
         spatially.
 
         Returns
         -------
         xr.DataArray
-            Model data on (time, lon, lat) grid.
+            Dataset data on (time, lon, lat) grid.
         """
-        var_data = model[model_var]
+        var_data = dataset[dataset_var]
 
-        # Select nearest model times
+        # Select nearest dataset times
         if "time" in var_data.dims:
             var_data = var_data.sel(time=time_coords, method="nearest")
             var_data = var_data.assign_coords(time=time_coords)
 
-        if grid_mode == "match_model":
-            # Already on model grid — just ensure dim order is (time, lon, lat)
-            lat_dim = model_lat.dims[0]
-            lon_dim = model_lon.dims[0]
+        if grid_mode == "match_dataset":
+            # Already on dataset grid — just ensure dim order is (time, lon, lat)
+            lat_dim = dataset_lat.dims[0]
+            lon_dim = dataset_lon.dims[0]
             # Transpose to (time, lon, lat) to match our output convention
             dim_order: list[str] = []
             if "time" in var_data.dims:
@@ -407,9 +410,9 @@ class SwathGridStrategy(BasePairingStrategy):
                 var_data = var_data.rename(rename_map)
             return var_data.astype(np.float32)
         else:
-            # Interpolate model to target grid
-            lat_dim = model_lat.dims[0]
-            lon_dim = model_lon.dims[0]
+            # Interpolate dataset to target grid
+            lat_dim = dataset_lat.dims[0]
+            lon_dim = dataset_lon.dims[0]
             var_interp = var_data.interp(
                 {lat_dim: lat_centers, lon_dim: lon_centers},
                 method="nearest",

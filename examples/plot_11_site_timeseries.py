@@ -2,9 +2,9 @@
 """Site Time Series Plot Example.
 
 Demonstrates the site_timeseries plotter for multi-panel plots showing
-model vs observation time series at individual monitoring sites.
+dataset vs dataset time series at individual monitoring sites.
 
-Data: Surface point observations (O3)
+Data: Surface point datasets (O3)
 """
 
 import matplotlib.pyplot as plt
@@ -25,8 +25,8 @@ def main():
     # Shows all 4 sites in a 2x2 grid
     fig = plot_site_timeseries(
         paired,
-        obs_var="obs_o3",
-        model_var="model_o3",
+        geometry_var="geometry_o3",
+        dataset_var="dataset_o3",
         title="Site Time Series: O3 at Individual Stations",
         ncols=2,
         min_points=10,

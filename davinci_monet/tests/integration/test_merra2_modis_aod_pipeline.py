@@ -86,13 +86,11 @@ def test_merra2_modis_aod_pipeline(tmp_path: Path) -> None:
         "sources": {
             "merra2": {
                 "type": "generic",
-                "role": "model",
                 "files": str(merra2_dir / "*.nc"),
                 "variables": {"TOTEXTTAU": {"units": "1"}},
             },
             "modis_terra": {
                 "type": "generic",
-                "role": "obs",
                 "files": str(modis_dir / "*.nc"),
                 "variables": {"aod_550nm": {"units": "1"}},
             },
@@ -100,7 +98,7 @@ def test_merra2_modis_aod_pipeline(tmp_path: Path) -> None:
         "pairs": {
             "merra2_vs_terra": {
                 "sources": ["merra2", "modis_terra"],
-                "reference": "modis_terra",
+                "geometry": "modis_terra",
                 "variables": {"merra2": "TOTEXTTAU", "modis_terra": "aod_550nm"},
             }
         },
@@ -170,7 +168,7 @@ def test_real_data_one_month(tmp_path: Path) -> None:
         export MERRA2_DATA=/Volumes/Io/MERRA2_tavgM
         export MODIS_DATA=/Volumes/Io
     """
-    from davinci_monet.observations.satellite.modis_viirs import MODISVIIRSReader
+    from davinci_monet.datasets.satellite.modis_viirs import MODISVIIRSReader
 
     modis_dir = Path(os.environ["MODIS_DATA"]) / "MOD08_M3"
     # Exclude macOS resource-fork files (._<name>.hdf) that appear on non-HFS volumes.

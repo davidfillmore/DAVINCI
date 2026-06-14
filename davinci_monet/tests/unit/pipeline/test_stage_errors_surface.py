@@ -65,12 +65,12 @@ class TestStageErrorsProperty:
         failed_sr = StageResult(
             stage_name="pairing",
             status=StageStatus.FAILED,
-            error="KeyError: 'model_o3'",
+            error="KeyError: 'dataset_o3'",
         )
         result = _make_result(stage_results=[failed_sr])
         errors = result.stage_errors
         assert "stage:pairing" in errors
-        assert errors["stage:pairing"] == ["KeyError: 'model_o3'"]
+        assert errors["stage:pairing"] == ["KeyError: 'dataset_o3'"]
 
     def test_skips_empty_metadata_lists(self) -> None:
         """Empty per-item error lists are not included."""

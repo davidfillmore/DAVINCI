@@ -1,4 +1,4 @@
-"""Tests for the Lightning Mapping Array (LMA) observation reader.
+"""Tests for the Lightning Mapping Array (LMA) dataset reader.
 
 Tests the LMAReader class using synthetic datasets that mimic CF-compliant
 NetCDF grids from LMA networks (OKLMA, COLMA, NALMA).
@@ -13,9 +13,9 @@ import pytest
 import xarray as xr
 
 # Ensure LMA reader is registered
-import davinci_monet.observations.lightning.lma  # noqa: F401
+import davinci_monet.datasets.lightning.lma  # noqa: F401
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.core.registry import source_registry as observation_registry
+from davinci_monet.core.registry import source_registry
 
 # =============================================================================
 # Synthetic LMA Data
@@ -135,11 +135,11 @@ class TestLMARegistry:
 
     def test_lma_registered(self):
         """Test that LMA reader is registered."""
-        assert "lma" in observation_registry
+        assert "lma" in source_registry
 
     def test_get_reader_class(self):
         """Test getting LMA reader class from registry."""
-        lma_cls = observation_registry.get("lma")
+        lma_cls = source_registry.get("lma")
         assert lma_cls is not None
         reader = lma_cls()
         assert reader.name == "lma"
@@ -155,14 +155,14 @@ class TestLMAReader:
 
     def test_reader_name(self):
         """Test reader name."""
-        from davinci_monet.observations.lightning.lma import LMAReader
+        from davinci_monet.datasets.lightning.lma import LMAReader
 
         reader = LMAReader()
         assert reader.name == "lma"
 
     def test_open_netcdf_file(self):
         """Test opening a standard LMA NetCDF grid."""
-        from davinci_monet.observations.lightning.lma import LMAReader
+        from davinci_monet.datasets.lightning.lma import LMAReader
 
         ds = create_synthetic_lma_grid()
 
@@ -183,7 +183,7 @@ class TestLMAReader:
 
     def test_coordinate_standardization(self):
         """Test that lat/lon coords are renamed to latitude/longitude."""
-        from davinci_monet.observations.lightning.lma import LMAReader
+        from davinci_monet.datasets.lightning.lma import LMAReader
 
         ds = create_synthetic_lma_grid_alt_coords()
 
@@ -201,7 +201,7 @@ class TestLMAReader:
 
     def test_time_dimension_added(self):
         """Test that time dimension is added if missing."""
-        from davinci_monet.observations.lightning.lma import LMAReader
+        from davinci_monet.datasets.lightning.lma import LMAReader
 
         ds = create_synthetic_lma_grid_no_time()
 
@@ -217,7 +217,7 @@ class TestLMAReader:
 
     def test_network_detection_oklma(self):
         """Test auto-detection of OKLMA network from filename."""
-        from davinci_monet.observations.lightning.lma import LMAReader
+        from davinci_monet.datasets.lightning.lma import LMAReader
 
         ds = create_synthetic_lma_grid(network="oklma")
 
@@ -233,7 +233,7 @@ class TestLMAReader:
 
     def test_explicit_network(self):
         """Test passing network explicitly."""
-        from davinci_monet.observations.lightning.lma import LMAReader
+        from davinci_monet.datasets.lightning.lma import LMAReader
 
         ds = create_synthetic_lma_grid(network="colma")
 
@@ -249,7 +249,7 @@ class TestLMAReader:
 
     def test_variable_selection(self):
         """Test loading specific variables."""
-        from davinci_monet.observations.lightning.lma import LMAReader
+        from davinci_monet.datasets.lightning.lma import LMAReader
 
         ds = create_synthetic_lma_grid()
 
@@ -265,7 +265,7 @@ class TestLMAReader:
 
     def test_multiple_files(self):
         """Test concatenating multiple LMA files."""
-        from davinci_monet.observations.lightning.lma import LMAReader
+        from davinci_monet.datasets.lightning.lma import LMAReader
 
         ds1 = create_synthetic_lma_grid(n_times=3)
         ds2 = create_synthetic_lma_grid(n_times=3)
@@ -289,7 +289,7 @@ class TestLMAReader:
     def test_missing_files_raises(self):
         """Test that missing files raise DataNotFoundError."""
         from davinci_monet.core.exceptions import DataNotFoundError
-        from davinci_monet.observations.lightning.lma import LMAReader
+        from davinci_monet.datasets.lightning.lma import LMAReader
 
         reader = LMAReader()
         with pytest.raises(DataNotFoundError):
@@ -298,7 +298,7 @@ class TestLMAReader:
     def test_empty_file_list_raises(self):
         """Test that empty file list raises DataNotFoundError."""
         from davinci_monet.core.exceptions import DataNotFoundError
-        from davinci_monet.observations.lightning.lma import LMAReader
+        from davinci_monet.datasets.lightning.lma import LMAReader
 
         reader = LMAReader()
         with pytest.raises(DataNotFoundError):
@@ -319,7 +319,7 @@ class TestLMAReaderOpen:
 
     def test_open_single_file(self):
         """Test opening a single file with LMAReader.open()."""
-        from davinci_monet.observations.lightning.lma import LMAReader
+        from davinci_monet.datasets.lightning.lma import LMAReader
 
         ds = create_synthetic_lma_grid()
 
@@ -336,7 +336,7 @@ class TestLMAReaderOpen:
 
     def test_open_with_multiple_files(self, tmp_path: Path):
         """Test opening multiple files concatenates along time."""
-        from davinci_monet.observations.lightning.lma import LMAReader
+        from davinci_monet.datasets.lightning.lma import LMAReader
 
         paths = []
         for day in [28, 29, 30]:

@@ -1,7 +1,7 @@
 """Scorecard plot renderer for DAVINCI.
 
 This module provides scorecard/heatmap plotting functionality for
-displaying statistics across multiple variables, sites, or models.
+displaying statistics across multiple variables, sites, or datasets.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ from davinci_monet.plots.base import (
     PlotConfig,
     build_series,
     canonical_variable_name,
-    format_plot_title,
 )
 from davinci_monet.plots.registry import register_plotter
 
@@ -34,7 +33,7 @@ class ScorecardPlotter(BasePlotter):
     """Plotter for scorecard/heatmap displays.
 
     Creates heatmap-style scorecards showing statistics across
-    multiple categories (variables, sites, models, etc.).
+    multiple categories (variables, sites, datasets, etc.).
 
     Parameters
     ----------
@@ -47,7 +46,7 @@ class ScorecardPlotter(BasePlotter):
     >>> fig = plotter.plot_from_stats(
     ...     stats_df,
     ...     row_var="variable",
-    ...     col_var="model",
+    ...     col_var="dataset",
     ...     value_var="correlation",
     ... )
     """
@@ -66,7 +65,7 @@ class ScorecardPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one reference (obs) and one comparand (model).
+            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
         ax
             Optional axes to plot on. If None, creates new figure.
         **kwargs
@@ -81,23 +80,21 @@ class ScorecardPlotter(BasePlotter):
             raise NotImplementedError(
                 f"ScorecardPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        ref = next((s for s in series if s.pair_role == "reference"), series[0])
-        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
-        paired_data = ref.dataset
-        obs_var = ref.var_name
-        model_var = comp.var_name
+        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = geometry_series.dataset
+        geometry_var = geometry_series.var_name
+        dataset_var = dataset_series.var_name
 
         # Calculate basic statistics (via central metric registry)
-        reference = paired_data[obs_var].values.flatten()
-        comparand = paired_data[model_var].values.flatten()
+        geometry = paired_data[geometry_var].values.flatten()
+        dataset = paired_data[dataset_var].values.flatten()
 
-        registry_stats = annotation_metrics(
-            reference, comparand, ["N", "MO", "MP", "MB", "RMSE", "R"]
-        )
+        registry_stats = annotation_metrics(geometry, dataset, ["N", "MG", "MD", "MB", "RMSE", "R"])
         stats = {
             "N": int(registry_stats["N"]),
-            "Mean Reference": registry_stats["MO"],
-            "Mean Comparand": registry_stats["MP"],
+            "Mean Geometry": registry_stats["MG"],
+            "Mean Dataset": registry_stats["MD"],
             "MB": registry_stats["MB"],
             "RMSE": registry_stats["RMSE"],
             "R": registry_stats["R"],
@@ -107,15 +104,15 @@ class ScorecardPlotter(BasePlotter):
         import pandas as pd
 
         stats_df = pd.DataFrame([stats])
-        stats_df.index = [canonical_variable_name(paired_data, obs_var)]
+        stats_df.index = [canonical_variable_name(paired_data, geometry_var)]
 
         return self.plot_from_dataframe(stats_df, ax=ax, **kwargs)
 
     def plot(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
@@ -127,11 +124,11 @@ class ScorecardPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with reference and comparand variables.
-        obs_var
-            Compatibility name for reference variable.
-        model_var
-            Compatibility name for comparand variable.
+            Paired dataset with geometry and dataset variables.
+        geometry_var
+            Compatibility name for geometry variable.
+        dataset_var
+            Compatibility name for dataset variable.
         ax
             Optional axes to plot on.
         **kwargs
@@ -143,7 +140,7 @@ class ScorecardPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, obs_var, model_var),
+            build_series(paired_data, geometry_var, dataset_var),
             ax=ax,
             **kwargs,
         )
@@ -275,9 +272,7 @@ class ScorecardPlotter(BasePlotter):
 
         # Title
         if self.config.title:
-            ax.set_title(
-                format_plot_title(self.config.title), fontsize=self.config.text.title_fontsize
-            )
+            self.set_title(ax, self.config.title)
 
         plt.tight_layout()
         return fig
@@ -347,7 +342,7 @@ class ScorecardPlotter(BasePlotter):
         Parameters
         ----------
         stats_dict
-            Dict mapping model names to DataFrames of statistics.
+            Dict mapping dataset names to DataFrames of statistics.
         metrics
             List of metric names (columns) to show.
         ax
@@ -389,11 +384,11 @@ class ScorecardPlotter(BasePlotter):
         cmaps = cmaps or {}
 
         for i, metric in enumerate(metrics):
-            # Combine data from all models
+            # Combine data from all datasets
             data = {}
-            for model_name, df in stats_dict.items():
+            for dataset_name, df in stats_dict.items():
                 if metric in df.columns:
-                    data[model_name] = df[metric]
+                    data[dataset_name] = df[metric]
 
             if not data:
                 continue
@@ -422,8 +417,8 @@ class ScorecardPlotter(BasePlotter):
 
 def plot_scorecard(
     paired_data: xr.Dataset,
-    obs_var: str,
-    model_var: str,
+    geometry_var: str,
+    dataset_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
@@ -432,11 +427,11 @@ def plot_scorecard(
     Parameters
     ----------
     paired_data
-        Paired dataset with model and observation variables.
-    obs_var
-        Name of observation variable.
-    model_var
-        Name of model variable.
+        Paired dataset with dataset and dataset variables.
+    geometry_var
+        Name of dataset variable.
+    dataset_var
+        Name of dataset variable.
     config
         Plot configuration.
     **kwargs
@@ -451,4 +446,4 @@ def plot_scorecard(
         config = PlotConfig.from_dict(config)
 
     plotter = ScorecardPlotter(config=config)
-    return plotter.plot(paired_data, obs_var, model_var, **kwargs)
+    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)

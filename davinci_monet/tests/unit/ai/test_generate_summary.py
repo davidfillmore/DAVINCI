@@ -15,6 +15,7 @@ from davinci_monet.ai.summarizer import (
     generate_summary,
 )
 from davinci_monet.config.schema import SummaryConfig
+from davinci_monet.core.schema_utils import validate_schema
 
 
 class _StubUsage:
@@ -106,7 +107,7 @@ def test_generate_summary_routes_to_openrouter(monkeypatch, tmp_path) -> None:
 
     keyfile = tmp_path / "k.api"
     keyfile.write_text("sk-or-test")
-    cfg = SummaryConfig.model_validate({"provider": "openrouter", "api_key_file": str(keyfile)})
+    cfg = validate_schema(SummaryConfig, {"provider": "openrouter", "api_key_file": str(keyfile)})
 
     def _fake_send(cfg_arg, key, body):
         return {

@@ -1,7 +1,7 @@
 """Base plotter classes and common utilities for DAVINCI.
 
 This module provides:
-- PlotConfig: Pydantic model for plot configuration
+- PlotConfig: Pydantic dataset for plot configuration
 - BasePlotter: Abstract base class for all plotters
 - Common utilities for figure creation, styling, and saving
 
@@ -9,9 +9,8 @@ Implementation note
 -------------------
 The config dataclasses live in ``plots.plot_config``, the text/label/unit
 formatting functions and lookup tables live in ``plots.labels``, and the
-series/role/color helpers live in ``plots.series``.  Everything is re-exported
-here so that ``from davinci_monet.plots.base import X`` continues to work for
-all external callers (renderers, tests, pipeline stages, examples).
+series/color helpers live in ``plots.series``. Everything is re-exported here
+for renderers, tests, pipeline stages, and examples.
 """
 
 from __future__ import annotations
@@ -51,13 +50,13 @@ from davinci_monet.plots.plot_config import (
     TextConfig,
 )
 
-# Re-export series/role/color helpers
+# Re-export series/color helpers
 from davinci_monet.plots.series import (
     build_series,
-    dataset_source_label,
-    get_role_color,
+    dataset_label,
+    get_dataset_color,
     get_series_label,
-    resolve_source_variable,
+    resolve_dataset_variable,
     series_colors,
 )
 
@@ -107,8 +106,8 @@ class BasePlotter(ABC):
     def plot(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
@@ -117,11 +116,11 @@ class BasePlotter(ABC):
         Parameters
         ----------
         paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+            Paired dataset with dataset and dataset variables.
+        geometry_var
+            Name of dataset variable.
+        dataset_var
+            Name of dataset variable.
         ax
             Optional axes to plot on. If None, creates new figure.
         **kwargs
@@ -142,17 +141,22 @@ class BasePlotter(ABC):
     ) -> matplotlib.figure.Figure:
         """Render a list of source series (unified renderer contract).
 
-        ``len(series) == 1`` → single line; ``== 2`` → reference-vs-comparand
-        (obs gray / model blue); ``>= 2`` → multi-source overlay. This default
-        handles only the 2-series case by delegating to the legacy
-        ``plot(paired_data, obs_var, model_var)`` hook, so unmigrated paired
-        renderers keep working unchanged. Renderers that support 1 or N series
-        override this method (unification P3).
+        ``len(series) == 1`` -> single line; ``== 2`` -> geometry-vs-dataset
+        (geometry gray / dataset blue); ``>= 2`` -> multi-source overlay. This
+        default handles only the 2-series case by delegating to
+        ``plot(paired_data, geometry_var, dataset_var)``. Renderers that support
+        1 or N series override this method.
         """
         if len(series) == 2:
-            ref = next((s for s in series if s.pair_role == "reference"), series[0])
-            comp = next((s for s in series if s.pair_role == "comparand"), series[1])
-            return self.plot(ref.dataset, ref.var_name, comp.var_name, ax=ax, **kwargs)
+            geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+            dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+            return self.plot(
+                geometry_series.dataset,
+                geometry_series.var_name,
+                dataset_series.var_name,
+                ax=ax,
+                **kwargs,
+            )
         raise NotImplementedError(
             f"{type(self).__name__}.render does not support {len(series)} series; "
             "override render() for single-/N-source support (unification P3)."
@@ -241,13 +245,72 @@ class BasePlotter(ABC):
                 fontweight=cfg.fontweight,
             )
 
+        self.set_title(ax, title=title)
+
+    def set_title(
+        self,
+        ax: matplotlib.axes.Axes,
+        title: str | None = None,
+        subtitle: str | None = None,
+        *,
+        fontsize: float | None = None,
+    ) -> None:
+        """Set an axes title with an optional smaller subtitle below it."""
+        cfg = self.config.text
+        title_text = title or self.config.title
+        subtitle_text = subtitle if subtitle is not None else self.config.subtitle
+
         if title or self.config.title:
-            formatted_title = format_plot_title(title or self.config.title)  # type: ignore[arg-type]
+            formatted_title = format_plot_title(title_text)  # type: ignore[arg-type]
             ax.set_title(
                 formatted_title,
-                fontsize=cfg.title_fontsize,
+                fontsize=fontsize or cfg.title_fontsize,
                 fontweight=cfg.fontweight,
+                pad=22 if subtitle_text else None,
                 wrap=True,
+            )
+        if subtitle_text:
+            ax.text(
+                0.5,
+                1.01,
+                subtitle_text,
+                ha="center",
+                va="bottom",
+                transform=ax.transAxes,
+                fontsize=cfg.annotation_small,
+                color="#58595B",
+                clip_on=False,
+            )
+
+    def set_figure_title(
+        self,
+        fig: matplotlib.figure.Figure,
+        title: str | None = None,
+        subtitle: str | None = None,
+        *,
+        y: float = 0.95,
+        fontsize: float | None = None,
+    ) -> None:
+        """Set a figure title with an optional smaller subtitle below it."""
+        cfg = self.config.text
+        title_text = title or self.config.title
+        subtitle_text = subtitle if subtitle is not None else self.config.subtitle
+
+        if title_text:
+            fig.suptitle(
+                format_plot_title(title_text),
+                fontsize=fontsize or cfg.title_fontsize,
+                y=y,
+            )
+        if subtitle_text:
+            fig.text(
+                0.5,
+                y - 0.04,
+                subtitle_text,
+                ha="center",
+                va="top",
+                fontsize=cfg.annotation_small,
+                color="#58595B",
             )
 
     def set_limits(
@@ -335,19 +398,6 @@ class BasePlotter(ABC):
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        caption = getattr(self.config, "caption", None)
-        if caption and not getattr(fig, "_davinci_caption_drawn", False):
-            fig.text(
-                0.99,
-                0.01,
-                caption,
-                ha="right",
-                va="bottom",
-                fontsize=self.config.text.annotation_small,
-                color="#58595B",
-            )
-            fig._davinci_caption_drawn = True  # type: ignore[attr-defined]
-
         save_kwargs = {
             "dpi": dpi or self.config.figure.dpi,
             "bbox_inches": bbox_inches,
@@ -395,11 +445,11 @@ __all__ = [
     "calculate_symmetric_limits",
     "calculate_data_limits",
     "merge_config_dicts",
-    # Series/role/color helpers
+    # Series/color helpers
     "build_series",
     "series_colors",
-    "get_role_color",
-    "dataset_source_label",
+    "get_dataset_color",
+    "dataset_label",
     "get_series_label",
-    "resolve_source_variable",
+    "resolve_dataset_variable",
 ]

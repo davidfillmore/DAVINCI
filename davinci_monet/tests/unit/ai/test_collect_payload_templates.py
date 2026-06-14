@@ -6,13 +6,14 @@ from types import SimpleNamespace
 
 from davinci_monet.ai.payload import collect_payload
 from davinci_monet.config.schema import SummaryConfig
+from davinci_monet.core.schema_utils import validate_schema
 
 
 def _context(stats: dict) -> SimpleNamespace:
     return SimpleNamespace(
         config={
             "analysis": {"start_time": "2024-02-01", "end_time": "2024-02-03"},
-            "sources": {"cam": {"type": "cesm_fv", "role": "model"}},
+            "sources": {"cam": {"type": "cesm_fv", "pair_axis": "dataset"}},
             "pairs": {"p_o3": {}, "p_pm": {}},
         },
         results={"statistics": SimpleNamespace(data=stats)},
@@ -34,6 +35,6 @@ def test_each_row_gets_template_by_variable() -> None:
 
 def test_override_forces_template_for_pair() -> None:
     ctx = _context({"p_o3": {"O3": {"N": 10}}})
-    cfg = SummaryConfig.model_validate({"template_overrides": {"p_o3": "trace_gas_eval"}})
+    cfg = validate_schema(SummaryConfig, {"template_overrides": {"p_o3": "trace_gas_eval"}})
     payload = collect_payload(ctx, cfg)  # type: ignore[arg-type]
     assert payload.stats_rows[0]["template"].name == "trace_gas_eval"

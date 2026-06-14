@@ -1,8 +1,8 @@
 # Daily WRF-Chem AQ Forecast Evaluation vs AirNow
 #
-# Replicates the legacy melodies-scripts/wrfchem.yaml pipeline against the
+# Replicates the current melodies-scripts/wrfchem.yaml pipeline against the
 # operational AQ_WATCH WRF-Chem forecast. Pairs hourly forecast output with
-# the previous day's AirNow surface observations and produces CONUS + EPA-
+# the previous day's AirNow surface datasets and produces CONUS + EPA-
 # region timeseries, spatial overlay, and spatial bias plots.
 #
 # Date substitution is via environment variables, not a Python wrapper. The
@@ -23,14 +23,13 @@ analysis:
 
 sources:
   WRF-Chem:
-    role: model
     type: wrfchem
     # Hour-0 of the current cycle's wrfout is the IC dump — PM2_5_DRY is
     # exactly zero there because the chemistry tendency hasn't run yet. We
     # take hour 00 from the *previous* cycle's +24h forecast (where the
     # diagnostic is populated), hours 06/12/18 from the current cycle, and
     # the +24h forecast (next-day 00Z) from the current cycle so linear
-    # time interpolation reaches obs hours 19-23 UTC without extrapolating.
+    # time interpolation reaches geometry hours 19-23 UTC without extrapolating.
     # The reader also drops any all-zero PM step as a safety net.
     files:
       - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${PREV_YYYYMMDD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_00:00:00
@@ -38,16 +37,8 @@ sources:
       - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_12:00:00
       - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${YYYY}-${MM}-${DD}_18:00:00
       - /glade/campaign/acom/acom-da/shawnh/AQ_WATCH/${YYYY}${MM}${DD}/wrf/wrfout_d01_${NEXT_YYYY}-${NEXT_MM}-${NEXT_DD}_00:00:00
-    mod_kwargs:
-      mech: racm_esrl_vcp
+    mech: racm_esrl_vcp
     radius_of_influence: 12000
-
-    mapping:
-      airnow:
-        "PM2.5": PM2_5_DRY
-        OZONE: o3
-      aeronet:
-        aod_500nm: AOD2D_OUT
 
     # Variable-side unit scaling. With monetio's mech-aware reader (wrf-python
     # available) o3 is converted to ppb and PM2_5_DRY is already ug/m^3, so
@@ -72,7 +63,6 @@ sources:
       linestyle: "-"
 
   airnow:
-    role: obs
     type: pt_sfc
     filename: /glade/work/fillmore/Data/AirNow/AirNow_${YYYY}${MM}${DD}.nc
     drop_unused_vars: true
@@ -95,13 +85,12 @@ sources:
         nlevels_plot: 21
 
   aeronet:
-    role: obs
     type: pt_sfc
     filename: /glade/work/fillmore/Data/AeroNet/AeroNet_${YYYY}${MM}${DD}.nc
     variables:
       aod_500nm:
-        obs_min: 0.0
-        obs_max: 5.0
+        geometry_min: 0.0
+        geometry_max: 5.0
         units: "1"
         ylabel_plot: "AOD (500 nm)"
         display_name: "AOD"
@@ -113,21 +102,21 @@ sources:
 pairs:
   wrfchem_airnow_pm25:
     sources: [WRF-Chem, airnow]
-    reference: airnow
+    geometry: airnow
     variables:
       WRF-Chem: PM2_5_DRY
       airnow: "PM2.5"
 
   wrfchem_airnow_o3:
     sources: [WRF-Chem, airnow]
-    reference: airnow
+    geometry: airnow
     variables:
       WRF-Chem: o3
       airnow: OZONE
 
   wrfchem_aeronet_aod:
     sources: [WRF-Chem, aeronet]
-    reference: aeronet
+    geometry: aeronet
     variables:
       WRF-Chem: AOD2D_OUT
       aeronet: aod_500nm
@@ -198,8 +187,8 @@ plots:
     domain_name: [CONUS]
 
 pairing:
-  # The WRF-Chem AQ_WATCH wrfout snapshots are 6-hourly; AirNow obs are
-  # hourly. Nearest-time interp would produce a step-function model line
+  # The WRF-Chem AQ_WATCH wrfout snapshots are 6-hourly; AirNow geometry are
+  # hourly. Nearest-time interp would produce a step-function dataset line
   # with discontinuities at 03 and 15 UTC. 'linear' interpolates smoothly
   # between snapshots.
   time_method: linear

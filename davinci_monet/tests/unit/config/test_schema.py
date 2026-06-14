@@ -1,4 +1,4 @@
-"""Tests for configuration schema (Pydantic models)."""
+"""Tests for configuration schema (Pydantic datasets)."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from davinci_monet.config.schema import (
     StatsConfig,
     VariableConfig,
 )
+from davinci_monet.core.schema_utils import validate_schema
 
 
 class TestAnalysisConfig:
@@ -119,18 +120,21 @@ class TestVariableConfig:
 
     def test_all_fields(self) -> None:
         """Test all fields can be set."""
-        config = VariableConfig(
-            unit_scale=1000.0,
-            unit_scale_method="+",
-            obs_min=0.0,
-            obs_max=100.0,
-            nan_value=-1.0,
-            rename="new_name",
-            ylabel_plot="Label",
-            vmin_plot=0.0,
-            vmax_plot=50.0,
-            vdiff_plot=10.0,
-            nlevels_plot=20,
+        config = validate_schema(
+            VariableConfig,
+            {
+                "unit_scale": 1000.0,
+                "unit_scale_method": "+",
+                "geometry_min": 0.0,
+                "geometry_max": 100.0,
+                "nan_value": -1.0,
+                "rename": "new_name",
+                "ylabel_plot": "Label",
+                "vmin_plot": 0.0,
+                "vmax_plot": 50.0,
+                "vdiff_plot": 10.0,
+                "nlevels_plot": 20,
+            },
         )
         assert config.unit_scale == 1000.0
         assert config.unit_scale_method == "+"
@@ -138,59 +142,61 @@ class TestVariableConfig:
 
 
 class TestSourceConfig:
-    """Tests for the unified SourceConfig (replaces ModelConfig/ObservationConfig)."""
+    """Tests for the unified SourceConfig."""
 
     def test_default_values(self) -> None:
         """Test default values."""
         config = SourceConfig()
         assert config.radius_of_influence == 12000.0
-        assert config.mapping == {}
         assert config.variables == {}
-        assert config.role is None
 
-    def test_type_and_role(self) -> None:
-        """Test type and role fields."""
-        config = SourceConfig(type="cmaq", role="model")
+    def test_type(self) -> None:
+        """Test source type field."""
+        config = SourceConfig(type="cmaq")
         assert config.type == "cmaq"
-        assert config.role == "model"
 
     def test_files_kept_as_string(self) -> None:
         """Test files are kept as strings for glob patterns."""
         config = SourceConfig(files="/path/to/*.nc")
         assert config.files == "/path/to/*.nc"
 
-    def test_mapping(self) -> None:
-        """Test variable mapping."""
-        config = SourceConfig(mapping={"airnow": {"O3": "OZONE", "PM25": "PM2.5"}})
-        assert config.mapping["airnow"]["O3"] == "OZONE"
+    def test_source_mapping_is_rejected(self) -> None:
+        """Pair variables must be declared in pairs."""
+        with pytest.raises(ValueError, match="source-level mapping"):
+            validate_schema(
+                SourceConfig,
+                {"mapping": {"airnow": {"O3": "OZONE", "PM25": "PM2.5"}}},
+            )
 
-    def test_model_variables_parsing(self) -> None:
-        """Test model-flavored source variables are parsed as VariableConfig."""
-        config = SourceConfig.model_validate(
-            {"type": "cmaq", "variables": {"co": {"unit_scale": 1000.0, "rename": "CO"}}}
+    def test_dataset_variables_parsing(self) -> None:
+        """Test dataset-flavored source variables are parsed as VariableConfig."""
+        config = validate_schema(
+            SourceConfig,
+            {"type": "cmaq", "variables": {"co": {"unit_scale": 1000.0, "rename": "CO"}}},
         )
         assert config.variables["co"].unit_scale == 1000.0
         assert config.variables["co"].rename == "CO"
 
-    def test_obs_type_via_type(self) -> None:
-        """Test obs-flavored source uses ``type`` and ``filename``."""
-        config = SourceConfig(type="pt_sfc", role="obs", filename="/data/airnow.nc")
+    def test_geometry_type_via_type(self) -> None:
+        """Test geometry-flavored source uses ``type`` and ``filename``."""
+        config = SourceConfig(type="pt_sfc", filename="/data/airnow.nc")
         assert config.type == "pt_sfc"
         assert config.filename == "/data/airnow.nc"
 
-        config = SourceConfig(type="aircraft", role="obs")
+        config = SourceConfig(type="aircraft")
         assert config.type == "aircraft"
 
-    def test_obs_variables_parsing(self) -> None:
-        """Test obs-flavored source variables are parsed correctly."""
-        config = SourceConfig.model_validate(
+    def test_geometry_variables_parsing(self) -> None:
+        """Test geometry-flavored source variables are parsed correctly."""
+        config = validate_schema(
+            SourceConfig,
             {
                 "type": "pt_sfc",
                 "variables": {
                     "O3": {"unit_scale": 1.0, "nan_value": -1.0},
                     "PM25": {"ylabel_plot": "PM2.5 (ug/m3)"},
                 },
-            }
+            },
         )
         assert config.variables["O3"].nan_value == -1.0
         assert config.variables["PM25"].ylabel_plot == "PM2.5 (ug/m3)"
@@ -202,19 +208,19 @@ class TestDataProcConfig:
     def test_default_values(self) -> None:
         """Test default values."""
         config = DataProcConfig()
-        assert config.rem_obs_nan is True
+        assert config.rem_geometry_nan is True
         assert config.ts_select_time == "time"
         assert config.set_axis is False
 
     def test_all_fields(self) -> None:
         """Test all fields."""
         config = DataProcConfig(
-            rem_obs_nan=False,
+            rem_geometry_nan=False,
             ts_select_time="time_local",
             ts_avg_window="h",
             set_axis=True,
         )
-        assert config.rem_obs_nan is False
+        assert config.rem_geometry_nan is False
         assert config.ts_select_time == "time_local"
 
 
@@ -242,14 +248,15 @@ class TestPlotGroupConfig:
 
     def test_data_proc_parsing(self) -> None:
         """Test data_proc is parsed correctly."""
-        config = PlotGroupConfig.model_validate(
+        config = validate_schema(
+            PlotGroupConfig,
             {
                 "type": "boxplot",
-                "data_proc": {"rem_obs_nan": False, "set_axis": True},
-            }
+                "data_proc": {"rem_geometry_nan": False, "set_axis": True},
+            },
         )
         assert isinstance(config.data_proc, DataProcConfig)
-        assert config.data_proc.rem_obs_nan is False
+        assert config.data_proc.rem_geometry_nan is False
 
 
 class TestStatsConfig:
@@ -280,47 +287,51 @@ class TestMonetConfig:
 
     def test_analysis_section(self) -> None:
         """Test analysis section parsing."""
-        config = MonetConfig.model_validate(
+        config = validate_schema(
+            MonetConfig,
             {
                 "analysis": {
                     "start_time": "2024-01-01",
                     "end_time": "2024-01-02",
                     "debug": True,
                 }
-            }
+            },
         )
         assert config.analysis.debug is True
         assert config.analysis.start_time == datetime(2024, 1, 1)
 
-    def test_model_sources_section(self) -> None:
-        """Test model-role sources parse into typed SourceConfig."""
-        config = MonetConfig.model_validate(
+    def test_gridded_sources_section(self) -> None:
+        """Test gridded sources parse into typed SourceConfig."""
+        config = validate_schema(
+            MonetConfig,
             {
                 "sources": {
-                    "cmaq_test": {"type": "cmaq", "role": "model", "files": "/data/*.nc"},
-                    "wrf_test": {"type": "wrfchem", "role": "model"},
+                    "cmaq_test": {"type": "cmaq", "files": "/data/*.nc"},
+                    "wrf_test": {"type": "wrfchem"},
                 }
-            }
+            },
         )
         assert "cmaq_test" in config.sources
         assert config.sources["cmaq_test"].type == "cmaq"
         assert config.sources["wrf_test"].type == "wrfchem"
 
-    def test_obs_sources_section(self) -> None:
-        """Test obs-role sources parse into typed SourceConfig."""
-        config = MonetConfig.model_validate(
+    def test_point_sources_section(self) -> None:
+        """Test point sources parse into typed SourceConfig."""
+        config = validate_schema(
+            MonetConfig,
             {
                 "sources": {
-                    "airnow": {"type": "pt_sfc", "role": "obs", "filename": "/data/airnow.nc"},
+                    "airnow": {"type": "pt_sfc", "filename": "/data/airnow.nc"},
                 }
-            }
+            },
         )
         assert "airnow" in config.sources
         assert config.sources["airnow"].type == "pt_sfc"
 
     def test_plots_section(self) -> None:
         """Test plots section parsing."""
-        config = MonetConfig.model_validate(
+        config = validate_schema(
+            MonetConfig,
             {
                 "plots": {
                     "plot_grp1": {
@@ -328,22 +339,23 @@ class TestMonetConfig:
                         "data": ["airnow_cmaq"],
                     },
                 }
-            }
+            },
         )
         assert "plot_grp1" in config.plots
         assert config.plots["plot_grp1"].type == "timeseries"
 
     def test_stats_section(self) -> None:
         """Test stats section parsing."""
-        config = MonetConfig.model_validate(
-            {"stats": {"stat_list": ["MB", "R2"], "round_output": 2}}
+        config = validate_schema(
+            MonetConfig, {"stats": {"stat_list": ["MB", "R2"], "round_output": 2}}
         )
         assert config.stats is not None
         assert config.stats.round_output == 2
 
     def test_full_config(self) -> None:
         """Test full configuration using the unified sources/pairs schema."""
-        config = MonetConfig.model_validate(
+        config = validate_schema(
+            MonetConfig,
             {
                 "analysis": {
                     "start_time": "2024-01-01",
@@ -355,21 +367,18 @@ class TestMonetConfig:
                     "cmaq": {
                         "files": "/data/cmaq/*.nc",
                         "type": "cmaq",
-                        "role": "model",
                         "radius_of_influence": 15000,
-                        "mapping": {"airnow": {"O3": "OZONE"}},
                     },
                     "airnow": {
                         "filename": "/data/airnow.nc",
                         "type": "pt_sfc",
-                        "role": "obs",
                         "variables": {"OZONE": {"nan_value": -1.0}},
                     },
                 },
                 "pairs": {
                     "cmaq_airnow_o3": {
                         "sources": ["cmaq", "airnow"],
-                        "reference": "airnow",
+                        "geometry": "airnow",
                         "variables": {"cmaq": "OZONE", "airnow": "OZONE"},
                     }
                 },
@@ -381,7 +390,7 @@ class TestMonetConfig:
                     }
                 },
                 "stats": {"stat_list": ["MB", "RMSE"]},
-            }
+            },
         )
 
         assert config.analysis.debug is True
@@ -390,7 +399,8 @@ class TestMonetConfig:
 
     def test_monet_config_parses_unified_pairs(self) -> None:
         """Test root config parses unified source pairs as typed configs."""
-        config = MonetConfig.model_validate(
+        config = validate_schema(
+            MonetConfig,
             {
                 "sources": {
                     "a": {"type": "generic", "files": "/tmp/a.nc"},
@@ -399,16 +409,16 @@ class TestMonetConfig:
                 "pairs": {
                     "a_b": {
                         "sources": ["a", "b"],
-                        "reference": "a",
+                        "geometry": "a",
                         "variables": {"a": "O3", "b": "O3"},
                     }
                 },
-            }
+            },
         )
 
         assert "a_b" in config.pairs
         assert config.pairs["a_b"].sources == ["a", "b"]
-        assert config.pairs["a_b"].reference == "a"
+        assert config.pairs["a_b"].geometry == "a"
         assert config.pairs["a_b"].variables == {"a": "O3", "b": "O3"}
 
 
@@ -416,14 +426,15 @@ class TestExtraFieldsHandling:
     """Tests for handling extra/unknown fields."""
 
     def test_extra_fields_allowed(self) -> None:
-        """Test that extra fields are allowed (backward compatibility)."""
-        config = MonetConfig.model_validate(
+        """Test that nested extra fields are allowed."""
+        config = validate_schema(
+            MonetConfig,
             {
                 "analysis": {"unknown_field": "value"},
                 "sources": {"cmaq": {"type": "cmaq", "custom_option": True}},
-            }
+            },
         )
-        # Should not raise - extra fields allowed
-        extra = config.analysis.model_extra
+        # Nested config sections allow reader-specific extra fields.
+        extra = config.analysis.__pydantic_extra__
         assert extra is not None
         assert extra.get("unknown_field") == "value"

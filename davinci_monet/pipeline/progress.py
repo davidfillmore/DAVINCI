@@ -23,16 +23,16 @@ def create_progress_callback(
             if match:
                 name, idx, total = match.groups()
                 formatter.item_start("source", name, int(idx), int(total))
-        elif stripped.startswith("Loading model:"):
-            match = re.match(r"\s*Loading model: (\S+) \((\d+)/(\d+)\)", msg)
+        elif stripped.startswith("Loading dataset:"):
+            match = re.match(r"\s*Loading dataset: (\S+) \((\d+)/(\d+)\)", msg)
             if match:
                 name, idx, total = match.groups()
-                formatter.item_start("model", name, int(idx), int(total))
-        elif stripped.startswith("Loading obs:"):
-            match = re.match(r"\s*Loading obs: (\S+) \((\d+)/(\d+)\)", msg)
+                formatter.item_start("dataset", name, int(idx), int(total))
+        elif stripped.startswith("Loading geometry:"):
+            match = re.match(r"\s*Loading geometry: (\S+) \((\d+)/(\d+)\)", msg)
             if match:
                 name, idx, total = match.groups()
-                formatter.item_start("obs", name, int(idx), int(total))
+                formatter.item_start("geometry", name, int(idx), int(total))
         elif stripped.startswith("parallel_start:"):
             match = re.match(r"\s*parallel_start: (\d+)(?:\s*\|\s*(.+))?", msg)
             if match:

@@ -33,7 +33,7 @@ def create_standard_pipeline() -> list[BaseStage]:
     ]
 
 
-def create_obs_pipeline() -> list[BaseStage]:
+def create_geometry_pipeline() -> list[BaseStage]:
     """Create a single-source pipeline (no pairing stage).
 
     Returns

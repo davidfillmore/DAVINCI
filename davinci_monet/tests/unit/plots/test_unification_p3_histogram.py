@@ -1,4 +1,4 @@
-"""P3 — obs_histogram promoted to the canonical ``histogram`` renderer."""
+"""Histogram renderer tests."""
 
 from __future__ import annotations
 
@@ -13,15 +13,15 @@ from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.renderers.histogram import HistogramPlotter
 
 
-def _series(label: str, index: int = 0, role: str = "obs") -> PlotSeries:
+def _series(label: str, index: int = 0, pair_axis: str = "geometry") -> PlotSeries:
     rng = np.random.default_rng(index)
     ds = xr.Dataset(
         {"o3": (("time", "site"), rng.uniform(10, 60, (20, 4)), {"units": "ppb"})},
         coords={"time": np.arange(20), "site": np.arange(4)},
     )
-    ds["o3"].attrs["role"] = role
-    ds["o3"].attrs["source_label"] = label
-    return PlotSeries(ds, "o3", "o3", role, "reference", label, index)
+    ds["o3"].attrs["pair_axis"] = pair_axis
+    ds["o3"].attrs["dataset_label"] = label
+    return PlotSeries(ds, "o3", "o3", pair_axis, label, index)
 
 
 class TestHistogramRender:
@@ -39,11 +39,10 @@ class TestHistogramRender:
         assert {"airnow", "pandora"}.issubset(set(labels))
         plt.close(fig)
 
-    def test_obs_histogram_alias(self) -> None:
-        import warnings
+    def test_geometry_named_alias_is_rejected(self) -> None:
+        import pytest
 
         from davinci_monet.plots.registry import get_plotter_class
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            assert get_plotter_class("obs_histogram") is HistogramPlotter
+        with pytest.raises(Exception):
+            get_plotter_class("geometry_histogram")

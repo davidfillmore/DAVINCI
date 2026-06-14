@@ -1,7 +1,7 @@
 """Grid-to-grid pairing strategy.
 
-This module implements pairing for gridded observations (L3 satellite
-products, reanalysis) with gridded model output.
+This module implements pairing for gridded datasets (L3 satellite
+products, reanalysis) with gridded dataset output.
 """
 
 from __future__ import annotations
@@ -18,22 +18,22 @@ from davinci_monet.pairing.strategies.base import BasePairingStrategy
 
 
 class GridStrategy(BasePairingStrategy):
-    """Pairing strategy for gridded observations.
+    """Pairing strategy for gridded datasets.
 
-    Matches gridded observations (L3 satellite products, reanalysis)
-    to gridded model output through regridding.
+    Matches gridded datasets (L3 satellite products, reanalysis)
+    to gridded dataset output through regridding.
 
     The strategy:
-    1. Determines common grid (obs grid, model grid, or custom)
-    2. Regrids model to observation grid (or vice versa)
+    1. Determines common grid (geometry grid, dataset grid, or custom)
+    2. Regrids dataset to dataset grid (or vice versa)
     3. Aligns temporal dimensions
     4. Creates paired dataset on common grid
 
     Examples
     --------
     >>> strategy = GridStrategy()
-    >>> paired = strategy.pair(model_data, l3_satellite_data,
-    ...                        regrid_to='obs')
+    >>> paired = strategy.pair_sources(dataset_data, l3_satellite_data,
+    ...                        regrid_to='geometry')
     """
 
     @property
@@ -41,24 +41,24 @@ class GridStrategy(BasePairingStrategy):
         """Return GRID geometry."""
         return DataGeometry.GRID
 
-    def pair(
+    def pair_sources(
         self,
-        model: xr.Dataset,
-        obs: xr.Dataset,
+        geometry_data: xr.Dataset,
+        dataset_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
         horizontal_method: str = "nearest",
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Pair gridded observations with model grid.
+        """Pair gridded datasets with dataset grid.
 
         Parameters
         ----------
-        model
-            Model Dataset with dims (time, [z], lat, lon).
-        obs
-            Observation Dataset with dims (time, lat, lon).
+        dataset
+            Dataset Dataset with dims (time, [z], lat, lon).
+        geometry
+            Dataset Dataset with dims (time, lat, lon).
         radius_of_influence
             Not used for grid-to-grid.
         time_tolerance
@@ -69,7 +69,7 @@ class GridStrategy(BasePairingStrategy):
             Horizontal interpolation method ('nearest', 'bilinear').
         **kwargs
             Additional options:
-            - regrid_to: str, 'obs' or 'model' (default 'obs')
+            - regrid_to: str, 'geometry' or 'dataset' (default 'geometry')
             - extract_surface: bool, whether to extract surface level
 
         Returns
@@ -77,43 +77,46 @@ class GridStrategy(BasePairingStrategy):
         xr.Dataset
             Paired dataset on common grid.
         """
-        regrid_to = kwargs.get("regrid_to", "obs")
+        dataset = dataset_data
+        geometry = geometry_data
+
+        regrid_to = kwargs.get("regrid_to", "geometry")
         extract_surface = kwargs.get("extract_surface", True)
 
         # Get coordinates
-        model_lat, model_lon = self._get_model_coords(model)
-        obs_lat, obs_lon = self._get_obs_coords(obs)
+        dataset_lat, dataset_lon = self._get_dataset_coords(dataset)
+        geometry_lat, geometry_lon = self._get_geometry_coords(geometry)
 
-        # Extract surface if model is 3D
-        if extract_surface and "z" in model.dims:
-            model_proc = self._extract_surface(model)
+        # Extract surface if dataset is 3D
+        if extract_surface and "z" in dataset.dims:
+            dataset_proc = self._extract_surface(dataset)
         else:
-            model_proc = model
+            dataset_proc = dataset
 
         # Regrid to common grid
-        if regrid_to == "obs":
-            # Regrid model to observation grid
-            model_regridded = self._regrid_to_target(
-                model_proc, obs_lat, obs_lon, method=horizontal_method
+        if regrid_to == "geometry":
+            # Regrid dataset to dataset grid
+            dataset_regridded = self._regrid_to_target(
+                dataset_proc, geometry_lat, geometry_lon, method=horizontal_method
             )
-            obs_aligned = obs
-        elif regrid_to == "model":
-            # Regrid observations to model grid
-            model_regridded = model_proc
-            obs_aligned = self._regrid_to_target(
-                obs, model_lat, model_lon, method=horizontal_method
+            geometry_aligned = geometry
+        elif regrid_to == "dataset":
+            # Regrid datasets to dataset grid
+            dataset_regridded = dataset_proc
+            geometry_aligned = self._regrid_to_target(
+                geometry, dataset_lat, dataset_lon, method=horizontal_method
             )
         else:
             raise PairingError(f"Invalid regrid_to option: {regrid_to}")
 
         # Align temporal dimensions
-        if "time" in model_regridded.dims and "time" in obs_aligned.dims:
-            model_regridded, obs_aligned = self._align_times(
-                model_regridded, obs_aligned, time_tolerance
+        if "time" in dataset_regridded.dims and "time" in geometry_aligned.dims:
+            dataset_regridded, geometry_aligned = self._align_times(
+                dataset_regridded, geometry_aligned, time_tolerance
             )
 
         # Create paired output
-        paired = self._create_paired_output(obs_aligned, model_regridded)
+        paired = self._create_paired_output(geometry_aligned, dataset_regridded)
 
         return paired
 
@@ -141,7 +144,7 @@ class GridStrategy(BasePairingStrategy):
             Regridded dataset.
         """
         # Find source lat/lon dimension names
-        source_lat, source_lon = self._get_model_coords(data)
+        source_lat, source_lon = self._get_dataset_coords(data)
 
         if source_lat.ndim != 1 or source_lon.ndim != 1:
             # Curvilinear grids need more complex regridding
@@ -182,7 +185,7 @@ class GridStrategy(BasePairingStrategy):
         # This is a simplified implementation using nearest neighbor
         # For production use, consider xesmf or other regridding libraries
 
-        source_lat, source_lon = self._get_model_coords(data)
+        source_lat, source_lon = self._get_dataset_coords(data)
         source_lat_flat = source_lat.values.flatten()
         source_lon_flat = source_lon.values.flatten()
 
@@ -233,18 +236,18 @@ class GridStrategy(BasePairingStrategy):
 
     def _align_times(
         self,
-        model: xr.Dataset,
-        obs: xr.Dataset,
+        dataset: xr.Dataset,
+        geometry: xr.Dataset,
         time_tolerance: TimeDelta | None,
     ) -> tuple[xr.Dataset, xr.Dataset]:
-        """Align model and observation time dimensions.
+        """Align dataset and dataset time dimensions.
 
         Parameters
         ----------
-        model
-            Model dataset.
-        obs
-            Observation dataset.
+        dataset
+            Dataset dataset.
+        geometry
+            Dataset dataset.
         time_tolerance
             Maximum time difference.
 
@@ -253,37 +256,37 @@ class GridStrategy(BasePairingStrategy):
         tuple[xr.Dataset, xr.Dataset]
             Temporally aligned datasets.
         """
-        model_times = model["time"].values
-        obs_times = obs["time"].values
+        dataset_times = dataset["time"].values
+        geometry_times = geometry["time"].values
 
         # Find common times (within tolerance)
         if time_tolerance is not None:
-            # Match each obs time to the nearest model time, then relabel the
-            # matched model times to the obs times so the two share identical
+            # Match each geometry time to the nearest dataset time, then relabel the
+            # matched dataset times to the geometry times so the two share identical
             # time labels. Without the relabel, _create_paired_output reindexes
-            # the model onto the obs time coordinate and the model becomes all
-            # NaN whenever model/obs times differ (e.g. MERRA2 00:30 vs MODIS 00:00).
-            model_matched = model.sel(time=obs_times, method="nearest")
-            model_matched = model_matched.assign_coords(time=obs_times)
-            return model_matched, obs
+            # the dataset onto the geometry time coordinate and the dataset becomes all
+            # NaN whenever dataset/geometry times differ (e.g. MERRA2 00:30 vs MODIS 00:00).
+            dataset_matched = dataset.sel(time=geometry_times, method="nearest")
+            dataset_matched = dataset_matched.assign_coords(time=geometry_times)
+            return dataset_matched, geometry
         else:
-            # Interpolate model to obs times
-            model_interp = model.interp(time=obs_times)
-            return model_interp, obs
+            # Interpolate dataset to geometry times
+            dataset_interp = dataset.interp(time=geometry_times)
+            return dataset_interp, geometry
 
     def _create_paired_output(
         self,
-        obs: xr.Dataset,
-        model: xr.Dataset,
+        geometry: xr.Dataset,
+        dataset: xr.Dataset,
     ) -> xr.Dataset:
         """Create the final paired output dataset.
 
         Parameters
         ----------
-        obs
-            Observation dataset (on target grid).
-        model
-            Model dataset (on target grid).
+        geometry
+            Dataset dataset (on target grid).
+        dataset
+            Dataset dataset (on target grid).
 
         Returns
         -------
@@ -291,21 +294,21 @@ class GridStrategy(BasePairingStrategy):
             Combined dataset.
         """
         # Combine coordinates
-        coords = dict(obs.coords)
-        for coord in model.coords:
+        coords = dict(geometry.coords)
+        for coord in dataset.coords:
             if coord not in coords:
-                coords[coord] = model.coords[coord]
+                coords[coord] = dataset.coords[coord]
 
         # Combine data variables
         data_vars: dict[str, Any] = {}
 
-        # Add observation variables
-        for var in obs.data_vars:
-            data_vars[str(var)] = obs[var]
+        # Add dataset variables
+        for var in geometry.data_vars:
+            data_vars[str(var)] = geometry[var]
 
-        # Add model variables with prefix
-        for var in model.data_vars:
-            model_var_name = f"model_{var}"
-            data_vars[model_var_name] = model[var]
+        # Add dataset variables with prefix
+        for var in dataset.data_vars:
+            dataset_var_name = f"dataset_{var}"
+            data_vars[dataset_var_name] = dataset[var]
 
         return xr.Dataset(data_vars, coords=coords)

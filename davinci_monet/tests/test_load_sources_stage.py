@@ -1,12 +1,11 @@
 """Tests for the unified data-source pipeline plumbing.
 
 ``LoadSourcesStage`` loads all data sources into a single ``context.sources``
-view (tagging each dataset with role/source_label/geometry). Models and
-observations are both sources, distinguished only by optional ``role`` metadata.
+view and tags each dataset with ``dataset_label`` and ``geometry`` metadata.
 
 These are unit tests: they construct data containers directly and exercise the
 context API and stage logic, per the repo's existing pipeline-stage test pattern
-(see test_obs_pipeline.py).
+(see test_geometry_pipeline.py).
 """
 
 from __future__ import annotations
@@ -24,7 +23,7 @@ from davinci_monet.pipeline.stages import (
 )
 
 
-def _point_obs_dataset() -> xr.Dataset:
+def _point_geometry_dataset() -> xr.Dataset:
     rng = np.random.default_rng(0)
     n_t, n_s = 12, 4
     times = np.datetime64("2024-02-01") + np.arange(n_t) * np.timedelta64(1, "h")
@@ -41,7 +40,7 @@ def _point_obs_dataset() -> xr.Dataset:
     )
 
 
-def _grid_model_dataset() -> xr.Dataset:
+def _grid_dataset_dataset() -> xr.Dataset:
     rng = np.random.default_rng(1)
     n_t, n_lat, n_lon = 12, 5, 6
     times = np.datetime64("2024-02-01") + np.arange(n_t) * np.timedelta64(1, "h")
@@ -56,24 +55,22 @@ def _grid_model_dataset() -> xr.Dataset:
 
 
 @pytest.fixture
-def model_data() -> SourceData:
+def dataset_data() -> SourceData:
     return SourceData(
-        data=_grid_model_dataset(),
+        data=_grid_dataset_dataset(),
         label="cam",
         source_type="generic",
         geometry=DataGeometry.GRID,
-        role="model",
     )
 
 
 @pytest.fixture
-def obs_data() -> SourceData:
+def geometry_data() -> SourceData:
     return SourceData(
-        data=_point_obs_dataset(),
+        data=_point_geometry_dataset(),
         label="airnow",
         source_type="pt_sfc",
         geometry=DataGeometry.POINT,
-        role="obs",
     )
 
 
@@ -82,9 +79,9 @@ class TestPipelineContextSources:
         ctx = PipelineContext()
         assert ctx.sources == {}
 
-    def test_get_source_returns_registered(self, obs_data: SourceData) -> None:
-        ctx = PipelineContext(sources={"airnow": obs_data})
-        assert ctx.get_source("airnow") is obs_data
+    def test_get_source_returns_registered(self, geometry_data: SourceData) -> None:
+        ctx = PipelineContext(sources={"airnow": geometry_data})
+        assert ctx.get_source("airnow") is geometry_data
 
     def test_get_source_missing_raises_keyerror(self) -> None:
         ctx = PipelineContext()
@@ -93,56 +90,50 @@ class TestPipelineContextSources:
 
 
 class TestLoadSourcesStage:
-    def test_unifies_models_and_observations_with_tags(
-        self, model_data: SourceData, obs_data: SourceData
+    def test_unifies_sources_with_dataset_labels_and_geometry(
+        self, dataset_data: SourceData, geometry_data: SourceData
     ) -> None:
-        # Pre-populated sources (no config) are tagged into the unified view,
-        # picking up role from each SourceData.role.
+        # Pre-populated sources (no config) are tagged into the unified view.
         ctx = PipelineContext(
-            sources={"cam": model_data, "airnow": obs_data},
+            sources={"cam": dataset_data, "airnow": geometry_data},
         )
         result = LoadSourcesStage().execute(ctx)
 
         assert result.status is StageStatus.COMPLETED
         # Both sources exposed via the unified view.
         assert set(ctx.sources) == {"cam", "airnow"}
-        assert ctx.get_source("cam") is model_data
-        assert ctx.get_source("airnow") is obs_data
+        assert ctx.get_source("cam") is dataset_data
+        assert ctx.get_source("airnow") is geometry_data
 
-        # Datasets tagged with role / source_label / geometry.
+        # Datasets tagged with dataset_label / geometry.
         cam_attrs = ctx.sources["cam"].data.attrs
-        assert cam_attrs["role"] == "model"
-        assert cam_attrs["source_label"] == "cam"
+        assert cam_attrs["dataset_label"] == "cam"
         assert cam_attrs["geometry"] == "grid"
 
         air_attrs = ctx.sources["airnow"].data.attrs
-        assert air_attrs["role"] == "obs"
-        assert air_attrs["source_label"] == "airnow"
+        assert air_attrs["dataset_label"] == "airnow"
         assert air_attrs["geometry"] == "point"
 
     def test_prepopulated_sources_resolve_via_get_source(
-        self, model_data: SourceData, obs_data: SourceData
+        self, dataset_data: SourceData, geometry_data: SourceData
     ) -> None:
         ctx = PipelineContext(
-            sources={"cam": model_data, "airnow": obs_data},
+            sources={"cam": dataset_data, "airnow": geometry_data},
         )
         LoadSourcesStage().execute(ctx)
-        # The unified accessor resolves both sources regardless of role.
-        assert ctx.get_source("cam") is model_data
-        assert ctx.get_source("airnow") is obs_data
-        assert ctx.get_source_role("cam") == "model"
-        assert ctx.get_source_role("airnow") == "obs"
+        assert ctx.get_source("cam") is dataset_data
+        assert ctx.get_source("airnow") is geometry_data
 
-    def test_unified_observation_source_infers_role_from_reader(self, tmp_path) -> None:
-        obs_path = tmp_path / "airnow.nc"
-        _point_obs_dataset().to_netcdf(obs_path)
+    def test_unified_source_uses_reader_geometry(self, tmp_path) -> None:
+        source_path = tmp_path / "cam.nc"
+        _grid_dataset_dataset().to_netcdf(source_path)
         ctx = PipelineContext(
             config={
                 "sources": {
-                    "airnow": {
-                        "type": "pt_sfc",
-                        "filename": str(obs_path),
-                        "variables": {"o3": {"units": "ppb"}},
+                    "cam": {
+                        "type": "generic",
+                        "files": str(source_path),
+                        "variables": {"O3": {"units": "ppb"}},
                     }
                 }
             }
@@ -151,17 +142,16 @@ class TestLoadSourcesStage:
         result = LoadSourcesStage().execute(ctx)
 
         assert result.status is StageStatus.COMPLETED
-        assert set(ctx.sources) == {"airnow"}
-        assert ctx.get_source_role("airnow") == "obs"
-        assert ctx.sources["airnow"].role == "obs"
-        assert ctx.sources["airnow"].data.attrs["role"] == "obs"
+        assert set(ctx.sources) == {"cam"}
+        assert ctx.sources["cam"].geometry is DataGeometry.GRID
+        assert ctx.sources["cam"].data.attrs["geometry"] == "grid"
 
     def test_stage_name(self) -> None:
         assert LoadSourcesStage().name == "load_sources"
 
 
 class TestApplyVariableConfigValidRange:
-    """Role-neutral valid_min/valid_max clamp, with obs_min/obs_max back-compat."""
+    """valid_min/valid_max clamp configured source variables."""
 
     @staticmethod
     def _ds() -> xr.Dataset:
@@ -175,17 +165,3 @@ class TestApplyVariableConfigValidRange:
         assert np.isnan(vals[0])  # below valid_min
         assert vals[1] == 10.0  # in range
         assert np.isnan(vals[2])  # above valid_max
-
-    def test_obs_min_max_still_honored(self) -> None:
-        out = LoadSourcesStage._apply_variable_config(
-            self._ds(), {"o3": {"obs_min": 0.0, "obs_max": 500.0}}
-        )
-        vals = out["o3"].values
-        assert np.isnan(vals[0]) and vals[1] == 10.0 and np.isnan(vals[2])
-
-    def test_valid_min_takes_precedence_over_obs_min(self) -> None:
-        out = LoadSourcesStage._apply_variable_config(
-            self._ds(), {"o3": {"valid_min": 0.0, "obs_min": 100.0}}
-        )
-        # valid_min (0) wins over obs_min (100), so 10.0 survives.
-        assert out["o3"].values[1] == 10.0

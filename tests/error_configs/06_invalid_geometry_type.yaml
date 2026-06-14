@@ -1,0 +1,17 @@
+# Test 06: Invalid dataset type
+# Expected error: ValidationError or registry lookup failure
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-03"
+  output_dir: ./output
+
+sources:
+  cesm:
+    type: cesm_fv
+    files: /some/path/*.nc
+
+
+  bad_geometry:
+    type: fake_geometry_type_abc
+    filename: /some/path/geometry.nc

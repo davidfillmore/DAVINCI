@@ -1,0 +1,25 @@
+# Test 10: Invalid pair names (dataset/geometry that don't exist)
+# Expected error: Validation error - geometry not found
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-03"
+  output_dir: ./output
+
+sources:
+  cesm:
+    type: cesm_fv
+    files: /some/path/*.nc
+
+
+  surface:
+    type: pt_sfc
+    filename: /some/path/geometry.nc
+
+pairs:
+  my_pair:
+    dataset: nonexistent_dataset
+    geometry: nonexistent_geometry
+    variable:
+      dataset_var: O3
+      geometry_var: ozone

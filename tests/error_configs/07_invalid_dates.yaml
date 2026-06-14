@@ -6,7 +6,7 @@ analysis:
   end_time: "also-not-a-date"
   output_dir: ./output
 
-model:
+sources:
   cesm:
-    mod_type: cesm_fv
+    type: cesm_fv
     files: /some/path/*.nc

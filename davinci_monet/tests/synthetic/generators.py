@@ -298,7 +298,7 @@ def create_level_axis(
 ) -> xr.DataArray:
     """Create a vertical level coordinate array.
 
-    Uses logarithmic spacing typical of atmospheric models.
+    Uses logarithmic spacing typical of atmospheric datasets.
 
     Parameters
     ----------
@@ -490,7 +490,7 @@ def add_random_noise(
     """
     rng = np.random.default_rng(seed)
     data_std = float(data.std())
-    # If data has no variance, use mean as reference scale
+    # If data has no variance, use mean as geometry scale
     if data_std == 0:
         data_std = abs(float(data.mean())) if float(data.mean()) != 0 else 1.0
     noise_std = data_std * noise_fraction

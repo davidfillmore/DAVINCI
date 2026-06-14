@@ -21,41 +21,41 @@ class TestPerfectMatchScenario:
     """Tests for PerfectMatchScenario."""
 
     def test_generate_returns_tuple(self) -> None:
-        """Test generate returns model and obs tuple."""
+        """Test generate returns dataset and geometry tuple."""
         scenario = PerfectMatchScenario(
             variables=["O3"],
             domain=Domain(n_lon=12, n_lat=6),
             time_config=TimeConfig(end="2024-01-01 06:00"),
         )
-        model, obs = scenario.generate()
+        dataset, geometry = scenario.generate()
 
-        assert isinstance(model, xr.Dataset)
-        assert isinstance(obs, xr.Dataset)
+        assert isinstance(dataset, xr.Dataset)
+        assert isinstance(geometry, xr.Dataset)
 
     def test_point_geometry(self) -> None:
         """Test perfect match with point geometry."""
         scenario = PerfectMatchScenario(
             variables=["O3"],
             geometry=DataGeometry.POINT,
-            n_obs=10,
+            n_geometry=10,
         )
-        model, obs = scenario.generate()
+        dataset, geometry = scenario.generate()
 
-        assert "site" in obs.dims
-        assert len(obs.site) == 10
+        assert "site" in geometry.dims
+        assert len(geometry.site) == 10
 
     def test_track_geometry(self) -> None:
         """Test perfect match with track geometry."""
         scenario = PerfectMatchScenario(
             variables=["O3"],
             geometry=DataGeometry.TRACK,
-            n_obs=50,
+            n_geometry=50,
         )
-        model, obs = scenario.generate()
+        dataset, geometry = scenario.generate()
 
         # Track has time dimension with coords
-        assert "latitude" in obs.coords
-        assert "longitude" in obs.coords
+        assert "latitude" in geometry.coords
+        assert "longitude" in geometry.coords
 
     def test_expected_statistics(self) -> None:
         """Test expected statistics for zero noise."""
@@ -76,7 +76,7 @@ class TestPerfectMatchScenario:
             variables=["O3"],
             geometry=DataGeometry.POINT,
             noise_level=0.1,
-            n_obs=20,
+            n_geometry=20,
         )
         stats = scenario.expected_statistics
 
@@ -94,11 +94,11 @@ class TestBiasScenario:
             bias=10.0,
             relative_bias=False,
         )
-        model, obs = scenario.generate()
+        dataset, geometry = scenario.generate()
 
-        # Model should have the bias added
-        assert "O3" in model
-        assert "O3" in obs
+        # Dataset should have the bias added
+        assert "O3" in dataset
+        assert "O3" in geometry
 
     def test_expected_statistics_additive(self) -> None:
         """Test expected statistics for additive bias."""
@@ -118,13 +118,13 @@ class TestBiasScenario:
             bias=0.1,  # 10% bias
             relative_bias=True,
         )
-        model, obs = scenario.generate()
+        dataset, geometry = scenario.generate()
 
-        # Model values should be scaled
-        assert "O3" in model
+        # Dataset values should be scaled
+        assert "O3" in dataset
 
     def test_negative_bias(self) -> None:
-        """Test negative bias (model underpredicts)."""
+        """Test negative bias (dataset lower than geometry)."""
         scenario = BiasScenario(
             variables=["O3"],
             bias=-5.0,
@@ -145,11 +145,11 @@ class TestMismatchScenario:
             mismatch_type="spatial",
             overlap_fraction=0.5,
         )
-        model, obs = scenario.generate()
+        dataset, geometry = scenario.generate()
 
         # Both should be generated
-        assert isinstance(model, xr.Dataset)
-        assert isinstance(obs, xr.Dataset)
+        assert isinstance(dataset, xr.Dataset)
+        assert isinstance(geometry, xr.Dataset)
 
     def test_temporal_mismatch(self) -> None:
         """Test temporal mismatch scenario."""
@@ -158,14 +158,14 @@ class TestMismatchScenario:
             mismatch_type="temporal",
             overlap_fraction=0.5,
         )
-        model, obs = scenario.generate()
+        dataset, geometry = scenario.generate()
 
         # Time ranges should be offset
-        model_times = model.time.values
-        obs_times = obs.time.values
+        dataset_times = dataset.time.values
+        geometry_times = geometry.time.values
 
         # Check they're not identical
-        assert not np.array_equal(model_times, obs_times)
+        assert not np.array_equal(dataset_times, geometry_times)
 
     def test_both_mismatch(self) -> None:
         """Test combined spatial and temporal mismatch."""
@@ -174,17 +174,17 @@ class TestMismatchScenario:
             mismatch_type="both",
             overlap_fraction=0.3,
         )
-        model, obs = scenario.generate()
+        dataset, geometry = scenario.generate()
 
-        assert isinstance(model, xr.Dataset)
-        assert isinstance(obs, xr.Dataset)
+        assert isinstance(dataset, xr.Dataset)
+        assert isinstance(geometry, xr.Dataset)
 
     def test_empty_expected_statistics(self) -> None:
         """Test expected statistics are empty for mismatch."""
         scenario = MismatchScenario(variables=["O3"])
         stats = scenario.expected_statistics
 
-        # Cannot predict stats for mismatched data
+        # Mismatched data do not have fixed stats.
         assert stats["O3"] == {}
 
 
@@ -227,20 +227,21 @@ class TestScenarioReproducibility:
         scenario1 = PerfectMatchScenario(variables=["O3"], seed=42)
         scenario2 = PerfectMatchScenario(variables=["O3"], seed=42)
 
-        model1, obs1 = scenario1.generate()
-        model2, obs2 = scenario2.generate()
+        dataset1, geometry1 = scenario1.generate()
+        dataset2, geometry2 = scenario2.generate()
 
-        xr.testing.assert_equal(model1, model2)
+        xr.testing.assert_equal(dataset1, dataset2)
+        xr.testing.assert_equal(geometry1, geometry2)
 
     def test_different_seed_different_data(self) -> None:
         """Test different seeds produce different data."""
         scenario1 = PerfectMatchScenario(variables=["O3"], seed=42)
         scenario2 = PerfectMatchScenario(variables=["O3"], seed=43)
 
-        model1, _ = scenario1.generate()
-        model2, _ = scenario2.generate()
+        dataset1, _ = scenario1.generate()
+        dataset2, _ = scenario2.generate()
 
-        assert not np.allclose(model1["O3"].values, model2["O3"].values)
+        assert not np.allclose(dataset1["O3"].values, dataset2["O3"].values)
 
 
 class TestScenarioWorkflow:
@@ -252,19 +253,19 @@ class TestScenarioWorkflow:
         scenario = PerfectMatchScenario(
             variables=["O3", "PM25"],
             geometry=DataGeometry.POINT,
-            n_obs=15,
+            n_geometry=15,
             domain=Domain(n_lon=18, n_lat=9),
             time_config=TimeConfig(end="2024-01-01 12:00"),
         )
 
         # Generate data
-        model, obs = scenario.generate()
+        dataset, geometry = scenario.generate()
 
         # Verify data is usable
-        assert len(model.time) > 0
-        assert len(obs.site) == 15
-        assert "O3" in model and "O3" in obs
-        assert "PM25" in model and "PM25" in obs
+        assert len(dataset.time) > 0
+        assert len(geometry.site) == 15
+        assert "O3" in dataset and "O3" in geometry
+        assert "PM25" in dataset and "PM25" in geometry
 
         # Get expected stats
         expected = scenario.expected_statistics

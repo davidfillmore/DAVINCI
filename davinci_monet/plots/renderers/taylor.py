@@ -1,7 +1,7 @@
 """Taylor diagram plot renderer for DAVINCI.
 
 This module provides Taylor diagram plotting functionality for
-visualizing model-observation statistical relationships.
+visualizing dataset-dataset statistical relationships.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
     build_series,
-    get_role_color,
+    get_dataset_color,
     get_series_label,
 )
 from davinci_monet.plots.registry import register_plotter
@@ -32,7 +32,7 @@ class TaylorPlotter(BasePlotter):
     """Plotter for Taylor diagrams.
 
     Creates Taylor diagrams showing the statistical relationship
-    between model and observation data using correlation, standard
+    between dataset and dataset data using correlation, standard
     deviation, and centered RMS difference.
 
     Parameters
@@ -45,8 +45,8 @@ class TaylorPlotter(BasePlotter):
     >>> plotter = TaylorPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     obs_var="obs_o3",
-    ...     model_var="model_o3",
+    ...     geometry_var="geometry_o3",
+    ...     dataset_var="dataset_o3",
     ... )
     """
 
@@ -64,7 +64,7 @@ class TaylorPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one reference (obs) and one comparand (model).
+            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
         ax
             Optional axes to plot on (must be polar). If None, creates new.
         **kwargs
@@ -79,61 +79,67 @@ class TaylorPlotter(BasePlotter):
             raise NotImplementedError(
                 f"TaylorPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        ref = next((s for s in series if s.pair_role == "reference"), series[0])
-        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
-        paired_data = ref.dataset
-        obs_var = ref.var_name
-        model_var = comp.var_name
+        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = geometry_series.dataset
+        geometry_var = geometry_series.var_name
+        dataset_var = dataset_series.var_name
 
         normalize: bool = kwargs.pop("normalize", True)
-        show_reference: bool = kwargs.pop("show_reference", True)
-        reference_label: str | None = kwargs.pop("reference_label", None)
-        model_label: str | None = kwargs.pop("model_label", None)
+        show_geometry: bool = kwargs.pop("show_geometry", True)
+        geometry_label: str | None = kwargs.pop("geometry_label", None)
+        dataset_label: str | None = kwargs.pop("dataset_label", None)
         marker: str | None = kwargs.pop("marker", None)
         color: str | None = kwargs.pop("color", None)
 
         # Get data and flatten
-        obs_values = paired_data[obs_var].values.flatten()
-        model_values = paired_data[model_var].values.flatten()
+        geometry_values = paired_data[geometry_var].values.flatten()
+        dataset_values = paired_data[dataset_var].values.flatten()
 
         # Remove NaN values
-        mask = np.isfinite(obs_values) & np.isfinite(model_values)
-        obs_values = obs_values[mask]
-        model_values = model_values[mask]
+        mask = np.isfinite(geometry_values) & np.isfinite(dataset_values)
+        geometry_values = geometry_values[mask]
+        dataset_values = dataset_values[mask]
 
         # Calculate statistics
-        obs_std = np.std(obs_values)
-        model_std = np.std(model_values)
-        correlation = np.corrcoef(obs_values, model_values)[0, 1]
+        geometry_std = np.std(geometry_values)
+        dataset_std = np.std(dataset_values)
+        correlation = np.corrcoef(geometry_values, dataset_values)[0, 1]
 
         # Normalize if requested
         if normalize:
-            model_std_norm = model_std / obs_std
-            obs_std_norm = 1.0
+            dataset_std_norm = dataset_std / geometry_std
+            geometry_std_norm = 1.0
         else:
-            model_std_norm = model_std
-            obs_std_norm = obs_std
+            dataset_std_norm = dataset_std
+            geometry_std_norm = geometry_std
 
         # Create Taylor diagram
         if ax is None:
-            fig, ax = self._create_taylor_axes(obs_std_norm, normalize)
+            fig, ax = self._create_taylor_axes(geometry_std_norm, normalize)
         else:
             fig = ax.get_figure()  # type: ignore[assignment]
 
         # Get style
         style = self.config.style
-        m = marker or style.model_marker
-        c = color or get_role_color(
-            paired_data, model_var, 1, obs_color=style.obs_color, model_color=style.model_color
+        m = marker or style.dataset_marker
+        c = color or get_dataset_color(
+            paired_data,
+            dataset_var,
+            1,
+            geometry_color=style.geometry_color,
+            dataset_color=style.dataset_color,
         )
-        label = model_label or self.config.model_label or get_series_label(paired_data, model_var)
+        label = (
+            dataset_label or self.config.dataset_label or get_series_label(paired_data, dataset_var)
+        )
 
-        # Plot model point
+        # Plot dataset point
         # Taylor diagram uses polar coordinates: theta=arccos(correlation), r=std
         theta = np.arccos(correlation)
         ax.plot(
             theta,
-            model_std_norm,
+            dataset_std_norm,
             marker=m,
             color=c,
             markersize=style.markersize * 1.5,
@@ -141,37 +147,38 @@ class TaylorPlotter(BasePlotter):
             linestyle="none",
         )
 
-        # Plot reference (observation) point. The reference is the obs source;
-        # label it with the obs source label by default (R-3), keeping the
+        # Plot geometry (dataset) point. The geometry is the geometry source;
+        # label it with the geometry source label by default (R-3), keeping the
         # conventional black star marker.
-        if show_reference:
+        if show_geometry:
             ax.plot(
                 0,  # Perfect correlation
-                obs_std_norm,
+                geometry_std_norm,
                 marker="*",
                 color="k",
                 markersize=style.markersize * 2,
-                label=reference_label
-                or self.config.obs_label
-                or get_series_label(paired_data, obs_var),
+                label=geometry_label
+                or self.config.geometry_label
+                or get_series_label(paired_data, geometry_var),
                 linestyle="none",
             )
 
         # Add legend
         self.add_legend(ax, loc="upper right")
+        self.set_title(ax)
 
         return fig
 
     def plot(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         ax: matplotlib.axes.Axes | None = None,
         normalize: bool = True,
-        show_reference: bool = True,
-        reference_label: str | None = None,
-        model_label: str | None = None,
+        show_geometry: bool = True,
+        geometry_label: str | None = None,
+        dataset_label: str | None = None,
         marker: str | None = None,
         color: str | None = None,
         **kwargs: Any,
@@ -181,25 +188,25 @@ class TaylorPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+            Paired dataset with dataset and dataset variables.
+        geometry_var
+            Name of dataset variable.
+        dataset_var
+            Name of dataset variable.
         ax
             Optional axes to plot on (must be polar). If None, creates new.
         normalize
-            If True, normalize by observation standard deviation.
-        show_reference
-            If True, show reference (observation) point.
-        reference_label
-            Label for reference point. Defaults to the obs source label.
-        model_label
-            Label for model point.
+            If True, normalize by dataset standard deviation.
+        show_geometry
+            If True, show geometry (dataset) point.
+        geometry_label
+            Label for geometry point. Defaults to the geometry source label.
+        dataset_label
+            Label for dataset point.
         marker
-            Marker style for model point.
+            Marker style for dataset point.
         color
-            Color for model point.
+            Color for dataset point.
         **kwargs
             Additional plotting arguments.
 
@@ -209,12 +216,12 @@ class TaylorPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, obs_var, model_var),
+            build_series(paired_data, geometry_var, dataset_var),
             ax=ax,
             normalize=normalize,
-            show_reference=show_reference,
-            reference_label=reference_label,
-            model_label=model_label,
+            show_geometry=show_geometry,
+            geometry_label=geometry_label,
+            dataset_label=dataset_label,
             marker=marker,
             color=color,
             **kwargs,
@@ -230,7 +237,7 @@ class TaylorPlotter(BasePlotter):
         Parameters
         ----------
         ref_std
-            Reference standard deviation for scaling.
+            Geometry standard deviation for scaling.
         normalized
             Whether values are normalized.
 
@@ -286,11 +293,11 @@ class TaylorPlotter(BasePlotter):
         ax
             Polar axes to add contours to.
         ref_std
-            Reference standard deviation.
+            Geometry standard deviation.
         max_std
             Maximum standard deviation for plot limits.
         """
-        # RMS contours are circles centered at the reference point
+        # RMS contours are circles centered at the geometry point
         # In polar coordinates centered at origin, these become more complex
         theta = np.linspace(0, np.pi / 2, 100)
 
@@ -328,29 +335,29 @@ class TaylorPlotter(BasePlotter):
     def plot_multiple(
         self,
         paired_datasets: dict[str, xr.Dataset],
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         normalize: bool = True,
         colors: dict[str, str] | None = None,
         markers: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Plot multiple models on a single Taylor diagram.
+        """Plot multiple datasets on a single Taylor diagram.
 
         Parameters
         ----------
         paired_datasets
-            Dictionary mapping model names to paired datasets.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+            Dictionary mapping dataset names to paired datasets.
+        geometry_var
+            Name of dataset variable.
+        dataset_var
+            Name of dataset variable.
         normalize
-            If True, normalize by observation standard deviation.
+            If True, normalize by dataset standard deviation.
         colors
-            Optional color mapping for each model.
+            Optional color mapping for each dataset.
         markers
-            Optional marker mapping for each model.
+            Optional marker mapping for each dataset.
         **kwargs
             Additional arguments passed to plot.
 
@@ -366,28 +373,28 @@ class TaylorPlotter(BasePlotter):
         first_key = next(iter(paired_datasets))
         first_data = paired_datasets[first_key]
 
-        obs_values = first_data[obs_var].values.flatten()
-        obs_values = obs_values[np.isfinite(obs_values)]
-        ref_std = 1.0 if normalize else np.std(obs_values)
+        geometry_values = first_data[geometry_var].values.flatten()
+        geometry_values = geometry_values[np.isfinite(geometry_values)]
+        ref_std = 1.0 if normalize else np.std(geometry_values)
 
         fig, ax = self._create_taylor_axes(ref_std, normalize)
 
         # Default color cycle
         default_colors = plt.cm.tab10.colors  # type: ignore[attr-defined]
 
-        # Plot each model
+        # Plot each dataset
         for i, (name, data) in enumerate(paired_datasets.items()):
             color = colors.get(name, default_colors[i % len(default_colors)])
             marker = markers.get(name, "o")
 
             self.plot(
                 data,
-                obs_var,
-                model_var,
+                geometry_var,
+                dataset_var,
                 ax=ax,
                 normalize=normalize,
-                show_reference=(i == 0),  # Only show reference once
-                model_label=name,
+                show_geometry=(i == 0),  # Only show geometry once
+                dataset_label=name,
                 color=color,
                 marker=marker,
                 **kwargs,
@@ -398,8 +405,8 @@ class TaylorPlotter(BasePlotter):
 
 def plot_taylor(
     paired_data: xr.Dataset,
-    obs_var: str,
-    model_var: str,
+    geometry_var: str,
+    dataset_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
@@ -408,11 +415,11 @@ def plot_taylor(
     Parameters
     ----------
     paired_data
-        Paired dataset with model and observation variables.
-    obs_var
-        Name of observation variable.
-    model_var
-        Name of model variable.
+        Paired dataset with dataset and dataset variables.
+    geometry_var
+        Name of dataset variable.
+    dataset_var
+        Name of dataset variable.
     config
         Plot configuration.
     **kwargs
@@ -427,4 +434,4 @@ def plot_taylor(
         config = PlotConfig.from_dict(config)
 
     plotter = TaylorPlotter(config=config)
-    return plotter.plot(paired_data, obs_var, model_var, **kwargs)
+    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)

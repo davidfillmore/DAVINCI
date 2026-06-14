@@ -38,6 +38,7 @@ from davinci_monet.plots.renderers._track3d import (
     _render_surface_map,
     draw_track_3d,
 )
+from davinci_monet.plots.titles import title_for_labeled_subset
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -62,7 +63,7 @@ class TrackMap3DPlotter(BasePlotter):
     - X-axis: Longitude
     - Y-axis: Latitude
     - Z-axis: Altitude
-    - Color: Variable value (obs, model, or bias)
+    - Color: Variable value (geometry, dataset, or bias)
 
     Parameters
     ----------
@@ -74,8 +75,8 @@ class TrackMap3DPlotter(BasePlotter):
     >>> plotter = TrackMap3DPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     obs_var="obs_O3",
-    ...     model_var="model_O3",
+    ...     geometry_var="geometry_O3",
+    ...     dataset_var="dataset_O3",
     ...     show_var="bias",
     ... )
     """
@@ -94,7 +95,7 @@ class TrackMap3DPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one reference (obs) and one comparand (model).
+            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
         ax
             Ignored (creates new 3D axes).
         **kwargs
@@ -138,16 +139,16 @@ class TrackMap3DPlotter(BasePlotter):
             raise NotImplementedError(
                 f"TrackMap3DPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        ref = next((s for s in series if s.pair_role == "reference"), series[0])
-        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
-        paired_data = ref.dataset
-        obs_var = ref.var_name
-        model_var = comp.var_name
+        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = geometry_series.dataset
+        geometry_var = geometry_series.var_name
+        dataset_var = dataset_series.var_name
 
         alt_var: str = kwargs.pop("alt_var", "altitude")
         lat_var: str = kwargs.pop("lat_var", "latitude")
         lon_var: str = kwargs.pop("lon_var", "longitude")
-        show_var: Literal["obs", "model", "bias"] = kwargs.pop("show_var", "bias")
+        show_var: Literal["geometry", "dataset", "bias"] = kwargs.pop("show_var", "bias")
         cmap: str | None = kwargs.pop("cmap", None)
         marker_size: float = kwargs.pop("marker_size", 20)
         alpha: float = kwargs.pop("alpha", 0.7)
@@ -197,23 +198,23 @@ class TrackMap3DPlotter(BasePlotter):
             raise ValueError(f"Altitude variable '{alt_var}' not found")
 
         # Get data values
-        obs_vals = paired_data[obs_var].values
-        model_vals = paired_data[model_var].values
+        geometry_vals = paired_data[geometry_var].values
+        dataset_vals = paired_data[dataset_var].values
 
         # Calculate what to show
-        if show_var == "obs":
-            values = obs_vals
+        if show_var == "geometry":
+            values = geometry_vals
             default_cmap = "viridis"
-            label = get_variable_label(paired_data, obs_var, include_prefix=False)
-        elif show_var == "model":
-            values = model_vals
+            label = get_variable_label(paired_data, geometry_var, include_prefix=False)
+        elif show_var == "dataset":
+            values = dataset_vals
             default_cmap = "viridis"
-            label = get_variable_label(paired_data, model_var, include_prefix=False)
+            label = get_variable_label(paired_data, dataset_var, include_prefix=False)
         else:  # bias
-            values = model_vals - obs_vals
+            values = dataset_vals - geometry_vals
             default_cmap = "RdBu_r"
             # Consistent bias label with other plotters
-            label = "Bias (Model - Obs)"
+            label = "Bias (Dataset - Geometry)"
 
         cmap = cmap or default_cmap
 
@@ -242,7 +243,7 @@ class TrackMap3DPlotter(BasePlotter):
             vmax = self.config.vmax if self.config.vmax is not None else float(np.nanmax(values))
 
         # Colorbar label
-        units = get_variable_units(paired_data, obs_var)
+        units = get_variable_units(paired_data, geometry_var)
         cbar_label = format_label_with_units(label, units)
         cbar_label = format_plot_title(cbar_label)  # Apply subscript formatting
 
@@ -287,9 +288,7 @@ class TrackMap3DPlotter(BasePlotter):
 
         # Title - centered above plot
         if self.config.title:
-            fig.suptitle(
-                format_plot_title(self.config.title), fontsize=text_cfg.title_fontsize, y=0.85
-            )
+            self.set_figure_title(fig, self.config.title, y=0.85)
 
         plt.tight_layout(rect=(0, 0, 1, 0.95))  # Leave room at top for title
         return fig
@@ -297,13 +296,13 @@ class TrackMap3DPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         ax: matplotlib.axes.Axes | None = None,
         alt_var: str = "altitude",
         lat_var: str = "latitude",
         lon_var: str = "longitude",
-        show_var: Literal["obs", "model", "bias"] = "bias",
+        show_var: Literal["geometry", "dataset", "bias"] = "bias",
         cmap: str | None = None,
         marker_size: float = 20,
         alpha: float = 0.7,
@@ -338,11 +337,11 @@ class TrackMap3DPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+            Paired dataset with dataset and dataset variables.
+        geometry_var
+            Name of dataset variable.
+        dataset_var
+            Name of dataset variable.
         ax
             Existing axes (ignored, creates new 3D axes).
         alt_var
@@ -352,7 +351,7 @@ class TrackMap3DPlotter(BasePlotter):
         lon_var
             Name of longitude coordinate.
         show_var
-            Which variable to show: 'obs', 'model', or 'bias'.
+            Which variable to show: 'geometry', 'dataset', or 'bias'.
         cmap
             Colormap name. Default depends on show_var.
         marker_size
@@ -412,7 +411,7 @@ class TrackMap3DPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, obs_var, model_var),
+            build_series(paired_data, geometry_var, dataset_var),
             ax=ax,
             alt_var=alt_var,
             lat_var=lat_var,
@@ -449,8 +448,8 @@ class TrackMap3DPlotter(BasePlotter):
     def plot_per_flight(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         flight_coord: str = "flight",
         min_points: int = 10,
         **kwargs: Any,
@@ -462,11 +461,11 @@ class TrackMap3DPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+            Paired dataset with dataset and dataset variables.
+        geometry_var
+            Name of dataset variable.
+        dataset_var
+            Name of dataset variable.
         flight_coord
             Name of the flight coordinate (default: "flight").
         min_points
@@ -499,30 +498,36 @@ class TrackMap3DPlotter(BasePlotter):
             flight_data = paired_data.isel(time=mask)
 
             # Check for minimum points
-            obs_vals = flight_data[obs_var].values.flatten()
-            model_vals = flight_data[model_var].values.flatten()
-            valid = np.isfinite(obs_vals) & np.isfinite(model_vals)
+            geometry_vals = flight_data[geometry_var].values.flatten()
+            dataset_vals = flight_data[dataset_var].values.flatten()
+            valid = np.isfinite(geometry_vals) & np.isfinite(dataset_vals)
 
             if valid.sum() < min_points:
                 continue
 
-            # Update title to include flight ID
+            # Update title/subtitle to identify this flight.
             original_title = self.config.title
-            if original_title:
-                self.config.title = f"{original_title} - Flight {flight_str}"
-            else:
-                self.config.title = f"Flight {flight_str}"
+            original_subtitle = self.config.subtitle
+            self.config.title, flight_subtitle = title_for_labeled_subset(
+                original_title,
+                flight_str,
+                label_prefix="Flight",
+            )
+            if flight_subtitle:
+                self.config.subtitle = flight_subtitle
 
             # Generate plot for this flight
             try:
-                fig = self.plot(flight_data, obs_var, model_var, **kwargs)
+                fig = self.plot(flight_data, geometry_var, dataset_var, **kwargs)
             except ValueError:
                 # Skip if no valid data after filtering
                 self.config.title = original_title
+                self.config.subtitle = original_subtitle
                 continue
 
-            # Restore original title for next iteration
+            # Restore original title/subtitle for next iteration
             self.config.title = original_title
+            self.config.subtitle = original_subtitle
 
             # Format flight ID for filename (YYYYMMDD format)
             flight_id = flight_str.replace("-", "")
@@ -532,10 +537,10 @@ class TrackMap3DPlotter(BasePlotter):
 
 def plot_track_map_3d(
     paired_data: xr.Dataset,
-    obs_var: str,
-    model_var: str,
+    geometry_var: str,
+    dataset_var: str,
     title: str | None = None,
-    show_var: Literal["obs", "model", "bias"] = "bias",
+    show_var: Literal["geometry", "dataset", "bias"] = "bias",
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
     """Convenience function for 3D track map plots.
@@ -543,15 +548,15 @@ def plot_track_map_3d(
     Parameters
     ----------
     paired_data
-        Paired dataset with model and observation variables.
-    obs_var
-        Name of observation variable.
-    model_var
-        Name of model variable.
+        Paired dataset with dataset and dataset variables.
+    geometry_var
+        Name of dataset variable.
+    dataset_var
+        Name of dataset variable.
     title
         Plot title.
     show_var
-        Which variable to show: 'obs', 'model', or 'bias'.
+        Which variable to show: 'geometry', 'dataset', or 'bias'.
     **kwargs
         Additional options passed to plotter.
 
@@ -564,8 +569,8 @@ def plot_track_map_3d(
     plotter = TrackMap3DPlotter(config)
     return plotter.plot(
         paired_data,
-        obs_var,
-        model_var,
+        geometry_var,
+        dataset_var,
         show_var=show_var,
         **kwargs,
     )

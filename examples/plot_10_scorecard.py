@@ -3,7 +3,7 @@
 
 Demonstrates the scorecard plotter for multi-metric performance heatmaps.
 
-Data: Surface point observations (O3)
+Data: Surface point datasets (O3)
 """
 
 import matplotlib.pyplot as plt
@@ -23,8 +23,8 @@ def main():
     # Create plot using davinci_monet.plots
     fig = plot_scorecard(
         paired,
-        obs_var="obs_o3",
-        model_var="model_o3",
+        geometry_var="geometry_o3",
+        dataset_var="dataset_o3",
         title="Scorecard: O3 Performance Metrics",
     )
 

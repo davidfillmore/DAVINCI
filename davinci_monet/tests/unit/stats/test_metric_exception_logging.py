@@ -65,9 +65,9 @@ class TestComputeMetricsLogsAndNan:
             _make_broken_get_metric(exc),
         )
         calc = StatisticsCalculator()
-        obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-        mod = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
-        return calc, obs, mod
+        geometry = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        dataset = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
+        return calc, geometry, dataset
 
     def test_warning_logged_with_metric_name(
         self,
@@ -75,10 +75,10 @@ class TestComputeMetricsLogsAndNan:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """WARNING record includes the metric name."""
-        calc, obs, mod = self._setup(monkeypatch)
+        calc, geometry, dataset = self._setup(monkeypatch)
 
         with caplog.at_level(logging.WARNING, logger="davinci_monet.stats.calculator"):
-            calc._compute_metrics(obs, mod, ["FAKE_METRIC"])
+            calc._compute_metrics(geometry, dataset, ["FAKE_METRIC"])
 
         warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
         assert warnings, "Expected at least one WARNING log record"
@@ -90,10 +90,10 @@ class TestComputeMetricsLogsAndNan:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """WARNING record includes the exception text."""
-        calc, obs, mod = self._setup(monkeypatch)
+        calc, geometry, dataset = self._setup(monkeypatch)
 
         with caplog.at_level(logging.WARNING, logger="davinci_monet.stats.calculator"):
-            calc._compute_metrics(obs, mod, ["FAKE_METRIC"])
+            calc._compute_metrics(geometry, dataset, ["FAKE_METRIC"])
 
         joined = " ".join(r.message for r in caplog.records)
         assert "simulated metric failure" in joined
@@ -104,10 +104,10 @@ class TestComputeMetricsLogsAndNan:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Broken metric yields NaN, not a crash."""
-        calc, obs, mod = self._setup(monkeypatch)
+        calc, geometry, dataset = self._setup(monkeypatch)
 
         with caplog.at_level(logging.WARNING, logger="davinci_monet.stats.calculator"):
-            results = calc._compute_metrics(obs, mod, ["FAKE_METRIC"])
+            results = calc._compute_metrics(geometry, dataset, ["FAKE_METRIC"])
 
         assert "FAKE_METRIC" in results
         assert np.isnan(results["FAKE_METRIC"])
@@ -117,9 +117,9 @@ class TestComputeMetricsLogsAndNan:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Exception in metric does not propagate out of _compute_metrics."""
-        calc, obs, mod = self._setup(monkeypatch)
+        calc, geometry, dataset = self._setup(monkeypatch)
         # Should not raise
-        result = calc._compute_metrics(obs, mod, ["FAKE_METRIC"])
+        result = calc._compute_metrics(geometry, dataset, ["FAKE_METRIC"])
         assert isinstance(result, dict)
 
 
@@ -141,11 +141,11 @@ class TestQuickStatsLogsAndNan:
             "davinci_monet.stats.calculator.get_metric",
             _make_broken_get_metric(ValueError("bad metric value")),
         )
-        obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-        mod = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
+        geometry = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        dataset = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
 
         with caplog.at_level(logging.WARNING, logger="davinci_monet.stats.calculator"):
-            results = quick_stats(obs, mod, metrics=["FAKE_Q"])
+            results = quick_stats(geometry, dataset, metrics=["FAKE_Q"])
 
         warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
         assert warnings
@@ -161,10 +161,10 @@ class TestQuickStatsLogsAndNan:
             "davinci_monet.stats.calculator.get_metric",
             _make_broken_get_metric(ValueError("bad metric value")),
         )
-        obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-        mod = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
+        geometry = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        dataset = np.array([1.1, 2.1, 3.1, 4.1, 5.1])
 
         with caplog.at_level(logging.WARNING, logger="davinci_monet.stats.calculator"):
-            results = quick_stats(obs, mod, metrics=["FAKE_Q"])
+            results = quick_stats(geometry, dataset, metrics=["FAKE_Q"])
 
         assert np.isnan(results["FAKE_Q"])

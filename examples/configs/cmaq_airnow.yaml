@@ -1,5 +1,5 @@
 # Example DAVINCI-MONET Configuration
-# CMAQ model evaluation against AirNow surface observations
+# CMAQ dataset evaluation against AirNow surface datasets
 
 analysis:
   start_time: "2024-07-01"
@@ -9,18 +9,10 @@ analysis:
 
 sources:
   cmaq_v54:
-    role: model
     type: cmaq
     files: /data/cmaq/2024/07/CCTM_CONC_*.nc
     files_vert: /data/cmaq/2024/07/METCRO3D_*.nc
-    radius_of_influence: 12000
-    mapping:
-      airnow:
-        o3: O3
-        pm25: PM25_TOT
-        no2: NO2
-        co: CO
-    variables:
+    radius_of_influence: 12000    variables:
       O3:
         ylabel_plot: "O3 (ppbv)"
         vmin_plot: 0
@@ -33,35 +25,34 @@ sources:
         vdiff_plot: 20
 
   airnow:
-    role: obs
     type: airnow
-    filename: /data/obs/AirNow_202407.nc
+    filename: /data/geometry/AirNow_202407.nc
     variables:
       o3:
-        obs_min: 0
-        obs_max: 200
+        geometry_min: 0
+        geometry_max: 200
       pm25:
-        obs_min: 0
-        obs_max: 500
+        geometry_min: 0
+        geometry_max: 500
       no2:
-        obs_min: 0
-        obs_max: 100
+        geometry_min: 0
+        geometry_max: 100
       co:
-        obs_min: 0
-        obs_max: 10
+        geometry_min: 0
+        geometry_max: 10
 
-# One binary pair per variable. The plots below reference cmaq_v54_airnow (O3).
+# One binary pair per variable. The plots below geometry cmaq_v54_airnow (O3).
 pairs:
   cmaq_v54_airnow:
     sources: [cmaq_v54, airnow]
-    reference: airnow
+    geometry: airnow
     variables:
       cmaq_v54: O3
       airnow: o3
 
   cmaq_v54_airnow_pm25:
     sources: [cmaq_v54, airnow]
-    reference: airnow
+    geometry: airnow
     variables:
       cmaq_v54: PM25_TOT
       airnow: pm25
@@ -105,8 +96,8 @@ stats:
     precision: 3
   metrics:
     - N
-    - MO
-    - MP
+    - MG
+    - MD
     - MB
     - RMSE
     - R

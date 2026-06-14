@@ -1,7 +1,7 @@
 """Spatial distribution plot renderer for DAVINCI.
 
 This module provides spatial distribution plotting functionality for
-displaying observation or model values on a map without comparison.
+displaying dataset or dataset values on a map without comparison.
 """
 
 from __future__ import annotations
@@ -17,7 +17,6 @@ from davinci_monet.plots.base import (
     build_series,
     calculate_data_limits,
     format_label_with_units,
-    format_plot_title,
     get_variable_label,
     get_variable_units,
 )
@@ -53,9 +52,9 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
     >>> plotter = SpatialDistributionPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     obs_var="obs_o3",
-    ...     model_var="model_o3",
-    ...     show_var="obs",
+    ...     geometry_var="geometry_o3",
+    ...     dataset_var="dataset_o3",
+    ...     show_var="geometry",
     ... )
     """
 
@@ -73,7 +72,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one reference (obs) and one comparand (model).
+            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
         ax
             Optional GeoAxes to plot on. If None, creates new figure.
         **kwargs
@@ -91,13 +90,13 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
                 f"SpatialDistributionPlotter.render requires exactly 2 series;"
                 f" got {len(series)}."
             )
-        ref = next((s for s in series if s.pair_role == "reference"), series[0])
-        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
-        paired_data = ref.dataset
-        obs_var = ref.var_name
-        model_var = comp.var_name
+        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = geometry_series.dataset
+        geometry_var = geometry_series.var_name
+        dataset_var = dataset_series.var_name
 
-        show_var: str = kwargs.pop("show_var", "obs")
+        show_var: str = kwargs.pop("show_var", "geometry")
         lat_var: str = kwargs.pop("lat_var", "latitude")
         lon_var: str = kwargs.pop("lon_var", "longitude")
         time_average: bool = kwargs.pop("time_average", True)
@@ -119,22 +118,22 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
                     dpi=self.config.figure.dpi,
                     subplot_kw={"projection": ccrs.PlateCarree()},
                 )
-                ax_obs, ax_model = axes
+                ax_geometry, ax_dataset = axes
             else:
                 fig, ax = self.create_map_figure()
-                ax_obs = ax_model = ax
+                ax_geometry = ax_dataset = ax
         else:
             fig = ax.get_figure()  # type: ignore[assignment]
-            ax_obs = ax_model = ax
+            ax_geometry = ax_dataset = ax
 
         # Get data
-        obs_data = paired_data[obs_var]
-        model_data = paired_data[model_var]
+        geometry_data = paired_data[geometry_var]
+        dataset_data = paired_data[dataset_var]
 
         # Time average if requested
-        if time_average and "time" in obs_data.dims:
-            obs_data = obs_data.mean(dim="time")
-            model_data = model_data.mean(dim="time")
+        if time_average and "time" in geometry_data.dims:
+            geometry_data = geometry_data.mean(dim="time")
+            dataset_data = dataset_data.mean(dim="time")
 
         # Get coordinates — resolve common aliases
         lat_candidates = [lat_var, "lat", "latitude", "LAT", "Latitude"]
@@ -161,19 +160,19 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
             sort_idx = np.argsort(lons)
             lons = lons[sort_idx]
             lon_dim = resolved_lon
-            if lon_dim in obs_data.dims:
-                obs_data = obs_data.isel({lon_dim: sort_idx})
-                model_data = model_data.isel({lon_dim: sort_idx})
+            if lon_dim in geometry_data.dims:
+                geometry_data = geometry_data.isel({lon_dim: sort_idx})
+                dataset_data = dataset_data.isel({lon_dim: sort_idx})
         elif lons.ndim > 1 and np.any(lons > 180):
             lons = np.where(lons > 180, lons - 360, lons)
 
         # Detect data geometry from the *DataArray* dims (not just the numpy
-        # arrays), since for point/site observations lats and lons share a
+        # arrays), since for point/site datasets lats and lons share a
         # single dim and must not be meshgridded as if they were grid axes.
         lat_da = paired_data[resolved_lat]
         lon_da = paired_data[resolved_lon]
-        # Reference DataArray for geometry detection — use obs_data dims.
-        _geometry = detect_spatial_geometry(lat_da, lon_da, obs_data)
+        # Geometry DataArray for geometry detection — use geometry_data dims.
+        _geometry = detect_spatial_geometry(lat_da, lon_da, geometry_data)
 
         # Resolve "auto" to a concrete method based on data geometry: gridded
         # data (1-D lat/lon axes with a 2-D+ field, or 2-D curvilinear coords)
@@ -188,14 +187,14 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         if show_var == "both":
             all_values = np.concatenate(
                 [
-                    obs_data.values.flatten(),
-                    model_data.values.flatten(),
+                    geometry_data.values.flatten(),
+                    dataset_data.values.flatten(),
                 ]
             )
-        elif show_var == "obs":
-            all_values = obs_data.values.flatten()
+        elif show_var == "geometry":
+            all_values = geometry_data.values.flatten()
         else:
-            all_values = model_data.values.flatten()
+            all_values = dataset_data.values.flatten()
 
         all_values = all_values[np.isfinite(all_values)]
         vmin, vmax = calculate_data_limits(all_values)
@@ -211,18 +210,18 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         a = alpha if alpha is not None else style.alpha
 
         # Units and label
-        units = get_variable_units(paired_data, obs_var)
-        var_label = get_variable_label(paired_data, obs_var)
-        cbar_label = format_label_with_units(var_label or obs_var, units)
+        units = get_variable_units(paired_data, geometry_var)
+        var_label = get_variable_label(paired_data, geometry_var)
+        cbar_label = format_label_with_units(var_label or geometry_var, units)
 
-        # Plot observation
-        if show_var in ("obs", "both"):
-            target_ax = ax_obs if show_var == "both" else ax
+        # Plot dataset
+        if show_var in ("geometry", "both"):
+            target_ax = ax_geometry if show_var == "both" else ax
             self.add_map_features(target_ax)  # type: ignore[arg-type]
 
             mappable = self._plot_data(
                 target_ax,  # type: ignore[arg-type]
-                obs_data.values,
+                geometry_data.values,
                 lats,
                 lons,
                 effective_plot_type,
@@ -235,16 +234,16 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
 
             if show_var == "both":
                 self.add_colorbar(fig, mappable, target_ax, label=cbar_label)  # type: ignore[arg-type]
-                target_ax.set_title("Observations", fontsize=self.config.text.title_fontsize)  # type: ignore[union-attr]
+                target_ax.set_title("Datasets", fontsize=self.config.text.title_fontsize)  # type: ignore[union-attr]
 
-        # Plot model
-        if show_var in ("model", "both"):
-            target_ax = ax_model if show_var == "both" else ax
+        # Plot dataset
+        if show_var in ("dataset", "both"):
+            target_ax = ax_dataset if show_var == "both" else ax
             self.add_map_features(target_ax)  # type: ignore[arg-type]
 
             mappable = self._plot_data(
                 target_ax,  # type: ignore[arg-type]
-                model_data.values,
+                dataset_data.values,
                 lats,
                 lons,
                 effective_plot_type,
@@ -257,7 +256,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
 
             if show_var == "both":
                 self.add_colorbar(fig, mappable, target_ax, label=cbar_label)  # type: ignore[arg-type]
-                target_ax.set_title("Model", fontsize=self.config.text.title_fontsize)  # type: ignore[union-attr]
+                target_ax.set_title("Dataset", fontsize=self.config.text.title_fontsize)  # type: ignore[union-attr]
 
         # Add colorbar and title for single panel
         if show_var != "both":
@@ -266,9 +265,9 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
                 title = self.config.title
             else:
                 # Use base variable name without prefix for cleaner title
-                base_label = get_variable_label(paired_data, obs_var, include_prefix=False)
-                title = f"{base_label} ({'Observations' if show_var == 'obs' else 'Model'})"
-            ax.set_title(format_plot_title(title), fontsize=self.config.text.title_fontsize)  # type: ignore[union-attr]
+                base_label = get_variable_label(paired_data, geometry_var, include_prefix=False)
+                title = f"{base_label} ({'Datasets' if show_var == 'geometry' else 'Dataset'})"
+            self.set_title(ax, title)  # type: ignore[arg-type]
 
         plt.tight_layout()
         return fig
@@ -276,10 +275,10 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         ax: matplotlib.axes.Axes | None = None,
-        show_var: Literal["obs", "model", "both"] = "obs",
+        show_var: Literal["geometry", "dataset", "both"] = "geometry",
         lat_var: str = "latitude",
         lon_var: str = "longitude",
         time_average: bool = True,
@@ -294,15 +293,15 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+            Paired dataset with dataset and dataset variables.
+        geometry_var
+            Name of dataset variable.
+        dataset_var
+            Name of dataset variable.
         ax
             Optional GeoAxes to plot on.
         show_var
-            Which variable to show ('obs', 'model', or 'both').
+            Which variable to show ('geometry', 'dataset', or 'both').
         lat_var
             Name of latitude coordinate/variable.
         lon_var
@@ -318,7 +317,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
             chooses ``"pcolormesh"`` for gridded data (1-D lat/lon axes
             with a 2-D+ field, or 2-D curvilinear coordinates) and
             ``"scatter"`` for point/site data (lat/lon share a single
-            observation dimension).  Pass ``"scatter"`` or
+            dataset dimension).  Pass ``"scatter"`` or
             ``"pcolormesh"`` to override the automatic selection.
         alpha
             Override alpha.
@@ -331,7 +330,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, obs_var, model_var),
+            build_series(paired_data, geometry_var, dataset_var),
             ax=ax,
             show_var=show_var,
             lat_var=lat_var,
@@ -390,7 +389,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
             # Regular grid: lat/lon are independent axes — build a meshgrid so
             # each grid cell gets the correct coordinate.  Only do this for
             # pcolormesh; for scatter (point/site data) lat/lon are already
-            # per-observation and must be broadcast, not meshgridded.
+            # per-dataset and must be broadcast, not meshgridded.
             lon_grid, lat_grid = np.meshgrid(lons, lats, indexing="ij")
             if lon_grid.shape != data.shape:
                 lon_grid, lat_grid = np.meshgrid(lons, lats)
@@ -451,8 +450,8 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
 
 def plot_spatial_distribution(
     paired_data: xr.Dataset,
-    obs_var: str,
-    model_var: str,
+    geometry_var: str,
+    dataset_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     map_config: MapConfig | dict[str, Any] | None = None,
     title: str | None = None,
@@ -463,11 +462,11 @@ def plot_spatial_distribution(
     Parameters
     ----------
     paired_data
-        Paired dataset with model and observation variables.
-    obs_var
-        Name of observation variable.
-    model_var
-        Name of model variable.
+        Paired dataset with dataset and dataset variables.
+    geometry_var
+        Name of dataset variable.
+    dataset_var
+        Name of dataset variable.
     config
         Plot configuration.
     map_config
@@ -500,4 +499,4 @@ def plot_spatial_distribution(
         )
 
     plotter = SpatialDistributionPlotter(config=config, map_config=map_config)
-    return plotter.plot(paired_data, obs_var, model_var, **kwargs)
+    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)

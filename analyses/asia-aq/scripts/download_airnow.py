@@ -47,7 +47,7 @@ END_DATE = "2024-02-29"  # 2024 is a leap year
 
 def download_airnow():
     """Download AirNow data using monetio."""
-    from monetio.obs import airnow
+    from monetio.geometry import airnow
 
     print(f"Downloading AirNow data for {START_DATE} to {END_DATE}...")
     print(f"Domain: {BBOX['lat_min']}-{BBOX['lat_max']}N, {BBOX['lon_min']}-{BBOX['lon_max']}E")

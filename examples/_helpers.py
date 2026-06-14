@@ -12,13 +12,13 @@ import numpy as np
 import xarray as xr
 
 from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
-from davinci_monet.tests.synthetic.models import create_model_dataset
-from davinci_monet.tests.synthetic.observations import (
-    create_gridded_observations,
-    create_point_observations,
-    create_profile_observations,
-    create_swath_observations,
-    create_track_observations,
+from davinci_monet.tests.synthetic.datasets import create_dataset_dataset
+from davinci_monet.tests.synthetic.datasets import (
+    create_gridded_geometries,
+    create_point_geometries,
+    create_profile_geometries,
+    create_swath_geometries,
+    create_track_geometries,
 )
 
 if TYPE_CHECKING:
@@ -60,12 +60,12 @@ def create_paired_surface_data(
     noise: float = 3.0,
     seed: int = 42,
 ) -> xr.Dataset:
-    """Create paired model-observation surface data.
+    """Create paired dataset-dataset surface data.
 
     Parameters
     ----------
     n_sites
-        Number of observation sites.
+        Number of dataset sites.
     variables
         Variables to include. Defaults to ["O3", "PM25", "NO2"].
     bias_range
@@ -78,7 +78,7 @@ def create_paired_surface_data(
     Returns
     -------
     xr.Dataset
-        Paired dataset with model_* and obs_* variables.
+        Paired dataset with dataset_* and geometry_* variables.
     """
     if variables is None:
         variables = ["O3", "PM25", "NO2"]
@@ -86,8 +86,8 @@ def create_paired_surface_data(
     domain = Domain(lat_min=25, lat_max=50, lon_min=-125, lon_max=-65)
     time_config = TimeConfig(start="2024-07-01", end="2024-07-15", freq="1h")
 
-    # Create observations
-    obs = create_point_observations(
+    # Create datasets
+    geometry = create_point_geometries(
         n_sites=n_sites,
         variables=variables,
         domain=domain,
@@ -99,28 +99,28 @@ def create_paired_surface_data(
 
     # Create spatially-varying bias based on longitude
     # Western sites: negative bias, Eastern sites: positive bias
-    lons = obs["longitude"].values
+    lons = geometry["longitude"].values
     lon_normalized = (lons - lons.min()) / (lons.max() - lons.min())  # 0 to 1
     site_bias = bias_range * (2 * lon_normalized - 1)  # -bias_range to +bias_range
 
     data_vars = {}
     for var in variables:
-        obs_data = obs[var].values  # shape: (time, site)
+        geometry_data = geometry[var].values  # shape: (time, site)
         # Apply site-specific bias (broadcast across time)
-        bias_2d = np.broadcast_to(site_bias, obs_data.shape)
-        model_data = obs_data + bias_2d + rng.normal(0, noise, obs_data.shape)
-        model_data = np.clip(model_data, 0, None)
+        bias_2d = np.broadcast_to(site_bias, geometry_data.shape)
+        dataset_data = geometry_data + bias_2d + rng.normal(0, noise, geometry_data.shape)
+        dataset_data = np.clip(dataset_data, 0, None)
 
-        data_vars[f"obs_{var.lower()}"] = (["time", "site"], obs_data.astype(np.float32))
-        data_vars[f"model_{var.lower()}"] = (["time", "site"], model_data.astype(np.float32))
+        data_vars[f"geometry_{var.lower()}"] = (["time", "site"], geometry_data.astype(np.float32))
+        data_vars[f"dataset_{var.lower()}"] = (["time", "site"], dataset_data.astype(np.float32))
 
     paired = xr.Dataset(
         data_vars,
         coords={
-            "time": obs["time"],
-            "site": obs["site_id"].values,
-            "latitude": ("site", obs["latitude"].values),
-            "longitude": ("site", obs["longitude"].values),
+            "time": geometry["time"],
+            "site": geometry["site_id"].values,
+            "latitude": ("site", geometry["latitude"].values),
+            "longitude": ("site", geometry["longitude"].values),
         },
         attrs={"title": "Paired Surface Data", "geometry": "point"},
     )
@@ -135,7 +135,7 @@ def create_paired_track_data(
     bias_range: float = 10.0,
     seed: int = 42,
 ) -> xr.Dataset:
-    """Create paired model-observation aircraft track data.
+    """Create paired dataset-dataset aircraft track data.
 
     Parameters
     ----------
@@ -170,8 +170,8 @@ def create_paired_track_data(
         "flight": [],
     }
     for var in variables:
-        all_data[f"obs_{var.lower()}"] = []
-        all_data[f"model_{var.lower()}"] = []
+        all_data[f"geometry_{var.lower()}"] = []
+        all_data[f"dataset_{var.lower()}"] = []
 
     base_date = np.datetime64("2024-07-01")
 
@@ -211,22 +211,22 @@ def create_paired_track_data(
         for var in variables:
             # O3 increases with altitude
             base_val = 30 + 0.005 * alt_profile + 5 * rng.normal(size=n_points)
-            obs_val = np.clip(base_val, 10, 120)
+            geometry_val = np.clip(base_val, 10, 120)
             # Altitude-dependent bias: negative at low altitude, positive at high
             # Crossover at ~4000m
             alt_bias = bias_range * (alt_profile - 4000) / 4000  # -bias_range to +bias_range
-            model_val = obs_val + alt_bias + 3 * rng.normal(size=n_points)
-            model_val = np.clip(model_val, 10, 130)
+            dataset_val = geometry_val + alt_bias + 3 * rng.normal(size=n_points)
+            dataset_val = np.clip(dataset_val, 10, 130)
 
-            all_data[f"obs_{var.lower()}"].extend(obs_val)
-            all_data[f"model_{var.lower()}"].extend(model_val)
+            all_data[f"geometry_{var.lower()}"].extend(geometry_val)
+            all_data[f"dataset_{var.lower()}"].extend(dataset_val)
 
     # Build dataset
     n_total = len(all_data["time"])
     data_vars = {}
     for var in variables:
-        data_vars[f"obs_{var.lower()}"] = (["time"], np.array(all_data[f"obs_{var.lower()}"], dtype=np.float32))
-        data_vars[f"model_{var.lower()}"] = (["time"], np.array(all_data[f"model_{var.lower()}"], dtype=np.float32))
+        data_vars[f"geometry_{var.lower()}"] = (["time"], np.array(all_data[f"geometry_{var.lower()}"], dtype=np.float32))
+        data_vars[f"dataset_{var.lower()}"] = (["time"], np.array(all_data[f"dataset_{var.lower()}"], dtype=np.float32))
 
     paired = xr.Dataset(
         data_vars,
@@ -250,7 +250,7 @@ def create_paired_profile_data(
     bias_range: float = 10.0,
     seed: int = 42,
 ) -> xr.Dataset:
-    """Create paired model-observation profile data.
+    """Create paired dataset-dataset profile data.
 
     Parameters
     ----------
@@ -277,7 +277,7 @@ def create_paired_profile_data(
     domain = Domain(lat_min=25, lat_max=50, lon_min=-125, lon_max=-65)
     time_config = TimeConfig(start="2024-07-01", end="2024-07-15", freq="1D")
 
-    obs = create_profile_observations(
+    geometry = create_profile_geometries(
         n_profiles=n_profiles,
         n_levels=n_levels,
         variables=variables,
@@ -289,28 +289,28 @@ def create_paired_profile_data(
     rng = np.random.default_rng(seed + 1)
 
     # Create level-dependent bias: negative at surface, positive aloft
-    levels = obs["level"].values
+    levels = geometry["level"].values
     level_normalized = (levels - levels.min()) / (levels.max() - levels.min())
     level_bias = bias_range * (2 * level_normalized - 1)  # -bias_range to +bias_range
 
     data_vars = {}
     for var in variables:
-        obs_data = obs[var].values  # shape: (time, level)
+        geometry_data = geometry[var].values  # shape: (time, level)
         # Apply level-specific bias (broadcast across time)
-        bias_2d = np.broadcast_to(level_bias, obs_data.shape)
-        model_data = obs_data + bias_2d + rng.normal(0, 2, obs_data.shape)
-        model_data = np.clip(model_data, 0, None)
+        bias_2d = np.broadcast_to(level_bias, geometry_data.shape)
+        dataset_data = geometry_data + bias_2d + rng.normal(0, 2, geometry_data.shape)
+        dataset_data = np.clip(dataset_data, 0, None)
 
-        data_vars[f"obs_{var.lower()}"] = (["time", "level"], obs_data.astype(np.float32))
-        data_vars[f"model_{var.lower()}"] = (["time", "level"], model_data.astype(np.float32))
+        data_vars[f"geometry_{var.lower()}"] = (["time", "level"], geometry_data.astype(np.float32))
+        data_vars[f"dataset_{var.lower()}"] = (["time", "level"], dataset_data.astype(np.float32))
 
     paired = xr.Dataset(
         data_vars,
         coords={
-            "time": obs["time"],
-            "level": obs["level"],
-            "latitude": obs["latitude"],
-            "longitude": obs["longitude"],
+            "time": geometry["time"],
+            "level": geometry["level"],
+            "latitude": geometry["latitude"],
+            "longitude": geometry["longitude"],
         },
         attrs={"title": "Paired Profile Data", "geometry": "profile"},
     )
@@ -325,7 +325,7 @@ def create_paired_swath_data(
     bias_range: float = 0.4,
     seed: int = 42,
 ) -> xr.Dataset:
-    """Create paired model-observation satellite swath data.
+    """Create paired dataset-dataset satellite swath data.
 
     Parameters
     ----------
@@ -352,7 +352,7 @@ def create_paired_swath_data(
     domain = Domain(lat_min=25, lat_max=50, lon_min=-100, lon_max=-70)
     time_config = TimeConfig(start="2024-07-01", end="2024-07-02", freq="1D")
 
-    obs = create_swath_observations(
+    geometry = create_swath_geometries(
         n_scans=n_scans,
         n_pixels=n_pixels,
         variables=variables,
@@ -364,31 +364,31 @@ def create_paired_swath_data(
     rng = np.random.default_rng(seed + 1)
 
     # Create spatially-varying bias based on longitude
-    lons = obs["longitude"].values  # shape: (scanline, pixel)
+    lons = geometry["longitude"].values  # shape: (scanline, pixel)
     lon_normalized = (lons - lons.min()) / (lons.max() - lons.min())
     spatial_bias = bias_range * (2 * lon_normalized - 1)  # -bias_range to +bias_range
 
     data_vars = {}
     for var in variables:
-        obs_data = obs[var].values
+        geometry_data = geometry[var].values
         # Apply spatially-varying multiplicative bias
-        model_data = obs_data * (1.0 + spatial_bias) + rng.normal(0, 0.3, obs_data.shape)
-        model_data = np.clip(model_data, 0, None)
+        dataset_data = geometry_data * (1.0 + spatial_bias) + rng.normal(0, 0.3, geometry_data.shape)
+        dataset_data = np.clip(dataset_data, 0, None)
 
-        data_vars[f"obs_{var.lower()}"] = (["scanline", "pixel"], obs_data.astype(np.float32))
-        data_vars[f"model_{var.lower()}"] = (["scanline", "pixel"], model_data.astype(np.float32))
+        data_vars[f"geometry_{var.lower()}"] = (["scanline", "pixel"], geometry_data.astype(np.float32))
+        data_vars[f"dataset_{var.lower()}"] = (["scanline", "pixel"], dataset_data.astype(np.float32))
 
     # Copy qa_flag
-    data_vars["qa_flag"] = (["scanline", "pixel"], obs["qa_flag"].values)
+    data_vars["qa_flag"] = (["scanline", "pixel"], geometry["qa_flag"].values)
 
     paired = xr.Dataset(
         data_vars,
         coords={
-            "time": obs["time"],
-            "scanline": obs["scanline"],
-            "pixel": obs["pixel"],
-            "latitude": obs["latitude"],
-            "longitude": obs["longitude"],
+            "time": geometry["time"],
+            "scanline": geometry["scanline"],
+            "pixel": geometry["pixel"],
+            "latitude": geometry["latitude"],
+            "longitude": geometry["longitude"],
         },
         attrs={"title": "Paired Satellite Swath Data", "geometry": "swath"},
     )
@@ -401,7 +401,7 @@ def create_paired_gridded_data(
     bias_range: float = 0.3,
     seed: int = 42,
 ) -> xr.Dataset:
-    """Create paired model-observation gridded (L3) data.
+    """Create paired dataset-dataset gridded (L3) data.
 
     Parameters
     ----------
@@ -424,7 +424,7 @@ def create_paired_gridded_data(
     domain = Domain(lat_min=25, lat_max=50, lon_min=-125, lon_max=-65, n_lat=25, n_lon=60)
     time_config = TimeConfig(start="2024-07-01", end="2024-07-08", freq="1D")
 
-    obs = create_gridded_observations(
+    geometry = create_gridded_geometries(
         variables=variables,
         domain=domain,
         time_config=time_config,
@@ -434,8 +434,8 @@ def create_paired_gridded_data(
     rng = np.random.default_rng(seed + 1)
 
     # Create spatially-varying bias: diagonal pattern (SW negative, NE positive)
-    lats = obs["lat"].values
-    lons = obs["lon"].values
+    lats = geometry["lat"].values
+    lons = geometry["lon"].values
     lon_grid, lat_grid = np.meshgrid(lons, lats)
 
     # Normalize to 0-1
@@ -447,21 +447,21 @@ def create_paired_gridded_data(
 
     data_vars = {}
     for var in variables:
-        obs_data = obs[var].values  # shape: (time, lat, lon)
+        geometry_data = geometry[var].values  # shape: (time, lat, lon)
         # Broadcast spatial bias across time dimension
-        spatial_bias_3d = np.broadcast_to(spatial_bias_2d, obs_data.shape)
-        model_data = obs_data * (1.0 + spatial_bias_3d) + rng.normal(0, 0.2, obs_data.shape)
-        model_data = np.clip(model_data, 0, None)
+        spatial_bias_3d = np.broadcast_to(spatial_bias_2d, geometry_data.shape)
+        dataset_data = geometry_data * (1.0 + spatial_bias_3d) + rng.normal(0, 0.2, geometry_data.shape)
+        dataset_data = np.clip(dataset_data, 0, None)
 
-        data_vars[f"obs_{var.lower()}"] = (["time", "lat", "lon"], obs_data.astype(np.float32))
-        data_vars[f"model_{var.lower()}"] = (["time", "lat", "lon"], model_data.astype(np.float32))
+        data_vars[f"geometry_{var.lower()}"] = (["time", "lat", "lon"], geometry_data.astype(np.float32))
+        data_vars[f"dataset_{var.lower()}"] = (["time", "lat", "lon"], dataset_data.astype(np.float32))
 
     paired = xr.Dataset(
         data_vars,
         coords={
-            "time": obs["time"],
-            "lat": obs["lat"],
-            "lon": obs["lon"],
+            "time": geometry["time"],
+            "lat": geometry["lat"],
+            "lon": geometry["lon"],
         },
         attrs={"title": "Paired Gridded Data (L3)", "geometry": "grid"},
     )

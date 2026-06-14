@@ -45,8 +45,7 @@ def validate_config_command(
     try:
         from davinci_monet.config import load_config
 
-        # Parse and validate. Legacy ``model:``/``obs:`` configs are rejected by
-        # the parser (which directs the user to ``davinci-monet migrate-config``).
+        # Parse and validate.
         config = load_config(p)
 
         # Report what was found
@@ -65,15 +64,14 @@ def validate_config_command(
         if config.sources:
             typer.echo(f"  Sources: {len(config.sources)} defined")
             for name, source_cfg in config.sources.items():
-                role = f", role={source_cfg.role}" if source_cfg.role else ""
-                typer.echo(f"    - {name}: {source_cfg.type}{role}")
+                typer.echo(f"    - {name}: {source_cfg.type}")
 
         # Unified pairs
         if config.pairs:
             typer.echo(f"  Pairs: {len(config.pairs)} defined")
             for name, pair_cfg in config.pairs.items():
-                reference = f", reference={pair_cfg.reference}" if pair_cfg.reference else ""
-                typer.echo(f"    - {name}: {', '.join(pair_cfg.sources)}{reference}")
+                geometry = f", geometry={pair_cfg.geometry}" if pair_cfg.geometry else ""
+                typer.echo(f"    - {name}: {', '.join(pair_cfg.sources)}{geometry}")
 
         # Plots
         if config.plots:
@@ -97,7 +95,9 @@ def validate_config_command(
             import json
 
             # Convert to dict and display
-            config_dict = config.model_dump(exclude_none=True)
+            from davinci_monet.core.schema_utils import dump_schema
+
+            config_dict = dump_schema(config, exclude_none=True)
             typer.echo(json.dumps(config_dict, indent=2, default=str))
 
     except ConfigurationError as e:

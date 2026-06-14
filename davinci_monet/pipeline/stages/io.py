@@ -46,11 +46,11 @@ class SaveResultsStage(BaseStage):
         if stats_result and stats_result.data and stats_kind == "descriptive":
             context.log_progress("step: Writing descriptive statistics CSV...")
             desc_rows = []
-            for source_label, var_stats in stats_result.data.items():
+            for dataset_label, var_stats in stats_result.data.items():
                 for var_name, var_metrics in var_stats.items():
                     if var_name.startswith("_"):
                         continue
-                    desc_rows.append({"Variable": var_name, "Source": source_label, **var_metrics})
+                    desc_rows.append({"Variable": var_name, "Source": dataset_label, **var_metrics})
             if desc_rows:
                 desc_df = pd.DataFrame(desc_rows).set_index("Variable")
                 desc_file = output_dir / "statistics_descriptive.csv"
@@ -74,12 +74,10 @@ class SaveResultsStage(BaseStage):
                         continue
                     row = {"Variable": var_name}
                     row["N"] = _get_metric(var_stats, "N", "n", default=0)
-                    mean_reference = _get_metric(var_stats, "MO", "obs_mean")
-                    mean_comparand = _get_metric(var_stats, "MP", "model_mean")
-                    row["Mean_Reference"] = mean_reference
-                    row["Mean_Comparand"] = mean_comparand
-                    row["Mean_Obs"] = mean_reference
-                    row["Mean_Model"] = mean_comparand
+                    mean_geometry = _get_metric(var_stats, "MG", "geometry_mean")
+                    mean_dataset = _get_metric(var_stats, "MD", "dataset_mean")
+                    row["Mean_Geometry"] = mean_geometry
+                    row["Mean_Dataset"] = mean_dataset
                     row["MB"] = _get_metric(var_stats, "MB", "mean_bias")
                     row["RMSE"] = _get_metric(var_stats, "RMSE", "rmse")
                     row["R"] = _get_metric(var_stats, "R", "correlation")
@@ -88,17 +86,17 @@ class SaveResultsStage(BaseStage):
                     # Prefer computed NMB/NME if present; otherwise derive as fallback
                     nmb = _get_metric(var_stats, "NMB", default=float("nan"))
                     nme = _get_metric(var_stats, "NME", default=float("nan"))
-                    obs_mean = row["Mean_Reference"]
+                    geometry_mean = row["Mean_Geometry"]
 
                     if isinstance(nmb, (int, float)) and not math.isnan(float(nmb)):
                         row["NMB_%"] = nmb
                     elif (
-                        isinstance(obs_mean, (int, float))
-                        and obs_mean not in (0, -0.0)
-                        and not math.isnan(float(obs_mean))
+                        isinstance(geometry_mean, (int, float))
+                        and geometry_mean not in (0, -0.0)
+                        and not math.isnan(float(geometry_mean))
                     ):
                         row["NMB_%"] = (
-                            (row["MB"] / obs_mean) * 100
+                            (row["MB"] / geometry_mean) * 100
                             if isinstance(row["MB"], (int, float))
                             else float("nan")
                         )
@@ -108,7 +106,7 @@ class SaveResultsStage(BaseStage):
                     if isinstance(nme, (int, float)) and not math.isnan(float(nme)):
                         row["NME_%"] = nme
                     else:
-                        # No correct fallback: NME requires per-point |mod-obs|,
+                        # No correct fallback: NME requires per-point |dataset-geometry|,
                         # which can't be derived from RMSE or other summary scalars.
                         row["NME_%"] = float("nan")
 
@@ -136,8 +134,8 @@ class SaveResultsStage(BaseStage):
                     "variable",
                     "flight",
                     "N",
-                    "MO",
-                    "MP",
+                    "MG",
+                    "MD",
                     "MB",
                     "RMSE",
                     "R",

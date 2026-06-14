@@ -23,6 +23,7 @@ from davinci_monet.config.parser import (
 )
 from davinci_monet.config.schema import MonetConfig
 from davinci_monet.core.exceptions import ConfigurationError
+from davinci_monet.core.schema_utils import validate_schema
 
 
 class TestLoadYaml:
@@ -33,10 +34,11 @@ class TestLoadYaml:
         yaml_str = """
 analysis:
   debug: true
-model: {}
+sources: {}
 """
         data = load_yaml(yaml_str)
         assert data["analysis"]["debug"] is True
+        assert data["sources"] == {}
 
     def test_load_from_file(self) -> None:
         """Test loading YAML from file."""
@@ -52,11 +54,11 @@ model: {}
     def test_load_from_path(self) -> None:
         """Test loading YAML from Path object."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            f.write("model:\n  cmaq: {}\n")
+            f.write("sources:\n  cmaq: {}\n")
             f.flush()
             try:
                 data = load_yaml(Path(f.name))
-                assert "cmaq" in data["model"]
+                assert "cmaq" in data["sources"]
             finally:
                 os.unlink(f.name)
 
@@ -145,32 +147,27 @@ analysis:
 sources:
   cmaq:
     type: cmaq
-    role: model
     files: /data/*.nc
   airnow:
     type: pt_sfc
-    role: obs
 """
         config = load_config(yaml_str)
         assert config.analysis.start_time == datetime(2024, 1, 1)
         assert "cmaq" in config.sources
         assert "airnow" in config.sources
 
-    def test_legacy_model_obs_config_rejected(self) -> None:
-        """Legacy model:/obs: config is a hard error pointing at migrate-config."""
+    def test_unknown_top_level_sections_rejected(self) -> None:
+        """Unknown top-level config sections are rejected."""
         yaml_str = """
 analysis:
   start_time: '2024-01-01'
   end_time: '2024-01-02'
-model:
+unsupported_group:
   cmaq:
     type: cmaq
     files: /data/*.nc
-obs:
-  airnow:
-    obs_type: pt_sfc
 """
-        with pytest.raises(ConfigurationError, match="migrate-config"):
+        with pytest.raises(ConfigurationError, match="Extra inputs"):
             load_config(yaml_str)
 
     def test_load_from_file(self) -> None:
@@ -192,15 +189,15 @@ class TestValidateConfig:
         """Test validating a valid config."""
         data: dict[str, Any] = {
             "analysis": {"start_time": "2024-01-01"},
-            "sources": {"test": {"type": "cmaq", "role": "model"}},
+            "sources": {"test": {"type": "cmaq"}},
         }
         config = validate_config(data)
         assert isinstance(config, MonetConfig)
 
-    def test_validate_legacy_config_rejected(self) -> None:
-        """validate_config rejects legacy model:/obs: dicts."""
-        with pytest.raises(ConfigurationError, match="migrate-config"):
-            validate_config({"model": {"test": {"mod_type": "cmaq"}}})
+    def test_validate_unknown_top_level_section_rejected(self) -> None:
+        """validate_config rejects unknown top-level sections."""
+        with pytest.raises(ConfigurationError, match="Extra inputs"):
+            validate_config({"unsupported_group": {"test": {"type": "cmaq"}}})
 
     def test_validate_empty_config(self) -> None:
         """Test validating empty config."""
@@ -213,11 +210,12 @@ class TestDumpConfig:
 
     def test_dump_and_reload(self) -> None:
         """Test dumping and reloading config."""
-        config = MonetConfig.model_validate(
+        config = validate_schema(
+            MonetConfig,
             {
                 "analysis": {"debug": True},
-                "sources": {"cmaq": {"type": "cmaq", "role": "model"}},
-            }
+                "sources": {"cmaq": {"type": "cmaq"}},
+            },
         )
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             try:
@@ -234,7 +232,7 @@ class TestConfigToYaml:
 
     def test_basic_conversion(self) -> None:
         """Test basic config to YAML conversion."""
-        config = MonetConfig.model_validate({"analysis": {"debug": True}})
+        config = validate_schema(MonetConfig, {"analysis": {"debug": True}})
         yaml_str = config_to_yaml(config)
         assert "debug: true" in yaml_str
 
@@ -244,22 +242,22 @@ class TestMergeConfigs:
 
     def test_merge_two_configs(self) -> None:
         """Test merging two configurations."""
-        base = MonetConfig.model_validate({"analysis": {"debug": False}})
+        base = validate_schema(MonetConfig, {"analysis": {"debug": False}})
         override: dict[str, Any] = {"analysis": {"debug": True}}
         merged = merge_configs(base, override)
         assert merged.analysis.debug is True
 
     def test_merge_adds_new_sections(self) -> None:
         """Test merging adds new sections."""
-        base = MonetConfig.model_validate({"analysis": {}})
-        override: dict[str, Any] = {"sources": {"cmaq": {"type": "cmaq", "role": "model"}}}
+        base = validate_schema(MonetConfig, {"analysis": {}})
+        override: dict[str, Any] = {"sources": {"cmaq": {"type": "cmaq"}}}
         merged = merge_configs(base, override)
         assert "cmaq" in merged.sources
 
     def test_merge_deep_dict(self) -> None:
         """Test deep merging of nested dicts."""
-        base = MonetConfig.model_validate(
-            {"sources": {"cmaq": {"type": "cmaq", "radius_of_influence": 10000}}}
+        base = validate_schema(
+            MonetConfig, {"sources": {"cmaq": {"type": "cmaq", "radius_of_influence": 10000}}}
         )
         override: dict[str, Any] = {"sources": {"cmaq": {"radius_of_influence": 15000}}}
         merged = merge_configs(base, override)
@@ -280,19 +278,15 @@ class TestConfigBuilder:
         config = ConfigBuilder().set_analysis(start_time="2024-01-01", debug=True).build()
         assert config.analysis.debug is True
 
-    def test_add_source_model(self) -> None:
-        """Test adding a model-role source."""
-        config = (
-            ConfigBuilder()
-            .add_source("cmaq", type="cmaq", role="model", files="/data/*.nc")
-            .build()
-        )
+    def test_add_source_dataset(self) -> None:
+        """Test adding a gridded source."""
+        config = ConfigBuilder().add_source("cmaq", type="cmaq", files="/data/*.nc").build()
         assert "cmaq" in config.sources
         assert config.sources["cmaq"].type == "cmaq"
 
-    def test_add_source_obs(self) -> None:
-        """Test adding an obs-role source."""
-        config = ConfigBuilder().add_source("airnow", type="pt_sfc", role="obs").build()
+    def test_add_source_geometry(self) -> None:
+        """Test adding a point source."""
+        config = ConfigBuilder().add_source("airnow", type="pt_sfc").build()
         assert "airnow" in config.sources
 
     def test_add_source_and_pair(self) -> None:
@@ -304,14 +298,14 @@ class TestConfigBuilder:
             .add_pair(
                 "cam_airnow_o3",
                 sources=["cam", "airnow"],
-                reference="airnow",
+                geometry="airnow",
                 variables={"cam": "O3", "airnow": "o3"},
             )
             .build()
         )
 
         assert set(config.sources) == {"cam", "airnow"}
-        assert config.pairs["cam_airnow_o3"].reference == "airnow"
+        assert config.pairs["cam_airnow_o3"].geometry == "airnow"
 
     def test_add_plot(self) -> None:
         """Test adding plot."""
@@ -330,8 +324,8 @@ class TestConfigBuilder:
         config = (
             ConfigBuilder()
             .set_analysis(start_time="2024-01-01", end_time="2024-01-02")
-            .add_source("cmaq", type="cmaq", role="model")
-            .add_source("airnow", type="pt_sfc", role="obs")
+            .add_source("cmaq", type="cmaq")
+            .add_source("airnow", type="pt_sfc")
             .add_plot("ts", "timeseries", data=["airnow_cmaq"])
             .build()
         )

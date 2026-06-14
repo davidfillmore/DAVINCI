@@ -17,9 +17,9 @@ import xarray as xr
 
 from davinci_monet.cli.app import app
 from davinci_monet.core.protocols import DataGeometry
+from davinci_monet.tests.synthetic.datasets import create_dataset_dataset
 from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
-from davinci_monet.tests.synthetic.models import create_model_dataset
-from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario, sample_obs_from
+from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario, sample_geometry_from
 
 # =============================================================================
 # Fixtures
@@ -42,7 +42,7 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     )
     time_cfg = TimeConfig(start="2024-01-15 00:00", end="2024-01-16 00:00", freq="3h")
 
-    model_ds = create_model_dataset(
+    dataset_ds = create_dataset_dataset(
         variables=["O3"],
         domain=domain,
         time_config=time_cfg,
@@ -54,20 +54,20 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         domain=domain,
         time_config=time_cfg,
         geometry=DataGeometry.POINT,
-        n_obs=5,
+        n_geometry=5,
         noise_level=0.0,
         seed=42,
     )
-    obs_ds = sample_obs_from(model_ds, "point", scenario=scenario)
+    geometry_ds = sample_geometry_from(dataset_ds, "point", scenario=scenario)
 
     # Add small bias so stats are non-trivial
     rng = np.random.default_rng(42)
-    model_ds["O3"] = model_ds["O3"] + 3.0 + rng.normal(0, 2.0, size=model_ds["O3"].shape)
+    dataset_ds["O3"] = dataset_ds["O3"] + 3.0 + rng.normal(0, 2.0, size=dataset_ds["O3"].shape)
 
-    model_path = tmp_path / "model.nc"
-    obs_path = tmp_path / "obs.nc"
-    model_ds.to_netcdf(model_path)
-    obs_ds.to_netcdf(obs_path)
+    dataset_path = tmp_path / "dataset.nc"
+    geometry_path = tmp_path / "geometry.nc"
+    dataset_ds.to_netcdf(dataset_path)
+    geometry_ds.to_netcdf(geometry_path)
 
     output_dir = tmp_path / "output"
     log_dir = tmp_path / "logs"
@@ -82,13 +82,9 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
 
         sources:
           synthetic:
-            role: model
             type: generic
-            files: "{model_path}"
+            files: "{dataset_path}"
             radius_of_influence: 50000
-            mapping:
-              surface:
-                O3: O3
             variables:
               O3:
                 units: ppb
@@ -96,19 +92,18 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
                 vmax_plot: 70
                 vdiff_plot: 10
           surface:
-            role: obs
             type: pt_sfc
-            filename: "{obs_path}"
+            filename: "{geometry_path}"
             variables:
               O3:
-                obs_min: 0
-                obs_max: 200
+                geometry_min: 0
+                geometry_max: 200
                 units: ppb
 
         pairs:
           synthetic_surface:
             sources: [synthetic, surface]
-            reference: surface
+            geometry: surface
             variables:
               synthetic: O3
               surface: O3

@@ -1,7 +1,7 @@
 """Curtain plot renderer for DAVINCI.
 
 This module provides curtain plot functionality for visualizing
-vertical cross-sections of aircraft or model data along a trajectory.
+vertical cross-sections of aircraft or dataset data along a trajectory.
 """
 
 from __future__ import annotations
@@ -19,7 +19,6 @@ from davinci_monet.plots.base import (
     build_series,
     calculate_symmetric_limits,
     format_label_with_units,
-    format_plot_title,
     get_variable_label,
     get_variable_units,
 )
@@ -48,8 +47,8 @@ class CurtainPlotter(BasePlotter):
     >>> plotter = CurtainPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     obs_var="obs_o3",
-    ...     model_var="model_o3",
+    ...     geometry_var="geometry_o3",
+    ...     dataset_var="dataset_o3",
     ...     alt_var="altitude",
     ... )
     """
@@ -68,7 +67,7 @@ class CurtainPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one reference (obs) and one comparand (model).
+            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
         ax
             Optional axes to plot on. If None, creates new figure.
         **kwargs
@@ -85,11 +84,11 @@ class CurtainPlotter(BasePlotter):
             raise NotImplementedError(
                 f"CurtainPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        ref = next((s for s in series if s.pair_role == "reference"), series[0])
-        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
-        paired_data = ref.dataset
-        obs_var = ref.var_name
-        model_var = comp.var_name
+        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = geometry_series.dataset
+        geometry_var = geometry_series.var_name
+        dataset_var = dataset_series.var_name
 
         alt_var: str = kwargs.pop("alt_var", "altitude")
         time_dim: str = kwargs.pop("time_dim", "time")
@@ -107,18 +106,18 @@ class CurtainPlotter(BasePlotter):
             fig = ax.get_figure()  # type: ignore[assignment]
 
         # Get data
-        obs_data = paired_data[obs_var]
-        model_data = paired_data[model_var]
+        geometry_data = paired_data[geometry_var]
+        dataset_data = paired_data[dataset_var]
 
         # Calculate bias if needed
         if show_var == "bias":
-            plot_data = model_data - obs_data
+            plot_data = dataset_data - geometry_data
             default_cmap = "RdBu_r"
-        elif show_var == "obs":
-            plot_data = obs_data
+        elif show_var == "geometry":
+            plot_data = geometry_data
             default_cmap = "viridis"
         else:
-            plot_data = model_data
+            plot_data = dataset_data
             default_cmap = "viridis"
 
         cmap = cmap or default_cmap
@@ -146,7 +145,7 @@ class CurtainPlotter(BasePlotter):
                 time_values,
                 alt_values,
                 data_values,
-                obs_data.values if show_scatter else None,
+                geometry_data.values if show_scatter else None,
                 cmap,
                 show_var,
                 scatter_size,
@@ -183,13 +182,13 @@ class CurtainPlotter(BasePlotter):
         self.apply_text_style(ax)
 
         # Labels
-        units = get_variable_units(paired_data, obs_var)
+        units = get_variable_units(paired_data, geometry_var)
 
         if show_var == "bias":
-            ylabel_text = "Bias (Model - Obs)"
+            ylabel_text = "Bias (Dataset - Geometry)"
         else:
             ylabel_text = get_variable_label(
-                paired_data, obs_var if show_var == "obs" else model_var
+                paired_data, geometry_var if show_var == "geometry" else dataset_var
             )
 
         alt_units = get_variable_units(paired_data, alt_var) or "m"
@@ -201,15 +200,10 @@ class CurtainPlotter(BasePlotter):
 
         # Title
         if self.config.title:
-            ax.set_title(
-                format_plot_title(self.config.title), fontsize=self.config.text.title_fontsize
-            )
+            self.set_title(ax, self.config.title)
         else:
-            var_label = get_variable_label(paired_data, obs_var)
-            ax.set_title(
-                format_plot_title(f"{var_label} Curtain ({show_var.title()})"),
-                fontsize=self.config.text.title_fontsize,
-            )
+            var_label = get_variable_label(paired_data, geometry_var)
+            self.set_title(ax, f"{var_label} Curtain ({show_var.title()})")
 
         # Invert y-axis if needed (e.g., for pressure)
         if invert_yaxis:
@@ -223,12 +217,12 @@ class CurtainPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         ax: matplotlib.axes.Axes | None = None,
         alt_var: str = "altitude",
         time_dim: str = "time",
-        show_var: Literal["obs", "model", "bias"] = "bias",
+        show_var: Literal["geometry", "dataset", "bias"] = "bias",
         cmap: str | None = None,
         n_levels: int = 20,
         show_scatter: bool = True,
@@ -241,11 +235,11 @@ class CurtainPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+            Paired dataset with dataset and dataset variables.
+        geometry_var
+            Name of dataset variable.
+        dataset_var
+            Name of dataset variable.
         ax
             Optional axes to plot on.
         alt_var
@@ -253,13 +247,13 @@ class CurtainPlotter(BasePlotter):
         time_dim
             Name of time dimension.
         show_var
-            Which variable to show ('obs', 'model', 'bias').
+            Which variable to show ('geometry', 'dataset', 'bias').
         cmap
             Colormap. Defaults to RdBu_r for bias, viridis otherwise.
         n_levels
             Number of contour levels.
         show_scatter
-            If True, overlay observation points as scatter.
+            If True, overlay dataset points as scatter.
         scatter_size
             Size of scatter points.
         invert_yaxis
@@ -273,7 +267,7 @@ class CurtainPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, obs_var, model_var),
+            build_series(paired_data, geometry_var, dataset_var),
             ax=ax,
             alt_var=alt_var,
             time_dim=time_dim,
@@ -292,7 +286,7 @@ class CurtainPlotter(BasePlotter):
         time_values: np.ndarray,
         alt_values: np.ndarray,
         data_values: np.ndarray,
-        obs_values: np.ndarray | None,
+        geometry_values: np.ndarray | None,
         cmap: str,
         show_var: str,
         scatter_size: float | None,
@@ -309,8 +303,8 @@ class CurtainPlotter(BasePlotter):
             Altitude values.
         data_values
             Data to color by.
-        obs_values
-            Optional observation values for scatter.
+        geometry_values
+            Optional dataset values for scatter.
         cmap
             Colormap.
         show_var
@@ -359,7 +353,7 @@ class CurtainPlotter(BasePlotter):
         units = None  # Would need to pass this in
         cbar = ax.get_figure().colorbar(scatter, ax=ax)  # type: ignore[union-attr]
         if show_var == "bias":
-            cbar.set_label("Bias (Model - Obs)")
+            cbar.set_label("Bias (Dataset - Geometry)")
         else:
             cbar.set_label(show_var.title())
 
@@ -445,15 +439,15 @@ class CurtainPlotter(BasePlotter):
         # Add colorbar
         cbar = ax.get_figure().colorbar(contour, ax=ax)  # type: ignore[union-attr]
         if show_var == "bias":
-            cbar.set_label("Bias (Model - Obs)")
+            cbar.set_label("Bias (Dataset - Geometry)")
         else:
             cbar.set_label(show_var.title())
 
 
 def plot_curtain(
     paired_data: xr.Dataset,
-    obs_var: str,
-    model_var: str,
+    geometry_var: str,
+    dataset_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
@@ -462,11 +456,11 @@ def plot_curtain(
     Parameters
     ----------
     paired_data
-        Paired dataset with model and observation variables.
-    obs_var
-        Name of observation variable.
-    model_var
-        Name of model variable.
+        Paired dataset with dataset and dataset variables.
+    geometry_var
+        Name of dataset variable.
+    dataset_var
+        Name of dataset variable.
     config
         Plot configuration.
     **kwargs
@@ -481,4 +475,4 @@ def plot_curtain(
         config = PlotConfig.from_dict(config)
 
     plotter = CurtainPlotter(config=config)
-    return plotter.plot(paired_data, obs_var, model_var, **kwargs)
+    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)

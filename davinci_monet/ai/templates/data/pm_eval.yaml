@@ -12,7 +12,7 @@ sections:
   - heading: Bias and episodes
     format: prose
     words: 90
-    instruction: Call out high-concentration episodes and whether the model captures peaks.
+    instruction: Call out high-concentration episodes and whether the dataset captures peaks.
   - heading: Caveats
     format: bullets
     words: 50

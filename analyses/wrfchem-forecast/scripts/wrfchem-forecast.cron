@@ -12,7 +12,7 @@
 # Output: /glade/campaign/acom/acom-da/fillmore/DAVINCI/WRF-Chem/YYYY/MM/DD/
 # Times are UTC.
 
-# Fetch yesterday's AirNow obs (~30 min walltime)
+# Fetch yesterday's AirNow geometry (~30 min walltime)
 20 08 * * * /glade/work/fillmore/DAVINCI-MONET/analyses/wrfchem-forecast/scripts/qsub_fetch_airnow.sh
 
 # Run the WRF-Chem vs AirNow + AERONET pipeline for yesterday (~2 h walltime)

@@ -7,10 +7,10 @@ analysis:
   output_dir: ./output
   start_time: "2024-03-01"
 
-model:
+sources:
   cesm:
-    mod_type: cesm_fv
+    type: cesm_fv
     files: /some/path/*.nc
   cesm:
-    mod_type: wrfchem
+    type: wrfchem
     files: /other/path/*.nc

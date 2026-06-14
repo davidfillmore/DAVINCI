@@ -11,6 +11,7 @@ from davinci_monet.ai.images import EncodedImage
 from davinci_monet.ai.openrouter import build_openrouter_messages, call_openrouter
 from davinci_monet.ai.summarizer import SummaryError, SummaryResult
 from davinci_monet.config.schema import SummaryConfig
+from davinci_monet.core.schema_utils import validate_schema
 
 
 def test_build_openrouter_messages_shape() -> None:
@@ -40,7 +41,7 @@ def _canned() -> dict:
 def test_call_openrouter_maps_response(monkeypatch, tmp_path: Path) -> None:
     keyfile = tmp_path / "k.api"
     keyfile.write_text("sk-or-test")
-    cfg = SummaryConfig.model_validate({"provider": "openrouter", "api_key_file": str(keyfile)})
+    cfg = validate_schema(SummaryConfig, {"provider": "openrouter", "api_key_file": str(keyfile)})
 
     captured = {}
 
@@ -68,7 +69,7 @@ def test_call_openrouter_maps_response(monkeypatch, tmp_path: Path) -> None:
 def test_call_openrouter_malformed_response_raises(monkeypatch, tmp_path: Path) -> None:
     keyfile = tmp_path / "k.api"
     keyfile.write_text("sk-or-test")
-    cfg = SummaryConfig.model_validate({"provider": "openrouter", "api_key_file": str(keyfile)})
+    cfg = validate_schema(SummaryConfig, {"provider": "openrouter", "api_key_file": str(keyfile)})
     monkeypatch.setattr(orouter, "_send_openrouter_request", lambda c, k, b: {"oops": 1})
 
     with pytest.raises(SummaryError, match="Unexpected OpenRouter response shape"):
@@ -89,7 +90,7 @@ def test_fetch_credits_remaining_parses_account_credits(monkeypatch, tmp_path: P
         return _Resp()
 
     monkeypatch.setattr("httpx.get", _fake_get)
-    cfg = SummaryConfig.model_validate({"provider": "openrouter"})
+    cfg = validate_schema(SummaryConfig, {"provider": "openrouter"})
     assert orouter._fetch_credits_remaining(cfg, "sk-or-test") == 74.75
     assert captured["url"] == "https://openrouter.ai/api/v1/credits"
 
@@ -102,7 +103,7 @@ def test_fetch_credits_remaining_none_on_non_200(monkeypatch) -> None:
             return {}
 
     monkeypatch.setattr("httpx.get", lambda *a, **k: _Resp())
-    cfg = SummaryConfig.model_validate({"provider": "openrouter"})
+    cfg = validate_schema(SummaryConfig, {"provider": "openrouter"})
     assert orouter._fetch_credits_remaining(cfg, "k") is None
 
 
@@ -114,7 +115,7 @@ def test_fetch_credits_remaining_none_on_missing_field(monkeypatch) -> None:
             return {"data": {"total_credits": 100.0}}
 
     monkeypatch.setattr("httpx.get", lambda *a, **k: _Resp())
-    cfg = SummaryConfig.model_validate({"provider": "openrouter"})
+    cfg = validate_schema(SummaryConfig, {"provider": "openrouter"})
     assert orouter._fetch_credits_remaining(cfg, "k") is None
 
 
@@ -123,14 +124,14 @@ def test_fetch_credits_remaining_none_on_error(monkeypatch) -> None:
         raise RuntimeError("network down")
 
     monkeypatch.setattr("httpx.get", _boom)
-    cfg = SummaryConfig.model_validate({"provider": "openrouter"})
+    cfg = validate_schema(SummaryConfig, {"provider": "openrouter"})
     assert orouter._fetch_credits_remaining(cfg, "k") is None
 
 
 def test_call_openrouter_sets_credits(monkeypatch, tmp_path: Path) -> None:
     keyfile = tmp_path / "k.api"
     keyfile.write_text("sk-or-test")
-    cfg = SummaryConfig.model_validate({"provider": "openrouter", "api_key_file": str(keyfile)})
+    cfg = validate_schema(SummaryConfig, {"provider": "openrouter", "api_key_file": str(keyfile)})
     monkeypatch.setattr(orouter, "_send_openrouter_request", lambda c, k, b: _canned())
     monkeypatch.setattr(orouter, "_fetch_credits_remaining", lambda c, k: 42.0)
 

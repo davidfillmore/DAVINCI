@@ -1,0 +1,81 @@
+# DC3 DC-8 Dataset-Only Analysis
+#
+# Loads DC-8 aircraft merge data (ICARTT) and produces flight track maps,
+# vertical profiles, time series, and histograms for key trace gas species.
+# No dataset section — triggers geometry-only pipeline mode.
+#
+# Required environment variables:
+#   DC3_DATA     — Root directory containing DC3 aircraft merge files
+#   DC3_ANALYSIS — Analysis directory (parent of output/ and logs/)
+#
+# Usage:
+#   export DC3_DATA=~/Data/DC3
+#   export DC3_ANALYSIS=$(pwd)
+#   davinci-monet run analyses/dc3/configs/dc3-geometry-dc8.example.yaml
+
+analysis:
+  start_time: "2012-05-18"
+  end_time: "2012-06-22"
+  output_dir: ${DC3_ANALYSIS}/output/dc8
+  log_dir: ${DC3_ANALYSIS}/logs
+  style:
+    theme: ncar
+
+sources:
+  dc8:
+    type: icartt
+    filename: ${DC3_DATA}/aircraft/merge/DC3-MRG10-DC8_MERGE_*_R10.ict
+    variables:
+      "NO":  { source_name: NO_ESRL }
+      "NO2": { source_name: NO2_TDLIF }
+      "O3":  { source_name: O3_ESRL }
+      "CO":  { source_name: CO_DACOM }
+      "NOy": { source_name: NOy_ESRL }
+
+plots:
+  dc8_track_o3:
+    type: flight_track
+    geometry: dc8
+    variable: "O3"
+    title: "DC-8 Flight Tracks: O3 (ppbv)"
+
+  dc8_track_no:
+    type: flight_track
+    geometry: dc8
+    variable: "NO"
+    title: "DC-8 Flight Tracks: NO (ppbv)"
+
+  dc8_profile_o3:
+    type: vertical_profile
+    geometry: dc8
+    variable: "O3"
+    title: "DC-8 O3 Vertical Profile"
+
+  dc8_profile_no:
+    type: vertical_profile
+    geometry: dc8
+    variable: "NO"
+    mode: binned
+    title: "DC-8 NO Vertical Profile (binned)"
+
+  dc8_ts_o3:
+    type: timeseries
+    geometry: dc8
+    variable: "O3"
+    show_altitude: true
+    title: "DC-8 O3 Time Series"
+
+  dc8_hist_o3:
+    type: histogram
+    geometry: dc8
+    variable: "O3"
+    title: "DC-8 O3 Distribution"
+
+  dc8_hist_co:
+    type: histogram
+    geometry: dc8
+    variable: "CO"
+    title: "DC-8 CO Distribution"
+
+stats:
+  metrics: [N, mean, median, std, min, max, p10, p25, p75, p90]

@@ -1,6 +1,6 @@
 name: ozone_eval
 title: Surface ozone evaluation
-description: Model-vs-observation evaluation of ozone (O3).
+description: Dataset-vs-dataset evaluation of ozone (O3).
 matches: ["o3", "ozone"]
 sections:
   - heading: Bottom line

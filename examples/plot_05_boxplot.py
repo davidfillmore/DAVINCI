@@ -2,9 +2,9 @@
 """Box Plot Example.
 
 Demonstrates the boxplot plotter for comparing distributions between
-model and observations.
+dataset and datasets.
 
-Data: Surface point observations (O3)
+Data: Surface point datasets (O3)
 """
 
 import matplotlib.pyplot as plt
@@ -24,8 +24,8 @@ def main():
     # Create plot using davinci_monet.plots
     fig = plot_boxplot(
         paired,
-        obs_var="obs_o3",
-        model_var="model_o3",
+        geometry_var="geometry_o3",
+        dataset_var="dataset_o3",
         title="Box Plot: O3 Distribution",
     )
 

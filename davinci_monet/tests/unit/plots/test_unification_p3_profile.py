@@ -1,4 +1,4 @@
-"""P3 — obs_vertical_profile promoted to canonical ``vertical_profile``."""
+"""Vertical profile renderer tests."""
 
 from __future__ import annotations
 
@@ -23,9 +23,9 @@ def _profile_series(label: str = "dc8", index: int = 0) -> PlotSeries:
             "altitude": ("time", rng.uniform(0, 12000, n), {"units": "m"}),
         },
     )
-    ds["O3"].attrs["role"] = "obs"
-    ds["O3"].attrs["source_label"] = label
-    return PlotSeries(ds, "O3", "O3", "obs", "reference", label, index)
+    ds["O3"].attrs["pair_axis"] = "geometry"
+    ds["O3"].attrs["dataset_label"] = label
+    return PlotSeries(ds, "O3", "O3", "geometry", label, index)
 
 
 class TestVerticalProfileRender:
@@ -47,11 +47,10 @@ class TestVerticalProfileRender:
         assert {"dc8", "gv"}.issubset(set(labels))
         plt.close(fig)
 
-    def test_alias(self) -> None:
-        import warnings
+    def test_geometry_named_alias_is_rejected(self) -> None:
+        import pytest
 
         from davinci_monet.plots.registry import get_plotter_class
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            assert get_plotter_class("obs_vertical_profile") is VerticalProfilePlotter
+        with pytest.raises(Exception):
+            get_plotter_class("geometry_vertical_profile")

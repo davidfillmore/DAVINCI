@@ -1,11 +1,11 @@
 """Shared 3D track-map drawing mechanics.
 
-This private module holds the 3D-plotting body common to the obs-only flight
-track renderer (:mod:`davinci_monet.plots.renderers.flight_track`) and the
-paired 3D track renderer (:mod:`davinci_monet.plots.renderers.track_map_3d`).
+This private module holds the 3D-plotting body common to the geometry-only flight
+track renderer (module `davinci_monet.plots.renderers.flight_track`) and the
+paired 3D track renderer (module `davinci_monet.plots.renderers.track_map_3d`).
 
 Both renderers differ only in how they derive the colored ``values`` array
-(single observation variable vs. obs/model/bias) and in the colorbar/title
+(single dataset variable vs. geometry/dataset/bias) and in the colorbar/title
 text they compute.  The actual 3D scatter, surface-plane map features
 (coastlines, borders, or a rendered cartopy texture), axis limits, view angle,
 tick formatting, axis labels, and colorbar are identical and live here so the
@@ -410,7 +410,7 @@ def draw_track_3d(
         Colors for the surface map image.
     use_maxnlocator
         If True, limit x/y tick counts via ``MaxNLocator(nbins=5)`` before
-        formatting.  (Used by the obs-only flight-track renderer.)
+        formatting.  (Used by the geometry-only flight-track renderer.)
     city_labels
         Optional mapping of city name -> ``[lat, lon]`` to mark on the surface
         plane.  (Used by the paired track renderer.)
@@ -560,7 +560,7 @@ def draw_track_3d(
     # Set view angle
     ax3d.view_init(elev=elev, azim=azim)  # type: ignore[attr-defined]
 
-    # Limit tick count to prevent overlap (obs-only flight track), then format labels
+    # Limit tick count to prevent overlap (geometry-only flight track), then format labels
     if use_maxnlocator:
         ax3d.xaxis.set_major_locator(plt.MaxNLocator(nbins=5))
         ax3d.yaxis.set_major_locator(plt.MaxNLocator(nbins=5))

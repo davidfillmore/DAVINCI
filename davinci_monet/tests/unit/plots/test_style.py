@@ -28,12 +28,12 @@ class TestNCARColors:
         assert NCAR_SECONDARY.startswith("#")
         assert NCAR_ACCENT.startswith("#")
 
-    def test_obs_model_colors_exist(self):
-        """Observation and model colors should be defined."""
-        from davinci_monet.plots.style import MODEL_COLOR, OBS_COLOR
+    def test_geometry_dataset_colors_exist(self):
+        """Dataset and dataset colors should be defined."""
+        from davinci_monet.plots.style import DATASET_A_COLOR, DATASET_B_COLOR
 
-        assert OBS_COLOR.startswith("#")
-        assert MODEL_COLOR.startswith("#")
+        assert DATASET_A_COLOR.startswith("#")
+        assert DATASET_B_COLOR.startswith("#")
 
     def test_ncar_palette_is_list(self):
         """NCAR palette should be a list of colors."""
@@ -156,19 +156,19 @@ class TestResetStyle:
 class TestColorUtilities:
     """Tests for color utility functions."""
 
-    def test_get_color_for_variable_obs(self):
-        """get_color_for_variable should return obs color for obs_ prefix."""
-        from davinci_monet.plots.style import OBS_COLOR, get_color_for_variable
+    def test_get_color_for_variable_geometry(self):
+        """get_color_for_variable should return geometry color for geometry_ prefix."""
+        from davinci_monet.plots.style import DATASET_A_COLOR, get_color_for_variable
 
-        assert get_color_for_variable("obs_pm25") == OBS_COLOR
-        assert get_color_for_variable("OBS_O3") == OBS_COLOR
+        assert get_color_for_variable("geometry_pm25") == DATASET_A_COLOR
+        assert get_color_for_variable("GEOMETRY_O3") == DATASET_A_COLOR
 
-    def test_get_color_for_variable_model(self):
-        """get_color_for_variable should return model color for model_ prefix."""
-        from davinci_monet.plots.style import MODEL_COLOR, get_color_for_variable
+    def test_get_color_for_variable_dataset(self):
+        """get_color_for_variable should return dataset color for dataset_ prefix."""
+        from davinci_monet.plots.style import DATASET_B_COLOR, get_color_for_variable
 
-        assert get_color_for_variable("model_pm25") == MODEL_COLOR
-        assert get_color_for_variable("MODEL_O3") == MODEL_COLOR
+        assert get_color_for_variable("dataset_pm25") == DATASET_B_COLOR
+        assert get_color_for_variable("DATASET_O3") == DATASET_B_COLOR
 
     def test_get_color_for_variable_bias(self):
         """get_color_for_variable should return red for bias_ prefix."""

@@ -3,7 +3,7 @@
 Covers two bugs found via a live CLI run:
 - the summary brief was never printed to the terminal (swallowed by the
   prefix-matching progress callback), violating the spec's "file + terminal".
-- obs-only stages idle in a paired run logged "validation failed, skipping" at
+- geometry-only stages idle in a paired run logged "validation failed, skipping" at
   WARNING, reading as failures.
 """
 

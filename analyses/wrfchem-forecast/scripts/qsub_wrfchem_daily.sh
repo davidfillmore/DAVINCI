@@ -7,7 +7,7 @@
 #
 # Usage:
 #   qsub_wrfchem_daily.sh             # yesterday
-#   qsub_wrfchem_daily.sh 20250801    # explicit date (historical replay)
+#   qsub_wrfchem_daily.sh 20250801    # explicit date replay
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,8 +21,8 @@ fi
 # The previous-day cycle's +24h forecast supplies the populated PM2_5_DRY at
 # hour 00 of the analysis day. The current cycle's hour-0 wrfout is the IC
 # dump and has PM2_5_DRY identically zero (diagnostic isn't computed yet).
-# The next-day 00Z file (within the current cycle) extends the model time
-# coverage to 24Z so linear time interpolation reaches obs hours 19-23 UTC
+# The next-day 00Z file (within the current cycle) extends the dataset time
+# coverage to 24Z so linear time interpolation reaches geometry hours 19-23 UTC
 # without extrapolating to NaN.
 prev_date=$(date --date="${fcst_date:0:4}-${fcst_date:4:2}-${fcst_date:6:2} -1 day" '+%Y%m%d')
 next_date=$(date --date="${fcst_date:0:4}-${fcst_date:4:2}-${fcst_date:6:2} +1 day" '+%Y%m%d')

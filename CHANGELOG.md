@@ -2,33 +2,25 @@
 
 ## 26.06 (2026-06-08)
 
-**Breaking release.** Completes the model/obs → unified data-source migration and
-removes the legacy `model:`/`obs:` config and runtime. Convert existing control files
-with `davinci-monet migrate-config <old.yaml> -o <new.yaml>`.
+**Breaking release.** Completes the dataset/geometry to unified data-source migration and
+removes the `dataset:`/`geometry:` config blocks and runtime containers.
 
 ### Breaking changes
 
-- Legacy `model:`/`obs:` configuration is no longer accepted: a config containing a
-  non-empty `model:`/`obs:` block now raises `ConfigurationError` pointing to
-  `migrate-config`. Use the unified `sources:`/`pairs:` schema.
-- Removed legacy Python APIs: `ModelConfig`/`ObservationConfig`; the
-  `ModelData`/`ObservationData` containers (+ `create_model_data`/`create_observation_data`
-  and the `open_*` convenience functions — reader classes return `xr.Dataset` directly);
-  `LoadModelsStage`/`LoadObservationsStage`; `PairingEngine.pair()` (use `pair_sources`);
-  the `ModelReader`/`ObservationReader` protocols; the `model_registry`/`observation_registry`
-  aliases (use `source_registry`); `expand_sources_to_legacy`; `PipelineContext.models`/
-  `observations` + `get_model`/`get_observation`; and the `PairedData`
-  `get_obs`/`get_model`/`model_variables`/`obs_variables` aliases (use the
-  reference/comparand accessors).
+- `dataset:`/`geometry:` configuration is no longer accepted. Use the unified
+  `sources:`/`pairs:` schema.
+- Removed superseded Python APIs for separate dataset and geometry containers,
+  loaders, registries, protocols, and accessors. Reader classes return `xr.Dataset`
+  directly, and paired outputs use the geometry/dataset accessors.
 
 ### Fixed
 
-- The production `SwathGridStrategy` is now the engine's SWATH handler — swath L2 paired
-  via `sources:` was silently using a non-production per-pixel strategy; also fixed a
+- The production `SwathGridStrategy` is now the engine's SWATH handler. Swath L2 paired
+  via `sources:` now uses the binned grid strategy; also fixed a
   per-scanline time-broadcast crash.
-- The unified `sources:` loader now applies `resample`/`min_obs_count`/`track_obs_count`
+- The unified `sources:` loader now applies `resample`/`min_geometry_count`/`track_geometry_count`
   (previously silently dropped on the unified path).
-- Consistent `geometry` attribute encoding across observation readers (several wrote an
+- Consistent `geometry` attribute encoding across geometry readers (several wrote an
   integer the consumers silently ignored).
 - Stats metric failures are logged rather than silently coerced to NaN;
   `PipelineResult.stage_errors` surfaces per-stage errors; HDF5 file locking is disabled
@@ -41,7 +33,7 @@ with `davinci-monet migrate-config <old.yaml> -o <new.yaml>`.
 - Pairing runs through a single `pair_sources` path with an HDF5-safe bounded cross-pair
   executor (eager pairs run bounded-parallel; dask-backed pairs serial by default; tune
   via `pairing.max_pair_workers` / `pairing.dask_pair_workers`).
-- Shared reader plumbing (`io/reader_utils.py`) deduplicates the model and observation
+- Shared reader plumbing (`io/reader_utils.py`) deduplicates the dataset and geometry
   readers.
 - Large modules split for maintainability: `stages.py` → `pipeline/stages/` package;
   `runner.py` → `runner.py` + `display.py` + `reporting.py`; `plots/base.py` →
@@ -66,10 +58,10 @@ Initial public release for JOSS submission. Calendar versioned (YY.MM).
 - **Unified pairing engine**: Geometry-aware strategies for point, track, profile, swath, and grid data
 - **27 statistical metrics**: N, MB, RMSE, R, NMB, NME, IOA, and more with groupby support
 - **14 plot types**: Time series, scatter, Taylor, boxplot, diurnal, spatial bias/distribution/overlay, curtain, scorecard, site/flight time series, 3D track map
-- **Type-safe configuration**: Pydantic-validated YAML with environment variable expansion and backward compatibility with MELODIES-MONET configs
+- **Type-safe configuration**: Pydantic-validated YAML with environment variable expansion
 - **CLI**: `davinci-monet run`, `validate`, and `get` commands via Typer
 
-### Model Support
+### Dataset Support
 
 - CESM/CAM-chem (hybrid sigma-pressure coordinates)
 - CMAQ
@@ -77,7 +69,7 @@ Initial public release for JOSS submission. Calendar versioned (YY.MM).
 - UFS-AQM
 - Generic NetCDF
 
-### Observation Support
+### Geometry Support
 
 - Surface: AirNow, AQS, AERONET, OpenAQ
 - Column: Pandora

@@ -1,7 +1,7 @@
 """Integration: CERES readers through the full pipeline.
 
 Exercises PipelineRunner.run_from_config() with CERES EBAF (GRID), SYN1deg
-(GRID), and SSF (SWATH) sources against a synthetic gridded model — the same
+(GRID), and SSF (SWATH) sources against a synthetic gridded dataset — the same
 path a user takes with ``davinci-monet run``. EBAF and SYN1deg tests cover
 Phase 2; SSF tests cover Phase 3.
 """
@@ -64,15 +64,15 @@ def _monthly_grid(
 
 def test_ceres_ebaf_pipeline(tmp_path: Path) -> None:
     e_dir = tmp_path / "ebaf"
-    m_dir = tmp_path / "model"
+    m_dir = tmp_path / "dataset"
     e_dir.mkdir()
     m_dir.mkdir()
     # EBAF side uses 0-360 longitudes — the reader must normalize them so
-    # GRID-GRID pairing aligns with the model's -180..180 grid.
+    # GRID-GRID pairing aligns with the dataset's -180..180 grid.
     _monthly_grid("toa_lw_all_mon", seed=1, lon0360=True).to_netcdf(
         e_dir / "CERES_EBAF_Edition4.2.1_202510-202512.nc"
     )
-    _monthly_grid("OLR", seed=2).to_netcdf(m_dir / "model.nc")
+    _monthly_grid("OLR", seed=2).to_netcdf(m_dir / "dataset.nc")
 
     out_dir = tmp_path / "output"
     config = {
@@ -85,33 +85,31 @@ def test_ceres_ebaf_pipeline(tmp_path: Path) -> None:
         "sources": {
             "ceres": {
                 "type": "ceres_ebaf",
-                "role": "obs",
                 "files": str(e_dir / "*.nc"),
                 "variables": {"toa_lw_all_mon": {"units": "W m-2"}},
             },
-            "model": {
+            "dataset": {
                 "type": "generic",
-                "role": "model",
                 "files": str(m_dir / "*.nc"),
                 "variables": {"OLR": {"units": "W m-2"}},
             },
         },
         "pairs": {
-            "model_vs_ceres_olr": {
-                "sources": ["model", "ceres"],
-                "reference": "ceres",
-                "variables": {"model": "OLR", "ceres": "toa_lw_all_mon"},
+            "dataset_vs_ceres_olr": {
+                "sources": ["dataset", "ceres"],
+                "geometry": "ceres",
+                "variables": {"dataset": "OLR", "ceres": "toa_lw_all_mon"},
             }
         },
         "plots": {
             "bias": {
                 "type": "spatial_bias",
-                "pairs": ["model_vs_ceres_olr"],
+                "pairs": ["dataset_vs_ceres_olr"],
                 "title": "OLR Bias",
             },
             "sc": {
                 "type": "scatter",
-                "pairs": ["model_vs_ceres_olr"],
+                "pairs": ["dataset_vs_ceres_olr"],
                 "title": "OLR Scatter",
             },
         },
@@ -155,7 +153,7 @@ def test_real_ebaf_file_opens() -> None:
     contaminates global netCDF4/HDF5 state, and unrelated dask-parallel
     tests then fail transiently when this runs inside the full suite.
     """
-    from davinci_monet.observations.satellite.ceres_l3 import CERESEBAFReader
+    from davinci_monet.datasets.satellite.ceres_l3 import CERESEBAFReader
 
     files = sorted(f for f in _IO_EBAF.glob("CERES_EBAF_*.nc") if not f.name.startswith("._"))
     if not files:
@@ -184,7 +182,7 @@ def test_ceres_syn1deg_pipeline(tmp_path: Path) -> None:
     from davinci_monet.tests.test_ceres_l3_readers import _write_syn_hdf4
 
     s_dir = tmp_path / "syn"
-    m_dir = tmp_path / "model"
+    m_dir = tmp_path / "dataset"
     s_dir.mkdir()
     m_dir.mkdir()
     for stamp in ("202510", "202511", "202512"):
@@ -193,10 +191,10 @@ def test_ceres_syn1deg_pipeline(tmp_path: Path) -> None:
             nlat=6,
             nlon=8,
         )
-    # Extend lat/lon span to ±89.5/±179.5 so the model fully covers the SYN
+    # Extend lat/lon span to ±89.5/±179.5 so the dataset fully covers the SYN
     # grid edges.  Without this, xarray.interp NaNs the edge rows/cols of the
-    # model-regridded field and N falls below 3×6×8=144.
-    _monthly_grid("OLR", seed=2, lat_span=89.5, lon_span=179.5).to_netcdf(m_dir / "model.nc")
+    # dataset-regridded field and N falls below 3×6×8=144.
+    _monthly_grid("OLR", seed=2, lat_span=89.5, lon_span=179.5).to_netcdf(m_dir / "dataset.nc")
 
     out_dir = tmp_path / "output"
     config = {
@@ -209,26 +207,24 @@ def test_ceres_syn1deg_pipeline(tmp_path: Path) -> None:
         "sources": {
             "ceres": {
                 "type": "ceres_syn1deg",
-                "role": "obs",
                 "files": str(s_dir / "*.2025*"),
-                "variables": {"obs_all_toa_lw_reg": {"units": "W m-2"}},
+                "variables": {"geometry_all_toa_lw_reg": {"units": "W m-2"}},
             },
-            "model": {
+            "dataset": {
                 "type": "generic",
-                "role": "model",
                 "files": str(m_dir / "*.nc"),
                 "variables": {"OLR": {"units": "W m-2"}},
             },
         },
         "pairs": {
-            "model_vs_syn_olr": {
-                "sources": ["model", "ceres"],
-                "reference": "ceres",
-                "variables": {"model": "OLR", "ceres": "obs_all_toa_lw_reg"},
+            "dataset_vs_syn_olr": {
+                "sources": ["dataset", "ceres"],
+                "geometry": "ceres",
+                "variables": {"dataset": "OLR", "ceres": "geometry_all_toa_lw_reg"},
             }
         },
         "plots": {
-            "sc": {"type": "scatter", "pairs": ["model_vs_syn_olr"], "title": "OLR"},
+            "sc": {"type": "scatter", "pairs": ["dataset_vs_syn_olr"], "title": "OLR"},
         },
         "stats": {"output_table": True, "metrics": ["N", "MB", "RMSE", "R"]},
     }
@@ -262,7 +258,7 @@ _IO_SYN_MONTH = Path("/Volumes/Io/CERES/SYN1deg/month")
 )
 def test_real_syn1deg_zonal_means_correlate_with_ebaf() -> None:
     """Smoke: SYN1deg 2025-12 zonal-mean OLR must track EBAF's (lat axis check)."""
-    from davinci_monet.observations.satellite.ceres_l3 import (
+    from davinci_monet.datasets.satellite.ceres_l3 import (
         CERESEBAFReader,
         CERESSYN1degReader,
     )
@@ -272,15 +268,15 @@ def test_real_syn1deg_zonal_means_correlate_with_ebaf() -> None:
     if not syn_files or not ebaf_files:
         pytest.skip("staged SYN1deg/EBAF samples not found")
 
-    syn = CERESSYN1degReader().open([syn_files[0]], variables=["obs_all_toa_lw_reg"])
+    syn = CERESSYN1degReader().open([syn_files[0]], variables=["geometry_all_toa_lw_reg"])
     ebaf = CERESEBAFReader().open([ebaf_files[0]], variables=["toa_lw_all_mon"])
 
-    syn_zonal = syn["obs_all_toa_lw_reg"].isel(time=0).mean("lon")
+    syn_zonal = syn["geometry_all_toa_lw_reg"].isel(time=0).mean("lon")
     ebaf_zonal = ebaf["toa_lw_all_mon"].sel(time="2025-12").squeeze().mean("lon")
 
     r = float(np.corrcoef(syn_zonal.values, ebaf_zonal.values)[0, 1])
     assert r > 0.9, f"SYN vs EBAF zonal correlation {r:.3f} — latitude axis suspect"
-    assert syn.sizes["time"] == 1 and set(syn["obs_all_toa_lw_reg"].dims) == {
+    assert syn.sizes["time"] == 1 and set(syn["geometry_all_toa_lw_reg"].dims) == {
         "time",
         "lat",
         "lon",
@@ -297,7 +293,7 @@ def test_ceres_ssf_pipeline(tmp_path: Path) -> None:
     from davinci_monet.tests.test_ceres_ssf_reader import _write_ssf_hdf4_grid
 
     s_dir = tmp_path / "ssf"
-    m_dir = tmp_path / "model"
+    m_dir = tmp_path / "dataset"
     s_dir.mkdir()
     m_dir.mkdir()
     lat_centers = np.linspace(-87.5, 87.5, 6)
@@ -309,7 +305,7 @@ def test_ceres_ssf_pipeline(tmp_path: Path) -> None:
             lon_centers,
             base_iso=f"{day}T00:00:00",
         )
-    _monthly_grid("OLR", seed=2).to_netcdf(m_dir / "model.nc")
+    _monthly_grid("OLR", seed=2).to_netcdf(m_dir / "dataset.nc")
 
     out_dir = tmp_path / "output"
     config = {
@@ -322,26 +318,24 @@ def test_ceres_ssf_pipeline(tmp_path: Path) -> None:
         "sources": {
             "ceres": {
                 "type": "ceres_ssf",
-                "role": "obs",
                 "files": str(s_dir / "CER_SSF_*"),
                 "variables": {"toa_lw_up": {"units": "W m-2"}},
             },
-            "model": {
+            "dataset": {
                 "type": "generic",
-                "role": "model",
                 "files": str(m_dir / "*.nc"),
                 "variables": {"OLR": {"units": "W m-2"}},
             },
         },
         "pairs": {
-            "model_vs_ssf_olr": {
-                "sources": ["model", "ceres"],
-                "reference": "ceres",
-                "variables": {"model": "OLR", "ceres": "toa_lw_up"},
+            "dataset_vs_ssf_olr": {
+                "sources": ["dataset", "ceres"],
+                "geometry": "ceres",
+                "variables": {"dataset": "OLR", "ceres": "toa_lw_up"},
             }
         },
         "plots": {
-            "sc": {"type": "scatter", "pairs": ["model_vs_ssf_olr"], "title": "OLR"},
+            "sc": {"type": "scatter", "pairs": ["dataset_vs_ssf_olr"], "title": "OLR"},
         },
         "stats": {"output_table": True, "metrics": ["N", "MB", "RMSE", "R"]},
     }
@@ -358,8 +352,8 @@ def test_ceres_ssf_pipeline(tmp_path: Path) -> None:
     assert csvs, "expected a stats CSV"
     stats = pd.read_csv(csvs[0])
     n_col = next(c for c in stats.columns if c.strip().upper() == "N")
-    # One footprint per model cell per granule-day: 6x8 cells x 3 days = 144
-    # bins with exactly one obs each. Fewer means binning lost footprints.
+    # One footprint per dataset cell per granule-day: 6x8 cells x 3 days = 144
+    # bins with exactly one geometry each. Fewer means binning lost footprints.
     assert int(stats[n_col].iloc[0]) == 144, f"expected N=144, got\n{stats}"
 
 
@@ -377,7 +371,7 @@ _IO_SSF_N20 = Path("/Volumes/Io/CERES/SSF/NOAA20-FM6")
 )
 def test_real_ssf_granules_open_in_both_editions() -> None:
     """Smoke: one HDF4 (Terra) and one netCDF (NOAA-20) granule via the reader."""
-    from davinci_monet.observations.satellite.ceres_ssf import CERESSSFReader
+    from davinci_monet.datasets.satellite.ceres_ssf import CERESSSFReader
 
     h4 = sorted(f for f in _IO_SSF_TERRA.glob("CER_SSF_*") if not f.name.startswith("._"))
     nc = sorted(f for f in _IO_SSF_N20.glob("CER_SSF_*.nc") if not f.name.startswith("._"))

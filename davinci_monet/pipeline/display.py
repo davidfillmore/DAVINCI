@@ -344,7 +344,7 @@ class ProgressFormatter:
             try:
                 with open("/proc/cpuinfo") as f:
                     for line in f:
-                        if line.startswith("model name"):
+                        if line.startswith("dataset name"):
                             cpu_name = line.split(":")[1].strip()
                             break
             except Exception:
@@ -508,7 +508,7 @@ class ProgressFormatter:
         total
             Total number of items to process in parallel.
         loading_msg
-            Optional message to show during [0/N] phase (e.g., "loading cesm → obs1, obs2").
+            Optional message to show during [0/N] phase (e.g., "loading source-a → source-b").
         """
         self._parallel_mode = True
         self._parallel_total = total
@@ -527,7 +527,7 @@ class ProgressFormatter:
 
         In parallel mode, we log the start but don't update the display.
         The display will show just "[0/N]" until items complete, which
-        accurately reflects that shared work (e.g., Dask model loading)
+        accurately reflects that shared work (e.g., Dask dataset loading)
         is happening across all items.
 
         Parameters
@@ -565,7 +565,7 @@ class ProgressFormatter:
     def item_start(
         self, category: str, name: str, index: int, total: int, track: bool = True
     ) -> None:
-        """Print item start (model, observation, pair).
+        """Print item start (dataset, dataset, pair).
 
         Parameters
         ----------

@@ -230,13 +230,13 @@ class TestStructuredFormatter:
             args=(),
             exc_info=None,
         )
-        record.model = "CMAQ"
-        record.obs = "AQS"
+        record.dataset = "CMAQ"
+        record.geometry = "AQS"
 
         result = formatter.format(record)
         assert "Test message" in result
-        assert "model='CMAQ'" in result
-        assert "obs='AQS'" in result
+        assert "dataset='CMAQ'" in result
+        assert "geometry='AQS'" in result
 
     def test_format_without_extra_fields(self) -> None:
         """Test formatting without extra fields."""
@@ -281,11 +281,11 @@ class TestLoggingWorkflow:
         capture_handler.setFormatter(StructuredFormatter("%(message)s"))
         logger.addHandler(capture_handler)
 
-        logger.info("Processing", extra={"model": "CMAQ", "variable": "O3"})
+        logger.info("Processing", extra={"dataset": "CMAQ", "variable": "O3"})
 
         assert len(captured) == 1
         assert "Processing" in captured[0]
-        assert "model='CMAQ'" in captured[0]
+        assert "dataset='CMAQ'" in captured[0]
         assert "variable='O3'" in captured[0]
 
     def test_child_logger_inherits_config(self) -> None:

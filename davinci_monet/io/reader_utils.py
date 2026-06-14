@@ -1,7 +1,7 @@
 """Shared reader plumbing for source readers.
 
-This module collects the near-identical boilerplate that every model (and,
-later, observation) reader repeats: file-list resolution and validation, the
+This module collects the near-identical boilerplate that every dataset (and,
+later, dataset) reader repeats: file-list resolution and validation, the
 3-attempt transient-NetCDF retry loop, monetio-then-xarray variable selection,
 and dimension/coordinate standardization.
 
@@ -14,7 +14,7 @@ Behavior note
 These helpers reproduce the existing per-reader behavior exactly. In
 particular:
 
-* :func:`validate_file_list` does *not* glob — model readers receive paths
+* :func:`validate_file_list` does *not* glob — dataset readers receive paths
   already expanded by the pipeline load stage. Use :func:`resolve_file_list`
   for the canonical glob+expanduser resolution where globbing is wanted.
 * :func:`retry_transient_open` uses the same transient-error detection
@@ -134,11 +134,11 @@ def resolve_file_list(files: Any) -> list[str]:
 def validate_file_list(
     file_paths: Sequence[str | Path],
     *,
-    source_label: str,
+    dataset_label: str,
 ) -> list[Path]:
     """Convert to ``Path`` objects and verify the files exist.
 
-    Reproduces the preamble each model reader performs at the top of
+    Reproduces the preamble each dataset reader performs at the top of
     ``open()``: convert inputs to :class:`~pathlib.Path`, raise when the list
     is empty, and raise when any path is missing.
 
@@ -146,10 +146,10 @@ def validate_file_list(
     ----------
     file_paths
         Paths provided to the reader's ``open()``.
-    source_label
+    dataset_label
         Human-readable source name used in error messages (e.g. ``"CMAQ"``,
         ``"WRF-Chem"``, ``"CESM"``, ``"UFS"``). For the generic reader an
-        empty string yields the historical wording (``"No files provided"`` /
+        empty string yields the established wording (``"No files provided"`` /
         ``"Files not found: ..."``).
 
     Returns
@@ -166,14 +166,14 @@ def validate_file_list(
 
     # "No CMAQ files provided" with a label, "No files provided" without.
     if not file_list:
-        noun = f"{source_label} files" if source_label else "files"
+        noun = f"{dataset_label} files" if dataset_label else "files"
         raise DataNotFoundError(f"No {noun} provided")
 
     missing = [f for f in file_list if not f.exists()]
     if missing:
         # "CMAQ files not found: ..." with a label, "Files not found: ..."
-        # (leading capital) without — matching the historical wording.
-        label = f"{source_label} files" if source_label else "Files"
+        # (leading capital) without, matching the established wording.
+        label = f"{dataset_label} files" if dataset_label else "Files"
         raise DataNotFoundError(f"{label} not found: {missing}")
 
     return file_list
@@ -249,8 +249,8 @@ def retry_transient_open(
         Operation description used for warnings, the error log context, and the
         ``DataFormatError`` message — e.g. ``"Opening CMAQ files"``. The
         user-facing message becomes ``"Failed to {context_lower}: {e}"`` where
-        ``context_lower`` lowercases the leading ``"Opening"`` to match the
-        historical ``"Failed to open ... files"`` wording.
+        ``context_lower`` lowercases the leading ``"Opening"`` to preserve the
+        established ``"Failed to open ... files"`` wording.
     attempts
         Maximum number of attempts (default 3).
     reraise
@@ -272,8 +272,8 @@ def retry_transient_open(
     DataFormatError
         On a non-transient error or once attempts are exhausted.
     """
-    # "Opening CMAQ files" -> "open CMAQ files" for the failure message, which
-    # historically read "Failed to open <SOURCE> files: ...".
+    # "Opening CMAQ files" -> "open CMAQ files" for the failure message:
+    # "Failed to open <SOURCE> files: ...".
     if context.startswith("Opening "):
         action = "open " + context[len("Opening ") :]
     else:
@@ -394,7 +394,7 @@ def alias_coord(ds: xr.Dataset, source: str, alias: str) -> xr.Dataset:
 def set_geometry_attr(ds: xr.Dataset, geometry: DataGeometry) -> xr.Dataset:
     """Write ``ds.attrs['geometry']`` using one canonical encoding.
 
-    Readers historically tagged the geometry attribute with inconsistent
+    Some readers tagged the geometry attribute with inconsistent
     encodings: the :class:`~davinci_monet.core.protocols.DataGeometry` ``.value``
     int, the bare ``"GRID"`` string, and the lowercase ``.name``. This helper
     writes the single canonical form — the lowercase enum name

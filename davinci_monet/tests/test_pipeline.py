@@ -39,15 +39,13 @@ def sample_context() -> PipelineContext:
     return PipelineContext(
         config={
             "sources": {
-                "test_model": {
+                "test_dataset": {
                     "type": "generic",
-                    "role": "model",
-                    "files": "/path/to/model.nc",
+                    "files": "/path/to/dataset.nc",
                 },
-                "test_obs": {
+                "test_geometry": {
                     "type": "pt_sfc",
-                    "role": "obs",
-                    "filename": "/path/to/obs.nc",
+                    "filename": "/path/to/geometry.nc",
                 },
             },
         }
@@ -60,15 +58,15 @@ def sample_paired_dataset() -> xr.Dataset:
     n_times = 100
     times = np.datetime64("2020-01-01") + np.arange(n_times) * np.timedelta64(1, "h")
 
-    # Simulated model and obs data with some correlation
+    # Simulated dataset and geometry data with some correlation
     np.random.seed(42)
-    obs_vals = 50 + 20 * np.random.randn(n_times)
-    model_vals = obs_vals + 5 + 3 * np.random.randn(n_times)  # Bias of ~5
+    geometry_vals = 50 + 20 * np.random.randn(n_times)
+    dataset_vals = geometry_vals + 5 + 3 * np.random.randn(n_times)  # Bias of ~5
 
     return xr.Dataset(
         {
-            "model_o3": (["time"], model_vals),
-            "obs_o3": (["time"], obs_vals),
+            "dataset_o3": (["time"], dataset_vals),
+            "geometry_o3": (["time"], geometry_vals),
             "latitude": (["time"], np.full(n_times, 40.0)),
             "longitude": (["time"], np.full(n_times, -105.0)),
         },
@@ -80,7 +78,7 @@ def sample_paired_dataset() -> xr.Dataset:
 def context_with_paired(sample_paired_dataset: xr.Dataset) -> PipelineContext:
     """Create a context with paired data."""
     ctx = PipelineContext()
-    ctx.paired["test_model_test_obs"] = sample_paired_dataset
+    ctx.paired["test_dataset_test_geometry"] = sample_paired_dataset
     return ctx
 
 
@@ -156,8 +154,8 @@ class TestPipelineContext:
     def test_context_with_config(self, sample_context: PipelineContext):
         """Test context with configuration."""
         assert "sources" in sample_context.config
-        assert "test_model" in sample_context.config["sources"]
-        assert "test_obs" in sample_context.config["sources"]
+        assert "test_dataset" in sample_context.config["sources"]
+        assert "test_geometry" in sample_context.config["sources"]
 
     def test_get_source(self):
         """Test getting a source from context."""
@@ -175,7 +173,7 @@ class TestPipelineContext:
 
     def test_get_paired(self, context_with_paired: PipelineContext):
         """Test getting paired data from context."""
-        paired = context_with_paired.get_paired("test_model_test_obs")
+        paired = context_with_paired.get_paired("test_dataset_test_geometry")
         assert isinstance(paired, xr.Dataset)
 
     def test_get_paired_not_found(self):
@@ -242,24 +240,24 @@ class TestBaseStage:
 
 
 class TestLoadSourcesStage:
-    """Tests for the unified LoadSourcesStage (replaces the legacy per-role loaders)."""
+    """Tests for the unified LoadSourcesStage."""
 
     def test_name(self):
         """Test stage name."""
         stage = LoadSourcesStage()
         assert stage.name == "load_sources"
 
-    def test_validation_rejects_legacy_model_config(self):
-        """validate() fails for a legacy model:/obs: config (no longer accepted).
+    def test_validation_rejects_top_level_dataset_geometry_config(self):
+        """validate() fails for a top-level dataset:/geometry: config.
 
-        Legacy control files are rejected at config load; the stage only
-        recognizes the unified ``sources:`` shape (or pre-populated containers).
+        Top-level dataset:/geometry: controls are rejected at config load; the stage
+        only recognizes the unified ``sources:`` shape (or pre-populated containers).
         """
         stage = LoadSourcesStage()
         ctx = PipelineContext(
             config={
-                "model": {"test_model": {"type": "generic", "files": "/path/to/m.nc"}},
-                "obs": {"test_obs": {"obs_type": "pt_sfc", "filename": "/path/to/o.nc"}},
+                "dataset": {"test_dataset": {"type": "generic", "files": "/path/to/m.nc"}},
+                "geometry": {"test_geometry": {"type": "pt_sfc", "filename": "/path/to/o.nc"}},
             }
         )
         assert stage.validate(ctx) is False
@@ -306,7 +304,6 @@ class TestLoadSourcesStage:
                 "sources": {
                     "WRF-Chem": {
                         "type": "wrfchem",
-                        "role": "model",
                         "files": "/path/to/wrfout.nc",
                         "mech": "racm_esrl_vcp",
                     }
@@ -330,23 +327,31 @@ class TestPairingStage:
         assert stage.name == "pairing"
 
     def test_validation_with_data(self):
-        """Test validation passes with model-role and obs-role sources."""
+        """Test validation passes with loaded dataset and geometry sources."""
         stage = PairingStage()
-        ctx = PipelineContext()
+        ctx = PipelineContext(
+            config={
+                "pairs": {
+                    "dataset_geometry": {
+                        "sources": ["dataset", "geometry"],
+                        "geometry": "geometry",
+                        "variables": {"dataset": "v", "geometry": "v"},
+                    }
+                }
+            }
+        )
         ds = xr.Dataset({"v": ("time", [1.0])}, coords={"time": [0]})
-        ctx.sources["mod"] = SourceData(
+        ctx.sources["dataset"] = SourceData(
             data=ds,
-            label="mod",
+            label="dataset",
             source_type="generic",
             geometry=DataGeometry.GRID,
-            role="model",
         )
-        ctx.sources["obs"] = SourceData(
+        ctx.sources["geometry"] = SourceData(
             data=ds,
-            label="obs",
+            label="geometry",
             source_type="pt_sfc",
             geometry=DataGeometry.POINT,
-            role="obs",
         )
 
         assert stage.validate(ctx) is True
@@ -364,12 +369,12 @@ class TestPairingStage:
         times = pd.date_range("2024-01-01T00:00:00", periods=3, freq="1h")
         lat = np.array([0.0, 1.0])
         lon = np.array([10.0, 11.0])
-        comparand = xr.Dataset(
+        dataset = xr.Dataset(
             {"flux": (("time", "lat", "lon"), np.ones((3, 2, 2), dtype=np.float32))},
             coords={"time": times, "lat": lat, "lon": lon},
             attrs={"geometry": "grid"},
         )
-        reference = xr.Dataset(
+        geometry = xr.Dataset(
             {"flux": ("time", np.array([10.0, 20.0, 30.0], dtype=np.float32))},
             coords={
                 "time": times,
@@ -383,7 +388,7 @@ class TestPairingStage:
                 "pairs": {
                     "met_vs_ceres": {
                         "sources": ["met", "ceres"],
-                        "reference": "ceres",
+                        "geometry": "ceres",
                         "variables": {"met": "flux", "ceres": "flux"},
                         "time_resolution": "1h",
                     }
@@ -391,18 +396,16 @@ class TestPairingStage:
             }
         )
         ctx.sources["met"] = SourceData(
-            data=comparand,
+            data=dataset,
             label="met",
             source_type="generic",
             geometry=DataGeometry.GRID,
-            role=None,
         )
         ctx.sources["ceres"] = SourceData(
-            data=reference,
+            data=geometry,
             label="ceres",
             source_type="ceres_ssf",
             geometry=DataGeometry.SWATH,
-            role=None,
         )
 
         result = stage.execute(ctx)
@@ -411,7 +414,7 @@ class TestPairingStage:
         paired = ctx.paired["met_vs_ceres"].data
         assert paired.sizes["time"] == 3
         assert set(paired.data_vars) == {"ceres_flux", "met_flux"}
-        assert all(not str(name).startswith(("obs_", "model_")) for name in paired.data_vars)
+        assert all(not str(name).startswith(("geometry_", "dataset_")) for name in paired.data_vars)
 
 
 class TestStatisticsStage:
@@ -443,7 +446,7 @@ class TestStatisticsStage:
         assert result.data is not None
 
         # Check stats for o3 variable
-        pair_stats = result.data.get("test_model_test_obs", {})
+        pair_stats = result.data.get("test_dataset_test_geometry", {})
         o3_stats = pair_stats.get("o3", {})
 
         assert "n" in o3_stats
@@ -456,7 +459,7 @@ class TestStatisticsStage:
         """Test that 'metrics' key takes precedence over 'stat_list'.
 
         Regression test for review finding #2: when both keys are present
-        (as happens after model_dump() with defaults), the user-specified
+        (as happens after dataset_dump() with defaults), the user-specified
         'metrics' should win over the default 'stat_list'.
         """
         context_with_paired.config["stats"] = {
@@ -467,7 +470,7 @@ class TestStatisticsStage:
         result = stage.execute(context_with_paired)
 
         assert result.status == StageStatus.COMPLETED
-        pair_stats = result.data.get("test_model_test_obs", {})
+        pair_stats = result.data.get("test_dataset_test_geometry", {})
         o3_stats = pair_stats.get("o3", {})
         # IOA is in 'metrics' but not in 'stat_list' - must be present
         assert "IOA" in o3_stats
@@ -480,19 +483,19 @@ class TestStatisticsStage:
         computed over the full paired dataset including non-CONUS sites.
         """
         # 6 sites across regions: 4 CONUS, 2 in Asia. The Asian sites have
-        # large obs values that would skew an unfiltered mean.
+        # large geometry values that would skew an unfiltered mean.
         n_times = 12
         times = np.datetime64("2024-01-01") + np.arange(n_times) * np.timedelta64(1, "h")
         site_lats = np.array([35.0, 40.0, 45.0, 43.0, 28.6, 13.1])
         site_lons = np.array([-100.0, -105.0, -95.0, -85.0, 77.2, 80.3])
-        obs = np.full((n_times, 6), 10.0)
-        obs[:, 4:] = 200.0  # Asian sites: dramatically different
-        model = np.full((n_times, 6), 11.0)
+        geometry = np.full((n_times, 6), 10.0)
+        geometry[:, 4:] = 200.0  # Asian sites: dramatically different
+        dataset = np.full((n_times, 6), 11.0)
 
         paired = xr.Dataset(
             {
-                "obs_pm25": (["time", "site"], obs),
-                "model_pm25": (["time", "site"], model),
+                "geometry_pm25": (["time", "site"], geometry),
+                "dataset_pm25": (["time", "site"], dataset),
             },
             coords={
                 "time": times,
@@ -503,20 +506,20 @@ class TestStatisticsStage:
         )
 
         ctx = PipelineContext()
-        ctx.paired["mod_obs"] = paired
+        ctx.paired["dataset_geometry"] = paired
         ctx.config["stats"] = {"domain_type": ["conus"], "metrics": ["N", "MB"]}
 
         stage = StatisticsStage()
         result = stage.execute(ctx)
 
         assert result.status == StageStatus.COMPLETED
-        pm25_stats = result.data["mod_obs"]["pm25"]
+        pm25_stats = result.data["dataset_geometry"]["pm25"]
         # 4 CONUS sites x 12 timesteps = 48 paired points
         assert pm25_stats["N"] == 48, (
             f"Expected N=48 after CONUS filter, got {pm25_stats['N']}. "
             "domain_type filter is not being applied in StatisticsStage."
         )
-        # MB should reflect only CONUS sites: model=11, obs=10 → MB=+1
+        # MB should reflect only CONUS sites: dataset=11, geometry=10 → MB=+1
         assert abs(pm25_stats["MB"] - 1.0) < 0.01, (
             f"Expected MB≈1.0 (CONUS only), got {pm25_stats['MB']}. "
             "Asian sites leaked through the filter."
@@ -539,7 +542,7 @@ class TestPlottingStage:
         assert result.status == StageStatus.SKIPPED
 
     def test_data_key_resolved_for_pairs(self):
-        """Test that plot specs using 'data' key resolve pair references.
+        """Test that plot specs using 'data' key resolve pair names.
 
         Regression test for review finding #1: the schema uses 'data' but
         PlottingStage must read it (not just 'pairs').
@@ -547,69 +550,48 @@ class TestPlottingStage:
         stage = PlottingStage()
         # Simulate what _calculate_stats helper does internally:
         # the stage reads plot_spec.get("data") or plot_spec.get("pairs", [])
-        plot_spec_data = {"type": "scatter", "data": ["model_obs_pm25"]}
-        plot_spec_pairs = {"type": "scatter", "pairs": ["model_obs_pm25"]}
+        plot_spec_data = {"type": "scatter", "data": ["dataset_geometry_pm25"]}
+        plot_spec_pairs = {"type": "scatter", "pairs": ["dataset_geometry_pm25"]}
         plot_spec_both = {
             "type": "scatter",
-            "data": ["model_obs_o3"],
-            "pairs": ["model_obs_pm25"],
+            "data": ["dataset_geometry_o3"],
+            "pairs": ["dataset_geometry_pm25"],
         }
 
         # 'data' key should work
         resolved_data = plot_spec_data.get("data") or plot_spec_data.get("pairs", [])
-        assert resolved_data == ["model_obs_pm25"]
+        assert resolved_data == ["dataset_geometry_pm25"]
 
         # 'pairs' key still works (backward compat)
         resolved_pairs = plot_spec_pairs.get("data") or plot_spec_pairs.get("pairs", [])
-        assert resolved_pairs == ["model_obs_pm25"]
+        assert resolved_pairs == ["dataset_geometry_pm25"]
 
         # 'data' takes precedence when both present
         resolved_both = plot_spec_both.get("data") or plot_spec_both.get("pairs", [])
-        assert resolved_both == ["model_obs_o3"]
+        assert resolved_both == ["dataset_geometry_o3"]
 
-    def test_subtitle_date_range_uses_hyphen(self):
-        """Fix A: date-range subtitle must use ' - ' not a Unicode arrow.
-
-        Replicates the inline subtitle-building logic from stages.py to verify
-        the separator character.  A Unicode arrow (→) is missing from the
-        Poppins plot font and renders as a tofu box.
-        """
-        # Replicate the date-string logic from PlottingStage.execute()
-        start_time = "2003-01-01"
-        end_time = "2003-12-31"
-        start_date = str(start_time).split(" ")[0]
-        end_date = str(end_time).split(" ")[0] if end_time else start_date
-        date_str = start_date if start_date == end_date else f"{start_date} - {end_date}"
-
-        assert "2003-01-01 - 2003-12-31" == date_str
-        assert "→" not in date_str, "Unicode arrow must not appear in date range"
-
-    def test_subtitle_is_date_range_only(self):
-        """Fix B: subtitle must be only the date range — no source-pair prefix.
-
-        New contract (caption era): the plotting stage puts the date range in
-        plotter_config["caption"], NOT in the title.  The title must remain a
-        single line with no embedded newline.
-        """
-        from davinci_monet.pipeline.stages.plot_options import build_plot_subtitle
-
-        # build_plot_subtitle accepts a dict with start_time / end_time keys
-        analysis_config = {"start_time": "2003-01-01", "end_time": "2003-12-31"}
-        subtitle = build_plot_subtitle(analysis_config)
-
-        assert subtitle == "2003-01-01 - 2003-12-31"
-        assert " vs " not in subtitle, "Source-pair 'vs' prefix must not appear in subtitle"
-        assert "·" not in subtitle, "Middle-dot separator must not appear in subtitle"
-        assert "→" not in subtitle, "Unicode arrow must not appear in subtitle"
-
-        # New contract: caption carries the date range; title has NO newline
+    def test_plot_options_use_separate_subtitle_not_caption(
+        self,
+        context_with_paired: PipelineContext,
+    ):
+        """Plotting stage must keep subtitles separate from titles and captions."""
         title = "AOD: MERRA2 vs MODIS Terra"
-        plotter_config: dict = {"title": title}
-        if subtitle:
-            plotter_config["caption"] = subtitle
+        stage = PlottingStage()
+        plotter_config, _ = stage._resolve_plot_options(
+            context=context_with_paired,
+            plot_type="scatter",
+            plot_spec={},
+            analysis_config={"start_time": "2003-01-01", "end_time": "2003-12-31"},
+            title=title,
+            paired_data=context_with_paired.paired["test_dataset_test_geometry"],
+            var_spec={"geometry_var": "o3", "dataset_var": "o3"},
+            geometry_label="test_geometry",
+            dataset_label="test_dataset",
+        )
 
-        assert "\n" not in plotter_config["title"], "Title must not contain a newline"
-        assert plotter_config.get("caption") == "2003-01-01 - 2003-12-31"
+        assert plotter_config["title"] == title
+        assert plotter_config["subtitle"] == "2003-01-01 - 2003-12-31"
+        assert "caption" not in plotter_config
 
 
 class TestSaveResultsStage:
@@ -633,24 +615,17 @@ class TestCreateStandardPipeline:
         """Test all standard stages are created."""
         stages = create_standard_pipeline()
 
-        # Unified pipeline: a single LoadSourcesStage replaces the former
-        # LoadModelsStage + LoadObservationsStage, and the obs-only stages are
-        # collapsed into the unified StatisticsStage/PlottingStage (which handle
-        # both paired and obs-only runs). A non-fatal SummaryStage is appended last.
         assert len(stages) == 6
 
         stage_names = [s.name for s in stages]
-        assert "load_sources" in stage_names
-        assert "load_models" not in stage_names
-        assert "load_observations" not in stage_names
-        assert "pairing" in stage_names
-        # Obs-only handling is folded into the unified stages — no separate fork.
-        assert "obs_statistics" not in stage_names
-        assert "obs_plotting" not in stage_names
-        assert "statistics" in stage_names
-        assert "plotting" in stage_names
-        assert "save_results" in stage_names
-        assert "summary" in stage_names
+        assert stage_names == [
+            "load_sources",
+            "pairing",
+            "statistics",
+            "plotting",
+            "save_results",
+            "summary",
+        ]
 
     def test_stages_are_in_order(self):
         """Test stages are in correct execution order."""
@@ -674,7 +649,7 @@ class TestPipelineRunner:
         """Test runner uses standard pipeline by default."""
         runner = PipelineRunner()
 
-        # Unified pipeline (obs/paired stage fork collapsed): load_sources,
+        # Unified pipeline (geometry/paired stage fork collapsed): load_sources,
         # pairing, statistics, plotting, save_results, summary.
         assert len(runner.stages) == 6
 

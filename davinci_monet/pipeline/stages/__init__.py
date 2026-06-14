@@ -8,19 +8,19 @@ The implementation is split across submodules for maintainability; this
 ``__init__`` re-exports the full public surface so existing
 ``from davinci_monet.pipeline.stages import X`` imports keep working:
 
-- :mod:`~davinci_monet.pipeline.stages.base` — framework primitives
+- module `~davinci_monet.pipeline.stages.base` — framework primitives
   (:class:`StageStatus`, :class:`StageResult`, :class:`Stage`,
   :class:`PipelineContext`, :class:`SourceData`, :class:`SourcePairJob`,
   :class:`BaseStage`).
-- :mod:`~davinci_monet.pipeline.stages.helpers` — module-level helpers
-  (role tagging, variable resolution, formatters).
-- :mod:`~davinci_monet.pipeline.stages.load` — :class:`LoadSourcesStage`.
-- :mod:`~davinci_monet.pipeline.stages.pair` — :class:`PairingStage`.
-- :mod:`~davinci_monet.pipeline.stages.stats` — :class:`StatisticsStage`.
-- :mod:`~davinci_monet.pipeline.stages.plot` — :class:`PlottingStage`.
-- :mod:`~davinci_monet.pipeline.stages.io` — :class:`SaveResultsStage`.
-- :mod:`~davinci_monet.pipeline.stages.summary` — :class:`SummaryStage`.
-- :mod:`~davinci_monet.pipeline.stages.factory` — pipeline constructors.
+- module `~davinci_monet.pipeline.stages.helpers` — module-level helpers
+  (dataset labels, variable resolution, formatters).
+- module `~davinci_monet.pipeline.stages.load` — :class:`LoadSourcesStage`.
+- module `~davinci_monet.pipeline.stages.pair` — :class:`PairingStage`.
+- module `~davinci_monet.pipeline.stages.stats` — :class:`StatisticsStage`.
+- module `~davinci_monet.pipeline.stages.plot` — :class:`PlottingStage`.
+- module `~davinci_monet.pipeline.stages.io` — :class:`SaveResultsStage`.
+- module `~davinci_monet.pipeline.stages.summary` — :class:`SummaryStage`.
+- module `~davinci_monet.pipeline.stages.factory` — pipeline constructors.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ from davinci_monet.pipeline.stages.base import (
     StageStatus,
 )
 from davinci_monet.pipeline.stages.factory import (
-    create_obs_pipeline,
+    create_geometry_pipeline,
     create_standard_pipeline,
 )
 from davinci_monet.pipeline.stages.helpers import (
@@ -43,8 +43,7 @@ from davinci_monet.pipeline.stages.helpers import (
     _format_size,
     iter_single_source_datasets,
     resolve_paired_var_names,
-    tag_paired_roles,
-    tag_source_roles,
+    tag_dataset_label,
 )
 from davinci_monet.pipeline.stages.io import SaveResultsStage
 from davinci_monet.pipeline.stages.load import LoadSourcesStage
@@ -63,8 +62,7 @@ __all__ = [
     "SourceData",
     "SourcePairJob",
     # Module-level helpers
-    "tag_paired_roles",
-    "tag_source_roles",
+    "tag_dataset_label",
     "iter_single_source_datasets",
     "resolve_paired_var_names",
     "_format_size",
@@ -78,5 +76,5 @@ __all__ = [
     "SummaryStage",
     # Pipeline factories
     "create_standard_pipeline",
-    "create_obs_pipeline",
+    "create_geometry_pipeline",
 ]

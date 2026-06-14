@@ -1,9 +1,6 @@
-"""YAML configuration parser for the unified ``sources:``/``pairs:`` schema.
+"""YAML configuration parser for the ``sources:``/``pairs:`` schema.
 
-This module loads and parses DAVINCI YAML configuration files. Legacy
-MELODIES-MONET ``model:``/``obs:`` blocks are rejected at load
-(:func:`_reject_legacy_config`); convert them with ``davinci-monet
-migrate-config``.
+This module loads and parses DAVINCI YAML configuration files.
 """
 
 from __future__ import annotations
@@ -16,6 +13,7 @@ import yaml
 
 from davinci_monet.config.schema import MonetConfig
 from davinci_monet.core.exceptions import ConfigurationError
+from davinci_monet.core.schema_utils import dump_schema, validate_schema
 
 
 def load_yaml(source: str | Path | TextIO) -> dict[str, Any]:
@@ -104,38 +102,8 @@ def expand_env_vars(data: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-_LEGACY_TOP_LEVEL_KEYS = ("model", "obs", "models", "observations")
-
-
-def _reject_legacy_config(data: dict[str, Any]) -> None:
-    """Hard-error on legacy ``model:``/``obs:`` (or ``models:``/``observations:``)
-    config blocks.
-
-    The unified ``sources:``/``pairs:`` schema is the only supported format.
-    ``preprocess_config`` injects empty ``model``/``obs`` dicts for structural
-    convenience, so only *non-empty* legacy blocks are an error — a config that
-    uses ``sources:`` with an incidental empty ``model: {}`` still loads.
-
-    Raises
-    ------
-    ConfigurationError
-        If any non-empty legacy data-source block is present.
-    """
-    legacy_present = [
-        key for key in _LEGACY_TOP_LEVEL_KEYS if isinstance(data.get(key), dict) and data[key]
-    ]
-    if legacy_present:
-        keys = ", ".join(f"'{k}:'" for k in legacy_present)
-        raise ConfigurationError(
-            f"Legacy {keys} config is no longer supported. "
-            "Convert it with: davinci-monet migrate-config <file> -o <out>"
-        )
-
-
 def preprocess_config(data: dict[str, Any]) -> dict[str, Any]:
-    """Preprocess raw YAML data for compatibility.
-
-    Handles legacy format quirks and normalizes structure.
+    """Preprocess raw YAML data.
 
     Parameters
     ----------
@@ -150,7 +118,7 @@ def preprocess_config(data: dict[str, Any]) -> dict[str, Any]:
     # Expand environment variables
     data = expand_env_vars(data)
 
-    # Handle legacy analysis time format quirks
+    # Normalize analysis time fields
     if "analysis" in data and data["analysis"]:
         analysis = data["analysis"]
         # Some configs have times as comments or nulled out
@@ -211,15 +179,12 @@ def load_config(source: str | Path | TextIO) -> MonetConfig:
     # Load raw YAML
     data = load_yaml(source)
 
-    # Reject legacy model:/obs: configs before any preprocessing injects empties.
-    _reject_legacy_config(data)
-
-    # Preprocess for compatibility
+    # Preprocess before schema validation.
     data = preprocess_config(data)
 
     # Validate with Pydantic
     try:
-        return MonetConfig.model_validate(data)
+        return validate_schema(MonetConfig, data)
     except Exception as e:
         raise ConfigurationError(f"Configuration validation failed: {e}") from e
 
@@ -242,10 +207,9 @@ def validate_config(data: dict[str, Any]) -> MonetConfig:
     ConfigurationError
         If validation fails.
     """
-    _reject_legacy_config(data)
     data = preprocess_config(data)
     try:
-        return MonetConfig.model_validate(data)
+        return validate_schema(MonetConfig, data)
     except Exception as e:
         raise ConfigurationError(f"Configuration validation failed: {e}") from e
 
@@ -260,7 +224,7 @@ def dump_config(config: MonetConfig, path: str | Path) -> None:
     path
         Output file path.
     """
-    data = config.model_dump(exclude_none=True, exclude_unset=True)
+    data = dump_schema(config, exclude_none=True, exclude_unset=True)
     with open(path, "w") as f:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
@@ -278,7 +242,7 @@ def config_to_yaml(config: MonetConfig) -> str:
     str
         YAML string representation.
     """
-    data = config.model_dump(exclude_none=True, exclude_unset=True)
+    data = dump_schema(config, exclude_none=True, exclude_unset=True)
     result: str = yaml.dump(data, default_flow_style=False, sort_keys=False)
     return result
 
@@ -306,7 +270,7 @@ def merge_configs(*configs: MonetConfig | dict[str, Any]) -> MonetConfig:
 
     for config in configs:
         if isinstance(config, MonetConfig):
-            data = config.model_dump(exclude_none=True)
+            data = dump_schema(config, exclude_none=True)
         else:
             data = config
 
@@ -348,8 +312,8 @@ class ConfigBuilder:
     --------
     >>> config = (ConfigBuilder()
     ...     .set_analysis(start_time="2024-01-01", end_time="2024-01-02")
-    ...     .add_source("cam", type="cesm_fv", role="model", files="/data/*.nc")
-    ...     .add_source("airnow", type="pt_sfc", role="obs")
+    ...     .add_source("cam", type="cesm_fv", files="/data/*.nc")
+    ...     .add_source("airnow", type="pt_sfc")
     ...     .build())
     """
 
@@ -388,13 +352,13 @@ class ConfigBuilder:
         name: str,
         sources: list[str],
         variables: dict[str, str],
-        reference: str | None = None,
+        geometry: str | None = None,
         **kwargs: Any,
     ) -> "ConfigBuilder":
         """Add a unified binary pair configuration."""
         pair: dict[str, Any] = {"sources": sources, "variables": variables}
-        if reference is not None:
-            pair["reference"] = reference
+        if geometry is not None:
+            pair["geometry"] = geometry
         pair.update(kwargs)
         self._data["pairs"][name] = pair
         return self

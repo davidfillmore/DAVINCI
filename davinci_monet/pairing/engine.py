@@ -1,7 +1,7 @@
 """Unified pairing engine for source matching.
 
 This module provides the main pairing orchestrator that dispatches to
-geometry-specific strategies based on reference and comparand data geometry.
+geometry-specific strategies based on geometry and dataset data geometry.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ class PairingConfig:
         Horizontal interpolation method ('nearest', 'bilinear').
     time_method : str
         Time interpolation method ('nearest', 'linear'). Use 'linear' for
-        models with sparse time output (e.g. 6-hourly WRF-Chem) to avoid
+        datasets with sparse time output (e.g. 6-hourly WRF-Chem) to avoid
         step-function artifacts in the paired time series.
     apply_averaging_kernel : bool
         Whether to apply satellite averaging kernels.
@@ -55,16 +55,16 @@ class PairingEngine:
     """Unified pairing engine that dispatches to geometry-specific strategies.
 
     The engine automatically selects the appropriate pairing strategy based
-    on the reference data's geometry attribute.
+    on the geometry data's geometry attribute.
 
     Examples
     --------
     >>> engine = PairingEngine()
     >>> paired = engine.pair_sources(
-    ...     reference=reference_data,
-    ...     comparand=comparand_data,
-    ...     reference_vars=["O3"],
-    ...     comparand_vars=["OZONE"],
+    ...     geometry=geometry_data,
+    ...     dataset=dataset_data,
+    ...     geometry_vars=["O3"],
+    ...     dataset_vars=["OZONE"],
     ... )
     """
 
@@ -137,38 +137,38 @@ class PairingEngine:
         return self._strategies[geometry]
 
     def supported_pairing_combinations(self) -> set[tuple[DataGeometry, DataGeometry]]:
-        """Return supported ``(reference, comparand)`` geometry combinations."""
-        return {(reference_geometry, DataGeometry.GRID) for reference_geometry in self._strategies}
+        """Return supported ``(geometry, dataset)`` geometry combinations."""
+        return {(geometry, DataGeometry.GRID) for geometry in self._strategies}
 
     def supports_pairing_combination(
         self,
-        reference_geometry: DataGeometry,
-        comparand_geometry: DataGeometry,
+        geometry: DataGeometry,
+        dataset_geometry: DataGeometry,
     ) -> bool:
         """Return whether the engine can pair this geometry combination."""
         return (
-            reference_geometry,
-            comparand_geometry,
+            geometry,
+            dataset_geometry,
         ) in self.supported_pairing_combinations()
 
     def get_strategy_for(
         self,
-        reference_geometry: DataGeometry,
-        comparand_geometry: DataGeometry,
+        geometry: DataGeometry,
+        dataset_geometry: DataGeometry,
     ) -> PairingStrategy:
-        """Get the strategy for a ``(reference, comparand)`` geometry pair.
+        """Get the strategy for a ``(geometry, dataset)`` geometry pair.
 
-        The comparand is resampled onto the reference's geometry. Supported
-        combinations are a GRID comparand sampled onto any registered reference
-        geometry (POINT/TRACK/PROFILE/SWATH/GRID). The reference geometry selects
+        The dataset is resampled onto the geometry's geometry. Supported
+        combinations are a GRID dataset sampled onto any registered geometry
+        geometry (POINT/TRACK/PROFILE/SWATH/GRID). The geometry geometry selects
         the strategy.
 
         Parameters
         ----------
-        reference_geometry
-            Geometry of the reference source (sampled *onto*).
-        comparand_geometry
-            Geometry of the comparand source (sampled *from*).
+        geometry
+            Geometry of the geometry source (sampled *onto*).
+        dataset_geometry
+            Geometry of the dataset source (sampled *from*).
 
         Returns
         -------
@@ -180,76 +180,76 @@ class PairingEngine:
         PairingError
             If the combination is not supported.
         """
-        if not self.supports_pairing_combination(reference_geometry, comparand_geometry):
+        if not self.supports_pairing_combination(geometry, dataset_geometry):
             raise PairingError(
                 f"Unsupported pairing combination "
-                f"(reference={reference_geometry.name}, comparand={comparand_geometry.name}). "
-                f"Supported combinations sample a GRID comparand onto a "
-                f"{[g.name for g in self._strategies.keys()]} reference."
+                f"(geometry={geometry.name}, dataset={dataset_geometry.name}). "
+                f"Supported combinations sample a GRID dataset onto a "
+                f"{[g.name for g in self._strategies.keys()]} geometry."
             )
-        return self.get_strategy(reference_geometry)
+        return self.get_strategy(geometry)
 
     def pair_sources(
         self,
-        reference: xr.Dataset,
-        comparand: xr.Dataset,
-        reference_vars: Sequence[str],
-        comparand_vars: Sequence[str],
-        reference_geometry: DataGeometry | None = None,
-        comparand_geometry: DataGeometry | None = None,
+        geometry_data: xr.Dataset,
+        dataset_data: xr.Dataset,
+        geometry_vars: Sequence[str],
+        dataset_vars: Sequence[str],
+        output_geometry: DataGeometry | None = None,
+        dataset_geometry: DataGeometry | None = None,
         config: PairingConfig | None = None,
-        reference_label: str = "reference",
-        comparand_label: str = "comparand",
+        geometry_label: str = "geometry",
+        dataset_label: str = "dataset",
         **kwargs: Any,
     ) -> PairedData:
-        """Pair two role-neutral sources.
+        """Pair two sources.
 
-        ``comparand`` is sampled onto ``reference``. The paired output uses
-        ``<source_label>_<source_variable>`` variable names with ``pair_role``,
-        ``source_label``, and ``source_variable`` attrs.
+        ``dataset`` is sampled onto ``geometry``. The paired output uses
+        ``<dataset_label>_<dataset_variable>`` variable names with ``pair_axis``,
+        ``dataset_label``, and ``dataset_variable`` attrs.
         """
         if config is None:
             config = PairingConfig()
-        if reference_geometry is None:
-            reference_geometry = self._detect_geometry(reference)
-        if comparand_geometry is None:
-            comparand_geometry = self._detect_geometry(comparand)
+        if output_geometry is None:
+            output_geometry = self._detect_geometry(geometry_data)
+        if dataset_geometry is None:
+            dataset_geometry = self._detect_geometry(dataset_data)
 
         if config.require_overlap:
-            self._check_temporal_overlap(comparand, reference)
+            self._check_temporal_overlap(dataset_data, geometry_data)
 
-        strategy = self.get_strategy_for(reference_geometry, comparand_geometry)
+        strategy = self.get_strategy_for(output_geometry, dataset_geometry)
         paired_ds = strategy.pair_sources(
-            reference=reference,
-            comparand=comparand,
+            geometry_data=geometry_data,
+            dataset_data=dataset_data,
             radius_of_influence=config.radius_of_influence,
             time_tolerance=config.time_tolerance,
             vertical_method=config.vertical_method,
             horizontal_method=config.horizontal_method,
             time_method=config.time_method,
-            reference_vars=list(reference_vars),
-            comparand_vars=list(comparand_vars),
-            reference_var=str(reference_vars[0]) if reference_vars else None,
-            comparand_var=str(comparand_vars[0]) if comparand_vars else None,
+            geometry_vars=list(geometry_vars),
+            dataset_vars=list(dataset_vars),
+            geometry_var=str(geometry_vars[0]) if geometry_vars else None,
+            dataset_var=str(dataset_vars[0]) if dataset_vars else None,
             **kwargs,
         )
         result_ds = self._assemble_paired_dataset(
             paired_ds,
-            reference_vars=reference_vars,
-            comparand_vars=comparand_vars,
-            reference_label=reference_label,
-            comparand_label=comparand_label,
+            geometry_vars=geometry_vars,
+            dataset_vars=dataset_vars,
+            geometry_label=geometry_label,
+            dataset_label=dataset_label,
         )
         return PairedData.from_sources(
             data=result_ds,
-            reference_label=reference_label,
-            comparand_label=comparand_label,
-            geometry=reference_geometry,
+            geometry_label=geometry_label,
+            dataset_label=dataset_label,
+            geometry=output_geometry,
             pairing_info={
-                "reference_label": reference_label,
-                "comparand_label": comparand_label,
-                "reference_geometry": reference_geometry.name,
-                "comparand_geometry": comparand_geometry.name,
+                "geometry_label": geometry_label,
+                "dataset_label": dataset_label,
+                "geometry": output_geometry.name,
+                "dataset_geometry": dataset_geometry.name,
                 "radius_of_influence": config.radius_of_influence,
                 "time_tolerance": config.time_tolerance,
                 "vertical_method": config.vertical_method,
@@ -269,57 +269,56 @@ class PairingEngine:
     def _assemble_paired_dataset(
         self,
         paired_ds: xr.Dataset,
-        reference_vars: Sequence[str],
-        comparand_vars: Sequence[str],
-        reference_label: str,
-        comparand_label: str,
+        geometry_vars: Sequence[str],
+        dataset_vars: Sequence[str],
+        geometry_label: str,
+        dataset_label: str,
     ) -> xr.Dataset:
         """Build a source-label paired dataset from strategy output."""
         data_vars: dict[str, xr.DataArray] = {}
         coords = dict(paired_ds.coords)
 
-        for reference_var, comparand_var in zip(reference_vars, comparand_vars):
-            ref_name = str(reference_var)
-            comp_name = str(comparand_var)
-            reference_key = self._select_var(
+        for geometry_var, dataset_var in zip(geometry_vars, dataset_vars):
+            geometry_name = str(geometry_var)
+            dataset_name = str(dataset_var)
+            geometry_key = self._select_var(
                 paired_ds,
-                [f"reference_{ref_name}", ref_name, f"obs_{ref_name}"],
+                [geometry_name, f"geometry_{geometry_name}"],
             )
-            comparand_key = self._select_var(
+            dataset_key = self._select_var(
                 paired_ds,
                 [
-                    f"comparand_{comp_name}",
-                    comp_name,
-                    f"model_{comp_name}",
-                    f"model_{ref_name}",
+                    dataset_name,
+                    f"dataset_{dataset_name}",
+                    f"dataset_{geometry_name}",
                 ],
             )
 
-            if reference_key is None or comparand_key is None:
+            if geometry_key is None or dataset_key is None:
                 continue
 
-            reference_output = f"{reference_label}_{ref_name}"
-            comparand_output = f"{comparand_label}_{comp_name}"
-            reference_da = paired_ds[reference_key].copy()
-            comparand_da = paired_ds[comparand_key].copy()
-            reference_da.attrs.update(
+            geometry_output = f"{geometry_label}_{geometry_name}"
+            dataset_output = f"{dataset_label}_{dataset_name}"
+            geometry_da = paired_ds[geometry_key].copy()
+            dataset_da = paired_ds[dataset_key].copy()
+            geometry_da.attrs.update(
                 {
-                    "pair_role": "reference",
-                    "source_label": reference_label,
-                    "source_variable": ref_name,
-                    "canonical_name": ref_name,
+                    "pair_axis": "geometry",
+                    "dataset_label": geometry_label,
+                    "dataset_variable": geometry_name,
+                    "canonical_name": geometry_name,
                 }
             )
-            comparand_da.attrs.update(
+            dataset_da.attrs.update(
                 {
-                    "pair_role": "comparand",
-                    "source_label": comparand_label,
-                    "source_variable": comp_name,
-                    "canonical_name": ref_name,
+                    "pair_axis": "dataset",
+                    "dataset_label": dataset_label,
+                    "dataset_variable": dataset_name,
+                    "canonical_name": geometry_name,
                 }
             )
-            data_vars[reference_output] = reference_da
-            data_vars[comparand_output] = comparand_da
+            data_vars[geometry_output] = geometry_da
+            data_vars[dataset_output] = dataset_da
 
         result = xr.Dataset(data_vars, coords=coords)
         result.attrs = dict(paired_ds.attrs)
@@ -387,14 +386,14 @@ class PairingEngine:
             "Please set the 'geometry' attribute on the dataset."
         )
 
-    def _check_temporal_overlap(self, comparand: xr.Dataset, reference: xr.Dataset) -> None:
+    def _check_temporal_overlap(self, dataset: xr.Dataset, geometry: xr.Dataset) -> None:
         """Check if the two sources have temporal overlap.
 
         Parameters
         ----------
-        comparand
+        dataset
             Source sampled from.
-        reference
+        geometry
             Source sampled onto.
 
         Raises
@@ -402,24 +401,24 @@ class PairingEngine:
         NoOverlapError
             If no temporal overlap exists.
         """
-        if "time" not in comparand.dims or "time" not in reference.dims:
+        if "time" not in dataset.dims or "time" not in geometry.dims:
             return
 
-        comparand_times = comparand["time"].values
-        reference_times = reference["time"].values
+        dataset_times = dataset["time"].values
+        geometry_times = geometry["time"].values
 
-        if len(comparand_times) == 0 or len(reference_times) == 0:
+        if len(dataset_times) == 0 or len(geometry_times) == 0:
             return
 
-        comparand_start = comparand_times.min()
-        comparand_end = comparand_times.max()
-        reference_start = reference_times.min()
-        reference_end = reference_times.max()
+        dataset_start = dataset_times.min()
+        dataset_end = dataset_times.max()
+        geometry_start = geometry_times.min()
+        geometry_end = geometry_times.max()
 
-        if comparand_end < reference_start or reference_end < comparand_start:
+        if dataset_end < geometry_start or geometry_end < dataset_start:
             raise NoOverlapError(
-                f"No temporal overlap between comparand ({comparand_start} to {comparand_end}) "
-                f"and reference ({reference_start} to {reference_end})"
+                f"No temporal overlap between dataset ({dataset_start} to {dataset_end}) "
+                f"and geometry ({geometry_start} to {geometry_end})"
             )
 
 

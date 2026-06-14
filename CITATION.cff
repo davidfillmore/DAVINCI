@@ -14,7 +14,7 @@ authors:
     affiliation: "National Center for Atmospheric Research, Boulder, CO, USA"
 keywords:
   - atmospheric chemistry
-  - model evaluation
+  - dataset evaluation
   - air quality
   - satellite remote sensing
   - Python

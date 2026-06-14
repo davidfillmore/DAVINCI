@@ -4,7 +4,7 @@
 Demonstrates the Taylor diagram plotter for performance summary showing
 correlation, standard deviation ratio, and RMSE.
 
-Data: Surface point observations (O3)
+Data: Surface point datasets (O3)
 """
 
 import matplotlib.pyplot as plt
@@ -25,8 +25,8 @@ def main():
     # Taylor diagram for single variable comparison
     fig = plot_taylor(
         paired,
-        obs_var="obs_o3",
-        model_var="model_o3",
+        geometry_var="geometry_o3",
+        dataset_var="dataset_o3",
         title="Taylor Diagram: O3 Performance",
     )
 

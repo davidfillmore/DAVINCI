@@ -1,7 +1,7 @@
 """Diurnal cycle plot renderer for DAVINCI.
 
 This module provides diurnal cycle plotting functionality for comparing
-model output with observations across the daily cycle.
+dataset output with datasets across the daily cycle.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from davinci_monet.plots.base import (
     PlotConfig,
     build_series,
     format_label_with_units,
-    get_role_color,
+    get_dataset_color,
     get_series_label,
     get_variable_label,
     get_variable_units,
@@ -35,8 +35,8 @@ if TYPE_CHECKING:
 class DiurnalPlotter(BasePlotter):
     """Plotter for diurnal cycle comparisons.
 
-    Creates plots showing the average diurnal pattern of model and
-    observation values, optionally with uncertainty bands.
+    Creates plots showing the average diurnal pattern of dataset and
+    dataset values, optionally with uncertainty bands.
 
     Parameters
     ----------
@@ -48,8 +48,8 @@ class DiurnalPlotter(BasePlotter):
     >>> plotter = DiurnalPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     obs_var="obs_o3",
-    ...     model_var="model_o3",
+    ...     geometry_var="geometry_o3",
+    ...     dataset_var="dataset_o3",
     ...     show_spread="iqr",
     ... )
     """
@@ -68,7 +68,7 @@ class DiurnalPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one reference (obs) and one comparand (model).
+            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
         ax
             Optional axes to plot on. If None, creates new figure.
         **kwargs
@@ -83,17 +83,17 @@ class DiurnalPlotter(BasePlotter):
             raise NotImplementedError(
                 f"DiurnalPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        ref = next((s for s in series if s.pair_role == "reference"), series[0])
-        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
-        paired_data = ref.dataset
-        obs_var = ref.var_name
-        model_var = comp.var_name
+        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = geometry_series.dataset
+        geometry_var = geometry_series.var_name
+        dataset_var = dataset_series.var_name
 
         time_dim: str = kwargs.pop("time_dim", "time")
         show_spread: Literal["none", "std", "iqr", "range"] = kwargs.pop("show_spread", "iqr")
         aggregate_dim: str | None = kwargs.pop("aggregate_dim", None)
-        obs_label: str | None = kwargs.pop("obs_label", None)
-        model_label: str | None = kwargs.pop("model_label", None)
+        geometry_label: str | None = kwargs.pop("geometry_label", None)
+        dataset_label: str | None = kwargs.pop("dataset_label", None)
         utc_offset: int = kwargs.pop("utc_offset", 0)
 
         # Create figure if needed
@@ -103,32 +103,34 @@ class DiurnalPlotter(BasePlotter):
             fig = ax.get_figure()  # type: ignore[assignment]
 
         # Get data
-        obs_data = paired_data[obs_var]
-        model_data = paired_data[model_var]
+        geometry_data = paired_data[geometry_var]
+        dataset_data = paired_data[dataset_var]
 
         # Calculate hour of day
         time_coords = paired_data[time_dim]
         hours = (time_coords.dt.hour + utc_offset) % 24
 
         # Add hour as a coordinate for grouping
-        obs_data = obs_data.assign_coords(hour=hours)
-        model_data = model_data.assign_coords(hour=hours)
+        geometry_data = geometry_data.assign_coords(hour=hours)
+        dataset_data = dataset_data.assign_coords(hour=hours)
 
         # Group by hour and calculate statistics
-        obs_hourly = obs_data.groupby("hour")
-        model_hourly = model_data.groupby("hour")
+        geometry_hourly = geometry_data.groupby("hour")
+        dataset_hourly = dataset_data.groupby("hour")
 
         # Calculate means
-        obs_mean = obs_hourly.mean()
-        model_mean = model_hourly.mean()
+        geometry_mean = geometry_hourly.mean()
+        dataset_mean = dataset_hourly.mean()
 
         # Flatten to 1D if multi-dimensional
-        obs_mean_vals = obs_mean.values
-        model_mean_vals = model_mean.values
-        if obs_mean_vals.ndim > 1:
-            obs_mean_vals = np.nanmean(obs_mean_vals, axis=tuple(range(1, obs_mean_vals.ndim)))
-            model_mean_vals = np.nanmean(
-                model_mean_vals, axis=tuple(range(1, model_mean_vals.ndim))
+        geometry_mean_vals = geometry_mean.values
+        dataset_mean_vals = dataset_mean.values
+        if geometry_mean_vals.ndim > 1:
+            geometry_mean_vals = np.nanmean(
+                geometry_mean_vals, axis=tuple(range(1, geometry_mean_vals.ndim))
+            )
+            dataset_mean_vals = np.nanmean(
+                dataset_mean_vals, axis=tuple(range(1, dataset_mean_vals.ndim))
             )
 
         # Get hour values for x-axis
@@ -137,56 +139,72 @@ class DiurnalPlotter(BasePlotter):
         # Get style configuration
         style = self.config.style
 
-        # Series legend labels prefer the source label over Observed/Modeled (R-3).
-        obs_label = obs_label or get_series_label(paired_data, obs_var, self.config.obs_label)
-        model_label = model_label or get_series_label(
-            paired_data, model_var, self.config.model_label
+        # Series legend labels prefer source identity; axis remains a styling hint.
+        geometry_label = geometry_label or get_series_label(
+            paired_data, geometry_var, self.config.geometry_label
+        )
+        dataset_label = dataset_label or get_series_label(
+            paired_data, dataset_var, self.config.dataset_label
         )
 
-        # Series colors by source role (obs gray, model blue, else palette) (R-3).
-        obs_color = get_role_color(
-            paired_data, obs_var, 0, obs_color=style.obs_color, model_color=style.model_color
+        # Series colors by source axis (geometry gray, dataset blue, else palette) (R-3).
+        geometry_color = get_dataset_color(
+            paired_data,
+            geometry_var,
+            0,
+            geometry_color=style.geometry_color,
+            dataset_color=style.dataset_color,
         )
-        model_color = get_role_color(
-            paired_data, model_var, 1, obs_color=style.obs_color, model_color=style.model_color
+        dataset_color = get_dataset_color(
+            paired_data,
+            dataset_var,
+            1,
+            geometry_color=style.geometry_color,
+            dataset_color=style.dataset_color,
         )
 
         # Plot spread if requested
         if show_spread != "none":
             self._add_spread_bands(
-                ax, obs_hourly, model_hourly, hours_arr, show_spread, obs_color, model_color
+                ax,
+                geometry_hourly,
+                dataset_hourly,
+                hours_arr,
+                show_spread,
+                geometry_color,
+                dataset_color,
             )
 
         # Plot means
         ax.plot(
             hours_arr,
-            obs_mean_vals,
-            color=obs_color,
-            linestyle=style.obs_linestyle,
-            marker=style.obs_marker,
+            geometry_mean_vals,
+            color=geometry_color,
+            linestyle=style.geometry_linestyle,
+            marker=style.geometry_marker,
             linewidth=style.linewidth,
             markersize=style.markersize,
-            label=obs_label,
+            label=geometry_label,
         )
 
         ax.plot(
             hours_arr,
-            model_mean_vals,
-            color=model_color,
-            linestyle=style.model_linestyle,
-            marker=style.model_marker,
+            dataset_mean_vals,
+            color=dataset_color,
+            linestyle=style.dataset_linestyle,
+            marker=style.dataset_marker,
             linewidth=style.linewidth,
             markersize=style.markersize,
-            label=model_label,
+            label=dataset_label,
         )
 
         # Formatting
         self.apply_text_style(ax)
 
         # Set labels
-        units = get_variable_units(paired_data, obs_var)
+        units = get_variable_units(paired_data, geometry_var)
         ylabel = format_label_with_units(
-            self.config.ylabel or get_variable_label(paired_data, obs_var),
+            self.config.ylabel or get_variable_label(paired_data, geometry_var),
             units,
         )
         xlabel = "Hour (Local)" if utc_offset != 0 else "Hour (UTC)"
@@ -208,14 +226,14 @@ class DiurnalPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         ax: matplotlib.axes.Axes | None = None,
         time_dim: str = "time",
         show_spread: Literal["none", "std", "iqr", "range"] = "iqr",
         aggregate_dim: str | None = None,
-        obs_label: str | None = None,
-        model_label: str | None = None,
+        geometry_label: str | None = None,
+        dataset_label: str | None = None,
         utc_offset: int = 0,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
@@ -224,11 +242,11 @@ class DiurnalPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+            Paired dataset with dataset and dataset variables.
+        geometry_var
+            Name of dataset variable.
+        dataset_var
+            Name of dataset variable.
         ax
             Optional axes to plot on. If None, creates new figure.
         time_dim
@@ -237,10 +255,10 @@ class DiurnalPlotter(BasePlotter):
             Type of spread to show ('none', 'std', 'iqr', 'range').
         aggregate_dim
             Optional additional dimension to aggregate (e.g., 'site').
-        obs_label
-            Custom label for observations.
-        model_label
-            Custom label for model.
+        geometry_label
+            Custom label for datasets.
+        dataset_label
+            Custom label for dataset.
         utc_offset
             Offset from UTC for local time (hours).
         **kwargs
@@ -252,13 +270,13 @@ class DiurnalPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, obs_var, model_var),
+            build_series(paired_data, geometry_var, dataset_var),
             ax=ax,
             time_dim=time_dim,
             show_spread=show_spread,
             aggregate_dim=aggregate_dim,
-            obs_label=obs_label,
-            model_label=model_label,
+            geometry_label=geometry_label,
+            dataset_label=dataset_label,
             utc_offset=utc_offset,
             **kwargs,
         )
@@ -266,12 +284,12 @@ class DiurnalPlotter(BasePlotter):
     def _add_spread_bands(
         self,
         ax: matplotlib.axes.Axes,
-        obs_hourly: Any,
-        model_hourly: Any,
+        geometry_hourly: Any,
+        dataset_hourly: Any,
         hours: np.ndarray,
         spread_type: str,
-        obs_color: str,
-        model_color: str,
+        geometry_color: str,
+        dataset_color: str,
     ) -> None:
         """Add spread bands to the plot.
 
@@ -279,80 +297,84 @@ class DiurnalPlotter(BasePlotter):
         ----------
         ax
             Axes to add bands to.
-        obs_hourly, model_hourly
+        geometry_hourly, dataset_hourly
             Grouped data by hour.
         hours
             Hour values for x-axis.
         spread_type
             Type of spread ('std', 'iqr', 'range').
-        obs_color, model_color
-            Series colors (role-based) so the bands match the plotted lines.
+        geometry_color, dataset_color
+            Series colors (pair-axis) so the bands match the plotted lines.
         """
         if spread_type == "std":
-            obs_mean = obs_hourly.mean()
-            model_mean = model_hourly.mean()
+            geometry_mean = geometry_hourly.mean()
+            dataset_mean = dataset_hourly.mean()
 
-            # Suppress warnings for hours with single observations (ddof > n)
+            # Suppress warnings for hours with single datasets (ddof > n)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", "Degrees of freedom", RuntimeWarning)
-                obs_std = obs_hourly.std()
-                model_std = model_hourly.std()
+                geometry_std = geometry_hourly.std()
+                dataset_std = dataset_hourly.std()
 
-            obs_lower = obs_mean - obs_std
-            obs_upper = obs_mean + obs_std
-            model_lower = model_mean - model_std
-            model_upper = model_mean + model_std
+            geometry_lower = geometry_mean - geometry_std
+            geometry_upper = geometry_mean + geometry_std
+            dataset_lower = dataset_mean - dataset_std
+            dataset_upper = dataset_mean + dataset_std
 
         elif spread_type == "iqr":
-            obs_lower = obs_hourly.quantile(0.25)
-            obs_upper = obs_hourly.quantile(0.75)
-            model_lower = model_hourly.quantile(0.25)
-            model_upper = model_hourly.quantile(0.75)
+            geometry_lower = geometry_hourly.quantile(0.25)
+            geometry_upper = geometry_hourly.quantile(0.75)
+            dataset_lower = dataset_hourly.quantile(0.25)
+            dataset_upper = dataset_hourly.quantile(0.75)
 
         else:  # range
-            obs_lower = obs_hourly.min()
-            obs_upper = obs_hourly.max()
-            model_lower = model_hourly.min()
-            model_upper = model_hourly.max()
+            geometry_lower = geometry_hourly.min()
+            geometry_upper = geometry_hourly.max()
+            dataset_lower = dataset_hourly.min()
+            dataset_upper = dataset_hourly.max()
 
         # Flatten to 1D if multi-dimensional (e.g., when grouping over time with site dimension)
-        obs_lower_vals = obs_lower.values
-        obs_upper_vals = obs_upper.values
-        model_lower_vals = model_lower.values
-        model_upper_vals = model_upper.values
+        geometry_lower_vals = geometry_lower.values
+        geometry_upper_vals = geometry_upper.values
+        dataset_lower_vals = dataset_lower.values
+        dataset_upper_vals = dataset_upper.values
 
         # If multi-dimensional, average over non-hour dimensions
-        if obs_lower_vals.ndim > 1:
-            obs_lower_vals = np.nanmean(obs_lower_vals, axis=tuple(range(1, obs_lower_vals.ndim)))
-            obs_upper_vals = np.nanmean(obs_upper_vals, axis=tuple(range(1, obs_upper_vals.ndim)))
-            model_lower_vals = np.nanmean(
-                model_lower_vals, axis=tuple(range(1, model_lower_vals.ndim))
+        if geometry_lower_vals.ndim > 1:
+            geometry_lower_vals = np.nanmean(
+                geometry_lower_vals, axis=tuple(range(1, geometry_lower_vals.ndim))
             )
-            model_upper_vals = np.nanmean(
-                model_upper_vals, axis=tuple(range(1, model_upper_vals.ndim))
+            geometry_upper_vals = np.nanmean(
+                geometry_upper_vals, axis=tuple(range(1, geometry_upper_vals.ndim))
+            )
+            dataset_lower_vals = np.nanmean(
+                dataset_lower_vals, axis=tuple(range(1, dataset_lower_vals.ndim))
+            )
+            dataset_upper_vals = np.nanmean(
+                dataset_upper_vals, axis=tuple(range(1, dataset_upper_vals.ndim))
             )
 
-        # Plot bands (role-based colors, matching the series; R-3)
+        # Plot bands (pair-axis colors, matching the series; R-3)
         ax.fill_between(
             hours,
-            obs_lower_vals,
-            obs_upper_vals,
-            color=obs_color,
+            geometry_lower_vals,
+            geometry_upper_vals,
+            color=geometry_color,
             alpha=0.2,
         )
         ax.fill_between(
             hours,
-            model_lower_vals,
-            model_upper_vals,
-            color=model_color,
+            dataset_lower_vals,
+            dataset_upper_vals,
+            color=dataset_color,
             alpha=0.2,
         )
 
 
 def plot_diurnal(
     paired_data: xr.Dataset,
-    obs_var: str,
-    model_var: str,
+    geometry_var: str,
+    dataset_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
@@ -361,11 +383,11 @@ def plot_diurnal(
     Parameters
     ----------
     paired_data
-        Paired dataset with model and observation variables.
-    obs_var
-        Name of observation variable.
-    model_var
-        Name of model variable.
+        Paired dataset with dataset and dataset variables.
+    geometry_var
+        Name of dataset variable.
+    dataset_var
+        Name of dataset variable.
     config
         Plot configuration.
     **kwargs
@@ -380,4 +402,4 @@ def plot_diurnal(
         config = PlotConfig.from_dict(config)
 
     plotter = DiurnalPlotter(config=config)
-    return plotter.plot(paired_data, obs_var, model_var, **kwargs)
+    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)

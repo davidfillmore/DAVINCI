@@ -5,10 +5,9 @@ modules (and their tests) run offline. ``earthaccess`` is an optional
 dependency (``pip install -e ".[reanalysis]"``) imported lazily.
 
 ``stage_collection`` accepts injectable hooks so product modules can route
-network calls through their own monkeypatchable module attributes (MERRA-2
-does this for backward compatibility); when no hooks are passed, the module
-functions here are resolved at call time, so tests may monkeypatch them
-directly on this module.
+network calls through their own monkeypatchable module attributes; when no
+hooks are passed, the module functions here are resolved at call time, so
+tests may monkeypatch them directly on this module.
 """
 
 from __future__ import annotations

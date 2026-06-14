@@ -79,7 +79,7 @@ def _get_system_info() -> str:
         try:
             with open("/proc/cpuinfo") as f:
                 for line in f:
-                    if line.startswith("model name"):
+                    if line.startswith("dataset name"):
                         cpu_name = line.split(":")[1].strip()
                         break
         except Exception:
@@ -227,12 +227,12 @@ def _get_full_name(obj: object) -> str:
     import builtins
     import inspect
 
-    mod = inspect.getmodule(obj)
+    module_obj = inspect.getmodule(obj)
     name = getattr(obj, "__qualname__", str(obj))
-    if mod is None or mod is builtins:
+    if module_obj is None or module_obj is builtins:
         return name
     else:
-        return f"{mod.__name__}.{name}"
+        return f"{module_obj.__name__}.{name}"
 
 
 @contextmanager
@@ -303,7 +303,7 @@ def main(
     """DAVINCI: Data Analysis and Visual Intelligence for Climate.
 
     A modern tool for evaluating climate and atmospheric composition
-    models against observations.
+    datasets against datasets.
     """
 
 
@@ -384,25 +384,6 @@ def validate(
     from davinci_monet.cli.commands.validate import validate_config_command
 
     validate_config_command(control, strict=strict, show_config=show_config)
-
-
-@app.command("migrate-config")
-def migrate_config(
-    control: str = typer.Argument(
-        ...,
-        help="Path to the legacy control file (model:/obs: form) to migrate.",
-    ),
-    output: str = typer.Option(
-        ...,
-        "--output",
-        "-o",
-        help="Path to write the migrated control file (unified sources: form).",
-    ),
-) -> None:
-    """Migrate a legacy model/obs control file to the unified sources schema."""
-    from davinci_monet.cli.commands.migrate import migrate_config_command
-
-    migrate_config_command(control, output)
 
 
 # CLI entry point

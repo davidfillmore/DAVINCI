@@ -25,7 +25,6 @@ analysis:
 sources:
   merra2:
     type: generic
-    role: model
     files: ${MERRA2_DATA}/aer_Nx/*.nc4
     variables:
       TOTEXTTAU:
@@ -36,7 +35,6 @@ sources:
         vdiff_plot: 0.3
   modis_terra:
     type: modis_viirs
-    role: obs
     product: MOD08_M3
     files: ${MODIS_DATA}/MOD08_M3/*.hdf
     variables:
@@ -44,7 +42,6 @@ sources:
         units: "1"
   modis_aqua:
     type: modis_viirs
-    role: obs
     product: MYD08_M3
     files: ${MODIS_DATA}/MYD08_M3/*.hdf
     variables:
@@ -54,11 +51,11 @@ sources:
 pairs:
   merra2_vs_terra:
     sources: [merra2, modis_terra]
-    reference: modis_terra
+    geometry: modis_terra
     variables: { merra2: TOTEXTTAU, modis_terra: aod_550nm }
   merra2_vs_aqua:
     sources: [merra2, modis_aqua]
-    reference: modis_aqua
+    geometry: modis_aqua
     variables: { merra2: TOTEXTTAU, modis_aqua: aod_550nm }
 
 plots:
@@ -75,16 +72,16 @@ plots:
     pairs: [merra2_vs_terra]
     show_density: true
     title: "AOD: MERRA2 vs MODIS Terra"
-    obs_label: "MODIS Terra AOD"
-    model_label: "MERRA-2 AOD"
+    geometry_label: "MODIS Terra AOD"
+    dataset_label: "MERRA-2 AOD"
   aqua_aod_scatter:
     type: scatter
     pairs: [merra2_vs_aqua]
     show_density: true
     title: "AOD: MERRA2 vs MODIS Aqua"
-    obs_label: "MODIS Aqua AOD"
-    model_label: "MERRA-2 AOD"
-  # Split per pair so each legend names its own MODIS source via obs_label
+    geometry_label: "MODIS Aqua AOD"
+    dataset_label: "MERRA-2 AOD"
+  # Split per pair so each legend names its own MODIS source via geometry_label
   # (one timeseries spec covering both pairs would label both with one label).
   # No aggregate_dim: the timeseries renderer auto-averages all non-time dims
   # (lat, lon) -> a global-mean monthly series.
@@ -92,17 +89,17 @@ plots:
     type: timeseries
     pairs: [merra2_vs_terra]
     title: "Global-Mean Monthly AOD - Terra"
-    obs_label: "MODIS Terra"
-    model_label: "MERRA-2"
+    geometry_label: "MODIS Terra"
+    dataset_label: "MERRA-2"
   aqua_aod_timeseries:
     type: timeseries
     pairs: [merra2_vs_aqua]
     title: "Global-Mean Monthly AOD - Aqua"
-    obs_label: "MODIS Aqua"
-    model_label: "MERRA-2"
+    geometry_label: "MODIS Aqua"
+    dataset_label: "MERRA-2"
 
 stats:
   output_table: true
   output_table_kwargs:
     precision: 3
-  metrics: [N, MO, MP, MB, RMSE, R, NMB, NME, IOA]
+  metrics: [N, MG, MD, MB, RMSE, R, NMB, NME, IOA]

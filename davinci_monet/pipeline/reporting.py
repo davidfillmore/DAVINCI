@@ -21,7 +21,7 @@ class LogEntry:
     """A single log entry with timing information."""
 
     name: str
-    category: str  # 'model', 'observation', 'pair', 'stage'
+    category: str  # 'source', 'pair', 'stage'
     start_time: float
     end_time: float | None = None
     status: str = "running"
@@ -110,11 +110,11 @@ class LogCollector:
 
     def log_item(self, message: str) -> None:
         """Parse and log a progress message."""
-        # Parse patterns like "Loading model: cesm_asiaq (1/2)"
+        # Parse patterns like "Loading dataset: cesm_asiaq (1/2)"
         source_match = re.match(r"\s*Loading source: (\S+)", message)
-        model_match = re.match(r"\s*Loading model: (\S+)", message)
-        obs_match = re.match(r"\s*Loading obs: (\S+)", message)
-        # Legacy pairing pattern
+        dataset_match = re.match(r"\s*Loading dataset: (\S+)", message)
+        geometry_match = re.match(r"\s*Loading geometry: (\S+)", message)
+        # Pairing pattern
         pair_match = re.match(r"\s*Pairing: (\S+)", message)
         # New parallel pairing patterns
         parallel_started_match = re.match(r"\s*parallel_started: (\S+)", message)
@@ -123,12 +123,12 @@ class LogCollector:
         if source_match:
             name = source_match.group(1)
             self._start_item(name, "source")
-        elif model_match:
-            name = model_match.group(1)
-            self._start_item(name, "model")
-        elif obs_match:
-            name = obs_match.group(1)
-            self._start_item(name, "observation")
+        elif dataset_match:
+            name = dataset_match.group(1)
+            self._start_item(name, "dataset")
+        elif geometry_match:
+            name = geometry_match.group(1)
+            self._start_item(name, "dataset")
         elif pair_match:
             name = pair_match.group(1)
             self._start_item(name, "pair")
@@ -195,24 +195,17 @@ class LogCollector:
     def extract_context_data(self, context: "PipelineContext") -> None:
         """Extract detailed data from pipeline context after execution."""
 
-        def _source_detail(label: str, source_data: Any, role: str | None = None) -> dict[str, Any]:
+        def _source_detail(label: str, source_data: Any) -> dict[str, Any]:
             details: dict[str, Any] = {}
             ds = source_data.data if hasattr(source_data, "data") else source_data
             if hasattr(source_data, "source_type"):
                 details["type"] = source_data.source_type
-            elif hasattr(source_data, "obs_type"):
-                details["type"] = source_data.obs_type
-            elif hasattr(source_data, "mod_type"):
-                details["type"] = source_data.mod_type
-            details["role"] = role or getattr(source_data, "role", None)
-            if details["role"] is None and hasattr(ds, "attrs"):
-                details["role"] = ds.attrs.get("role")
             if hasattr(ds, "data_vars"):
                 details["variables"] = len(ds.data_vars)
                 if "time" in ds.sizes:
                     details["time_steps"] = ds.sizes["time"]
-                elif "obs_time" in ds.sizes:
-                    details["time_steps"] = ds.sizes["obs_time"]
+                elif "geometry_time" in ds.sizes:
+                    details["time_steps"] = ds.sizes["geometry_time"]
                 if "site" in ds.sizes:
                     details["sites"] = ds.sizes["site"]
                 elif "x" in ds.sizes:
@@ -221,17 +214,8 @@ class LogCollector:
                 details["data_points"] = total_size
             return details
 
-        def _source_role(source_data: Any) -> str | None:
-            role = getattr(source_data, "role", None)
-            if role is None:
-                ds = source_data.data if hasattr(source_data, "data") else source_data
-                if hasattr(ds, "attrs"):
-                    role = ds.attrs.get("role")
-            return str(role) if role else None
-
         for label, source_data in context.sources.items():
-            role = _source_role(source_data)
-            self.source_details[label] = _source_detail(label, source_data, role=role)
+            self.source_details[label] = _source_detail(label, source_data)
 
         # Extract pair details
         for pair_key, paired_data in context.paired.items():
@@ -243,7 +227,7 @@ class LogCollector:
                 for dim in ds.sizes:
                     total_points *= ds.sizes[dim]
                 details["paired_points"] = total_points
-                # Count paired (obs, model) variable pairs (role-based; R-5)
+                # Count paired geometry/dataset variable pairs.
                 from davinci_monet.core.base import iter_paired_variable_pairs
 
                 details["variables"] = len(iter_paired_variable_pairs(ds))
@@ -324,10 +308,9 @@ class LogCollector:
         if self.source_details:
             lines.append("## Sources Loaded")
             lines.append("")
-            lines.append("| Source | Role | Type | Variables | Records | Data Points |")
-            lines.append("|--------|------|------|-----------|---------|-------------|")
+            lines.append("| Source | Type | Variables | Records | Data Points |")
+            lines.append("|--------|------|-----------|---------|-------------|")
             for name, details in self.source_details.items():
-                role = details.get("role") or "-"
                 source_type = details.get("type") or "-"
                 vars_count = details.get("variables", "-")
                 records = (
@@ -340,9 +323,7 @@ class LogCollector:
                     records = self._format_number(records)
                 data_points = details.get("data_points")
                 data_str = self._format_number(data_points) if data_points else "-"
-                lines.append(
-                    f"| {name} | {role} | {source_type} | {vars_count} | {records} | {data_str} |"
-                )
+                lines.append(f"| {name} | {source_type} | {vars_count} | {records} | {data_str} |")
             lines.append("")
 
         # Pairings table with details
@@ -371,7 +352,7 @@ class LogCollector:
                     continue
                 lines.append(f"### {pair_key}")
                 lines.append("")
-                lines.append("| Variable | N | Mean Reference | Mean Comparand | MB | RMSE | R |")
+                lines.append("| Variable | N | Mean Geometry | Mean Dataset | MB | RMSE | R |")
                 lines.append("|----------|---|----------------|----------------|-----|------|---|")
                 for var_name, stats in pair_stats.items():
                     if not isinstance(stats, dict):
@@ -384,14 +365,14 @@ class LogCollector:
                         return default
 
                     n = _get_metric("N", "n", default="-")
-                    reference_mean = _get_metric("MO", "obs_mean")
-                    comparand_mean = _get_metric("MP", "model_mean")
+                    geometry_mean = _get_metric("MG", "geometry_mean")
+                    dataset_mean = _get_metric("MD", "dataset_mean")
                     mb = _get_metric("MB", "mean_bias")
                     rmse = _get_metric("RMSE", "rmse")
                     r = _get_metric("R", "correlation")
                     # Format values
-                    reference_str = f"{reference_mean:.2f}" if reference_mean is not None else "-"
-                    comparand_str = f"{comparand_mean:.2f}" if comparand_mean is not None else "-"
+                    geometry_str = f"{geometry_mean:.2f}" if geometry_mean is not None else "-"
+                    dataset_str = f"{dataset_mean:.2f}" if dataset_mean is not None else "-"
                     mb_str = f"{mb:+.2f}" if mb is not None else "-"
                     rmse_str = f"{rmse:.2f}" if rmse is not None else "-"
                     r_str = (
@@ -400,7 +381,7 @@ class LogCollector:
                         else "-"
                     )
                     lines.append(
-                        f"| {var_name} | {n} | {reference_str} | {comparand_str} | {mb_str} | {rmse_str} | {r_str} |"
+                        f"| {var_name} | {n} | {geometry_str} | {dataset_str} | {mb_str} | {rmse_str} | {r_str} |"
                     )
                 lines.append("")
 

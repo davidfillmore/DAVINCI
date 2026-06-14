@@ -6,9 +6,9 @@ analysis:
   end_time: "2024-02-03"
   output_dir: ./output
 
-model:
+sources:
   cesm:
-    mod_type: cesm_fv
+    type: cesm_fv
     files: /some/path/*.nc
     radius_of_influence: "not_a_number"
     variables:

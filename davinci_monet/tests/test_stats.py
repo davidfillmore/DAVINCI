@@ -18,20 +18,20 @@ import xarray as xr
 
 @pytest.fixture
 def simple_arrays() -> tuple[np.ndarray, np.ndarray]:
-    """Create simple observation and model arrays."""
+    """Create simple dataset and dataset arrays."""
     np.random.seed(42)
-    obs = np.array([10, 20, 30, 40, 50], dtype=float)
-    mod = np.array([12, 18, 33, 38, 52], dtype=float)
-    return obs, mod
+    geometry = np.array([10, 20, 30, 40, 50], dtype=float)
+    dataset = np.array([12, 18, 33, 38, 52], dtype=float)
+    return geometry, dataset
 
 
 @pytest.fixture
 def random_arrays() -> tuple[np.ndarray, np.ndarray]:
-    """Create random observation and model arrays."""
+    """Create random dataset and dataset arrays."""
     np.random.seed(42)
-    obs = np.random.normal(50, 10, 1000)
-    mod = obs + np.random.normal(2, 5, 1000)  # Slight positive bias
-    return obs, mod
+    geometry = np.random.normal(50, 10, 1000)
+    dataset = geometry + np.random.normal(2, 5, 1000)  # Slight positive bias
+    return geometry, dataset
 
 
 @pytest.fixture
@@ -44,13 +44,13 @@ def paired_dataset() -> xr.Dataset:
     time = pd.date_range("2023-01-01", periods=n_times, freq="h")
     sites = [f"site_{i}" for i in range(n_sites)]
 
-    obs = np.random.normal(50, 10, (n_times, n_sites))
-    mod = obs + np.random.normal(2, 5, (n_times, n_sites))
+    geometry = np.random.normal(50, 10, (n_times, n_sites))
+    dataset = geometry + np.random.normal(2, 5, (n_times, n_sites))
 
     ds = xr.Dataset(
         {
-            "obs_o3": (["time", "site"], obs, {"units": "ppbv"}),
-            "model_o3": (["time", "site"], mod, {"units": "ppbv"}),
+            "geometry_o3": (["time", "site"], geometry, {"units": "ppbv"}),
+            "dataset_o3": (["time", "site"], dataset, {"units": "ppbv"}),
         },
         coords={
             "time": time,
@@ -72,37 +72,37 @@ class TestBasicMetrics:
         """Test sample count."""
         from davinci_monet.stats import get_metric
 
-        obs, mod = simple_arrays
+        geometry, dataset = simple_arrays
         metric = get_metric("N")
-        result = metric.compute(obs, mod)
+        result = metric.compute(geometry, dataset)
         assert result == 5
 
-    def test_mean_obs(self, simple_arrays):
-        """Test mean observation."""
+    def test_mean_geometry(self, simple_arrays):
+        """Test mean dataset."""
         from davinci_monet.stats import get_metric
 
-        obs, mod = simple_arrays
-        metric = get_metric("MO")
-        result = metric.compute(obs, mod)
+        geometry, dataset = simple_arrays
+        metric = get_metric("MG")
+        result = metric.compute(geometry, dataset)
         assert result == pytest.approx(30.0)
 
-    def test_mean_mod(self, simple_arrays):
-        """Test mean model."""
+    def test_mean_dataset_pair(self, simple_arrays):
+        """Test mean dataset."""
         from davinci_monet.stats import get_metric
 
-        obs, mod = simple_arrays
-        metric = get_metric("MP")
-        result = metric.compute(obs, mod)
+        geometry, dataset = simple_arrays
+        metric = get_metric("MD")
+        result = metric.compute(geometry, dataset)
         assert result == pytest.approx(30.6)
 
-    def test_std_obs(self, simple_arrays):
-        """Test observation standard deviation."""
+    def test_std_geometry(self, simple_arrays):
+        """Test dataset standard deviation."""
         from davinci_monet.stats import get_metric
 
-        obs, mod = simple_arrays
-        metric = get_metric("STDO")
-        result = metric.compute(obs, mod)
-        assert result == pytest.approx(np.std(obs, ddof=1))
+        geometry, dataset = simple_arrays
+        metric = get_metric("STDG")
+        result = metric.compute(geometry, dataset)
+        assert result == pytest.approx(np.std(geometry, ddof=1))
 
 
 class TestBiasMetrics:
@@ -112,40 +112,40 @@ class TestBiasMetrics:
         """Test mean bias."""
         from davinci_monet.stats import get_metric
 
-        obs, mod = simple_arrays
+        geometry, dataset = simple_arrays
         metric = get_metric("MB")
-        result = metric.compute(obs, mod)
-        # MB = mean(mod - obs) = (2 + -2 + 3 + -2 + 2) / 5 = 0.6
+        result = metric.compute(geometry, dataset)
+        # MB = mean(dataset - geometry) = (2 + -2 + 3 + -2 + 2) / 5 = 0.6
         assert result == pytest.approx(0.6)
 
     def test_mean_bias_sign(self):
-        """Test that positive bias means model > obs."""
+        """Test that positive bias means dataset > geometry."""
         from davinci_monet.stats import get_metric
 
-        obs = np.array([10, 20, 30])
-        mod = np.array([15, 25, 35])  # Model is higher
+        geometry = np.array([10, 20, 30])
+        dataset = np.array([15, 25, 35])  # Dataset is higher
         metric = get_metric("MB")
-        result = metric.compute(obs, mod)
+        result = metric.compute(geometry, dataset)
         assert result > 0  # Positive bias
 
     def test_normalized_mean_bias(self, simple_arrays):
         """Test normalized mean bias."""
         from davinci_monet.stats import get_metric
 
-        obs, mod = simple_arrays
+        geometry, dataset = simple_arrays
         metric = get_metric("NMB")
-        result = metric.compute(obs, mod)
-        # NMB = 100 * sum(mod - obs) / sum(obs) = 100 * 3 / 150 = 2%
+        result = metric.compute(geometry, dataset)
+        # NMB = 100 * sum(dataset - geometry) / sum(geometry) = 100 * 3 / 150 = 2%
         assert result == pytest.approx(2.0)
 
     def test_fractional_bias(self):
         """Test fractional bias."""
         from davinci_monet.stats import get_metric
 
-        obs = np.array([10, 20, 30])
-        mod = np.array([10, 20, 30])  # Perfect match
+        geometry = np.array([10, 20, 30])
+        dataset = np.array([10, 20, 30])  # Perfect match
         metric = get_metric("FB")
-        result = metric.compute(obs, mod)
+        result = metric.compute(geometry, dataset)
         assert result == pytest.approx(0.0)
 
 
@@ -156,31 +156,31 @@ class TestErrorMetrics:
         """Test mean error."""
         from davinci_monet.stats import get_metric
 
-        obs, mod = simple_arrays
+        geometry, dataset = simple_arrays
         metric = get_metric("ME")
-        result = metric.compute(obs, mod)
-        # ME = mean(|mod - obs|) = (2 + 2 + 3 + 2 + 2) / 5 = 2.2
+        result = metric.compute(geometry, dataset)
+        # ME = mean(|dataset - geometry|) = (2 + 2 + 3 + 2 + 2) / 5 = 2.2
         assert result == pytest.approx(2.2)
 
     def test_rmse(self, simple_arrays):
         """Test RMSE."""
         from davinci_monet.stats import get_metric
 
-        obs, mod = simple_arrays
+        geometry, dataset = simple_arrays
         metric = get_metric("RMSE")
-        result = metric.compute(obs, mod)
-        # RMSE = sqrt(mean((mod - obs)^2)) = sqrt((4+4+9+4+4)/5) = sqrt(5) ≈ 2.236
-        expected = np.sqrt(np.mean((mod - obs) ** 2))
+        result = metric.compute(geometry, dataset)
+        # RMSE = sqrt(mean((dataset - geometry)^2)) = sqrt((4+4+9+4+4)/5) = sqrt(5) ≈ 2.236
+        expected = np.sqrt(np.mean((dataset - geometry) ** 2))
         assert result == pytest.approx(expected)
 
     def test_normalized_mean_error(self, simple_arrays):
         """Test normalized mean error."""
         from davinci_monet.stats import get_metric
 
-        obs, mod = simple_arrays
+        geometry, dataset = simple_arrays
         metric = get_metric("NME")
-        result = metric.compute(obs, mod)
-        # NME = 100 * sum(|mod - obs|) / sum(obs) = 100 * 11 / 150 ≈ 7.33%
+        result = metric.compute(geometry, dataset)
+        # NME = 100 * sum(|dataset - geometry|) / sum(geometry) = 100 * 11 / 150 ≈ 7.33%
         assert result == pytest.approx(100 * 11 / 150)
 
 
@@ -191,41 +191,41 @@ class TestCorrelationMetrics:
         """Test perfect correlation."""
         from davinci_monet.stats import get_metric
 
-        obs = np.array([1, 2, 3, 4, 5])
-        mod = np.array([2, 4, 6, 8, 10])  # Perfect linear relationship
+        geometry = np.array([1, 2, 3, 4, 5])
+        dataset = np.array([2, 4, 6, 8, 10])  # Perfect linear relationship
         metric = get_metric("R")
-        result = metric.compute(obs, mod)
+        result = metric.compute(geometry, dataset)
         assert result == pytest.approx(1.0)
 
     def test_correlation_negative(self):
         """Test negative correlation."""
         from davinci_monet.stats import get_metric
 
-        obs = np.array([1, 2, 3, 4, 5])
-        mod = np.array([10, 8, 6, 4, 2])  # Perfect negative relationship
+        geometry = np.array([1, 2, 3, 4, 5])
+        dataset = np.array([10, 8, 6, 4, 2])  # Perfect negative relationship
         metric = get_metric("R")
-        result = metric.compute(obs, mod)
+        result = metric.compute(geometry, dataset)
         assert result == pytest.approx(-1.0)
 
     def test_r2(self, random_arrays):
         """Test R^2."""
         from davinci_monet.stats import get_metric
 
-        obs, mod = random_arrays
+        geometry, dataset = random_arrays
         r_metric = get_metric("R")
         r2_metric = get_metric("R2")
-        r = r_metric.compute(obs, mod)
-        r2 = r2_metric.compute(obs, mod)
+        r = r_metric.compute(geometry, dataset)
+        r2 = r2_metric.compute(geometry, dataset)
         assert r2 == pytest.approx(r**2)
 
     def test_index_of_agreement(self):
         """Test index of agreement."""
         from davinci_monet.stats import get_metric
 
-        obs = np.array([1, 2, 3, 4, 5])
-        mod = np.array([1, 2, 3, 4, 5])  # Perfect match
+        geometry = np.array([1, 2, 3, 4, 5])
+        dataset = np.array([1, 2, 3, 4, 5])  # Perfect match
         metric = get_metric("IOA")
-        result = metric.compute(obs, mod)
+        result = metric.compute(geometry, dataset)
         assert result == pytest.approx(1.0)
 
 
@@ -236,20 +236,20 @@ class TestEdgeCases:
         """Test handling of empty arrays."""
         from davinci_monet.stats import get_metric
 
-        obs = np.array([])
-        mod = np.array([])
+        geometry = np.array([])
+        dataset = np.array([])
         metric = get_metric("MB")
-        result = metric.compute(obs, mod)
+        result = metric.compute(geometry, dataset)
         assert np.isnan(result)
 
     def test_nan_handling(self):
         """Test NaN handling."""
         from davinci_monet.stats import get_metric
 
-        obs = np.array([1, 2, np.nan, 4, 5])
-        mod = np.array([1, 2, 3, np.nan, 5])
+        geometry = np.array([1, 2, np.nan, 4, 5])
+        dataset = np.array([1, 2, 3, np.nan, 5])
         metric = get_metric("N")
-        result = metric.compute(obs, mod)
+        result = metric.compute(geometry, dataset)
         # Only 3 valid pairs
         assert result == 3
 
@@ -257,20 +257,20 @@ class TestEdgeCases:
         """Test handling of zero variance."""
         from davinci_monet.stats import get_metric
 
-        obs = np.array([5, 5, 5, 5, 5])
-        mod = np.array([5, 5, 5, 5, 5])
+        geometry = np.array([5, 5, 5, 5, 5])
+        dataset = np.array([5, 5, 5, 5, 5])
         metric = get_metric("R")
-        result = metric.compute(obs, mod)
+        result = metric.compute(geometry, dataset)
         assert np.isnan(result)
 
     def test_single_value(self):
         """Test single value arrays."""
         from davinci_monet.stats import get_metric
 
-        obs = np.array([5])
-        mod = np.array([6])
+        geometry = np.array([5])
+        dataset = np.array([6])
         metric = get_metric("MB")
-        result = metric.compute(obs, mod)
+        result = metric.compute(geometry, dataset)
         assert result == pytest.approx(1.0)
 
 
@@ -287,7 +287,7 @@ class TestStatisticsCalculator:
         from davinci_monet.stats import StatisticsCalculator
 
         calc = StatisticsCalculator()
-        stats = calc.compute(paired_dataset, "obs_o3", "model_o3")
+        stats = calc.compute(paired_dataset, "geometry_o3", "dataset_o3")
 
         assert isinstance(stats, pd.DataFrame)
         assert len(stats) == 1
@@ -302,8 +302,8 @@ class TestStatisticsCalculator:
         calc = StatisticsCalculator()
         stats = calc.compute(
             paired_dataset,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             metrics=["MB", "RMSE"],
         )
 
@@ -316,8 +316,8 @@ class TestStatisticsCalculator:
         calc = StatisticsCalculator()
         stats = calc.compute(
             paired_dataset,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             groupby="site",
         )
 
@@ -331,8 +331,8 @@ class TestStatisticsCalculator:
         calc = StatisticsCalculator()
         stats = calc.compute(
             paired_dataset,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             groupby="time.month",
         )
 
@@ -347,8 +347,8 @@ class TestStatisticsCalculator:
         calc = StatisticsCalculator()
         summary = calc.compute_summary(
             paired_dataset,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             metrics=["MB", "RMSE", "R"],
         )
 
@@ -357,15 +357,15 @@ class TestStatisticsCalculator:
         assert "RMSE" in summary
         assert "R" in summary
 
-    def test_reference_comparand_keywords(self, paired_dataset):
-        """Test neutral reference/comparand variable keywords."""
+    def test_geometry_dataset_keywords(self, paired_dataset):
+        """Test neutral geometry/dataset variable keywords."""
         from davinci_monet.stats import StatisticsCalculator
 
         calc = StatisticsCalculator()
         stats = calc.compute(
             paired_dataset,
-            reference_var="obs_o3",
-            comparand_var="model_o3",
+            geometry_var="geometry_o3",
+            dataset_var="dataset_o3",
             metrics=["N", "MB"],
         )
 
@@ -382,21 +382,21 @@ class TestConvenienceFunctions:
 
         stats = calculate_statistics(
             paired_dataset,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
         )
 
         assert isinstance(stats, pd.DataFrame)
         assert len(stats) == 1
 
-    def test_calculate_statistics_reference_comparand_keywords(self, paired_dataset):
+    def test_calculate_statistics_geometry_dataset_keywords(self, paired_dataset):
         """Test convenience wrapper accepts neutral variable keywords."""
         from davinci_monet.stats import calculate_statistics
 
         stats = calculate_statistics(
             paired_dataset,
-            reference_var="obs_o3",
-            comparand_var="model_o3",
+            geometry_var="geometry_o3",
+            dataset_var="dataset_o3",
             metrics=["N"],
         )
 
@@ -406,8 +406,8 @@ class TestConvenienceFunctions:
         """Test quick_stats function."""
         from davinci_monet.stats import quick_stats
 
-        obs, mod = random_arrays
-        stats = quick_stats(obs, mod)
+        geometry, dataset = random_arrays
+        stats = quick_stats(geometry, dataset)
 
         assert isinstance(stats, dict)
         assert "MB" in stats
@@ -430,7 +430,7 @@ class TestStatisticsFormatter:
         from davinci_monet.stats import StatisticsCalculator, StatisticsFormatter
 
         calc = StatisticsCalculator()
-        stats = calc.compute(paired_dataset, "obs_o3", "model_o3")
+        stats = calc.compute(paired_dataset, "geometry_o3", "dataset_o3")
 
         formatter = StatisticsFormatter()
         formatted = formatter.format_dataframe(stats, transpose=True)
@@ -443,7 +443,7 @@ class TestStatisticsFormatter:
         from davinci_monet.stats import StatisticsCalculator, StatisticsFormatter
 
         calc = StatisticsCalculator()
-        stats = calc.compute(paired_dataset, "obs_o3", "model_o3")
+        stats = calc.compute(paired_dataset, "geometry_o3", "dataset_o3")
 
         formatter = StatisticsFormatter()
         output_path = tmp_path / "stats.csv"
@@ -460,7 +460,7 @@ class TestStatisticsFormatter:
         from davinci_monet.stats import StatisticsCalculator, StatisticsFormatter
 
         calc = StatisticsCalculator()
-        stats = calc.compute(paired_dataset, "obs_o3", "model_o3")
+        stats = calc.compute(paired_dataset, "geometry_o3", "dataset_o3")
 
         formatter = StatisticsFormatter()
         output_path = tmp_path / "stats.json"
@@ -477,7 +477,7 @@ class TestStatisticsFormatter:
         from davinci_monet.stats import StatisticsCalculator, StatisticsFormatter
 
         calc = StatisticsCalculator()
-        stats = calc.compute(paired_dataset, "obs_o3", "model_o3")
+        stats = calc.compute(paired_dataset, "geometry_o3", "dataset_o3")
 
         formatter = StatisticsFormatter()
         output_path = tmp_path / "stats.png"
@@ -493,7 +493,7 @@ class TestOutputFunctions:
         """Test write_statistics_csv function."""
         from davinci_monet.stats import calculate_statistics, write_statistics_csv
 
-        stats = calculate_statistics(paired_dataset, "obs_o3", "model_o3")
+        stats = calculate_statistics(paired_dataset, "geometry_o3", "dataset_o3")
         output_path = tmp_path / "stats.csv"
         result_path = write_statistics_csv(stats, output_path)
 
@@ -503,8 +503,8 @@ class TestOutputFunctions:
         """Test format_stats_summary function."""
         from davinci_monet.stats import format_stats_summary, quick_stats
 
-        obs, mod = random_arrays
-        stats = quick_stats(obs, mod, metrics=["MB", "RMSE", "R"])
+        geometry, dataset = random_arrays
+        stats = quick_stats(geometry, dataset, metrics=["MB", "RMSE", "R"])
         summary = format_stats_summary(stats)
 
         assert "Mean Bias" in summary
@@ -540,17 +540,17 @@ class TestOutputFunctions:
         """Test create_comparison_table function."""
         from davinci_monet.stats import calculate_statistics, create_comparison_table
 
-        # Create stats for two "models"
-        stats1 = calculate_statistics(paired_dataset, "obs_o3", "model_o3")
-        stats2 = calculate_statistics(paired_dataset, "obs_o3", "model_o3")
+        # Create stats for two "datasets"
+        stats1 = calculate_statistics(paired_dataset, "geometry_o3", "dataset_o3")
+        stats2 = calculate_statistics(paired_dataset, "geometry_o3", "dataset_o3")
 
         comparison = create_comparison_table(
-            {"Model A": stats1, "Model B": stats2},
+            {"Dataset A": stats1, "Dataset B": stats2},
             metrics=["MB", "RMSE", "R"],
         )
 
-        assert "Model A" in comparison.columns
-        assert "Model B" in comparison.columns
+        assert "Dataset A" in comparison.columns
+        assert "Dataset B" in comparison.columns
         assert "Stat_ID" in comparison.columns
 
 
@@ -607,8 +607,8 @@ class TestStatsWorkflow:
         # Calculate statistics
         stats = calculate_statistics(
             paired_dataset,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             metrics=["N", "MB", "RMSE", "R", "NMB", "NME"],
         )
 
@@ -632,8 +632,8 @@ class TestStatsWorkflow:
         # Group by site
         site_stats = calculate_statistics(
             paired_dataset,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             groupby="site",
             metrics=["N", "MB", "RMSE"],
         )

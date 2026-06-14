@@ -266,7 +266,7 @@ class TestVariableTypes:
             "O3": {
                 "units": "ppb",
                 "long_name": "Ozone",
-                "obs_min": 0.0,
+                "geometry_min": 0.0,
             }
         }
         assert var_config["O3"]["units"] == "ppb"

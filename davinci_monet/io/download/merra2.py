@@ -3,7 +3,7 @@
 Network access is isolated in ``_login``/``_search``/``_download`` so the
 rest of the module (and its tests) run offline. ``earthaccess`` is an
 optional dependency (``pip install -e ".[reanalysis]"``) imported lazily
-via the shared :mod:`davinci_monet.io.download.earthdata` core.
+via the shared module `davinci_monet.io.download.earthdata` core.
 """
 
 from __future__ import annotations
@@ -92,7 +92,7 @@ def stage_merra2(
     """
     spec = resolve_collection(collection)
     temporal = (start, end)
-    # Hooks reference this module's network wrappers so tests can monkeypatch
+    # Hooks geometry this module's network wrappers so tests can monkeypatch
     # merra2._login/_search/_download (resolved from module globals at call time).
     result = stage_collection(
         spec,

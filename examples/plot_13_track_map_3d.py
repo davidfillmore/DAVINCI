@@ -2,9 +2,9 @@
 """3D Track Map Plot Example.
 
 Demonstrates the track_map_3d plotter for 3D visualization of aircraft
-flight trajectories colored by observation, model, or bias values.
+flight trajectories colored by dataset, dataset, or bias values.
 
-Data: Aircraft track observations (O3)
+Data: Aircraft track datasets (O3)
 """
 
 import matplotlib.pyplot as plt
@@ -25,36 +25,36 @@ def main():
     print("  Bias view...")
     fig = plot_track_map_3d(
         paired,
-        obs_var="obs_o3",
-        model_var="model_o3",
+        geometry_var="geometry_o3",
+        dataset_var="dataset_o3",
         title="3D Track Map: Aircraft O3 Bias",
         show_var="bias",
     )
     save_figure(fig, "13a_track_map_3d_bias")
     plt.close(fig)
 
-    # Example 2: Show observations
-    print("  Observations view...")
+    # Example 2: Show datasets
+    print("  Datasets view...")
     fig = plot_track_map_3d(
         paired,
-        obs_var="obs_o3",
-        model_var="model_o3",
-        title="3D Track Map: Aircraft O3 (Obs)",
-        show_var="obs",
+        geometry_var="geometry_o3",
+        dataset_var="dataset_o3",
+        title="3D Track Map: Aircraft O3 (Geometry)",
+        show_var="geometry",
     )
-    save_figure(fig, "13b_track_map_3d_obs")
+    save_figure(fig, "13b_track_map_3d_geometry")
     plt.close(fig)
 
-    # Example 3: Show model
-    print("  Model view...")
+    # Example 3: Show dataset
+    print("  Dataset view...")
     fig = plot_track_map_3d(
         paired,
-        obs_var="obs_o3",
-        model_var="model_o3",
-        title="3D Track Map: Aircraft O3 (Model)",
-        show_var="model",
+        geometry_var="geometry_o3",
+        dataset_var="dataset_o3",
+        title="3D Track Map: Aircraft O3 (Dataset)",
+        show_var="dataset",
     )
-    save_figure(fig, "13c_track_map_3d_model")
+    save_figure(fig, "13c_track_map_3d_dataset")
     plt.close(fig)
 
     print("Done!")

@@ -1,12 +1,12 @@
 # Daily WRF-Chem AQ Forecast Evaluation
 
 Daily evaluation of the operational AQ_WATCH WRF-Chem forecast against AirNow
-surface observations, replacing the legacy `melodies-scripts/wrfchem.yaml` +
+surface datasets, replacing the current `melodies-scripts/wrfchem.yaml` +
 `run_wrfchem.py` pipeline with a pure DAVINCI configuration.
 
 ## What it does
 
-1. `fetch_airnow.sh` downloads the previous UTC day's AirNow observations into
+1. `fetch_airnow.sh` downloads the previous UTC day's AirNow datasets into
    `/glade/work/fillmore/Data/AirNow/AirNow_YYYYMMDD.nc`.
 2. `qsub_wrfchem_daily.sh` exports `YYYY/MM/DD` (yesterday by default), submits
    `davinci-monet run` to PBS on Casper. The pipeline pairs the dated WRF-Chem
@@ -23,8 +23,8 @@ env-var expansion in the YAML config.
 |---|---|
 | WRF-Chem forecast (06/12/18Z) | `/glade/campaign/acom/acom-da/shawnh/AQ_WATCH/YYYYMMDD/wrf/wrfout_d01_YYYY-MM-DD_{06,12,18}:00:00` |
 | WRF-Chem forecast (00Z) | `/glade/campaign/acom/acom-da/shawnh/AQ_WATCH/PREV_YYYYMMDD/wrf/wrfout_d01_YYYY-MM-DD_00:00:00` (prev cycle +24h) |
-| AirNow observations | `/glade/work/fillmore/Data/AirNow/AirNow_YYYYMMDD.nc` |
-| AERONET observations | `/glade/work/fillmore/Data/AeroNet/AeroNet_YYYYMMDD.nc` |
+| AirNow datasets | `/glade/work/fillmore/Data/AirNow/AirNow_YYYYMMDD.nc` |
+| AERONET datasets | `/glade/work/fillmore/Data/AeroNet/AeroNet_YYYYMMDD.nc` |
 | Plot output | `/glade/campaign/acom/acom-da/fillmore/DAVINCI/WRF-Chem/YYYY/MM/DD/` |
 
 The WRF-Chem forecast is the operational AQ-WATCH run (CONUS d01, every
@@ -59,7 +59,7 @@ any all-zero PM2.5 step it sees as a defense-in-depth backstop.
 
 ## Usage
 
-**Historical replay (for development/testing):**
+**Date replay (for development/testing):**
 ```bash
 analyses/wrfchem-forecast/scripts/qsub_wrfchem_daily.sh 20250801
 ```
@@ -86,7 +86,7 @@ ssh fillmore@cron.hpc.ucar.edu
 crontab -e
 ```
 
-Two entries replace the legacy `airnow.sh` + `wrfchem.yaml` chain:
+Two entries replace the current `airnow.sh` + `wrfchem.yaml` chain:
 
 ```
 20 08 * * * /glade/work/fillmore/DAVINCI-MONET/analyses/wrfchem-forecast/scripts/qsub_fetch_airnow.sh
@@ -108,13 +108,13 @@ export DAVINCI_CONDA_BASE=/path/to/miniforge3   # default: /glade/work/fillmore/
 export DAVINCI_CONDA_ENV=davinci-monet
 ```
 
-Reference: [NCAR HPC Documentation — Cron services](https://ncar-hpc-docs.readthedocs.io/en/latest/compute-systems/additional-resources/cron/).
+Geometry: [NCAR HPC Documentation — Cron services](https://ncar-hpc-docs.readthedocs.io/en/latest/compute-systems/additional-resources/cron/).
 
 ## Notes
 
 - **Domain**: shawnh's operational d01 covers CONUS (lat 23.7→51.7,
   lon -129.8→-64.2), 6-hourly snapshots over a multi-day forecast horizon.
-- **Mechanism**: `mod_kwargs: {mech: racm_esrl_vcp}` is forwarded to monetio's
+- **Mechanism**: `mech: racm_esrl_vcp` is forwarded to monetio's
   WRF-Chem reader for proper variable resolution.
 - **wrf-python compatibility**: monetio's WRF-Chem reader requires `wrf-python`,
   which in turn breaks against `netCDF4 >= 1.7` (raises

@@ -1,11 +1,4 @@
-"""Distribution histogram renderer (unified obs/paired).
-
-Promoted from the obs-only ``obs_histogram`` renderer (renderer unification P3) to
-a canonical renderer on :class:`BasePlotter` speaking the ``render(series)``
-contract: a single source draws one histogram with a median line + stats box; N
-sources draw a translucent overlay colored by role/source label. ``obs_histogram``
-is kept as a deprecated alias.
-"""
+"""Distribution histogram renderer for one or more source series."""
 
 from __future__ import annotations
 
@@ -16,11 +9,10 @@ import numpy as np
 from davinci_monet.plots.base import (
     BasePlotter,
     build_series,
-    format_plot_title,
     get_variable_label,
     series_colors,
 )
-from davinci_monet.plots.registry import register_alias, register_plotter
+from davinci_monet.plots.registry import register_plotter
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -39,13 +31,13 @@ class HistogramPlotter(BasePlotter):
 
     def plot(  # type: ignore[override]
         self,
-        obs_data: xr.Dataset,
+        geometry_data: xr.Dataset,
         variable: str,
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Single-source convenience wrapper; ``render`` is the unified entry."""
-        return self.render(build_series(obs_data, variable), ax=ax, **kwargs)
+        return self.render(build_series(geometry_data, variable), ax=ax, **kwargs)
 
     def render(
         self,
@@ -60,7 +52,7 @@ class HistogramPlotter(BasePlotter):
         """Render distribution histogram(s).
 
         1 series → one histogram + red median line + (optional) N/Mean/Median/Std/
-        P10/P90 stats box. N series → translucent overlay, role/source-colored,
+        P10/P90 stats box. N series → translucent overlay, source-colored,
         with a legend.
         """
         if ax is None:
@@ -76,7 +68,7 @@ class HistogramPlotter(BasePlotter):
             values = values[np.isfinite(values)]
             if values.size == 0:
                 continue
-            label = s.source_label or get_variable_label(
+            label = s.dataset_label or get_variable_label(
                 s.dataset, s.var_name, include_prefix=False
             )
             ax.hist(
@@ -123,15 +115,8 @@ class HistogramPlotter(BasePlotter):
             f"{var_label} ({units})" if units else var_label, fontsize=self.config.text.fontsize
         )
         ax.set_ylabel("Count", fontsize=self.config.text.fontsize)
-        ax.set_title(
-            format_plot_title(title) if title else f"{var_label} Distribution",
-            fontsize=self.config.text.title_fontsize,
-        )
+        self.set_title(ax, title if title else f"{var_label} Distribution")
         if not single:
             ax.legend(fontsize=self.config.text.legend)
         ax.grid(True, alpha=0.3, axis="y")
         return fig
-
-
-# ``obs_histogram`` is a deprecated alias of the unified ``histogram`` renderer.
-register_alias("obs_histogram", "histogram")

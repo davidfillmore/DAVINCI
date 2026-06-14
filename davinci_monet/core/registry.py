@@ -74,7 +74,7 @@ class Registry(Generic[T]):
     Parameters
     ----------
     name
-        A descriptive name for this registry (e.g., "model", "observation").
+        A descriptive name for this registry (e.g., "dataset", "dataset").
         Used in error messages.
 
     Examples
@@ -91,7 +91,7 @@ class Registry(Generic[T]):
     def __init__(self, name: str) -> None:
         self._name = name
         self._components: dict[str, T] = {}
-        # Deprecated-name redirects: alias -> canonical target name.
+        # Alternate-name redirects: alias -> canonical target name.
         self._aliases: dict[str, str] = {}
 
     @property
@@ -160,18 +160,18 @@ class Registry(Generic[T]):
         >>> registry.register("my_component", MyComponent)
         """
 
-        def decorator(comp: T) -> T:
+        def decorator(registered: T) -> T:
             if name in self._components and not replace:
                 raise ComponentAlreadyRegisteredError(name, self._name)
-            self._components[name] = comp
-            return comp
+            self._components[name] = registered
+            return registered
 
         if component is not None:
             return decorator(component)
         return decorator
 
     def register_alias(self, alias: str, target: str) -> None:
-        """Register a deprecated ``alias`` name that redirects to ``target``.
+        """Register an ``alias`` name that redirects to ``target``.
 
         The target need not exist yet (it may register later). Lookups via
         :meth:`get`/:meth:`get_or_none`/``in`` resolve the alias to the target.
@@ -179,7 +179,7 @@ class Registry(Generic[T]):
         Parameters
         ----------
         alias
-            The deprecated name.
+            The alternate name.
         target
             The canonical name it should resolve to.
         """
@@ -300,8 +300,8 @@ class Registry(Generic[T]):
 source_registry: Registry[type] = Registry("source")
 """Unified registry for data source reader classes.
 
-Models and observations both register here, keyed by a single ``type`` id and
-distinguished by reader module, declared geometry, and source role metadata.
+Datasets and datasets both register here, keyed by a single ``type`` id and
+distinguished by reader module, declared geometry, and dataset metadata.
 This is the single source of truth for reader registration."""
 
 plotter_registry: Registry[type] = Registry("plotter")

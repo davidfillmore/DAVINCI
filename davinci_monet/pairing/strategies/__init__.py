@@ -1,4 +1,4 @@
-"""Pairing strategies for different observation geometries."""
+"""Pairing strategies for different dataset geometries."""
 
 from davinci_monet.pairing.strategies.base import BasePairingStrategy
 from davinci_monet.pairing.strategies.grid import GridStrategy

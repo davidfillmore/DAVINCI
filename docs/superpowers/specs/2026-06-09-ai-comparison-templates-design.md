@@ -9,7 +9,7 @@
 The AI summary stage hardcodes one prompt (`SYSTEM_PROMPT` in `ai/summarizer.py`) with a
 fixed four-section brief ("What this run is / Headline metrics / Interpretation / Caveats").
 There is no way to vary the brief's structure by the *kind* of comparison being made, and no
-mechanism to enforce brevity per section. We want the model to craft its reply from a
+mechanism to enforce brevity per section. We want the dataset to craft its reply from a
 **template**: an ordered set of sections, each with a **format** and a **word budget**, chosen
 to fit the comparison.
 
@@ -23,11 +23,11 @@ to fit the comparison.
 | 4 | Word-limit enforcement | **Soft (prompt budget only)** — the template states each section's budget; no post-generation truncation or validation pass |
 | 5 | Section "format" | **Small fixed vocabulary**: `prose`, `bullets`, `headline`, `table`, `metric_callout` |
 | 6 | Initial built-in set | **Focused starter set**: `generic_eval` (fallback) + `ozone_eval` + `aerosol_aod_eval` + `pm_eval` + `trace_gas_eval` |
-| 7 | Architecture | **Approach A** — declarative YAML library + Pydantic schema + registry (mirrors the satellite catalog), single model call assembling per-pair sections |
+| 7 | Architecture | **Approach A** — declarative YAML library + Pydantic schema + registry (mirrors the satellite catalog), single dataset call assembling per-pair sections |
 
 ## Architecture
 
-Mirror the established `observations/satellite/catalog/` pattern (YAML data + Pydantic
+Mirror the established `datasets/satellite/catalog/` pattern (YAML data + Pydantic
 `extra="forbid"` schema + `@lru_cache` registry with `difflib` close-match hints).
 
 ```
@@ -44,17 +44,17 @@ davinci_monet/ai/templates/
 ```
 
 `pyproject.toml` `[tool.setuptools.package-data]` gains `ai/templates/data/*.yaml`
-(same form as the existing `observations/satellite/catalog/data/*.yaml` entry).
+(same form as the existing `datasets/satellite/catalog/data/*.yaml` entry).
 
 ## Template schema
 
-YAML, one template per file, validated by Pydantic with `model_config = ConfigDict(extra="forbid")`.
+YAML, one template per file, validated by Pydantic with `dataset_config = ConfigDict(extra="forbid")`.
 
 ```yaml
 name: ozone_eval
 title: "Surface Ozone Evaluation"     # optional, human-facing
 description: "..."                      # optional
-matches: ["o3", "ozone"]               # case-insensitive fnmatch patterns on the comparand variable
+matches: ["o3", "ozone"]               # case-insensitive fnmatch patterns on the dataset variable
 sections:
   - heading: "Bottom line"
     format: headline          # prose | bullets | headline | table | metric_callout
@@ -70,7 +70,7 @@ sections:
     words: 50
 ```
 
-Models:
+Datasets:
 
 - `SectionFormat = Literal["prose", "bullets", "headline", "table", "metric_callout"]`.
 - `TemplateSection`: `heading: str`, `format: SectionFormat`, `words: int` (validated `> 0`),
@@ -84,7 +84,7 @@ the hard-coded fallback (never matched by pattern, always available by name).
 
 ### Format → instruction phrases (applied at render time)
 
-| `format` | Instruction emitted to the model |
+| `format` | Instruction emitted to the dataset |
 |----------|----------------------------------|
 | `prose` | "≤{words} words of prose." |
 | `bullets` | "A short bullet list, ≤{words} words total." |
@@ -101,7 +101,7 @@ precedence:
 
 1. **Explicit override** — if `override` is a template name, return `get_template(override)`;
    raise `UnknownTemplateError` (with a `difflib.get_close_matches` hint, like the catalog) if unknown.
-2. **Variable match** — lowercase the comparand variable name and test it against every template's
+2. **Variable match** — lowercase the dataset variable name and test it against every template's
    `matches` patterns with `fnmatch`; the most specific match wins (longest non-wildcard pattern;
    ties resolved by template name for determinism).
 3. **Fallback** — `generic_eval`.
@@ -143,7 +143,7 @@ The hardcoded four-section `SYSTEM_PROMPT` is replaced by a generic instruction:
 3. Append `instructions` (global) as today.
 
 `build_prompt` uses the new system prompt plus this `render_text`; figure attachment is unchanged.
-A single model call still produces the whole brief.
+A single dataset call still produces the whole brief.
 
 ### Backward compatibility
 

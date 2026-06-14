@@ -1,10 +1,9 @@
 """P3 of the renderer unification — timeseries merged onto render(series).
 
 The canonical TimeSeriesPlotter gains a render() that handles 1/2/N source
-series: 1 → single aggregated line (the spaghetti fix), 2 → obs-vs-model
-(delegates to the legacy paired plot), N → overlay. ``obs_timeseries`` becomes a
-deprecated alias of ``timeseries``. The unified PlottingStage routes obs-only
-specs through render() for migrated renderers.
+series: 1 → single aggregated line (the spaghetti fix), 2 → geometry-vs-dataset
+(delegates to the paired plot), N → overlay. The unified PlottingStage routes
+geometry-only specs through render() for migrated renderers.
 """
 
 from __future__ import annotations
@@ -19,20 +18,21 @@ import numpy as np
 import xarray as xr
 
 from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots.base import PlotConfig
 from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 from davinci_monet.plots.style import NCAR_PRIMARY
 
 
-def _multisite_series(n_t: int = 12, n_s: int = 6, source_label: str = "airnow") -> PlotSeries:
+def _multisite_series(n_t: int = 12, n_s: int = 6, dataset_label: str = "airnow") -> PlotSeries:
     rng = np.random.default_rng(0)
     times = np.datetime64("2024-02-01") + np.arange(n_t) * np.timedelta64(1, "h")
     ds = xr.Dataset(
         {"o3": (("time", "site"), rng.uniform(10, 60, (n_t, n_s)), {"units": "ppb"})},
         coords={"time": times, "site": np.arange(n_s)},
     )
-    ds["o3"].attrs["role"] = "obs"
-    ds["o3"].attrs["source_label"] = source_label
-    return PlotSeries(ds, "o3", "o3", "obs", "reference", source_label, 0)
+    ds["o3"].attrs["pair_axis"] = "geometry"
+    ds["o3"].attrs["dataset_label"] = dataset_label
+    return PlotSeries(ds, "o3", "o3", "geometry", dataset_label, 0)
 
 
 class TestTimeseriesRenderSingleSource:
@@ -47,8 +47,8 @@ class TestTimeseriesRenderSingleSource:
         assert fig.axes[0].get_lines()[0].get_color() == NCAR_PRIMARY
         plt.close(fig)
 
-    def test_single_source_labelled_by_source(self) -> None:
-        fig = TimeSeriesPlotter().render([_multisite_series(source_label="pandora")])
+    def test_single_dataset_labelled_by_source(self) -> None:
+        fig = TimeSeriesPlotter().render([_multisite_series(dataset_label="pandora")])
         assert fig.axes[0].get_lines()[0].get_label() == "pandora"
         plt.close(fig)
 
@@ -65,6 +65,17 @@ class TestTimeseriesRenderSingleSource:
         assert len(ax.collections) >= 1  # +/-1 sigma PolyCollection
         plt.close(fig)
 
+    def test_single_source_uses_config_subtitle(self) -> None:
+        plotter = TimeSeriesPlotter(
+            PlotConfig(title="O3 Time Series", subtitle="2024-02-01 - 2024-02-02")
+        )
+        fig = plotter.render([_multisite_series()])
+        ax = fig.axes[0]
+
+        assert ax.get_title() == r"O$_3$ Time Series"
+        assert any(t.get_text() == "2024-02-01 - 2024-02-02" for t in ax.texts)
+        plt.close(fig)
+
 
 class TestTimeseriesRenderPaired:
     def test_two_series_delegates_to_paired_plot(self) -> None:
@@ -75,37 +86,36 @@ class TestTimeseriesRenderPaired:
                 "airnow_o3": (
                     "time",
                     rng.uniform(10, 60, 10),
-                    {"role": "obs", "pair_role": "reference", "source_label": "airnow"},
+                    {"pair_axis": "geometry", "dataset_label": "airnow"},
                 ),
                 "cam_o3": (
                     "time",
                     rng.uniform(10, 60, 10),
-                    {"role": "model", "pair_role": "comparand", "source_label": "cam"},
+                    {"pair_axis": "dataset", "dataset_label": "cam"},
                 ),
             },
             coords={"time": t},
         )
-        ref = PlotSeries(ds, "airnow_o3", "o3", "obs", "reference", "airnow", 0)
-        comp = PlotSeries(ds, "cam_o3", "o3", "model", "comparand", "cam", 1)
-        fig = TimeSeriesPlotter().render([ref, comp])
-        # Two series (obs + model) on the axes.
+        geometry_series = PlotSeries(ds, "airnow_o3", "o3", "geometry", "airnow", 0)
+        dataset_series = PlotSeries(ds, "cam_o3", "o3", "dataset", "cam", 1)
+        fig = TimeSeriesPlotter().render([geometry_series, dataset_series])
+        # Two series (geometry + dataset) on the axes.
         assert len(fig.axes[0].get_lines()) == 2
         plt.close(fig)
 
 
-class TestObsTimeseriesAlias:
-    def test_alias_resolves_to_canonical(self) -> None:
-        import warnings
+class TestGeometryTimeseriesName:
+    def test_geometry_timeseries_name_is_not_registered(self) -> None:
+        import pytest
 
         from davinci_monet.plots.registry import get_plotter_class
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            assert get_plotter_class("obs_timeseries") is TimeSeriesPlotter
+        with pytest.raises(Exception):
+            get_plotter_class("geometry_timeseries")
 
 
 class TestUnifiedStageRoutesTimeseriesThroughRender:
-    def test_obs_timeseries_spec_renders_single_line(self, tmp_path: Any) -> None:
+    def test_geometry_timeseries_spec_renders_single_line(self, tmp_path: Any) -> None:
         from davinci_monet.core.protocols import DataGeometry
         from davinci_monet.pipeline.stages import (
             PipelineContext,
@@ -120,12 +130,11 @@ class TestUnifiedStageRoutesTimeseriesThroughRender:
             {"o3": (("time", "site"), rng.uniform(10, 60, (12, 6)), {"units": "ppb"})},
             coords={"time": times, "site": np.arange(6)},
         )
-        obs = SourceData(
+        geometry = SourceData(
             data=ds,
             label="airnow",
             source_type="pt_sfc",
             geometry=DataGeometry.POINT,
-            role="obs",
         )
         ctx = PipelineContext(
             config={
@@ -133,13 +142,13 @@ class TestUnifiedStageRoutesTimeseriesThroughRender:
                 "plots": {
                     "o3_ts": {
                         "type": "timeseries",
-                        "obs": "airnow",
+                        "geometry": "airnow",
                         "variable": "o3",
                         "title": "O3",
                     }
                 },
             },
-            sources={"airnow": obs},
+            sources={"airnow": geometry},
         )
         res = PlottingStage().execute(ctx)
         assert res.status == StageStatus.COMPLETED

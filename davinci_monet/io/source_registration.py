@@ -5,8 +5,8 @@ from __future__ import annotations
 import importlib
 
 BUILTIN_SOURCE_READER_MODULES = (
-    "davinci_monet.models",
-    "davinci_monet.observations",
+    "davinci_monet.datasets",
+    "davinci_monet.datasets",
 )
 
 

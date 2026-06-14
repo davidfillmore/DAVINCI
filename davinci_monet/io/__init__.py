@@ -1,8 +1,8 @@
 """I/O module for reading and writing data files.
 
 This module provides functions for writing various data formats.
-Source-specific readers live in ``davinci_monet.models`` and
-``davinci_monet.observations``; shared I/O utilities are in
+Source-specific readers live in ``davinci_monet.datasets`` and
+``davinci_monet.datasets``; shared I/O utilities are in
 ``davinci_monet.io.reader_utils``.
 """
 

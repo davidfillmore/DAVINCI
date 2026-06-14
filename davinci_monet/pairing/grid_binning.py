@@ -1,7 +1,7 @@
-"""Numba-accelerated binning of sparse observations onto a uniform grid.
+"""Numba-accelerated binning of sparse datasets onto a uniform grid.
 
 Ported from MELODIES-MONET grid_util.py. Bins satellite swath pixels
-(or any sparse 2D observations) into (time, lon, lat) grid cells using
+(or any sparse 2D datasets) into (time, lon, lat) grid cells using
 simple floor-division arithmetic, accumulated in-place.
 
 The numba JIT inner loop operates on flat numpy arrays with zero
@@ -21,10 +21,10 @@ def bin_swath_to_grid(
     time_edges: np.ndarray,
     lon_edges: np.ndarray,
     lat_edges: np.ndarray,
-    time_obs: np.ndarray,
-    lon_obs: np.ndarray,
-    lat_obs: np.ndarray,
-    data_obs: np.ndarray,
+    time_values: np.ndarray,
+    lon_values: np.ndarray,
+    lat_values: np.ndarray,
+    data_values: np.ndarray,
     count_grid: np.ndarray,
     data_grid: np.ndarray,
 ) -> None:
@@ -42,14 +42,14 @@ def bin_swath_to_grid(
         1D array of longitude bin edges, length nlon+1.
     lat_edges
         1D array of latitude bin edges, length nlat+1.
-    time_obs
-        Flat array of observation timestamps (epoch seconds).
-    lon_obs
-        Flat array of observation longitudes.
-    lat_obs
-        Flat array of observation latitudes.
-    data_obs
-        Flat array of observation data values.
+    time_values
+        Flat array of dataset timestamps (epoch seconds).
+    lon_values
+        Flat array of dataset longitudes.
+    lat_values
+        Flat array of dataset latitudes.
+    data_values
+        Flat array of dataset data values.
     count_grid
         Pre-allocated (ntime, nlon, nlat) int array — modified in-place.
     data_grid
@@ -59,22 +59,22 @@ def bin_swath_to_grid(
     dx = lon_edges[1] - lon_edges[0]
     dy = lat_edges[1] - lat_edges[0]
     nt, nx, ny = data_grid.shape
-    for i in range(len(data_obs)):
+    for i in range(len(data_values)):
         if (
-            not math.isnan(data_obs[i])
-            and not math.isnan(time_obs[i])
-            and not math.isnan(lon_obs[i])
-            and not math.isnan(lat_obs[i])
-            and time_obs[i] >= time_edges[0]
-            and time_obs[i] <= time_edges[-1]
-            and lon_obs[i] >= lon_edges[0]
-            and lon_obs[i] <= lon_edges[-1]
-            and lat_obs[i] >= lat_edges[0]
-            and lat_obs[i] <= lat_edges[-1]
+            not math.isnan(data_values[i])
+            and not math.isnan(time_values[i])
+            and not math.isnan(lon_values[i])
+            and not math.isnan(lat_values[i])
+            and time_values[i] >= time_edges[0]
+            and time_values[i] <= time_edges[-1]
+            and lon_values[i] >= lon_edges[0]
+            and lon_values[i] <= lon_edges[-1]
+            and lat_values[i] >= lat_edges[0]
+            and lat_values[i] <= lat_edges[-1]
         ):
-            it = int((time_obs[i] - time_edges[0]) / dt)
-            ix = int((lon_obs[i] - lon_edges[0]) / dx)
-            iy = int((lat_obs[i] - lat_edges[0]) / dy)
+            it = int((time_values[i] - time_edges[0]) / dt)
+            ix = int((lon_values[i] - lon_edges[0]) / dx)
+            iy = int((lat_values[i] - lat_edges[0]) / dy)
             # Clamp exact upper-edge coordinates into the final bin.
             if it < 0:
                 it = 0
@@ -89,7 +89,7 @@ def bin_swath_to_grid(
             elif iy >= ny:
                 iy = ny - 1
             count_grid[it, ix, iy] += 1
-            data_grid[it, ix, iy] += data_obs[i]
+            data_grid[it, ix, iy] += data_values[i]
 
 
 def normalize_grid(
@@ -103,7 +103,7 @@ def normalize_grid(
     Parameters
     ----------
     count_grid
-        Array of observation counts per cell.
+        Array of dataset counts per cell.
     data_grid
         Array of accumulated sums — converted to means in-place.
     """

@@ -1,7 +1,7 @@
 """Point-to-grid pairing strategy.
 
-This module implements pairing for point observations (surface stations,
-ground sites) with gridded model output.
+This module implements pairing for point datasets (surface stations,
+ground sites) with gridded dataset output.
 """
 
 from __future__ import annotations
@@ -24,21 +24,21 @@ _logger = logging.getLogger(__name__)
 
 
 class PointStrategy(BasePairingStrategy):
-    """Pairing strategy for point observations.
+    """Pairing strategy for point datasets.
 
-    Matches fixed-location observations (surface stations, ground sites)
-    to the nearest model grid cell within the radius of influence.
+    Matches fixed-location datasets (surface stations, ground sites)
+    to the nearest dataset grid cell within the radius of influence.
 
     The strategy:
-    1. Finds nearest model grid cell for each observation site
-    2. Extracts surface level from model (if 3D)
-    3. Interpolates model to observation times
+    1. Finds nearest dataset grid cell for each dataset site
+    2. Extracts surface level from dataset (if 3D)
+    3. Interpolates dataset to dataset times
     4. Creates paired dataset with aligned values
 
     Examples
     --------
     >>> strategy = PointStrategy()
-    >>> paired = strategy.pair(model_data, obs_data,
+    >>> paired = strategy.pair_sources(dataset_data, geometry_data,
     ...                        radius_of_influence=12000)
     """
 
@@ -47,10 +47,10 @@ class PointStrategy(BasePairingStrategy):
         """Return POINT geometry."""
         return DataGeometry.POINT
 
-    def pair(
+    def pair_sources(
         self,
-        model: xr.Dataset,
-        obs: xr.Dataset,
+        geometry_data: xr.Dataset,
+        dataset_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
@@ -58,25 +58,25 @@ class PointStrategy(BasePairingStrategy):
         time_method: str = "nearest",
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Pair point observations with model grid.
+        """Pair point datasets with dataset grid.
 
         Parameters
         ----------
-        model
-            Model Dataset with dims (time, [z], lat, lon).
-        obs
-            Observation Dataset with dims (time, site).
+        dataset
+            Dataset Dataset with dims (time, [z], lat, lon).
+        geometry
+            Dataset Dataset with dims (time, site).
         radius_of_influence
             Maximum distance in meters for matching. Default 12000m.
         time_tolerance
             Maximum time difference for matching.
         vertical_method
-            Not used for surface observations.
+            Not used for surface datasets.
         horizontal_method
             Horizontal matching method ('nearest' only currently).
         time_method
             Time interpolation method ('nearest' or 'linear'). Use 'linear'
-            when the model has sparse time output relative to observations
+            when the dataset has sparse time output relative to datasets
             (e.g. 6-hourly WRF-Chem snapshots vs hourly AirNow) to avoid the
             step-function artifact produced by 'nearest'. Default 'nearest'
             preserves prior behavior.
@@ -87,8 +87,11 @@ class PointStrategy(BasePairingStrategy):
         Returns
         -------
         xr.Dataset
-            Paired dataset with model values at observation locations.
+            Paired dataset with dataset values at dataset locations.
         """
+        dataset = dataset_data
+        geometry = geometry_data
+
         if radius_of_influence is None:
             radius_of_influence = 12000.0
 
@@ -96,87 +99,95 @@ class PointStrategy(BasePairingStrategy):
         dask_num_workers = kwargs.get("dask_num_workers")
 
         # Get coordinates
-        model_lat, model_lon = self._get_model_coords(model)
-        obs_lat, obs_lon = self._get_obs_coords(obs)
+        dataset_lat, dataset_lon = self._get_dataset_coords(dataset)
+        geometry_lat, geometry_lon = self._get_geometry_coords(geometry)
 
-        # Extract surface level if model is 3D
+        # Extract surface level if dataset is 3D
         if extract_surface:
-            model_surface = self._extract_surface(model)
+            dataset_surface = self._extract_surface(dataset)
         else:
-            model_surface = model
+            dataset_surface = dataset
 
-        # Find site dimension in obs
-        site_dim = self._get_site_dim(obs)
+        # Find site dimension in geometry
+        site_dim = self._get_site_dim(geometry)
 
         # Get unique site locations
-        if obs_lat.dims == (site_dim,):
-            site_lats = obs_lat.values
-            site_lons = obs_lon.values
+        if geometry_lat.dims == (site_dim,):
+            site_lats = geometry_lat.values
+            site_lons = geometry_lon.values
         else:
             # Lat/lon may be (time, site) - take first time
-            site_lats = obs_lat.isel(time=0).values if "time" in obs_lat.dims else obs_lat.values
-            site_lons = obs_lon.isel(time=0).values if "time" in obs_lon.dims else obs_lon.values
+            site_lats = (
+                geometry_lat.isel(time=0).values
+                if "time" in geometry_lat.dims
+                else geometry_lat.values
+            )
+            site_lons = (
+                geometry_lon.isel(time=0).values
+                if "time" in geometry_lon.dims
+                else geometry_lon.values
+            )
 
-        # Find nearest model grid indices for each site
+        # Find nearest dataset grid indices for each site
         lat_idx, lon_idx = self._find_nearest_indices(
-            model_lat,
-            model_lon,
+            dataset_lat,
+            dataset_lon,
             xr.DataArray(site_lats),
             xr.DataArray(site_lons),
             radius_of_influence=radius_of_influence,
         )
 
-        # Drop obs sites that fall outside radius_of_influence. Without this,
-        # _extract_at_sites masks the model to NaN at unpaired sites but leaves
-        # the obs values intact, so cross-site aggregates (timeseries domain-mean)
-        # are polluted by sites with no model match.
+        # Drop geometry sites that fall outside radius_of_influence. Without this,
+        # _extract_at_sites masks the dataset to NaN at unpaired sites but leaves
+        # the geometry values intact, so cross-site aggregates (timeseries domain-mean)
+        # are polluted by sites with no dataset match.
         valid = (lat_idx.values >= 0) & (lon_idx.values >= 0)
         if not valid.all():
             keep = np.where(valid)[0]
             _logger.info(
-                "PointStrategy: dropping %d obs site(s) outside %.0f m "
+                "PointStrategy: dropping %d geometry site(s) outside %.0f m "
                 "radius of influence (kept %d/%d).",
                 int((~valid).sum()),
                 radius_of_influence,
                 int(valid.sum()),
                 len(valid),
             )
-            obs = obs.isel({site_dim: keep})
+            geometry = geometry.isel({site_dim: keep})
             site_lats = site_lats[keep]
             site_lons = site_lons[keep]
             lat_idx = xr.DataArray(lat_idx.values[keep])
             lon_idx = xr.DataArray(lon_idx.values[keep])
 
-        # Extract model values at observation sites
-        model_at_sites = self._extract_at_sites(
-            model_surface,
-            model_lat,
-            model_lon,
+        # Extract dataset values at dataset sites
+        dataset_at_sites = self._extract_at_sites(
+            dataset_surface,
+            dataset_lat,
+            dataset_lon,
             lat_idx.values,
             lon_idx.values,
             site_dim,
             dask_num_workers=dask_num_workers,
         )
 
-        # Interpolate model to observation times
-        if "time" in model_at_sites.dims and "time" in obs.dims:
-            obs_times = obs["time"]
-            model_at_sites = self._interpolate_time(
-                model_at_sites, obs_times, method=time_method, time_tolerance=time_tolerance
+        # Interpolate dataset to dataset times
+        if "time" in dataset_at_sites.dims and "time" in geometry.dims:
+            geometry_times = geometry["time"]
+            dataset_at_sites = self._interpolate_time(
+                dataset_at_sites, geometry_times, method=time_method, time_tolerance=time_tolerance
             )
 
         # Combine into paired dataset
-        paired = self._create_paired_output(obs, model_at_sites, site_dim)
+        paired = self._create_paired_output(geometry, dataset_at_sites, site_dim)
 
         return paired
 
-    def _get_site_dim(self, obs: xr.Dataset) -> str:
-        """Find the site dimension name in observations.
+    def _get_site_dim(self, geometry: xr.Dataset) -> str:
+        """Find the site dimension name in datasets.
 
         Parameters
         ----------
-        obs
-            Observation dataset.
+        geometry
+            Dataset dataset.
 
         Returns
         -------
@@ -184,51 +195,51 @@ class PointStrategy(BasePairingStrategy):
             Site dimension name.
         """
         for dim in ["site", "station", "x", "location"]:
-            if dim in obs.dims:
+            if dim in geometry.dims:
                 return dim
 
         raise PairingError(
-            f"Cannot find site dimension in observations. " f"Available dims: {list(obs.dims)}"
+            f"Cannot find site dimension in datasets. " f"Available dims: {list(geometry.dims)}"
         )
 
     def _extract_at_sites(
         self,
-        model: xr.Dataset,
-        model_lat: xr.DataArray,
-        model_lon: xr.DataArray,
+        dataset: xr.Dataset,
+        dataset_lat: xr.DataArray,
+        dataset_lon: xr.DataArray,
         lat_idx: np.ndarray[Any, np.dtype[Any]],
         lon_idx: np.ndarray[Any, np.dtype[Any]],
         site_dim: str,
         dask_num_workers: int | None = None,
     ) -> xr.Dataset:
-        """Extract model values at observation site locations.
+        """Extract dataset values at dataset site locations.
 
         Parameters
         ----------
-        model
-            Model dataset (surface level).
-        model_lat, model_lon
-            Model coordinate arrays.
+        dataset
+            Dataset dataset (surface level).
+        dataset_lat, dataset_lon
+            Dataset coordinate arrays.
         lat_idx, lon_idx
-            Indices of nearest model grid cells.
+            Indices of nearest dataset grid cells.
         site_dim
             Name of site dimension.
 
         Returns
         -------
         xr.Dataset
-            Model values at site locations with site dimension.
+            Dataset values at site locations with site dimension.
         """
         n_sites = len(lat_idx)
 
         # Determine lat/lon dimension names
-        if model_lat.ndim == 1:
-            lat_dim = model_lat.dims[0]
-            lon_dim = model_lon.dims[0]
+        if dataset_lat.ndim == 1:
+            lat_dim = dataset_lat.dims[0]
+            lon_dim = dataset_lon.dims[0]
         else:
             # Curvilinear grid - assume (y, x) or similar
-            lat_dim = model_lat.dims[0]
-            lon_dim = model_lat.dims[1]
+            lat_dim = dataset_lat.dims[0]
+            lon_dim = dataset_lat.dims[1]
 
         # Create site coordinate
         site_coord = np.arange(n_sites)
@@ -243,7 +254,7 @@ class PointStrategy(BasePairingStrategy):
         lon_indexer = xr.DataArray(np.where(valid_mask, lon_idx, 0), dims=[site_dim])
 
         # Extract all sites at once using advanced indexing
-        extracted = model.isel({lat_dim: lat_indexer, lon_dim: lon_indexer})
+        extracted = dataset.isel({lat_dim: lat_indexer, lon_dim: lon_indexer})
 
         # Load data to numpy with optimized parallel scheduler
         # Use threaded scheduler with multiple workers for parallel file I/O
@@ -261,84 +272,88 @@ class PointStrategy(BasePairingStrategy):
 
         # Build output dataset with proper coordinates
         coords = {site_dim: site_coord}
-        if "time" in model.coords:
-            coords["time"] = model.coords["time"].values
+        if "time" in dataset.coords:
+            coords["time"] = dataset.coords["time"].values
 
         return xr.Dataset({str(var): extracted[var] for var in extracted.data_vars}, coords=coords)
 
     def _create_paired_output(
         self,
-        obs: xr.Dataset,
-        model_at_sites: xr.Dataset,
+        geometry: xr.Dataset,
+        dataset_at_sites: xr.Dataset,
         site_dim: str,
     ) -> xr.Dataset:
         """Create the final paired output dataset.
 
         Parameters
         ----------
-        obs
-            Observation dataset.
-        model_at_sites
-            Model values at site locations.
+        geometry
+            Dataset dataset.
+        dataset_at_sites
+            Dataset values at site locations.
         site_dim
             Site dimension name.
 
         Returns
         -------
         xr.Dataset
-            Combined dataset with both obs and model values.
+            Combined dataset with both geometry and dataset values.
         """
         # Combine data variables
         data_vars: dict[str, Any] = {}
 
-        # Add observation variables
-        obs_var_names = set()
-        for var in obs.data_vars:
+        # Add dataset variables
+        geometry_var_names = set()
+        for var in geometry.data_vars:
             var_name = str(var)
-            data_vars[var_name] = obs[var]
-            obs_var_names.add(var_name)
+            data_vars[var_name] = geometry[var]
+            geometry_var_names.add(var_name)
 
-        # Add model variables - reassign to obs coordinates to ensure alignment
-        # Model was extracted at same site/time locations, just with integer indices
-        for var in model_at_sites.data_vars:
-            model_var = model_at_sites[var]
-            obs_ref = obs[list(obs.data_vars)[0]]
+        # Add dataset variables - reassign to geometry coordinates to ensure alignment
+        # Dataset was extracted at same site/time locations, just with integer indices
+        for var in dataset_at_sites.data_vars:
+            dataset_var = dataset_at_sites[var]
+            geometry_ref = geometry[list(geometry.data_vars)[0]]
 
-            # Handle dimension mismatch (e.g., obs has extra y=1 dimension)
-            if model_var.ndim != obs_ref.ndim:
-                # Find extra dims in obs that aren't in model (usually singleton dims like y=1)
-                extra_dims = [d for d in obs_ref.dims if d not in model_var.dims]
-                if all(obs_ref.sizes[d] == 1 for d in extra_dims):
-                    # Squeeze obs to match model dims, then expand model to match obs
-                    target_dims = model_var.dims
-                    target_coords = {d: obs.coords[d] for d in target_dims if d in obs.coords}
-                    model_da = xr.DataArray(
-                        model_var.values,
+            # Handle dimension mismatch (e.g., geometry has extra y=1 dimension)
+            if dataset_var.ndim != geometry_ref.ndim:
+                # Find extra dims in geometry that aren't in dataset (usually singleton dims like y=1)
+                extra_dims = [d for d in geometry_ref.dims if d not in dataset_var.dims]
+                if all(geometry_ref.sizes[d] == 1 for d in extra_dims):
+                    # Squeeze geometry to match dataset dims, then expand dataset to match geometry
+                    target_dims = dataset_var.dims
+                    target_coords = {
+                        d: geometry.coords[d] for d in target_dims if d in geometry.coords
+                    }
+                    dataset_da = xr.DataArray(
+                        dataset_var.values,
                         dims=target_dims,
                         coords=target_coords,
                         name=var,
                     )
                     # Expand to include the extra singleton dimensions
                     for ed in extra_dims:
-                        model_da = model_da.expand_dims({ed: obs.coords[ed].values})
-                    # Reorder to match obs dims
-                    model_da = model_da.transpose(*obs_ref.dims)
+                        dataset_da = dataset_da.expand_dims({ed: geometry.coords[ed].values})
+                    # Reorder to match geometry dims
+                    dataset_da = dataset_da.transpose(*geometry_ref.dims)
                 else:
                     raise PairingError(
-                        f"Dimension mismatch between model ({model_var.dims}) and obs ({obs_ref.dims}). "
+                        f"Dimension mismatch between dataset ({dataset_var.dims}) and geometry ({geometry_ref.dims}). "
                         f"Extra dimensions {extra_dims} are not singletons."
                     )
             else:
                 # Dimensions match - use original logic
-                model_da = xr.DataArray(
-                    model_var.values,
-                    dims=obs_ref.dims,
-                    coords={d: obs.coords[d] for d in obs_ref.dims if d in obs.coords},
+                dataset_da = xr.DataArray(
+                    dataset_var.values,
+                    dims=geometry_ref.dims,
+                    coords={
+                        d: geometry.coords[d] for d in geometry_ref.dims if d in geometry.coords
+                    },
                     name=var,
                 )
             var_name = str(var)
-            if var_name in obs_var_names:
-                var_name = f"model_{var_name}"
-            data_vars[var_name] = model_da
+            if var_name in geometry_var_names:
+                var_name = f"dataset_{var_name}"
+            data_vars[var_name] = dataset_da
 
-        return xr.Dataset(data_vars, coords=dict(obs.coords))
+        return xr.Dataset(data_vars, coords=dict(geometry.coords))

@@ -1,6 +1,6 @@
 """Tests for surface-level selection in spatial renderers.
 
-Spatial overlays slice a single vertical level out of a 3-D model field. The
+Spatial overlays slice a single vertical level out of a 3-D dataset field. The
 ``surface_level_index`` helper mirrors the pairing-side ``_extract_surface``
 auto-detection so overlays default to the **surface**, not the top of
 atmosphere — the bug where a CESM-ordered field (pressure increasing with

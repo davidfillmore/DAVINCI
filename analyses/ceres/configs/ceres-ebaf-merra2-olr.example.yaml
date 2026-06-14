@@ -16,25 +16,23 @@ analysis:
 sources:
   merra2:
     type: merra2
-    role: model
     files: ${MERRA2_MONTHLY_RAD}/MERRA2_400.tavgM_2d_rad_Nx.20251?.nc4
     variables:
       LWTUP:
         units: W m-2
   ceres:
     type: ceres_ebaf
-    role: obs
     files: ${CERES_EBAF_FILE}
     variables:
       toa_lw_all_mon:
         units: W m-2
-        obs_min: 0
-        obs_max: 500
+        geometry_min: 0
+        geometry_max: 500
 
 pairs:
   merra2_vs_ebaf_olr:
     sources: [merra2, ceres]
-    reference: ceres
+    geometry: ceres
     variables:
       merra2: LWTUP
       ceres: toa_lw_all_mon

@@ -1,7 +1,7 @@
 """DAVINCI: Data Analysis and Visual Intelligence for Climate.
 
 A modern, type-safe toolkit for evaluating climate and atmospheric
-composition models against observations.
+composition datasets against datasets.
 """
 
 from __future__ import annotations

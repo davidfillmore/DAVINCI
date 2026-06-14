@@ -1,6 +1,6 @@
 """Data download commands for DAVINCI CLI.
 
-This module implements commands for downloading observation data
+This module implements commands for downloading dataset data
 from various sources (AERONET, AirNow, AQS, OpenAQ, etc.).
 """
 
@@ -16,7 +16,7 @@ from davinci_monet.cli.app import ERROR_COLOR, INFO_COLOR, SUCCESS_COLOR, timer
 # Create sub-application for data commands
 app = typer.Typer(
     name="get",
-    help="Download observation data from various sources.",
+    help="Download dataset data from various sources.",
 )
 
 _DATE_FMT_NOTE = (
@@ -222,7 +222,7 @@ def get_aeronet(
         )
 
     with timer("Forming xarray Dataset"):
-        from davinci_monet.observations.surface.aeronet import _dataframe_to_xarray
+        from davinci_monet.datasets.surface.aeronet import _dataframe_to_xarray
 
         ds = _dataframe_to_xarray(df)
 
@@ -283,9 +283,7 @@ def get_airnow(
         dates = pd.date_range(start, end, freq="h" if not daily else "D")
 
         with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore", message="The (error|warn)_bad_lines argument has been deprecated"
-            )
+            warnings.filterwarnings("ignore", message=r"The (error|warn)_bad_lines argument.*")
             df = mio.airnow.add_data(
                 dates,
                 download=False,
@@ -295,7 +293,7 @@ def get_airnow(
             )
 
     with timer("Forming xarray Dataset"):
-        from davinci_monet.observations.surface.airnow import (
+        from davinci_monet.datasets.surface.airnow import (
             _dataframe_to_xarray,
         )
 
@@ -371,9 +369,7 @@ def get_aqs(
         dates = pd.date_range(start, end, freq="h" if not daily else "D")
 
         with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore", message="The (error|warn)_bad_lines argument has been deprecated"
-            )
+            warnings.filterwarnings("ignore", message=r"The (error|warn)_bad_lines argument.*")
             df = mio.aqs.add_data(
                 dates,
                 param=param,
@@ -387,7 +383,7 @@ def get_aqs(
             )
 
     with timer("Forming xarray Dataset"):
-        from davinci_monet.observations.surface.aqs import (  # type: ignore[attr-defined]
+        from davinci_monet.datasets.surface.aqs import (  # type: ignore[attr-defined]
             _dataframe_to_xarray,
         )
 
@@ -418,7 +414,7 @@ def get_openaq(
             "Examples: 'no', 'no2', 'nox', 'so2', 'co', 'bc'."
         ),
     ),
-    reference_grade: bool = typer.Option(True, help="Include reference-grade sensors."),
+    geometry_grade: bool = typer.Option(True, help="Include geometry-grade sensors."),
     low_cost: bool = typer.Option(False, help="Include low-cost sensors."),
     country: List[str] = typer.Option(
         None,
@@ -457,13 +453,13 @@ def get_openaq(
 
     # Validate sensor type selection
     sensor_types = []
-    if reference_grade:
-        sensor_types.append("reference grade")
+    if geometry_grade:
+        sensor_types.append("geometry grade")
     if low_cost:
         sensor_types.append("low-cost sensor")
     if not sensor_types:
         typer.secho(
-            "Error: no sensor types selected. " "Use --reference-grade and/or --low-cost",
+            "Error: no sensor types selected. " "Use --geometry-grade and/or --low-cost",
             fg=ERROR_COLOR,
         )
         raise typer.Exit(2)
@@ -479,7 +475,7 @@ def get_openaq(
         end = pd.Timestamp(end_date)
         dates = pd.date_range(start, end, freq="h")
 
-        df = mio.obs.openaq_v3.add_data(
+        df = mio.geometry.openaq_v3.add_data(
             dates,
             parameters=param,
             sensor_type=sensor_types,
@@ -501,7 +497,7 @@ def get_openaq(
             df = df.drop_duplicates(["time", "siteid"])
 
     with timer("Forming xarray Dataset"):
-        from davinci_monet.observations.surface.openaq import (  # type: ignore[attr-defined]
+        from davinci_monet.datasets.surface.openaq import (  # type: ignore[attr-defined]
             _dataframe_to_xarray,
         )
 

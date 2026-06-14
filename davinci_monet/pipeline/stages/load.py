@@ -1,8 +1,4 @@
-"""Source-loading stage.
-
-Loads the unified ``sources:`` config through ``source_registry`` and unifies
-any pre-populated containers into :attr:`PipelineContext.sources`.
-"""
+"""Source-loading stage."""
 
 from __future__ import annotations
 
@@ -11,6 +7,7 @@ from typing import Any
 import xarray as xr
 
 from davinci_monet.core.protocols import DataGeometry
+from davinci_monet.core.schema_utils import dump_schema, is_schema_object
 from davinci_monet.io.source_registration import ensure_builtin_source_readers_registered
 from davinci_monet.pipeline.stages.base import (
     BaseStage,
@@ -24,12 +21,8 @@ from davinci_monet.pipeline.stages.base import (
 class LoadSourcesStage(BaseStage):
     """Standard data-source loading stage.
 
-    Loads the unified ``sources:`` config directly through ``source_registry``.
-    Legacy ``model:`` / ``obs:`` configs are no longer accepted — they are
-    rejected at config load (see
-    :func:`~davinci_monet.config.parser.load_config`); convert them with
-    ``davinci-monet migrate-config``. Loaded datasets are tagged with ``role``
-    (``"model"``/``"obs"`` when known), ``source_label``, and ``geometry`` in
+    Loads the ``sources:`` config directly through ``source_registry``. Loaded
+    datasets are tagged with ``dataset_label`` and ``geometry`` in
     ``context.sources``.
     """
 
@@ -47,10 +40,9 @@ class LoadSourcesStage(BaseStage):
     def execute(self, context: PipelineContext) -> StageResult:
         """Load and unify all data sources into ``context.sources``.
 
-        Native ``sources:`` configs load directly through ``source_registry``.
-        Legacy ``model:``/``obs:`` configs are rejected upstream at config load,
-        so this stage only handles the unified ``sources:`` shape (plus any
-        pre-populated ``context.sources`` for direct stage/unit-test use).
+        ``sources:`` configs load directly through ``source_registry``. This
+        stage also accepts pre-populated ``context.sources`` for direct stage
+        and unit-test use.
         """
         import time
 
@@ -78,7 +70,7 @@ class LoadSourcesStage(BaseStage):
                 )
 
         # No source config at all: any pre-populated sources (tests/direct
-        # stage use) just get their datasets tagged with role / source_label /
+        # stage use) just get their datasets tagged with dataset_label /
         # geometry so downstream stages can rely on those attrs.
         for label, obj in list(context.sources.items()):
             self._tag_source(label, obj)
@@ -92,9 +84,8 @@ class LoadSourcesStage(BaseStage):
 
     @staticmethod
     def _as_dict(config: Any) -> dict[str, Any]:
-        if hasattr(config, "model_dump"):
-            result = config.model_dump(exclude_none=True)
-            return dict(result)
+        if is_schema_object(config):
+            return dump_schema(config, exclude_none=True)
         if isinstance(config, dict):
             return dict(config)
         if hasattr(config, "__dict__"):
@@ -107,8 +98,8 @@ class LoadSourcesStage(BaseStage):
             return {}
         normalized: dict[str, dict[str, Any]] = {}
         for name, cfg in raw.items():
-            if hasattr(cfg, "model_dump"):
-                normalized[str(name)] = dict(cfg.model_dump(exclude_none=True))
+            if is_schema_object(cfg):
+                normalized[str(name)] = dump_schema(cfg, exclude_none=True)
             elif isinstance(cfg, dict):
                 normalized[str(name)] = dict(cfg)
             elif hasattr(cfg, "__dict__"):
@@ -158,7 +149,6 @@ class LoadSourcesStage(BaseStage):
 
         cfg = self._as_dict(raw_config)
         source_type = str(cfg.get("type") or "generic")
-        role = cfg.get("role")
         variables = self._normalize_var_configs(cfg.get("variables", {}))
         variable_names: list[str] | None = [
             str(vcfg.get("source_name") or name) for name, vcfg in variables.items()
@@ -180,38 +170,24 @@ class LoadSourcesStage(BaseStage):
                 f"Available source types: {available}"
             ) from e
 
-        role = self._infer_source_role(role, reader_cls)
         reader = reader_cls()
         # Control keys consumed by the loader / schema, NOT forwarded to the
-        # reader's open(). Covers the unified SourceConfig keys plus the
-        # historical model:/obs: control keys that a hand-migrated source config
-        # may still carry (e.g. mod_kwargs, sat_type, grid_source); these are
-        # filtered defensively so they never leak into xr.open_dataset as
-        # unexpected kwargs. mod_kwargs is handled separately below (it is the
-        # reader-options channel).
+        # reader's open().
         passthrough_keys = {
-            # unified + shared
             "type",
-            "role",
             "files",
             "filename",
             "variables",
             "radius_of_influence",
-            "mapping",
             "display_name",
             "resample",
-            "min_obs_count",
-            "track_obs_count",
-            # model-flavored reader/control keys
+            "min_geometry_count",
+            "track_geometry_count",
             "files_vert",
             "files_surf",
-            "mod_type",
-            "mod_kwargs",
             "projection",
             "plot_kwargs",
             "apply_ak",
-            # obs-flavored reader/control keys
-            "obs_type",
             "sat_type",
             "use_airnow",
             "data_proc",
@@ -222,11 +198,6 @@ class LoadSourcesStage(BaseStage):
             "binned_file",
         }
         reader_kwargs = {k: v for k, v in cfg.items() if k not in passthrough_keys}
-        # mod_kwargs is the legacy reader-options channel: flatten it so its
-        # entries reach the reader's open() (preserving LoadModelsStage parity).
-        mod_kwargs = cfg.get("mod_kwargs")
-        if isinstance(mod_kwargs, dict):
-            reader_kwargs.update(mod_kwargs)
         # Drop None-valued kwargs (schema defaults) so they never leak into the
         # reader / xarray as unexpected keyword arguments.
         reader_kwargs = {k: v for k, v in reader_kwargs.items() if v is not None}
@@ -267,13 +238,13 @@ class LoadSourcesStage(BaseStage):
 
         resample_freq = cfg.get("resample")
         if resample_freq:
-            from davinci_monet.observations.base import resample_dataset
+            from davinci_monet.datasets.base import resample_dataset
 
             data = resample_dataset(
                 data,
                 str(resample_freq),
-                min_count=cfg.get("min_obs_count"),
-                track_count=bool(cfg.get("track_obs_count")),
+                min_count=cfg.get("min_geometry_count"),
+                track_count=bool(cfg.get("track_geometry_count")),
             )
 
         geometry = self._data_geometry(getattr(reader, "geometry"))
@@ -282,22 +253,10 @@ class LoadSourcesStage(BaseStage):
             label=label,
             source_type=source_type,
             geometry=geometry,
-            role=role,
             variables=variables,
             config=cfg,
         )
         return source
-
-    @staticmethod
-    def _infer_source_role(explicit_role: Any, reader_cls: type[Any]) -> str | None:
-        if explicit_role:
-            return str(explicit_role)
-        module = getattr(reader_cls, "__module__", "")
-        if module.startswith("davinci_monet.observations"):
-            return "obs"
-        if module.startswith("davinci_monet.models"):
-            return "model"
-        return None
 
     @staticmethod
     def _apply_variable_config(
@@ -327,15 +286,11 @@ class LoadSourcesStage(BaseStage):
             nan_value = cfg.get("nan_value")
             if nan_value is not None:
                 arr = arr.where(arr != nan_value)
-            # Valid-range clamp. ``valid_min``/``valid_max`` are role-neutral and
-            # apply to any source (a model variable can declare a physical valid
-            # range too); ``obs_min``/``obs_max`` are the historical
-            # observation-flavored synonyms, honored as a fallback for
-            # back-compat.
-            min_val = cfg.get("valid_min", cfg.get("obs_min"))
+            # Valid-range clamp.
+            min_val = cfg.get("valid_min")
             if min_val is not None:
                 arr = arr.where(arr >= min_val)
-            max_val = cfg.get("valid_max", cfg.get("obs_max"))
+            max_val = cfg.get("valid_max")
             if max_val is not None:
                 arr = arr.where(arr <= max_val)
             if cfg.get("units"):
@@ -351,7 +306,7 @@ class LoadSourcesStage(BaseStage):
 
     @staticmethod
     def _tag_source(label: str, obj: Any) -> None:
-        """Tag a pre-populated source's dataset with role/source_label/geometry.
+        """Tag a pre-populated source's dataset with dataset_label/geometry.
 
         Used for sources placed directly in ``context.sources`` (direct stage /
         unit-test use) that bypassed :meth:`_load_unified_source`.
@@ -364,17 +319,12 @@ class LoadSourcesStage(BaseStage):
             geometry_name = geometry.name.lower() if hasattr(geometry, "name") else str(geometry)
         except Exception:
             geometry_name = "unknown"
-        data.attrs["source_label"] = label
+        data.attrs["dataset_label"] = label
         data.attrs["geometry"] = geometry_name
-        role = getattr(obj, "role", None)
-        if role:
-            data.attrs["role"] = role
 
     @staticmethod
     def _register_source(context: PipelineContext, label: str, obj: SourceData) -> None:
         """Register a loaded source in the canonical ``context.sources`` view."""
         context.sources[label] = obj
-        obj.data.attrs["source_label"] = label
+        obj.data.attrs["dataset_label"] = label
         obj.data.attrs["geometry"] = obj.geometry.name.lower()
-        if obj.role:
-            obj.data.attrs["role"] = obj.role

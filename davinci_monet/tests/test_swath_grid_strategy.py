@@ -178,12 +178,12 @@ class TestNormalizeGrid:
 # =============================================================================
 
 
-def _make_synthetic_model(
+def _make_synthetic_dataset(
     nlat: int = 10,
     nlon: int = 20,
     ntime: int = 3,
 ) -> xr.Dataset:
-    """Create a synthetic model dataset on a regular grid."""
+    """Create a synthetic dataset dataset on a regular grid."""
     lat = np.linspace(-90, 90, nlat)
     lon = np.linspace(0, 360, nlon, endpoint=False)
     time = pd.date_range("2019-12-20", periods=ntime, freq="1D")
@@ -222,161 +222,161 @@ def _make_synthetic_swath(
 class TestSwathGridStrategy:
     """Integration tests for SwathGridStrategy."""
 
-    def test_match_model_mode(self):
-        model = _make_synthetic_model()
-        obs = _make_synthetic_swath()
+    def test_match_dataset_mode(self):
+        dataset = _make_synthetic_dataset()
+        geometry = _make_synthetic_swath()
         strategy = SwathGridStrategy()
-        paired = strategy.pair(
-            model,
-            obs,
-            grid_mode="match_model",
+        paired = strategy.pair_sources(
+            geometry_data=geometry,
+            dataset_data=dataset,
+            grid_mode="match_dataset",
             time_resolution="1D",
-            obs_var="AOD_550",
-            model_var="AODVIS",
+            geometry_var="AOD_550",
+            dataset_var="AODVIS",
         )
         # Check output structure
-        assert "obs_AOD_550" in paired.data_vars
-        assert "model_AODVIS" in paired.data_vars
-        assert "obs_count" in paired.data_vars
+        assert "geometry_AOD_550" in paired.data_vars
+        assert "dataset_AODVIS" in paired.data_vars
+        assert "geometry_count" in paired.data_vars
         assert "time" in paired.dims
         assert "lat" in paired.dims
         assert "lon" in paired.dims
 
-    def test_output_dims_match_model(self):
-        model = _make_synthetic_model(nlat=10, nlon=20, ntime=3)
-        obs = _make_synthetic_swath()
+    def test_output_dims_match_dataset(self):
+        dataset = _make_synthetic_dataset(nlat=10, nlon=20, ntime=3)
+        geometry = _make_synthetic_swath()
         strategy = SwathGridStrategy()
-        paired = strategy.pair(
-            model,
-            obs,
-            grid_mode="match_model",
+        paired = strategy.pair_sources(
+            geometry_data=geometry,
+            dataset_data=dataset,
+            grid_mode="match_dataset",
             time_resolution="1D",
-            obs_var="AOD_550",
-            model_var="AODVIS",
+            geometry_var="AOD_550",
+            dataset_var="AODVIS",
         )
-        # Lon and lat should match model grid
+        # Lon and lat should match dataset grid
         assert paired.dims["lat"] == 10
         assert paired.dims["lon"] == 20
 
-    def test_obs_count_positive_where_data(self):
-        model = _make_synthetic_model()
-        obs = _make_synthetic_swath()
+    def test_geometry_count_positive_where_data(self):
+        dataset = _make_synthetic_dataset()
+        geometry = _make_synthetic_swath()
         strategy = SwathGridStrategy()
-        paired = strategy.pair(
-            model,
-            obs,
-            grid_mode="match_model",
+        paired = strategy.pair_sources(
+            geometry_data=geometry,
+            dataset_data=dataset,
+            grid_mode="match_dataset",
             time_resolution="1D",
-            obs_var="AOD_550",
-            model_var="AODVIS",
+            geometry_var="AOD_550",
+            dataset_var="AODVIS",
         )
-        # Where obs_count > 0, obs data should be finite
-        count = paired["obs_count"].values
-        obs_data = paired["obs_AOD_550"].values
-        assert np.all(np.isfinite(obs_data[count > 0]))
+        # Where geometry_count > 0, geometry data should be finite
+        count = paired["geometry_count"].values
+        geometry_data = paired["geometry_AOD_550"].values
+        assert np.all(np.isfinite(geometry_data[count > 0]))
 
-    def test_obs_nan_where_no_data(self):
-        model = _make_synthetic_model()
-        obs = _make_synthetic_swath()
+    def test_geometry_nan_where_no_data(self):
+        dataset = _make_synthetic_dataset()
+        geometry = _make_synthetic_swath()
         strategy = SwathGridStrategy()
-        paired = strategy.pair(
-            model,
-            obs,
-            grid_mode="match_model",
+        paired = strategy.pair_sources(
+            geometry_data=geometry,
+            dataset_data=dataset,
+            grid_mode="match_dataset",
             time_resolution="1D",
-            obs_var="AOD_550",
-            model_var="AODVIS",
+            geometry_var="AOD_550",
+            dataset_var="AODVIS",
         )
-        count = paired["obs_count"].values
-        obs_data = paired["obs_AOD_550"].values
+        count = paired["geometry_count"].values
+        geometry_data = paired["geometry_AOD_550"].values
         # Where count == 0, data should be NaN
-        assert np.all(np.isnan(obs_data[count == 0]))
+        assert np.all(np.isnan(geometry_data[count == 0]))
 
-    def test_min_obs_count_filtering(self):
-        model = _make_synthetic_model()
-        obs = _make_synthetic_swath()
+    def test_min_geometry_count_filtering(self):
+        dataset = _make_synthetic_dataset()
+        geometry = _make_synthetic_swath()
         strategy = SwathGridStrategy()
-        paired = strategy.pair(
-            model,
-            obs,
-            grid_mode="match_model",
+        paired = strategy.pair_sources(
+            geometry_data=geometry,
+            dataset_data=dataset,
+            grid_mode="match_dataset",
             time_resolution="1D",
-            obs_var="AOD_550",
-            model_var="AODVIS",
-            min_obs_count=3,
+            geometry_var="AOD_550",
+            dataset_var="AODVIS",
+            min_geometry_count=3,
         )
-        count = paired["obs_count"].values
-        obs_data = paired["obs_AOD_550"].values
+        count = paired["geometry_count"].values
+        geometry_data = paired["geometry_AOD_550"].values
         # Cells with count < 3 should be NaN
-        assert np.all(np.isnan(obs_data[(count > 0) & (count < 3)]))
+        assert np.all(np.isnan(geometry_data[(count > 0) & (count < 3)]))
 
     def test_longitude_wrapping(self):
-        """Obs with -180..180 lon should pair correctly with 0..360 model."""
-        model = _make_synthetic_model(nlon=4)
+        """Geometry with -180..180 lon should pair correctly with 0..360 dataset."""
+        dataset = _make_synthetic_dataset(nlon=4)
         # Swath with negative longitudes
-        obs = _make_synthetic_swath(lon_range=(-180, 0))
+        geometry = _make_synthetic_swath(lon_range=(-180, 0))
         strategy = SwathGridStrategy()
-        paired = strategy.pair(
-            model,
-            obs,
-            grid_mode="match_model",
+        paired = strategy.pair_sources(
+            geometry_data=geometry,
+            dataset_data=dataset,
+            grid_mode="match_dataset",
             time_resolution="1D",
-            obs_var="AOD_550",
-            model_var="AODVIS",
+            geometry_var="AOD_550",
+            dataset_var="AODVIS",
         )
-        # Should have data in the 180-360 range of the model grid
-        count = paired["obs_count"].values
+        # Should have data in the 180-360 range of the dataset grid
+        count = paired["geometry_count"].values
         assert count.sum() > 0
 
     def test_resolution_mode(self):
-        model = _make_synthetic_model()
-        obs = _make_synthetic_swath()
+        dataset = _make_synthetic_dataset()
+        geometry = _make_synthetic_swath()
         strategy = SwathGridStrategy()
-        paired = strategy.pair(
-            model,
-            obs,
+        paired = strategy.pair_sources(
+            geometry_data=geometry,
+            dataset_data=dataset,
             grid_mode="resolution",
             resolution=10.0,
             time_resolution="1D",
-            obs_var="AOD_550",
-            model_var="AODVIS",
+            geometry_var="AOD_550",
+            dataset_var="AODVIS",
         )
         # 10-degree grid: 18 lat bins, 36 lon bins
         assert paired.dims["lat"] == 18
         assert paired.dims["lon"] == 36
 
     def test_variable_prefix_convention(self):
-        model = _make_synthetic_model()
-        obs = _make_synthetic_swath()
+        dataset = _make_synthetic_dataset()
+        geometry = _make_synthetic_swath()
         strategy = SwathGridStrategy()
-        paired = strategy.pair(
-            model,
-            obs,
-            grid_mode="match_model",
+        paired = strategy.pair_sources(
+            geometry_data=geometry,
+            dataset_data=dataset,
+            grid_mode="match_dataset",
             time_resolution="1D",
-            obs_var="AOD_550",
-            model_var="AODVIS",
+            geometry_var="AOD_550",
+            dataset_var="AODVIS",
         )
-        # Check naming convention: obs_ and model_ prefixes
+        # Check naming convention: geometry_ and dataset_ prefixes
         var_names = list(paired.data_vars)
-        assert any(str(v).startswith("obs_") for v in var_names)
-        assert any(str(v).startswith("model_") for v in var_names)
+        assert any(str(v).startswith("geometry_") for v in var_names)
+        assert any(str(v).startswith("dataset_") for v in var_names)
 
     def test_aod_values_reasonable(self):
         """Binned values should be within input range."""
-        model = _make_synthetic_model()
-        obs = _make_synthetic_swath(aod_range=(0.05, 0.8))
+        dataset = _make_synthetic_dataset()
+        geometry = _make_synthetic_swath(aod_range=(0.05, 0.8))
         strategy = SwathGridStrategy()
-        paired = strategy.pair(
-            model,
-            obs,
-            grid_mode="match_model",
+        paired = strategy.pair_sources(
+            geometry_data=geometry,
+            dataset_data=dataset,
+            grid_mode="match_dataset",
             time_resolution="1D",
-            obs_var="AOD_550",
-            model_var="AODVIS",
+            geometry_var="AOD_550",
+            dataset_var="AODVIS",
         )
-        obs_data = paired["obs_AOD_550"].values
-        valid = obs_data[np.isfinite(obs_data)]
+        geometry_data = paired["geometry_AOD_550"].values
+        valid = geometry_data[np.isfinite(geometry_data)]
         assert np.all(valid >= 0.05)
         assert np.all(valid <= 0.8)
 
@@ -392,10 +392,10 @@ def test_per_scanline_time_bins_across_multiple_days() -> None:
     Regression: DataArray.astype("datetime64[s]") silently kept ns units,
     collapsing every pixel into the final time bin (fixed in SSF Phase 3).
 
-    The test uses a constant obs value per day (100 / 200 / 300) so the
+    The test uses a constant geometry value per day (100 / 200 / 300) so the
     per-bin means are assertable without statistical uncertainty.
     """
-    # -- observation dataset (scanline=6, pixel=4) ----------------------------
+    # -- dataset dataset (scanline=6, pixel=4) ----------------------------
     n_scanlines = 6
     n_pixels = 4
 
@@ -416,7 +416,7 @@ def test_per_scanline_time_bins_across_multiple_days() -> None:
     lats = np.linspace(-60, 60, n_scanlines).reshape(-1, 1) * np.ones((n_scanlines, n_pixels))
     lons = np.linspace(-120, 120, n_pixels).reshape(1, -1) * np.ones((n_scanlines, n_pixels))
 
-    obs = xr.Dataset(
+    geometry = xr.Dataset(
         {"flux": (["scanline", "pixel"], flux.astype(np.float32))},
         coords={
             "latitude": (["scanline", "pixel"], lats),
@@ -425,45 +425,45 @@ def test_per_scanline_time_bins_across_multiple_days() -> None:
         },
     )
 
-    # -- model dataset (time=3 days, lat=12, lon=24) --------------------------
+    # -- dataset dataset (time=3 days, lat=12, lon=24) --------------------------
     lat = np.linspace(-90, 90, 12)
     lon = np.linspace(-180, 180, 24, endpoint=False)
-    model_time = days
-    model_flux = np.ones((3, 12, 24), dtype=np.float32) * 999.0
+    dataset_time = days
+    dataset_flux = np.ones((3, 12, 24), dtype=np.float32) * 999.0
 
-    model = xr.Dataset(
-        {"FLUX": (["time", "lat", "lon"], model_flux)},
-        coords={"time": model_time, "lat": lat, "lon": lon},
+    dataset = xr.Dataset(
+        {"FLUX": (["time", "lat", "lon"], dataset_flux)},
+        coords={"time": dataset_time, "lat": lat, "lon": lon},
     )
 
     # -- pair -----------------------------------------------------------------
     strategy = SwathGridStrategy()
-    paired = strategy.pair(
-        model,
-        obs,
-        grid_mode="match_model",
+    paired = strategy.pair_sources(
+        geometry_data=geometry,
+        dataset_data=dataset,
+        grid_mode="match_dataset",
         time_resolution="1D",
-        obs_var="flux",
-        model_var="FLUX",
+        geometry_var="flux",
+        dataset_var="FLUX",
     )
 
-    obs_binned = paired["obs_flux"].values  # (time, lon, lat)
-    obs_count = paired["obs_count"].values
+    geometry_binned = paired["geometry_flux"].values  # (time, lon, lat)
+    geometry_count = paired["geometry_count"].values
 
     # 3 distinct time bins must be present
     assert paired.dims["time"] == 3, f"Expected 3 time bins, got {paired.dims['time']}"
 
-    # Each time bin must contain at least one finite obs pixel
-    finite_per_bin = np.array([np.any(np.isfinite(obs_binned[t])) for t in range(3)])
+    # Each time bin must contain at least one finite geometry pixel
+    finite_per_bin = np.array([np.any(np.isfinite(geometry_binned[t])) for t in range(3)])
     assert np.all(finite_per_bin), (
-        f"Some time bins have no finite obs (pre-fix: all collapsed into last bin). "
+        f"Some time bins have no finite geometry (pre-fix: all collapsed into last bin). "
         f"Finite per bin: {finite_per_bin}"
     )
 
     # Per-bin means of finite cells must match 100 / 200 / 300 respectively
     expected = [100.0, 200.0, 300.0]
     for t, exp in enumerate(expected):
-        cells = obs_binned[t][np.isfinite(obs_binned[t])]
+        cells = geometry_binned[t][np.isfinite(geometry_binned[t])]
         assert len(cells) > 0, f"Time bin {t} is empty"
         np.testing.assert_allclose(
             cells,
