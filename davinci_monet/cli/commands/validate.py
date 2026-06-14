@@ -28,7 +28,7 @@ def validate_config_command(
     control_path
         Path to the YAML control file.
     strict
-        If True, use strict validation (no extra fields allowed).
+        If True, reject unknown fields in core config sections.
     show_config
         If True, print the parsed configuration.
     """
@@ -46,7 +46,7 @@ def validate_config_command(
         from davinci_monet.config import load_config
 
         # Parse and validate.
-        config = load_config(p)
+        config = load_config(p, strict=strict)
 
         # Report what was found
         typer.echo()

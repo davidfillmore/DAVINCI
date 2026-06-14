@@ -31,7 +31,7 @@ class LoadSourcesStage(BaseStage):
 
     def validate(self, context: PipelineContext) -> bool:
         """Validate that at least one source is configured."""
-        cfg = context.config
+        cfg = context.config_dict()
         has_config = "sources" in cfg
         # Already-populated sources (direct stage / unit-test use) are also a
         # valid starting point.
@@ -48,9 +48,10 @@ class LoadSourcesStage(BaseStage):
 
         start = time.time()
 
-        if context.config.get("sources"):
+        config = context.config_dict()
+        if config.get("sources"):
             try:
-                source_configs = context.config.get("sources", {})
+                source_configs = config.get("sources", {})
                 total_sources = len(source_configs)
                 for index, (label, raw_config) in enumerate(source_configs.items(), start=1):
                     context.log_progress(f"    Loading source: {label} ({index}/{total_sources})")
@@ -156,7 +157,7 @@ class LoadSourcesStage(BaseStage):
         variable_names = variable_names or None
         file_paths = self._file_list(cfg.get("files") or cfg.get("filename"))
 
-        analysis = context.config.get("analysis", {})
+        analysis = context.config_dict().get("analysis", {})
         time_range = None
         if analysis.get("start_time") and analysis.get("end_time"):
             time_range = (analysis["start_time"], analysis["end_time"])

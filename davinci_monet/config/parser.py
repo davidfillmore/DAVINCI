@@ -11,7 +11,10 @@ from typing import Any, TextIO
 
 import yaml
 
-from davinci_monet.config.schema import MonetConfig
+from davinci_monet.config.schema import (
+    DataProcConfig,
+    MonetConfig,
+)
 from davinci_monet.core.exceptions import ConfigurationError
 from davinci_monet.core.schema_utils import dump_schema, validate_schema
 
@@ -140,7 +143,56 @@ def preprocess_config(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def load_config(source: str | Path | TextIO) -> MonetConfig:
+def _extra_keys(value: Any) -> list[str]:
+    """Return Pydantic extra keys carried by a parsed schema object."""
+    extra = getattr(value, "__pydantic_extra__", None) or {}
+    return sorted(str(k) for k in extra)
+
+
+def _raise_for_extra(value: Any, path: str) -> None:
+    keys = _extra_keys(value)
+    if keys:
+        joined = ", ".join(f"{path}.{key}" for key in keys)
+        raise ConfigurationError(f"Strict validation rejected extra field(s): {joined}")
+
+
+def _validate_strict_core_fields(config: MonetConfig) -> None:
+    """Reject extra fields in core schema sections while preserving extension points.
+
+    Source reader options and renderer-specific plot kwargs remain extension points.
+    This gives ``--strict`` real behavior without breaking source-reader configs that
+    intentionally pass extra keys through to reader.open().
+    """
+    _raise_for_extra(config.analysis, "analysis")
+    if config.pairing is not None:
+        _raise_for_extra(config.pairing, "pairing")
+
+    for pair_name, pair in config.pairs.items():
+        _raise_for_extra(pair, f"pairs.{pair_name}")
+        _raise_for_extra(pair.x, f"pairs.{pair_name}.x")
+        _raise_for_extra(pair.y, f"pairs.{pair_name}.y")
+        if pair.grid is not None:
+            _raise_for_extra(pair.grid, f"pairs.{pair_name}.grid")
+            if pair.grid.vertical is not None:
+                _raise_for_extra(pair.grid.vertical, f"pairs.{pair_name}.grid.vertical")
+
+    for plot_name, plot in config.plots.items():
+        # Renderer-specific plot kwargs are allowed in plot specs. ``data_proc``
+        # is structured and checked below when present.
+        data_proc = plot.data_proc
+        if isinstance(data_proc, DataProcConfig):
+            _raise_for_extra(data_proc, f"plots.{plot_name}.data_proc")
+
+    if config.stats is not None:
+        _raise_for_extra(config.stats, "stats")
+        if isinstance(config.stats.data_proc, DataProcConfig):
+            _raise_for_extra(config.stats.data_proc, "stats.data_proc")
+
+    if config.summary is not None:
+        _raise_for_extra(config.summary, "summary")
+
+
+def load_config(source: str | Path | TextIO, *, strict: bool = False) -> MonetConfig:
     """Load and validate a MELODIES-MONET configuration.
 
     This is the main entry point for loading configuration files.
@@ -184,12 +236,17 @@ def load_config(source: str | Path | TextIO) -> MonetConfig:
 
     # Validate with Pydantic
     try:
-        return validate_schema(MonetConfig, data)
+        config = validate_schema(MonetConfig, data)
+        if strict:
+            _validate_strict_core_fields(config)
+        return config
+    except ConfigurationError:
+        raise
     except Exception as e:
         raise ConfigurationError(f"Configuration validation failed: {e}") from e
 
 
-def validate_config(data: dict[str, Any]) -> MonetConfig:
+def validate_config(data: dict[str, Any], *, strict: bool = False) -> MonetConfig:
     """Validate a dictionary as a MELODIES-MONET configuration.
 
     Parameters
@@ -209,7 +266,12 @@ def validate_config(data: dict[str, Any]) -> MonetConfig:
     """
     data = preprocess_config(data)
     try:
-        return validate_schema(MonetConfig, data)
+        config = validate_schema(MonetConfig, data)
+        if strict:
+            _validate_strict_core_fields(config)
+        return config
+    except ConfigurationError:
+        raise
     except Exception as e:
         raise ConfigurationError(f"Configuration validation failed: {e}") from e
 

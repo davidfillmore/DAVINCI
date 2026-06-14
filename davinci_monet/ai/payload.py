@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
+
+from davinci_monet.core.schema_utils import dump_schema, is_schema_object
 
 if TYPE_CHECKING:
     from davinci_monet.config.schema import SummaryConfig
@@ -37,9 +39,21 @@ _STATS_STAGES = ("statistics",)
 _PLOT_STAGES = ("plotting",)
 
 
+def _context_config_dict(context: "PipelineContext") -> dict[str, Any]:
+    """Return the context config as a plain dict."""
+    config_dict = getattr(context, "config_dict", None)
+    if callable(config_dict):
+        return config_dict()
+
+    config = context.config
+    if is_schema_object(config):
+        return dump_schema(config, exclude_none=True)
+    return cast(dict[str, Any], config)
+
+
 def collect_payload(context: "PipelineContext", cfg: "SummaryConfig") -> SummaryPayload:
     """Build a :class:`SummaryPayload` from the run's config and stage results."""
-    config = context.config
+    config = _context_config_dict(context)
     analysis = config.get("analysis", {}) or {}
     period = {"start": analysis.get("start_time"), "end": analysis.get("end_time")}
 

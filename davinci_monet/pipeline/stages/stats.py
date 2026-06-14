@@ -84,7 +84,7 @@ class StatisticsStage(BaseStage):
         start = time.time()
         stats_results: dict[str, Any] = {}
 
-        stats_config = context.config.get("stats", {})
+        stats_config = context.config_dict().get("stats", {})
         total_pairs = len(context.paired)
         pair_count = 0
 

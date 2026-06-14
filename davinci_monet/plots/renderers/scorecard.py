@@ -18,6 +18,7 @@ from davinci_monet.plots.base import (
     PlotConfig,
     build_series,
     canonical_variable_name,
+    extract_xy_series,
 )
 from davinci_monet.plots.registry import register_plotter
 
@@ -76,15 +77,7 @@ class ScorecardPlotter(BasePlotter):
         matplotlib.figure.Figure
             The generated figure.
         """
-        if len(series) != 2:
-            raise NotImplementedError(
-                f"ScorecardPlotter.render requires exactly 2 series; got {len(series)}."
-            )
-        x_series = next((s for s in series if s.axis == "x"), series[0])
-        y_series = next((s for s in series if s.axis == "y"), series[1])
-        paired_data = x_series.dataset
-        x_var = x_series.var_name
-        y_var = y_series.var_name
+        paired_data, x_var, y_var = extract_xy_series(series, "ScorecardPlotter.render")
 
         # Calculate basic statistics (via central metric registry)
         x = paired_data[x_var].values.flatten()

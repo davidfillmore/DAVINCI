@@ -11,11 +11,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable, Protocol, runtime_checkable
+from typing import Any, Callable, Protocol, cast, runtime_checkable
 
 import xarray as xr
 
+from davinci_monet.config.schema import MonetConfig
 from davinci_monet.core.protocols import DataGeometry
+from davinci_monet.core.schema_utils import dump_schema, is_schema_object
 
 
 class StageStatus(Enum):
@@ -129,13 +131,19 @@ class PipelineContext:
         Called with a message string to display progress updates.
     """
 
-    config: dict[str, Any] = field(default_factory=dict)
+    config: MonetConfig | dict[str, Any] = field(default_factory=dict)
     # Unified data-source view keyed by dataset label.
     sources: dict[str, Any] = field(default_factory=dict)
     paired: dict[str, Any] = field(default_factory=dict)
     results: dict[str, StageResult] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
     progress_callback: Callable[[str], None] | None = None
+
+    def config_dict(self) -> dict[str, Any]:
+        """Return config as a plain dict for legacy stage code."""
+        if is_schema_object(self.config):
+            return dump_schema(self.config, exclude_none=True)
+        return cast(dict[str, Any], self.config)
 
     def log_progress(self, message: str) -> None:
         """Log a progress message if callback is set."""

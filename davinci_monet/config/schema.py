@@ -119,6 +119,7 @@ class AnalysisConfig(FlexibleSchema):
             for fmt in [
                 "%Y-%m-%d-%H:%M:%S",
                 "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%d %H:%M",
                 "%Y-%m-%dT%H:%M:%S",
                 "%Y-%m-%d",
             ]:
@@ -237,17 +238,12 @@ class FilterConfig(FlexibleSchema):
 # =============================================================================
 
 
-PlotType = Literal[
-    "timeseries",
-    "taylor",
-    "spatial_bias",
-    "spatial_overlay",
-    "boxplot",
-    "gridded_spatial_bias",
-    "diurnal",
-    "scatter",
-    "curtain",
-]
+def _registered_plot_types() -> list[str]:
+    """Return currently registered plotter names, importing built-ins first."""
+    import davinci_monet.plots  # noqa: F401  # registers built-in renderers
+    from davinci_monet.plots import list_plotters
+
+    return list_plotters()
 
 
 class SourceConfig(FlexibleSchema):
@@ -331,6 +327,15 @@ class GridConfig(FlexibleSchema):
     @classmethod
     def _parse_vertical(cls, v: Any) -> Any:
         return VerticalGridConfig(**v) if isinstance(v, dict) else v
+
+
+class PipelinePairingConfig(FlexibleSchema):
+    """Runtime options for the pipeline pairing stage."""
+
+    time_tolerance: str = "1h"
+    time_method: str = "nearest"
+    max_pair_workers: int | None = None
+    dask_pair_workers: int = 1
 
 
 class SourcePairConfig(FlexibleSchema):
@@ -457,6 +462,16 @@ class PlotGroupConfig(FlexibleSchema):
     domain_name: list[str] = Field(default_factory=lambda: ["CONUS"])
     data: list[str] = Field(default_factory=list)
     data_proc: DataProcConfig | dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("type")
+    @classmethod
+    def validate_plot_type(cls, v: str) -> str:
+        """Reject unknown plot types during config validation."""
+        registered = _registered_plot_types()
+        if v not in registered:
+            available = ", ".join(registered)
+            raise ValueError(f"Unknown plot type '{v}'. Available plot types: {available}")
+        return v
 
     @field_validator("data_proc", mode="before")
     @classmethod
@@ -606,6 +621,8 @@ class MonetConfig(StrictSchema):
         Dictionary of unified data-source configurations keyed by source label.
     pairs
         Dictionary of binary pair definitions keyed by pair name.
+    pairing
+        Runtime options for the pipeline pairing stage.
     plots
         Dictionary of plot group configurations keyed by group name.
     stats
@@ -629,6 +646,7 @@ class MonetConfig(StrictSchema):
     # Data sources keyed by dataset label.
     sources: dict[str, SourceConfig] = Field(default_factory=dict)
     pairs: dict[str, SourcePairConfig] = Field(default_factory=dict)
+    pairing: PipelinePairingConfig | None = None
     plots: dict[str, PlotGroupConfig] = Field(default_factory=dict)
     stats: StatsConfig | None = None
     summary: SummaryConfig | None = None

@@ -16,6 +16,8 @@ from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
     build_series,
+    clean_xy,
+    extract_xy_series,
     get_axis_color,
     get_series_label,
 )
@@ -75,15 +77,7 @@ class TaylorPlotter(BasePlotter):
         matplotlib.figure.Figure
             The generated figure.
         """
-        if len(series) != 2:
-            raise NotImplementedError(
-                f"TaylorPlotter.render requires exactly 2 series; got {len(series)}."
-            )
-        x_series = next((s for s in series if s.axis == "x"), series[0])
-        y_series = next((s for s in series if s.axis == "y"), series[1])
-        paired_data = x_series.dataset
-        x_var = x_series.var_name
-        y_var = y_series.var_name
+        paired_data, x_var, y_var = extract_xy_series(series, "TaylorPlotter.render")
 
         normalize: bool = kwargs.pop("normalize", True)
         show_x: bool = kwargs.pop("show_x", True)
@@ -92,14 +86,8 @@ class TaylorPlotter(BasePlotter):
         marker: str | None = kwargs.pop("marker", None)
         color: str | None = kwargs.pop("color", None)
 
-        # Get data and flatten
-        x_values = paired_data[x_var].values.flatten()
-        y_values = paired_data[y_var].values.flatten()
-
-        # Remove NaN values
-        mask = np.isfinite(x_values) & np.isfinite(y_values)
-        x_values = x_values[mask]
-        y_values = y_values[mask]
+        # Get data, flatten, and drop non-finite pairs
+        x_values, y_values = clean_xy(paired_data[x_var].values, paired_data[y_var].values)
 
         # Calculate statistics
         x_std = np.std(x_values)

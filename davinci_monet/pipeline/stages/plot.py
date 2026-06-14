@@ -119,8 +119,9 @@ class PlottingStage(BaseStage):
 
         _logger = logging.getLogger(__name__)
         start = time.time()
-        plots_config = context.config.get("plots", {})
-        analysis_config = context.config.get("analysis", {})
+        config = context.config_dict()
+        plots_config = config.get("plots", {})
+        analysis_config = config.get("analysis", {})
         output_dir = Path(analysis_config.get("output_dir", "."))
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -367,11 +368,12 @@ class PlottingStage(BaseStage):
         # Get plotter config from source variable settings. The y side
         # wins for comparison-specific plot limits; x settings are a
         # fallback.
+        config = context.config_dict()
         y_var = var_spec.get("y_var", "")
         x_var = var_spec.get("x_var", "")
-        var_config = self._source_var_config(context.config, y_source, y_var)
+        var_config = self._source_var_config(config, y_source, y_var)
         if not var_config:
-            var_config = self._source_var_config(context.config, x_source, x_var)
+            var_config = self._source_var_config(config, x_source, x_var)
         vmin = var_config.get("vmin_plot")
         vmax = var_config.get("vmax_plot")
         vdiff = var_config.get("vdiff_plot")
@@ -715,7 +717,8 @@ class PlottingStage(BaseStage):
         start = time.time()
         plots_generated: list[str] = []
 
-        plot_config = context.config.get("plots", {})
+        config = context.config_dict()
+        plot_config = config.get("plots", {})
 
         # Plotting is optional - if no config, skip
         if not plot_config:
@@ -726,13 +729,13 @@ class PlottingStage(BaseStage):
             )
 
         # Get output directory
-        analysis_config = context.config.get("analysis", {})
+        analysis_config = config.get("analysis", {})
         output_dir_str = analysis_config.get("output_dir") or "."
         output_dir = Path(output_dir_str)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Get pairs config for variable mapping
-        pairs_config = context.config.get("pairs", {})
+        pairs_config = config.get("pairs", {})
         total_plots = len(plot_config)
         plot_count = 0
         file_index = 0  # Global counter for ordering files in preview

@@ -26,9 +26,9 @@ Statistical:
     boxplot : Box plot comparison
 
 Spatial:
+    spatial : Single-source spatial field map (shape-aware)
     spatial_bias : Bias map
     spatial_overlay : gridded field contour + point overlay
-    spatial_distribution : Value distribution map
 
 Specialized:
     curtain : Vertical cross-section
@@ -74,17 +74,13 @@ from davinci_monet.plots.renderers import (  # Temporal; Statistical; Specialize
     BoxPlotter,
     CurtainPlotter,
     DiurnalPlotter,
-    FlightTimeSeriesPlotter,
     FlightTrackPlotter,
     HistogramPlotter,
     LMADensityPlotter,
     MapConfig,
-    PerSiteTimeSeriesPlotter,
     ScatterPlotter,
     ScorecardPlotter,
-    SiteTimeSeriesPlotter,
     SpatialBiasPlotter,
-    SpatialDistributionPlotter,
     SpatialOverlayPlotter,
     TaylorPlotter,
     TimeSeriesPlotter,
@@ -95,13 +91,9 @@ from davinci_monet.plots.renderers import (  # Temporal; Statistical; Specialize
     plot_boxplot,
     plot_curtain,
     plot_diurnal,
-    plot_flight_timeseries,
-    plot_per_site_timeseries,
     plot_scatter,
     plot_scorecard,
-    plot_site_timeseries,
     plot_spatial_bias,
-    plot_spatial_distribution,
     plot_spatial_overlay,
     plot_taylor,
     plot_timeseries,
@@ -183,12 +175,6 @@ __all__ = [
     "plot_timeseries",
     "DiurnalPlotter",
     "plot_diurnal",
-    "SiteTimeSeriesPlotter",
-    "plot_site_timeseries",
-    "FlightTimeSeriesPlotter",
-    "plot_flight_timeseries",
-    "PerSiteTimeSeriesPlotter",
-    "plot_per_site_timeseries",
     # Statistical plotters
     "ScatterPlotter",
     "plot_scatter",
@@ -208,10 +194,8 @@ __all__ = [
     "MapConfig",
     "SpatialBiasPlotter",
     "SpatialOverlayPlotter",
-    "SpatialDistributionPlotter",
     "plot_spatial_bias",
     "plot_spatial_overlay",
-    "plot_spatial_distribution",
     "get_domain_extent",
     "get_projection",
     # Single-source / distribution plotters (unified onto BasePlotter)

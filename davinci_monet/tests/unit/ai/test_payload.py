@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from davinci_monet.ai.payload import ImageRef, SummaryPayload, collect_payload
+from davinci_monet.config.parser import validate_config
 from davinci_monet.config.schema import SummaryConfig
 from davinci_monet.pipeline.stages import (
     PipelineContext,
@@ -58,6 +59,18 @@ def test_collect_payload_flattens_stats() -> None:
     assert row["metrics"]["N"] == 120
     # internal keys are dropped
     assert "_internal" not in row["metrics"]
+
+
+def test_collect_payload_supports_typed_config() -> None:
+    ctx = _context_with_results(["00_o3_scatter.png"])
+    assert isinstance(ctx.config, dict)
+    ctx.config = validate_config(ctx.config)
+
+    payload = collect_payload(ctx, SummaryConfig(enabled=True))
+
+    assert payload.period["start"] is not None
+    assert payload.sources_summary == ["cam (cesm_fv)", "airnow (pt_sfc)"]
+    assert payload.pairs_summary == ["cam_vs_airnow_o3"]
 
 
 def test_collect_payload_caps_images_when_no_plots_list() -> None:

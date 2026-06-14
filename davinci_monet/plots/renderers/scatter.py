@@ -19,6 +19,7 @@ from davinci_monet.plots.base import (
     BasePlotter,
     PlotConfig,
     build_series,
+    extract_xy_series,
     format_label_with_units,
     get_variable_label,
     get_variable_units,
@@ -88,15 +89,7 @@ class ScatterPlotter(BasePlotter):
         matplotlib.figure.Figure
             The generated figure.
         """
-        if len(series) != 2:
-            raise NotImplementedError(
-                f"ScatterPlotter.render requires exactly 2 series; got {len(series)}."
-            )
-        x_series = next((s for s in series if s.axis == "x"), series[0])
-        y_series = next((s for s in series if s.axis == "y"), series[1])
-        paired_data = x_series.dataset
-        x_var = x_series.var_name
-        y_var = y_series.var_name
+        paired_data, x_var, y_var = extract_xy_series(series, "ScatterPlotter.render")
 
         show_density: bool = kwargs.pop("show_density", False)
         density_cmap: str = kwargs.pop("density_cmap", "viridis")

@@ -3,7 +3,7 @@
 This subpackage provides map-based visualization:
 - SpatialBiasPlotter: x-vs-y bias on maps
 - SpatialOverlayPlotter: y contours with x overlays
-- SpatialDistributionPlotter: Single-variable spatial distribution
+- SpatialPlotter: Single-source spatial field map (shape-aware)
 """
 
 from davinci_monet.plots.renderers.spatial.base import (
@@ -14,10 +14,6 @@ from davinci_monet.plots.renderers.spatial.base import (
     get_projection,
 )
 from davinci_monet.plots.renderers.spatial.bias import SpatialBiasPlotter, plot_spatial_bias
-from davinci_monet.plots.renderers.spatial.distribution import (
-    SpatialDistributionPlotter,
-    plot_spatial_distribution,
-)
 from davinci_monet.plots.renderers.spatial.field import SpatialPlotter
 from davinci_monet.plots.renderers.spatial.overlay import (
     SpatialOverlayPlotter,
@@ -34,10 +30,8 @@ __all__ = [
     # Plotters
     "SpatialBiasPlotter",
     "SpatialOverlayPlotter",
-    "SpatialDistributionPlotter",
     "SpatialPlotter",
     # Convenience functions
     "plot_spatial_bias",
     "plot_spatial_overlay",
-    "plot_spatial_distribution",
 ]

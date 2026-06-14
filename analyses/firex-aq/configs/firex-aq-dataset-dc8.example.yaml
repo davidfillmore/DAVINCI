@@ -117,20 +117,6 @@ plots:
     split_by_flight: true
     min_points: 10
 
-  dc8_o3_flight_timeseries:
-    type: flight_timeseries
-    pairs: [cam_dc8_o3]
-    title: "O3: Dataset vs DC-8"
-    split_by_flight: true
-    min_points: 10
-
-  dc8_co_flight_timeseries:
-    type: flight_timeseries
-    pairs: [cam_dc8_co]
-    title: "CO: Dataset vs DC-8"
-    split_by_flight: true
-    min_points: 10
-
   dc8_o3_track_3d:
     type: track_map_3d
     pairs: [cam_dc8_o3]

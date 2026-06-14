@@ -372,7 +372,7 @@ def validate(
         False,
         "--strict",
         "-s",
-        help="Use strict validation (no extra fields allowed).",
+        help="Reject unknown fields in core config sections.",
     ),
     show_config: bool = typer.Option(
         False,

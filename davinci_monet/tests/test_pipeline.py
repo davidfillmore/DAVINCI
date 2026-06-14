@@ -153,9 +153,10 @@ class TestPipelineContext:
 
     def test_context_with_config(self, sample_context: PipelineContext):
         """Test context with configuration."""
-        assert "sources" in sample_context.config
-        assert "test_dataset" in sample_context.config["sources"]
-        assert "test_geometry" in sample_context.config["sources"]
+        config = sample_context.config_dict()
+        assert "sources" in config
+        assert "test_dataset" in config["sources"]
+        assert "test_geometry" in config["sources"]
 
     def test_get_source(self):
         """Test getting a source from context."""
@@ -182,6 +183,18 @@ class TestPipelineContext:
 
         with pytest.raises(KeyError, match="Paired data 'missing' not found"):
             ctx.get_paired("missing")
+
+    def test_config_dict_supports_model_and_dict(self):
+        """Stages can use config_dict() for both typed and legacy dict contexts."""
+        from davinci_monet.config.parser import validate_config
+
+        model_context = PipelineContext(
+            config=validate_config({"sources": {"cam": {"type": "generic"}}})
+        )
+        dict_context = PipelineContext(config={"sources": {"cam": {"type": "generic"}}})
+
+        assert model_context.config_dict()["sources"]["cam"]["type"] == "generic"
+        assert dict_context.config_dict()["sources"]["cam"]["type"] == "generic"
 
 
 # =============================================================================
@@ -460,10 +473,12 @@ class TestStatisticsStage:
         (as happens after dataset_dump() with defaults), the user-specified
         'metrics' should win over the default 'stat_list'.
         """
-        context_with_paired.config["stats"] = {
+        config = context_with_paired.config_dict()
+        config["stats"] = {
             "stat_list": ["MB", "NMB", "R2", "RMSE"],  # defaults
             "metrics": ["N", "MB", "RMSE", "R", "NMB", "NME", "IOA"],  # user
         }
+        context_with_paired.config = config
         stage = StatisticsStage()
         result = stage.execute(context_with_paired)
 
@@ -505,7 +520,7 @@ class TestStatisticsStage:
 
         ctx = PipelineContext()
         ctx.paired["dataset_geometry"] = paired
-        ctx.config["stats"] = {"domain_type": ["conus"], "metrics": ["N", "MB"]}
+        ctx.config = {"stats": {"domain_type": ["conus"], "metrics": ["N", "MB"]}}
 
         stage = StatisticsStage()
         result = stage.execute(ctx)
@@ -731,6 +746,22 @@ class TestPipelineRunner:
         assert len(result.stage_results) == 1
         assert result.context is not None
         assert result.context.metadata.get("executed") is True
+
+    def test_run_from_config_preserves_monet_config_in_context(self, tmp_path):
+        """run_from_config keeps the validated MonetConfig object in PipelineContext."""
+        from davinci_monet.config.schema import MonetConfig
+
+        config = {
+            "analysis": {"output_dir": str(tmp_path)},
+            "sources": {"cam": {"type": "generic"}},
+        }
+
+        runner = PipelineRunner(stages=[], show_progress=False)
+        result = runner.run_from_config(config)
+
+        assert result.context is not None
+        assert isinstance(result.context.config, MonetConfig)
+        assert result.context.config.analysis.output_dir == tmp_path
 
     def test_runner_can_leave_context_datasets_open(self):
         """Callers can opt out of result-context dataset cleanup after run()."""

@@ -23,6 +23,8 @@ from davinci_monet.plots.registry import register_plotter
 from davinci_monet.plots.renderers.spatial.base import (
     BaseSpatialPlotter,
     MapConfig,
+    maybe_time_average,
+    resolve_spatial_coords,
     surface_level_index,
 )
 
@@ -206,16 +208,10 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
 
         # Get dataset data
         x_data = paired_data[x_var]
-        if "time" in x_data.dims:
-            x_data = x_data.mean(dim="time")
+        x_data = maybe_time_average(x_data)
 
-        # Get dataset coordinates
-        if lat_var in paired_data.coords:
-            x_lats = paired_data[lat_var].values
-            x_lons = paired_data[lon_var].values
-        else:
-            x_lats = paired_data[lat_var].values
-            x_lons = paired_data[lon_var].values
+        # Get dataset coordinates (with 0..360 -> -180..180 lon normalization).
+        _, _, x_lats, x_lons = resolve_spatial_coords(paired_data, lat_var, lon_var)
 
         x_values = x_data.values.flatten()
         x_lats_flat = (

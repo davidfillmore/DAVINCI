@@ -364,7 +364,7 @@ Plots differ by how many sources they take:
 point/track/profile → **scatter**, grid/swath → **pcolormesh**. 3-D fields slice the **surface**
 via `surface_level_index` (CESM convention); point/grid/swath time-average by default (track/profile
 keep time as the sampling path). The shared scatter/pcolormesh primitive is `draw_spatial_field()`
-in `plots/renderers/spatial/base.py` (used by both `spatial` and `spatial_distribution`).
+in `plots/renderers/spatial/base.py` (used by `spatial`; `spatial_distribution` has been removed — use `type: spatial` instead).
 
 ```yaml
 plots:

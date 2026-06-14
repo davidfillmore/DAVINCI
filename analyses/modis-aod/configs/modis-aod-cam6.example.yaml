@@ -114,11 +114,10 @@ plots:
     show_density: true
 
   aod_geometry_terra:
-    type: spatial_distribution
-    pairs: [base_terra]
+    type: spatial
+    source: terra_modis
+    variable: AOD_550
     title: "MODIS Terra AOD (550 nm)"
-    show_var: x
-    plot_type: pcolormesh
     cmap: turbo
 
   aod_bias_base_terra:

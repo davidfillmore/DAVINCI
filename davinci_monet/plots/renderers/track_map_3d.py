@@ -37,6 +37,7 @@ from davinci_monet.plots.renderers._track3d import (
     _get_land_polygons,
     _render_surface_map,
     draw_track_3d,
+    resolve_track_coords,
 )
 from davinci_monet.plots.titles import title_for_labeled_subset
 
@@ -175,55 +176,43 @@ class TrackMap3DPlotter(BasePlotter):
         land_color: str = kwargs.pop("land_color", "#E8E8E8")
         ocean_color: str = kwargs.pop("ocean_color", "#D4E9F7")
 
-        # Get coordinates
-        if lat_var in paired_data.coords:
-            lats = paired_data[lat_var].values
-        elif lat_var in paired_data.data_vars:
-            lats = paired_data[lat_var].values
-        else:
+        # Validate coordinate presence (helper would raise a bare KeyError).
+        if lat_var not in paired_data.coords and lat_var not in paired_data.data_vars:
             raise ValueError(f"Latitude variable '{lat_var}' not found")
-
-        if lon_var in paired_data.coords:
-            lons = paired_data[lon_var].values
-        elif lon_var in paired_data.data_vars:
-            lons = paired_data[lon_var].values
-        else:
+        if lon_var not in paired_data.coords and lon_var not in paired_data.data_vars:
             raise ValueError(f"Longitude variable '{lon_var}' not found")
-
-        if alt_var in paired_data.coords:
-            alts = paired_data[alt_var].values * alt_scale
-        elif alt_var in paired_data.data_vars:
-            alts = paired_data[alt_var].values * alt_scale
-        else:
+        if alt_var not in paired_data.coords and alt_var not in paired_data.data_vars:
             raise ValueError(f"Altitude variable '{alt_var}' not found")
 
-        # Get data values
-        x_vals = paired_data[x_var].values
-        y_vals = paired_data[y_var].values
-
-        # Calculate what to show
+        # Calculate what to show (derived values colored on the track)
         if show_var == "x":
-            values = x_vals
+            values = paired_data[x_var].values
             default_cmap = "viridis"
             label = get_variable_label(paired_data, x_var, include_prefix=False)
         elif show_var == "y":
-            values = y_vals
+            values = paired_data[y_var].values
             default_cmap = "viridis"
             label = get_variable_label(paired_data, y_var, include_prefix=False)
         else:  # bias
-            values = y_vals - x_vals
+            values = paired_data[y_var].values - paired_data[x_var].values
             default_cmap = "RdBu_r"
             # Consistent bias label with other plotters
             label = "Bias (Y - X)"
 
         cmap = cmap or default_cmap
 
-        # Filter valid data
-        valid = ~np.isnan(values) & ~np.isnan(lats) & ~np.isnan(lons) & ~np.isnan(alts)
-        lats = lats[valid]
-        lons = lons[valid]
-        alts = alts[valid]
-        values = values[valid]
+        # Extract finite-filtered coordinates and values (alt scaled m -> km).
+        # The colored ``values`` array is derived, so attach it under a temp name
+        # so the shared helper applies the same joint finite mask.
+        _tmp_values = "__track_map_3d_values__"
+        lons, lats, alts, values = resolve_track_coords(
+            paired_data.assign({_tmp_values: (paired_data[x_var].dims, values)}),
+            _tmp_values,
+            lat_var=lat_var,
+            lon_var=lon_var,
+            alt_var=alt_var,
+            alt_scale=alt_scale,
+        )
 
         if len(values) == 0:
             raise ValueError("No valid data points for 3D track plot")
