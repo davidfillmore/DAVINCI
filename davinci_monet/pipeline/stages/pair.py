@@ -11,7 +11,7 @@ from typing import Any
 
 import xarray as xr
 
-from davinci_monet.core.base import iter_paired_variable_xy
+from davinci_monet.core.base import PairedData, iter_paired_variable_xy
 from davinci_monet.core.exceptions import PipelineError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.pipeline.stages.base import (
@@ -140,11 +140,8 @@ class PairingStage(BaseStage):
                 continue
             x_obj = context.sources[x_source]
             y_obj = context.sources[y_source]
-            # ``x`` is the reference (pairing) geometry that ``y`` is sampled onto.
-            # Resolve direction with ``x`` pinned as the reference (the same-shape
-            # tie-breaker): migration maps the old ``geometry`` (or first-listed)
-            # source to ``x``, preserving the prior reference choice. The call also
-            # validates that both source geometries are detectable.
+            # Validate that both source geometries are detectable. The actual
+            # sampling direction is resolved per job so x/y can remain plot axes.
             resolve_pair_direction(
                 self._source_geometry(x_obj),
                 self._source_geometry(y_obj),
@@ -250,6 +247,107 @@ class PairingStage(BaseStage):
         )
 
     @staticmethod
+    def _use_config_x_as_sampling_geometry(
+        x_geometry: DataGeometry,
+        y_geometry: DataGeometry,
+        method: str,
+    ) -> bool:
+        """Return whether config x should drive sampling geometry.
+
+        ``method: grid`` bins both sources symmetrically, so it keeps config
+        x/y order. ``method: auto`` follows geometry precedence: irregular
+        geometries outrank GRID; same-precedence pairs use config x as the
+        tie-breaker without emitting a user-facing warning.
+        """
+        if method == "grid":
+            return True
+        if (x_geometry is DataGeometry.GRID) != (y_geometry is DataGeometry.GRID):
+            from davinci_monet.pairing.direction import resolve_pair_direction
+
+            sampling_geometry, _sampled_geometry = resolve_pair_direction(x_geometry, y_geometry)
+            return sampling_geometry is x_geometry
+        return True
+
+    def _sampling_call_args(
+        self, job: SourcePairJob
+    ) -> tuple[Any, Any, str, str, str, str, DataGeometry, DataGeometry]:
+        """Return engine call args in sampling order for a source-pair job."""
+        x_geometry = self._source_geometry(job.x_obj)
+        y_geometry = self._source_geometry(job.y_obj)
+        method = str(job.strategy_options.get("method", "auto"))
+        use_config_x = self._use_config_x_as_sampling_geometry(x_geometry, y_geometry, method)
+        if use_config_x:
+            return (
+                job.x_obj,
+                job.y_obj,
+                job.x_source,
+                job.y_source,
+                job.x_var,
+                job.y_var,
+                x_geometry,
+                y_geometry,
+            )
+        return (
+            job.y_obj,
+            job.x_obj,
+            job.y_source,
+            job.x_source,
+            job.y_var,
+            job.x_var,
+            y_geometry,
+            x_geometry,
+        )
+
+    @staticmethod
+    def _normalize_config_axes(
+        paired_obj: PairedData,
+        job: SourcePairJob,
+        output_geometry: DataGeometry,
+        sampling_source: str,
+        sampled_source: str,
+    ) -> PairedData:
+        """Return paired data whose axis metadata follows config x/y."""
+        data = paired_obj.data.copy()
+        for name in data.data_vars:
+            source_label = data[name].attrs.get("source_label")
+            if source_label == job.x_source:
+                data[name].attrs.update(
+                    {
+                        "axis": "x",
+                        "source_label": job.x_source,
+                        "dataset_variable": job.x_var,
+                        "canonical_name": job.x_var,
+                    }
+                )
+            elif source_label == job.y_source:
+                data[name].attrs.update(
+                    {
+                        "axis": "y",
+                        "source_label": job.y_source,
+                        "dataset_variable": job.y_var,
+                        "canonical_name": job.x_var,
+                    }
+                )
+
+        pairing_info = dict(paired_obj.pairing_info)
+        pairing_info.update(
+            {
+                "x_source": job.x_source,
+                "source_label": job.y_source,
+                "geometry": output_geometry.name,
+                "sampling_source": sampling_source,
+                "sampled_source": sampled_source,
+            }
+        )
+        return PairedData.from_sources(
+            data=data,
+            x_source=job.x_source,
+            y_source=job.y_source,
+            geometry=output_geometry,
+            pairing_info=pairing_info,
+        )
+
+    @staticmethod
     def _pair_worker_counts(
         pairing_config_dict: dict[str, Any], n_eager: int, cpu: int
     ) -> tuple[int, int]:
@@ -286,9 +384,19 @@ class PairingStage(BaseStage):
         """
         from davinci_monet.pairing import PairingConfig, PairingEngine
 
-        x_ds = self._source_dataset(job.x_obj)
-        y_ds = self._source_dataset(job.y_obj)
-        if x_ds is None or y_ds is None:
+        (
+            sampling_obj,
+            sampled_obj,
+            sampling_source,
+            sampled_source,
+            sampling_var,
+            sampled_var,
+            sampling_geometry,
+            sampled_geometry,
+        ) = self._sampling_call_args(job)
+        sampling_ds = self._source_dataset(sampling_obj)
+        sampled_ds = self._source_dataset(sampled_obj)
+        if sampling_ds is None or sampled_ds is None:
             return job, None, f"{job.pair_key}: geometry or dataset data is None"
 
         try:
@@ -299,18 +407,28 @@ class PairingStage(BaseStage):
             )
             engine = PairingEngine()
             paired_obj = engine.pair_sources(
-                x_data=x_ds,
-                y_data=y_ds,
-                x_vars=[job.x_var],
-                y_vars=[job.y_var],
-                output_geometry=self._source_geometry(job.x_obj),
-                y_geometry=self._source_geometry(job.y_obj),
+                x_data=sampling_ds,
+                y_data=sampled_ds,
+                x_vars=[sampling_var],
+                y_vars=[sampled_var],
+                output_geometry=sampling_geometry,
+                y_geometry=sampled_geometry,
                 config=pairing_cfg,
-                x_source=job.x_source,
-                y_source=job.y_source,
+                x_source=sampling_source,
+                y_source=sampled_source,
                 **job.strategy_options,
             )
-            return job, paired_obj, None
+            return (
+                job,
+                self._normalize_config_axes(
+                    paired_obj,
+                    job,
+                    sampling_geometry,
+                    sampling_source,
+                    sampled_source,
+                ),
+                None,
+            )
         except Exception as e:
             return job, None, f"{job.pair_key}: {e}"
 

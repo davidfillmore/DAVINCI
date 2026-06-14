@@ -72,7 +72,7 @@ class SaveResultsStage(BaseStage):
                     # Skip internal keys like _per_flight
                     if var_name.startswith("_"):
                         continue
-                    row = {"Variable": var_name}
+                    row = {"Variable": var_name, **var_stats}
                     row["N"] = _get_metric(var_stats, "N", "n", default=0)
                     mean_x = _get_metric(var_stats, "MX", "x_mean")
                     mean_y = _get_metric(var_stats, "MY", "y_mean")

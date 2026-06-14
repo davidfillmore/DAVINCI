@@ -488,6 +488,52 @@ class TestStatisticsStage:
         # IOA is in 'metrics' but not in 'stat_list' - must be present
         assert "IOA" in o3_stats
 
+    def test_stats_data_filters_pairs(self, sample_paired_dataset: xr.Dataset):
+        """stats.data selects the requested pair subset."""
+        ctx = PipelineContext(
+            config={"stats": {"data": ["keep"], "metrics": ["N", "MB"]}},
+            paired={
+                "keep": sample_paired_dataset,
+                "skip": sample_paired_dataset.copy(),
+            },
+        )
+
+        result = StatisticsStage().execute(ctx)
+
+        assert result.status == StageStatus.COMPLETED
+        assert set(result.data) == {"keep"}
+
+    def test_stats_data_missing_pair_fails(self, sample_paired_dataset: xr.Dataset):
+        """A missing stats.data reference fails the stage."""
+        ctx = PipelineContext(
+            config={"stats": {"data": ["missing"], "metrics": ["N", "MB"]}},
+            paired={"keep": sample_paired_dataset},
+        )
+
+        result = StatisticsStage().execute(ctx)
+
+        assert result.status == StageStatus.FAILED
+        assert "missing" in (result.error or "")
+
+    def test_stats_item_error_fails_stage(
+        self,
+        context_with_paired: PipelineContext,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """Per-pair stats errors should make the statistics stage fail."""
+        stage = StatisticsStage()
+
+        def _raise(*args: Any, **kwargs: Any) -> dict[str, Any]:
+            raise RuntimeError("forced stats failure")
+
+        monkeypatch.setattr(stage, "_calculate_stats", _raise)
+
+        result = stage.execute(context_with_paired)
+
+        assert result.status == StageStatus.FAILED
+        assert "forced stats failure" in (result.error or "")
+        assert context_with_paired.metadata["stats_errors"]
+
     def test_domain_filter_restricts_stats_to_conus(self):
         """Stats config domain_type / domain_name must filter paired_data before metrics.
 
@@ -606,6 +652,18 @@ class TestPlottingStage:
         assert plotter_config["subtitle"] == "2003-01-01 - 2003-12-31"
         assert "caption" not in plotter_config
 
+    def test_missing_plot_pair_fails_stage(self, context_with_paired: PipelineContext):
+        """A missing plot data reference fails instead of silently producing no plot."""
+        context_with_paired.config = {
+            "analysis": {"output_dir": "."},
+            "plots": {"scatter": {"type": "scatter", "data": ["missing_pair"]}},
+        }
+
+        result = PlottingStage().execute(context_with_paired)
+
+        assert result.status == StageStatus.FAILED
+        assert "missing_pair" in (result.error or "")
+
 
 class TestSaveResultsStage:
     """Tests for SaveResultsStage."""
@@ -614,6 +672,24 @@ class TestSaveResultsStage:
         """Test stage name."""
         stage = SaveResultsStage()
         assert stage.name == "save_results"
+
+    def test_summary_csv_preserves_requested_metric_columns(
+        self,
+        tmp_path: Any,
+        context_with_paired: PipelineContext,
+    ):
+        """Comparison CSV includes all computed metrics, not only fixed summary columns."""
+        context_with_paired.config = {
+            "analysis": {"output_dir": str(tmp_path)},
+            "stats": {"metrics": ["N", "MB", "RMSE", "R2", "MdnB"]},
+        }
+        context_with_paired.results["statistics"] = StatisticsStage().execute(context_with_paired)
+
+        result = SaveResultsStage().execute(context_with_paired)
+
+        assert result.status == StageStatus.COMPLETED
+        df = pd.read_csv(tmp_path / "statistics_summary.csv")
+        assert {"R2", "MdnB"}.issubset(df.columns)
 
 
 # =============================================================================

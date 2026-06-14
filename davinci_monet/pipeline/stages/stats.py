@@ -85,10 +85,30 @@ class StatisticsStage(BaseStage):
         stats_results: dict[str, Any] = {}
 
         stats_config = context.config_dict().get("stats", {})
-        total_pairs = len(context.paired)
+        requested_pairs = stats_config.get("data") or []
+        if isinstance(requested_pairs, str):
+            requested_pairs = [requested_pairs]
+        if requested_pairs:
+            missing_pairs = [
+                str(pair) for pair in requested_pairs if str(pair) not in context.paired
+            ]
+            if missing_pairs:
+                message = "Unknown stats pair reference(s): " + ", ".join(missing_pairs)
+                context.metadata.setdefault("stats_errors", []).append(message)
+                return self._create_result(
+                    StageStatus.FAILED,
+                    data=stats_results,
+                    error=message,
+                    duration=time.time() - start,
+                )
+            pair_items = [(str(pair), context.paired[str(pair)]) for pair in requested_pairs]
+        else:
+            pair_items = list(context.paired.items())
+
+        total_pairs = len(pair_items)
         pair_count = 0
 
-        for pair_key, paired_obj in context.paired.items():
+        for pair_key, paired_obj in pair_items:
             try:
                 pair_count += 1
                 context.log_progress(f"    Stats: {pair_key} ({pair_count}/{total_pairs})")
@@ -118,6 +138,15 @@ class StatisticsStage(BaseStage):
             except Exception as e:
                 context.metadata.setdefault("stats_errors", []).append(f"{pair_key}: {e}")
                 context.log_progress(f"warning: stats failed for {pair_key}: {e}")
+
+        errors = context.metadata.get("stats_errors") or []
+        if errors:
+            return self._create_result(
+                StageStatus.FAILED,
+                data=stats_results,
+                error="Statistics failed: " + "; ".join(str(e) for e in errors),
+                duration=time.time() - start,
+            )
 
         return self._create_result(
             StageStatus.COMPLETED,

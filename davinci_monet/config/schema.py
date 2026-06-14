@@ -694,14 +694,44 @@ class MonetConfig(StrictSchema):
 
     @model_validator(mode="after")
     def validate_data_names(self) -> "MonetConfig":
-        """Validate that plot/stats data names resolve to defined pairs.
+        """Validate that pair, plot, and stats references resolve."""
+        source_names = set(self.sources)
+        pair_names = set(self.pairs)
+        errors: list[str] = []
 
-        Plot ``data`` entries normally name a pair (or a single source for
-        single-source plots). Names are checked permissively; unknown names are
-        tolerated rather than raised, since plot data refs can
-        legitimately combine labels in flexible ways — but the hook is kept so
-        future validation can hang off it.
-        """
+        for pair_name, pair in self.pairs.items():
+            if source_names and pair.x.source not in source_names:
+                errors.append(f"pairs.{pair_name}.x.source references unknown source")
+            if source_names and pair.y.source not in source_names:
+                errors.append(f"pairs.{pair_name}.y.source references unknown source")
+
+        for plot_name, plot in self.plots.items():
+            extra = getattr(plot, "__pydantic_extra__", None) or {}
+
+            data_refs = list(plot.data)
+            for ref in data_refs:
+                if ref not in pair_names:
+                    errors.append(f"plots.{plot_name}.data references unknown pair '{ref}'")
+
+            pairs_refs = extra.get("pairs")
+            if isinstance(pairs_refs, str):
+                pairs_refs = [pairs_refs]
+            if isinstance(pairs_refs, list):
+                for ref in pairs_refs:
+                    if str(ref) not in pair_names:
+                        errors.append(f"plots.{plot_name}.pairs references unknown pair '{ref}'")
+
+            source_ref = extra.get("source")
+            if source_ref is not None and str(source_ref) not in source_names:
+                errors.append(f"plots.{plot_name}.source references unknown source '{source_ref}'")
+
+        if self.stats is not None:
+            for ref in self.stats.data:
+                if ref not in pair_names:
+                    errors.append(f"stats.data references unknown pair '{ref}'")
+
+        if errors:
+            raise ValueError("; ".join(errors))
         return self
 
 
