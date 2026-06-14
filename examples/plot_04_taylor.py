@@ -8,10 +8,9 @@ Data: Surface point datasets (O3)
 """
 
 import matplotlib.pyplot as plt
+from _helpers import create_paired_surface_data, save_figure
 
 from davinci_monet.plots import plot_taylor
-
-from _helpers import create_paired_surface_data, save_figure
 
 
 def main():
@@ -25,8 +24,8 @@ def main():
     # Taylor diagram for single variable comparison
     fig = plot_taylor(
         paired,
-        geometry_var="geometry_o3",
-        dataset_var="dataset_o3",
+        x_var="x_o3",
+        y_var="y_o3",
         title="Taylor Diagram: O3 Performance",
     )
 

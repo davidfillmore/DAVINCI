@@ -8,10 +8,9 @@ Data: Surface point datasets (O3) and satellite swath data (NO2)
 """
 
 import matplotlib.pyplot as plt
+from _helpers import create_paired_surface_data, create_paired_swath_data, save_figure
 
 from davinci_monet.plots import plot_scatter
-
-from _helpers import create_paired_surface_data, create_paired_swath_data, save_figure
 
 
 def main():
@@ -24,8 +23,8 @@ def main():
 
     fig = plot_scatter(
         paired_surface,
-        geometry_var="geometry_o3",
-        dataset_var="dataset_o3",
+        x_var="x_o3",
+        y_var="y_o3",
         title="Scatter Plot: Surface O3",
     )
     save_figure(fig, "03a_scatter_surface")
@@ -36,21 +35,23 @@ def main():
     paired_swath = create_paired_swath_data(n_scans=100, n_pixels=60, variables=["NO2"])
 
     # Flatten swath data for scatter
-    geometry_flat = paired_swath["geometry_no2"].values.flatten()
-    dataset_flat = paired_swath["dataset_no2"].values.flatten()
+    x_flat = paired_swath["x_no2"].values.flatten()
+    y_flat = paired_swath["y_no2"].values.flatten()
 
-    import xarray as xr
     import numpy as np
+    import xarray as xr
 
-    scatter_ds = xr.Dataset({
-        "geometry_no2": (["point"], geometry_flat),
-        "dataset_no2": (["point"], dataset_flat),
-    })
+    scatter_ds = xr.Dataset(
+        {
+            "x_no2": (["point"], x_flat),
+            "y_no2": (["point"], y_flat),
+        }
+    )
 
     fig = plot_scatter(
         scatter_ds,
-        geometry_var="geometry_no2",
-        dataset_var="dataset_no2",
+        x_var="x_no2",
+        y_var="y_no2",
         title="Scatter Plot: Satellite NO2 (Swath)",
         show_density=True,
     )

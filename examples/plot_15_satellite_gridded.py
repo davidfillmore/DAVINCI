@@ -11,11 +11,10 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 import numpy as np
+from _helpers import create_paired_gridded_data, save_figure
 from matplotlib.colors import TwoSlopeNorm
 
 from davinci_monet.plots.base import format_plot_title
-
-from _helpers import create_paired_gridded_data, save_figure
 
 
 def main():
@@ -30,9 +29,9 @@ def main():
     )
 
     # Select time mean for plotting
-    geometry_mean = paired["geometry_no2"].mean(dim="time")
-    dataset_mean = paired["dataset_no2"].mean(dim="time")
-    bias_mean = dataset_mean - geometry_mean
+    x_mean = paired["x_no2"].mean(dim="time")
+    y_mean = paired["y_no2"].mean(dim="time")
+    bias_mean = y_mean - x_mean
 
     lats = paired["lat"].values
     lons = paired["lon"].values
@@ -52,13 +51,16 @@ def main():
     )
     setup_map(ax1)
 
-    vmin = float(np.nanpercentile(geometry_mean.values, 2))
-    vmax = float(np.nanpercentile(geometry_mean.values, 98))
+    vmin = float(np.nanpercentile(x_mean.values, 2))
+    vmax = float(np.nanpercentile(x_mean.values, 98))
 
     pcm1 = ax1.pcolormesh(
-        lon_grid, lat_grid, geometry_mean.values,
+        lon_grid,
+        lat_grid,
+        x_mean.values,
         cmap="YlOrRd",
-        vmin=vmin, vmax=vmax,
+        vmin=vmin,
+        vmax=vmax,
         transform=ccrs.PlateCarree(),
         shading="auto",
     )
@@ -78,9 +80,12 @@ def main():
     setup_map(ax2)
 
     pcm2 = ax2.pcolormesh(
-        lon_grid, lat_grid, dataset_mean.values,
+        lon_grid,
+        lat_grid,
+        y_mean.values,
         cmap="YlOrRd",
-        vmin=vmin, vmax=vmax,
+        vmin=vmin,
+        vmax=vmax,
         transform=ccrs.PlateCarree(),
         shading="auto",
     )
@@ -104,7 +109,9 @@ def main():
     norm = TwoSlopeNorm(vmin=-bias_abs_max, vcenter=0, vmax=bias_abs_max)
 
     pcm3 = ax3.pcolormesh(
-        lon_grid, lat_grid, bias_mean.values,
+        lon_grid,
+        lat_grid,
+        bias_mean.values,
         cmap="RdBu_r",
         norm=norm,
         transform=ccrs.PlateCarree(),
