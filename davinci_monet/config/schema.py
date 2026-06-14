@@ -36,7 +36,7 @@ class FlexibleSchema(
 # =============================================================================
 
 
-class PlotStyleConfig(FlexibleSchema):
+class PlotStyleConfig(StrictSchema):
     """Configuration for plot styling.
 
     Parameters
@@ -70,7 +70,7 @@ class PlotStyleConfig(FlexibleSchema):
 # =============================================================================
 
 
-class AnalysisConfig(FlexibleSchema):
+class AnalysisConfig(StrictSchema):
     """Configuration for the analysis section.
 
     Parameters
@@ -146,7 +146,7 @@ class AnalysisConfig(FlexibleSchema):
 # =============================================================================
 
 
-class VariableConfig(FlexibleSchema):
+class VariableConfig(StrictSchema):
     """Configuration for a single variable.
 
     Parameters
@@ -216,7 +216,7 @@ class VariableConfig(FlexibleSchema):
 # =============================================================================
 
 
-class PlotKwargs(FlexibleSchema):
+class PlotKwargs(StrictSchema):
     """Matplotlib plot keyword arguments."""
 
     color: str | None = None
@@ -226,7 +226,7 @@ class PlotKwargs(FlexibleSchema):
     markersize: float | None = None
 
 
-class FilterConfig(FlexibleSchema):
+class FilterConfig(StrictSchema):
     """Configuration for data filtering."""
 
     value: Any
@@ -299,14 +299,14 @@ class SourceConfig(FlexibleSchema):
         return dict(v)
 
 
-class AxisRef(FlexibleSchema):
+class AxisRef(StrictSchema):
     """One axis of a pair: a source label and the variable to read from it."""
 
     source: str
     variable: str
 
 
-class VerticalGridConfig(FlexibleSchema):
+class VerticalGridConfig(StrictSchema):
     """Vertical (altitude) settings for a 3-D intermediate grid (Phase 2)."""
 
     res: float
@@ -314,7 +314,7 @@ class VerticalGridConfig(FlexibleSchema):
     extent: tuple[float, float] | None = None
 
 
-class GridConfig(FlexibleSchema):
+class GridConfig(StrictSchema):
     """Intermediate-grid settings for a pair using ``method: grid`` (2-D, Phase 1)."""
 
     horizontal_res: float
@@ -329,7 +329,7 @@ class GridConfig(FlexibleSchema):
         return VerticalGridConfig(**v) if isinstance(v, dict) else v
 
 
-class PipelinePairingConfig(FlexibleSchema):
+class PipelinePairingConfig(StrictSchema):
     """Runtime options for the pipeline pairing stage."""
 
     time_tolerance: str = "1h"
@@ -388,7 +388,7 @@ class SourcePairConfig(FlexibleSchema):
         return [self.x.source, self.y.source]
 
 
-class DataProcConfig(FlexibleSchema):
+class DataProcConfig(StrictSchema):
     """Data processing configuration for plots.
 
     Parameters
@@ -418,14 +418,14 @@ class DataProcConfig(FlexibleSchema):
     set_axis: bool = False
 
 
-class FigKwargs(FlexibleSchema):
+class FigKwargs(StrictSchema):
     """Figure keyword arguments."""
 
     figsize: list[float] | tuple[float, float] | None = None
     states: bool | None = None
 
 
-class TextKwargs(FlexibleSchema):
+class TextKwargs(StrictSchema):
     """Text styling keyword arguments."""
 
     fontsize: float = 12.0
@@ -460,8 +460,17 @@ class PlotGroupConfig(FlexibleSchema):
     text_kwargs: TextKwargs | dict[str, Any] = Field(default_factory=dict)
     domain_type: list[str] = Field(default_factory=lambda: ["all"])
     domain_name: list[str] = Field(default_factory=lambda: ["CONUS"])
-    data: list[str] = Field(default_factory=list)
+    pairs: list[str] = Field(default_factory=list)
+    source: str | None = None
+    variable: str | None = None
     data_proc: DataProcConfig | dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_legacy_data_key(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "data" in data:
+            raise ValueError("plots.*.data is no longer supported; use plots.*.pairs")
+        return data
 
     @field_validator("type")
     @classmethod
@@ -518,7 +527,7 @@ StatMetric = Literal[
 ]
 
 
-class OutputTableKwargs(FlexibleSchema):
+class OutputTableKwargs(StrictSchema):
     """Keyword arguments for statistics output table."""
 
     figsize: list[float] | tuple[float, float] | None = None
@@ -528,7 +537,7 @@ class OutputTableKwargs(FlexibleSchema):
     edges: str = "horizontal"
 
 
-class StatsConfig(FlexibleSchema):
+class StatsConfig(StrictSchema):
     """Configuration for statistics calculation.
 
     Parameters
@@ -552,6 +561,7 @@ class StatsConfig(FlexibleSchema):
     """
 
     stat_list: list[str] = Field(default_factory=lambda: ["MB", "NMB", "R2", "RMSE"])
+    metrics: list[str] | None = None
     round_output: int = 3
     output_table: bool = False
     output_table_kwargs: OutputTableKwargs | dict[str, Any] = Field(default_factory=dict)
@@ -566,7 +576,7 @@ class StatsConfig(FlexibleSchema):
 # =============================================================================
 
 
-class SummaryConfig(FlexibleSchema):
+class SummaryConfig(StrictSchema):
     """Configuration for the optional AI analysis summary stage.
 
     When ``enabled`` is true, a final pipeline stage sends the run's
@@ -708,20 +718,14 @@ class MonetConfig(StrictSchema):
         for plot_name, plot in self.plots.items():
             extra = getattr(plot, "__pydantic_extra__", None) or {}
 
-            data_refs = list(plot.data)
-            for ref in data_refs:
-                if ref not in pair_names:
-                    errors.append(f"plots.{plot_name}.data references unknown pair '{ref}'")
-
-            pairs_refs = extra.get("pairs")
+            pairs_refs = plot.pairs
             if isinstance(pairs_refs, str):
                 pairs_refs = [pairs_refs]
-            if isinstance(pairs_refs, list):
-                for ref in pairs_refs:
-                    if str(ref) not in pair_names:
-                        errors.append(f"plots.{plot_name}.pairs references unknown pair '{ref}'")
+            for ref in pairs_refs:
+                if str(ref) not in pair_names:
+                    errors.append(f"plots.{plot_name}.pairs references unknown pair '{ref}'")
 
-            source_ref = extra.get("source")
+            source_ref = plot.source
             if source_ref is not None and str(source_ref) not in source_names:
                 errors.append(f"plots.{plot_name}.source references unknown source '{source_ref}'")
 

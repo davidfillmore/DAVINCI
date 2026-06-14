@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import importlib
 
-BUILTIN_SOURCE_READER_MODULES = (
-    "davinci_monet.datasets",
-    "davinci_monet.datasets",
-)
+BUILTIN_SOURCE_READER_MODULES = ("davinci_monet.datasets",)
 
 
 def ensure_builtin_source_readers_registered() -> None:

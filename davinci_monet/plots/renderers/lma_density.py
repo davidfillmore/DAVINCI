@@ -41,7 +41,7 @@ class LMADensityPlotter(BasePlotter):
         s = series[0]
         return self.plot(s.dataset, s.var_name, **kwargs)
 
-    def plot(  # type: ignore[override]
+    def plot(
         self,
         x_data: xr.Dataset,
         variable: str,
@@ -54,7 +54,7 @@ class LMADensityPlotter(BasePlotter):
         map: dict[str, Any] | None = None,
         flight_tracks: dict[str, str] | None = None,
         **kwargs: Any,
-    ) -> matplotlib.figure.Figure | list[tuple[matplotlib.figure.Figure, str]]:
+    ) -> matplotlib.figure.Figure | list[tuple[str, matplotlib.figure.Figure]]:
         """Generate LMA density map(s).
 
         Parameters
@@ -80,7 +80,7 @@ class LMADensityPlotter(BasePlotter):
 
         Returns
         -------
-        Figure or list of (Figure, suffix) tuples for multi-hour output.
+            Figure or list of (label, Figure) tuples for multi-hour output.
         """
         map_config = map or {}
         projection = self._get_projection(map_config)
@@ -118,8 +118,7 @@ class LMADensityPlotter(BasePlotter):
                     **kwargs,
                 )
                 cleaned = hour_label.replace(":", "").replace(" ", "_").replace("\u2013", "-")
-                suffix = f"_{cleaned}"
-                results.append((fig, suffix))
+                results.append((cleaned, fig))
             return results
         else:
             summed = x_data[variable].sum(dim="time")

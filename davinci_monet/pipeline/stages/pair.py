@@ -308,26 +308,25 @@ class PairingStage(BaseStage):
     ) -> PairedData:
         """Return paired data whose axis metadata follows config x/y."""
         data = paired_obj.data.copy()
+        pair_canonical = job.x_var
+        axis_metadata = {
+            job.x_source: {
+                "axis": "x",
+                "source_label": job.x_source,
+                "dataset_variable": job.x_var,
+                "canonical_name": pair_canonical,
+            },
+            job.y_source: {
+                "axis": "y",
+                "source_label": job.y_source,
+                "dataset_variable": job.y_var,
+                "canonical_name": pair_canonical,
+            },
+        }
         for name in data.data_vars:
             source_label = data[name].attrs.get("source_label")
-            if source_label == job.x_source:
-                data[name].attrs.update(
-                    {
-                        "axis": "x",
-                        "source_label": job.x_source,
-                        "dataset_variable": job.x_var,
-                        "canonical_name": job.x_var,
-                    }
-                )
-            elif source_label == job.y_source:
-                data[name].attrs.update(
-                    {
-                        "axis": "y",
-                        "source_label": job.y_source,
-                        "dataset_variable": job.y_var,
-                        "canonical_name": job.x_var,
-                    }
-                )
+            if source_label in axis_metadata:
+                data[name].attrs.update(axis_metadata[source_label])
 
         pairing_info = dict(paired_obj.pairing_info)
         pairing_info.update(
@@ -337,6 +336,8 @@ class PairingStage(BaseStage):
                 "geometry": output_geometry.name,
                 "sampling_source": sampling_source,
                 "sampled_source": sampled_source,
+                "axis_variables": {"x": job.x_var, "y": job.y_var},
+                "canonical_name": pair_canonical,
             }
         )
         return PairedData.from_sources(

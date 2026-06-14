@@ -90,6 +90,50 @@ class TestPipelineContextSources:
 
 
 class TestLoadSourcesStage:
+    def test_builtin_source_registration_modules_are_unique(self) -> None:
+        """Built-in registration bootstrap should not carry duplicate module names."""
+        from davinci_monet.io.source_registration import BUILTIN_SOURCE_READER_MODULES
+
+        assert len(BUILTIN_SOURCE_READER_MODULES) == len(set(BUILTIN_SOURCE_READER_MODULES))
+
+    def test_reader_kwargs_filters_loader_keys_for_kwargs_reader(self) -> None:
+        """Loader/schema keys should not leak to readers even when they accept **kwargs."""
+
+        class Reader:
+            def open(self, file_paths, variables=None, **kwargs):  # noqa: ANN001
+                raise AssertionError("not called")
+
+        assert LoadSourcesStage._reader_kwargs(
+            Reader(),
+            {
+                "type": "generic",
+                "files": "data.nc",
+                "variables": {"O3": {}},
+                "display_name": "Display",
+                "resample": "1D",
+                "reader_option": "keep",
+                "none_option": None,
+            },
+        ) == {"reader_option": "keep"}
+
+    def test_reader_kwargs_filters_to_explicit_signature(self) -> None:
+        """Readers without **kwargs receive only their declared reader options."""
+
+        class Reader:
+            def open(self, file_paths, variables=None, *, product=None):  # noqa: ANN001
+                raise AssertionError("not called")
+
+        assert LoadSourcesStage._reader_kwargs(
+            Reader(),
+            {
+                "type": "generic",
+                "files": "data.nc",
+                "variables": {"O3": {}},
+                "product": "NO2",
+                "unexpected": "drop",
+            },
+        ) == {"product": "NO2"}
+
     def test_unifies_sources_with_dataset_labels_and_geometry(
         self, y_data: SourceData, x_data: SourceData
     ) -> None:

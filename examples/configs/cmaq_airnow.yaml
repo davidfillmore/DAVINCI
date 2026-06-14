@@ -56,7 +56,7 @@ plots:
     type: timeseries
     domain_type: [all]
     domain_name: [CONUS]
-    data: [cmaq_v54_airnow]
+    pairs: [cmaq_v54_airnow]
     data_proc:
       ts_avg_window: "D"  # Daily averaging
 
@@ -64,25 +64,25 @@ plots:
     type: scatter
     domain_type: [all]
     domain_name: [CONUS]
-    data: [cmaq_v54_airnow]
+    pairs: [cmaq_v54_airnow]
 
   diurnal_o3:
     type: diurnal
     domain_type: [all]
     domain_name: [CONUS]
-    data: [cmaq_v54_airnow]
+    pairs: [cmaq_v54_airnow]
 
   spatial_bias_o3:
     type: spatial_bias
     domain_type: [all]
     domain_name: [CONUS]
-    data: [cmaq_v54_airnow]
+    pairs: [cmaq_v54_airnow]
 
   taylor_diagram:
     type: taylor
     domain_type: [all]
     domain_name: [CONUS]
-    data: [cmaq_v54_airnow]
+    pairs: [cmaq_v54_airnow]
 
 stats:
   output_table: true

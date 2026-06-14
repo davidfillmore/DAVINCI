@@ -63,9 +63,9 @@ class TestScatterRenderParity:
         fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         plt.close(fig_plot)
         fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
+        plt.close(fig_render)
 
     def test_plot_and_render_same_axes_count(self) -> None:
         from davinci_monet.plots.renderers.scatter import ScatterPlotter
@@ -76,6 +76,7 @@ class TestScatterRenderParity:
         n_axes_plot = len(fig_plot.axes)
         plt.close(fig_plot)
         fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert isinstance(fig_render, matplotlib.figure.Figure)
         n_axes_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_axes_plot == n_axes_render
@@ -90,6 +91,7 @@ class TestScatterRenderParity:
         n_col_plot = len(fig_plot.axes[0].collections)
         plt.close(fig_plot)
         fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert isinstance(fig_render, matplotlib.figure.Figure)
         n_col_render = len(fig_render.axes[0].collections)
         plt.close(fig_render)
         assert n_col_plot == n_col_render
@@ -667,9 +669,9 @@ class TestTrackMap3DRenderParity:
             alt_var="altitude",
             show_coastlines=False,
         )
-        plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
+        plt.close(fig_render)
 
     def test_plot_and_render_same_axes_count(self) -> None:
         from davinci_monet.plots.renderers.track_map_3d import TrackMap3DPlotter
@@ -684,25 +686,24 @@ class TestTrackMap3DRenderParity:
             alt_var="altitude",
             show_coastlines=False,
         )
+        assert isinstance(fig_render, matplotlib.figure.Figure)
         n_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_plot == n_render
 
-    def test_plot_per_flight_generator_intact(self) -> None:
-        """plot_per_flight must still yield (flight_id, Figure) tuples after migration."""
+    def test_render_split_by_flight_returns_labeled_figures(self) -> None:
+        """Split track-map output is part of the render contract."""
         from davinci_monet.plots.renderers.track_map_3d import TrackMap3DPlotter
 
         ds = _flight_3d_ds()
         plotter = TrackMap3DPlotter()
-        results = list(
-            plotter.plot_per_flight(
-                ds,
-                "x_o3",
-                "y_o3",
-                min_points=5,
-                show_coastlines=False,
-            )
+        results = plotter.render(
+            build_series(ds, "x_o3", "y_o3"),
+            split_by_flight=True,
+            min_points=5,
+            show_coastlines=False,
         )
+        assert isinstance(results, list)
         assert len(results) == 2
         for flight_id, fig in results:
             assert isinstance(flight_id, str)

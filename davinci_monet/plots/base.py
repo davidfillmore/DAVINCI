@@ -15,7 +15,7 @@ for renderers, tests, pipeline stages, and examples.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -133,64 +133,20 @@ class BasePlotter(ABC):
         if self.config.figure.figsize == (8, 5):  # Original default
             self.config.figure.figsize = self.default_figsize
 
-    @abstractmethod
-    def plot(
-        self,
-        paired_data: xr.Dataset,
-        x_var: str,
-        y_var: str,
-        ax: matplotlib.axes.Axes | None = None,
-        **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
-        """Generate the plot.
-
-        Parameters
-        ----------
-        paired_data
-            Paired dataset with x and y variables.
-        x_var
-            Name of the x variable.
-        y_var
-            Name of the y variable.
-        ax
-            Optional axes to plot on. If None, creates new figure.
-        **kwargs
-            Additional plot-specific options.
-
-        Returns
-        -------
-        matplotlib.figure.Figure
-            The generated figure.
-        """
-        ...
-
     def render(
         self,
         series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
+    ) -> matplotlib.figure.Figure | list[tuple[str, matplotlib.figure.Figure]]:
         """Render a list of source series (unified renderer contract).
 
-        ``len(series) == 1`` -> single line; ``== 2`` -> x-vs-y
-        (x gray / y blue); ``>= 2`` -> multi-source overlay. This
-        default handles only the 2-series case by delegating to
-        ``plot(paired_data, x_var, y_var)``. Renderers that support
-        1 or N series override this method.
+        Renderers implement this directly. Multi-figure renderers return
+        ``[(label, figure), ...]`` so pipeline saving does not need
+        renderer-specific split methods.
         """
-        if len(series) == 2:
-            x_series = next((s for s in series if s.axis == "x"), series[0])
-            y_series = next((s for s in series if s.axis == "y"), series[1])
-            return self.plot(
-                x_series.dataset,
-                x_series.var_name,
-                y_series.var_name,
-                ax=ax,
-                **kwargs,
-            )
         raise NotImplementedError(
-            f"{type(self).__name__}.render does not support {len(series)} series; "
-            "override render() for single-/N-source support (unification P3)."
+            f"{type(self).__name__}.render is not implemented for {len(series)} series."
         )
 
     def create_figure(

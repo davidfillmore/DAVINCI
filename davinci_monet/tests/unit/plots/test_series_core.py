@@ -1,7 +1,7 @@
-"""Core plot-series helpers and renderer compatibility behavior.
+"""Core plot-series helpers and renderer contract behavior.
 
 These tests cover PlotSeries grouping, facade argument resolution, binary paired
-iteration compatibility, default render delegation, and registry aliases.
+iteration compatibility, BasePlotter render requirements, and registry aliases.
 """
 
 from __future__ import annotations
@@ -173,71 +173,25 @@ class TestBuildSeries:
 
 
 # ---------------------------------------------------------------------------
-# BasePlotter.render() default
+# BasePlotter.render() contract
 # ---------------------------------------------------------------------------
 
 
 class TestRenderDefault:
-    def test_two_series_default_delegates_to_plot(self) -> None:
-        import matplotlib
-
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-
+    def test_render_must_be_implemented_by_subclass(self) -> None:
         from davinci_monet.plots.base import BasePlotter, build_series
-
-        calls: list[tuple] = []
 
         class StubPlotter(BasePlotter):
             name = "stub"
-
-            def plot(self, paired_data, x_var, y_var, ax=None, **kwargs):
-                calls.append((x_var, y_var))
-                fig, _ax = self.create_figure()
-                return fig
 
         ds = _paired(
             ("airnow_o3", "x", "airnow"),
             ("cam_o3", "y", "cam"),
         )
         series = build_series(ds, "airnow_o3", "cam_o3")
-        fig = StubPlotter().render(series)
-        assert calls == [("airnow_o3", "cam_o3")]
-        assert fig is not None
-        plt.close("all")
 
-    def test_render_uses_geometry_series_dataset(self) -> None:
-        """render() must pass the geometry dataset (not series[0].dataset) so that
-        when axis ordering flips the positional assumption, the correct
-        paired dataset is still forwarded to plot()."""
-        import matplotlib
-
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-
-        from davinci_monet.plots.base import BasePlotter, build_series
-
-        received_datasets: list = []
-
-        class StubPlotter(BasePlotter):
-            name = "stub_geometry_ds"
-
-            def plot(self, paired_data, x_var, y_var, ax=None, **kwargs):
-                received_datasets.append(id(paired_data))
-                fig, _ax = self.create_figure()
-                return fig
-
-        ds = _paired(
-            ("airnow_o3", "x", "airnow"),
-            ("cam_o3", "y", "cam"),
-        )
-        # Build series dataset-first so series[0] is NOT the geometry.
-        series = build_series(ds, "cam_o3", "airnow_o3")
-        x_series = next(s for s in series if s.axis == "x")
-        StubPlotter().render(series)
-        # plot() must receive the geometry dataset, not series[0].dataset.
-        assert received_datasets == [id(x_series.dataset)]
-        plt.close("all")
+        with pytest.raises(NotImplementedError, match="StubPlotter.render is not implemented"):
+            StubPlotter().render(series)
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +230,7 @@ class TestRegistryAliases:
         class _RealPlot(BasePlotter):
             name = "p0_real_plot"
 
-            def plot(self, paired_data, x_var, y_var, ax=None, **kwargs):
+            def render(self, series, ax=None, **kwargs):
                 fig, _ = self.create_figure()
                 return fig
 

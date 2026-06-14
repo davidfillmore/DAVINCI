@@ -29,7 +29,7 @@ class VerticalProfilePlotter(BasePlotter):
     name: str = "vertical_profile"
     default_figsize: tuple[float, float] = (6, 8)
 
-    def plot(  # type: ignore[override]
+    def plot(
         self,
         x_data: xr.Dataset,
         variable: str,

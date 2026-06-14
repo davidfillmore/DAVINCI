@@ -84,9 +84,10 @@ Or use the registry:
 
 ```python
 from davinci_monet.plots import get_plotter
+from davinci_monet.plots.base import build_series
 
 plotter = get_plotter("scatter")
-fig = plotter.plot(my_paired_data, "x_pm25", "y_pm25")
+fig = plotter.render(build_series(my_paired_data, "x_pm25", "y_pm25"))
 ```
 
 ## Requirements
