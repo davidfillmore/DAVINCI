@@ -25,7 +25,7 @@ def main():
         paired,
         x_var="x_o3",
         y_var="y_o3",
-        title="Time Series: O3 Dataset vs Datasets",
+        title="Time Series: O3 Y vs X",
     )
 
     save_figure(fig, "01_timeseries")

@@ -137,7 +137,7 @@ class PairingEngine:
         return self._strategies[geometry]
 
     def supported_pairing_combinations(self) -> set[tuple[DataGeometry, DataGeometry]]:
-        """Return supported ``(geometry, dataset)`` geometry combinations."""
+        """Return supported ``(x, y)`` geometry combinations."""
         return {(geometry, DataGeometry.GRID) for geometry in self._strategies}
 
     def supports_pairing_combination(
@@ -156,7 +156,7 @@ class PairingEngine:
         geometry: DataGeometry,
         y_geometry: DataGeometry,
     ) -> PairingStrategy:
-        """Get the strategy for a ``(geometry, dataset)`` geometry pair.
+        """Get the strategy for an ``(x, y)`` geometry pair.
 
         The dataset is resampled onto the geometry's geometry. Supported
         combinations are a GRID dataset sampled onto any registered geometry

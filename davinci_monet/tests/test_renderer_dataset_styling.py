@@ -49,8 +49,8 @@ class TestGetDatasetColor:
         assert get_axis_color(ds, "not_present", index=2) == NCAR_PALETTE[2 % len(NCAR_PALETTE)]
 
     def test_infers_axis_from_prefix_without_attrs(self) -> None:
-        # Direct callers (tests, examples, user scripts) pass geometry_/dataset_ vars
-        # that carry no axis attr; they must still map to geometry gray / dataset blue,
+        # Direct callers (tests, examples, user scripts) pass x_/y_ vars
+        # that carry no axis attr; they must still map to x gray / y blue,
         # not the palette.
         ds = xr.Dataset(
             {"x_o3": ("time", np.zeros(3)), "y_o3": ("time", np.zeros(3))},
@@ -104,7 +104,7 @@ def _ts_paired() -> xr.Dataset:
 
 
 class TestTimeseriesAxisStyling:
-    """Renderer-level: the standard geometry-vs-dataset timeseries keeps gray/blue and
+    """Renderer-level: the standard x-vs-y timeseries keeps gray/blue and
     labels each series by its source (R-3)."""
 
     def _line_colors_by_label(self, fig: object) -> dict:

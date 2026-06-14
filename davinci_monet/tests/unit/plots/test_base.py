@@ -53,12 +53,12 @@ class TestFormatPlotTitle:
 
     def test_pm25_formatting(self):
         """PM2.5 should be formatted with LaTeX subscripts."""
-        assert format_plot_title("PM2.5 Dataset vs Datasets") == r"PM$_{2.5}$ Dataset vs Datasets"
+        assert format_plot_title("PM2.5 Y vs X") == r"PM$_{2.5}$ Y vs X"
         assert format_plot_title("PM25 Time Series") == r"PM$_{2.5}$ Time Series"
 
     def test_no2_formatting(self):
         """NO2 should be formatted with LaTeX subscript."""
-        assert format_plot_title("NO2 Dataset vs Datasets") == r"NO$_2$ Dataset vs Datasets"
+        assert format_plot_title("NO2 Y vs X") == r"NO$_2$ Y vs X"
         assert format_plot_title("NO2 Spatial Bias") == r"NO$_2$ Spatial Bias"
 
     def test_o3_formatting(self):

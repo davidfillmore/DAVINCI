@@ -225,7 +225,7 @@ class TestPerSiteTimeSeriesPlotter:
             )
 
     def test_with_title(self, synthetic_paired_data: xr.Dataset) -> None:
-        config = PlotConfig(title="O3: Dataset vs AirNow")
+        config = PlotConfig(title="O3: Y vs AirNow")
         plotter = PerSiteTimeSeriesPlotter(config=config)
         fig = plotter.plot(
             synthetic_paired_data,

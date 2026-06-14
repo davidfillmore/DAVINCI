@@ -20,7 +20,7 @@ Output is saved to `output/plots/` as PNG (300 DPI) and PDF.
 |---|--------|-----------|---------------|-------------|
 | 1 | `plot_01_timeseries.py` | `timeseries` | Point | Time series with uncertainty bands |
 | 2 | `plot_02_diurnal.py` | `diurnal` | Point | Mean diurnal cycle comparison |
-| 3 | `plot_03_scatter.py` | `scatter` | Point, Swath | Dataset vs geometry scatter with regression |
+| 3 | `plot_03_scatter.py` | `scatter` | Point, Swath | Y vs X scatter with regression |
 | 4 | `plot_04_taylor.py` | `taylor` | Point | Taylor diagram (correlation, std, RMSE) |
 | 5 | `plot_05_boxplot.py` | `boxplot` | Point | Distribution comparison |
 | 6 | `plot_06_spatial_bias.py` | `spatial_bias` | Point | Geographic bias distribution |
@@ -46,7 +46,7 @@ from _helpers import create_paired_surface_data, save_figure
 paired = create_paired_surface_data(n_sites=30, variables=["O3"])
 
 # Create plot using davinci_monet.plots
-fig = plot_scatter(paired, geometry_var="geometry_o3", dataset_var="dataset_o3", title="My Plot")
+fig = plot_scatter(paired, x_var="x_o3", y_var="y_o3", title="My Plot")
 
 # Save output
 save_figure(fig, "my_scatter")
@@ -54,7 +54,7 @@ save_figure(fig, "my_scatter")
 
 ### Helper Module (`_helpers.py`)
 
-Provides functions to create paired dataset-dataset datasets:
+Provides functions to create paired x-y datasets:
 
 | Function | Geometry | Dimensions |
 |----------|----------|------------|
@@ -78,7 +78,7 @@ from davinci_monet.plots import (
 )
 
 # With your paired data
-fig = plot_scatter(my_paired_data, "geometry_pm25", "dataset_pm25")
+fig = plot_scatter(my_paired_data, "x_pm25", "y_pm25")
 fig.savefig("my_scatter.png")
 ```
 
@@ -88,7 +88,7 @@ Or use the registry:
 from davinci_monet.plots import get_plotter
 
 plotter = get_plotter("scatter")
-fig = plotter.plot(my_paired_data, "geometry_pm25", "dataset_pm25")
+fig = plotter.plot(my_paired_data, "x_pm25", "y_pm25")
 ```
 
 ## Requirements

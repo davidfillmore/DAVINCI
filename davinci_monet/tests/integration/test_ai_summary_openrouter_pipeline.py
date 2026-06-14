@@ -74,7 +74,7 @@ def _build_config(tmp_path: Path) -> dict:
             "scatter_o3": {
                 "type": "scatter",
                 "pairs": ["synthetic_surface"],
-                "title": "O3: Dataset vs Datasets",
+                "title": "O3: Y vs X",
             },
         },
         "stats": {"metrics": ["N", "MB", "RMSE", "R", "NMB", "NME", "IOA"]},

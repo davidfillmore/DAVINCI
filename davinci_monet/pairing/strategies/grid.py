@@ -33,7 +33,7 @@ class GridStrategy(BasePairingStrategy):
     --------
     >>> strategy = GridStrategy()
     >>> paired = strategy.pair_sources(y_data, l3_satellite_data,
-    ...                        regrid_to='geometry')
+    ...                        regrid_to='x')
     """
 
     @property
@@ -69,7 +69,7 @@ class GridStrategy(BasePairingStrategy):
             Horizontal interpolation method ('nearest', 'bilinear').
         **kwargs
             Additional options:
-            - regrid_to: str, 'geometry' or 'dataset' (default 'geometry')
+            - regrid_to: str, 'x' or 'y' (default 'x')
             - extract_surface: bool, whether to extract surface level
 
         Returns
@@ -77,7 +77,7 @@ class GridStrategy(BasePairingStrategy):
         xr.Dataset
             Paired dataset on common grid.
         """
-        regrid_to = kwargs.get("regrid_to", "geometry")
+        regrid_to = kwargs.get("regrid_to", "x")
         extract_surface = kwargs.get("extract_surface", True)
 
         # Get coordinates
@@ -91,11 +91,11 @@ class GridStrategy(BasePairingStrategy):
             y_proc = y_data
 
         # Regrid to common grid
-        if regrid_to == "geometry":
+        if regrid_to == "x":
             # Regrid the y source to the x grid
             y_regridded = self._regrid_to_target(y_proc, x_lat, x_lon, method=horizontal_method)
             x_aligned = x_data
-        elif regrid_to == "dataset":
+        elif regrid_to == "y":
             # Regrid the x source to the y grid
             y_regridded = y_proc
             x_aligned = self._regrid_to_target(x_data, y_lat, y_lon, method=horizontal_method)

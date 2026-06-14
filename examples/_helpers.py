@@ -60,7 +60,7 @@ def create_paired_surface_data(
     noise: float = 3.0,
     seed: int = 42,
 ) -> xr.Dataset:
-    """Create paired dataset-dataset surface data.
+    """Create paired x-y surface data.
 
     Parameters
     ----------
@@ -135,7 +135,7 @@ def create_paired_track_data(
     bias_range: float = 10.0,
     seed: int = 42,
 ) -> xr.Dataset:
-    """Create paired dataset-dataset aircraft track data.
+    """Create paired x-y aircraft track data.
 
     Parameters
     ----------
@@ -258,7 +258,7 @@ def create_paired_profile_data(
     bias_range: float = 10.0,
     seed: int = 42,
 ) -> xr.Dataset:
-    """Create paired dataset-dataset profile data.
+    """Create paired x-y profile data.
 
     Parameters
     ----------
@@ -333,7 +333,7 @@ def create_paired_swath_data(
     bias_range: float = 0.4,
     seed: int = 42,
 ) -> xr.Dataset:
-    """Create paired dataset-dataset satellite swath data.
+    """Create paired x-y satellite swath data.
 
     Parameters
     ----------
@@ -409,7 +409,7 @@ def create_paired_gridded_data(
     bias_range: float = 0.3,
     seed: int = 42,
 ) -> xr.Dataset:
-    """Create paired dataset-dataset gridded (L3) data.
+    """Create paired x-y gridded (L3) data.
 
     Parameters
     ----------

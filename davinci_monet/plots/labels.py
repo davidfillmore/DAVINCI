@@ -143,8 +143,8 @@ def format_plot_title(title: str) -> str:
 
     Examples
     --------
-    >>> format_plot_title("PM2.5 Dataset vs Datasets")
-    'PM$_{2.5}$ Dataset vs Datasets'
+    >>> format_plot_title("PM2.5 Y vs X")
+    'PM$_{2.5}$ Y vs X'
     >>> format_plot_title("NO2 Time Series")
     'NO$_2$ Time Series'
     """

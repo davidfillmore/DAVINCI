@@ -291,14 +291,14 @@ class TestBasePlotterSubtitle:
         )
 
         config = PlotConfig.from_dict(
-            {"title": "O3: Dataset vs Geometry", "subtitle": "2025-01-01 - 2025-01-02"}
+            {"title": "O3: Y vs X", "subtitle": "2025-01-01 - 2025-01-02"}
         )
         plotter = ScatterPlotter(config=config)
 
         fig = plotter.plot(ds, "x_o3", "y_o3")
         ax = fig.axes[0]
 
-        assert ax.get_title() == r"O$_3$: Dataset vs Geometry"
+        assert ax.get_title() == r"O$_3$: Y vs X"
         assert "\n" not in ax.get_title()
         subtitle = next(t for t in ax.texts if t.get_text() == "2025-01-01 - 2025-01-02")
         assert subtitle.get_fontsize() == config.text.annotation_small
@@ -467,7 +467,7 @@ class TestTimeSeriesPlotter:
         """Test custom labels."""
         from davinci_monet.plots import PlotConfig, TimeSeriesPlotter
 
-        config = PlotConfig(x_label="Custom Geometry", y_label="Custom Dataset")
+        config = PlotConfig(x_label="Custom X", y_label="Custom Y")
         plotter = TimeSeriesPlotter(config=config)
 
         fig = plotter.plot(
@@ -896,7 +896,7 @@ class TestScatterPlotter:
         """Fix C: x_label/y_label config produces source-named scatter axes.
 
         When PlotConfig.x_label and y_label are set, the scatter renderer
-        must use them as axis labels (no 'Dataset'/'Dataset' prefix), and the
+        must use them as axis labels (no 'x_'/'y_' source-prefix), and the
         units suffix must not produce a bare '(1)'.
         """
         from davinci_monet.plots import PlotConfig, ScatterPlotter
@@ -917,7 +917,7 @@ class TestScatterPlotter:
         assert "MODIS Terra AOD" in xlabel, f"Expected 'MODIS Terra AOD' in xlabel, got: {xlabel!r}"
         assert "MERRA-2 AOD" in ylabel, f"Expected 'MERRA-2 AOD' in ylabel, got: {ylabel!r}"
 
-        # Must NOT carry an 'Dataset'/'Dataset' prefix
+        # Must NOT carry an 'x_'/'y_' source-prefix
         assert not xlabel.startswith(
             "Dataset"
         ), f"xlabel must not start with 'Dataset', got: {xlabel!r}"

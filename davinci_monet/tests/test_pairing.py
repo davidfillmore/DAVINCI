@@ -913,41 +913,37 @@ class TestGridStrategy:
         strategy = GridStrategy()
         assert strategy.geometry == DataGeometry.GRID
 
-    def test_pair_regrid_to_geometry(
-        self, dataset_2d: xr.Dataset, gridded_geometry: xr.Dataset
-    ) -> None:
-        """Test regridding dataset to dataset grid."""
+    def test_pair_regrid_to_x(self, dataset_2d: xr.Dataset, gridded_geometry: xr.Dataset) -> None:
+        """Test regridding the y source onto the x grid."""
         strategy = GridStrategy()
         paired = strategy.pair_sources(
             x_data=gridded_geometry,
             y_data=dataset_2d,
-            regrid_to="geometry",
+            regrid_to="x",
         )
 
         # Should have both variables
         assert "temperature" in paired.data_vars
         assert "y_temperature" in paired.data_vars
 
-        # Should be on dataset grid
+        # Should be on the x grid
         assert len(paired["lat"]) == len(gridded_geometry["lat"])
         assert len(paired["lon"]) == len(gridded_geometry["lon"])
 
-    def test_pair_regrid_to_dataset(
-        self, dataset_2d: xr.Dataset, gridded_geometry: xr.Dataset
-    ) -> None:
-        """Test regridding datasets to dataset grid."""
+    def test_pair_regrid_to_y(self, dataset_2d: xr.Dataset, gridded_geometry: xr.Dataset) -> None:
+        """Test regridding the x source onto the y grid."""
         strategy = GridStrategy()
         paired = strategy.pair_sources(
             x_data=gridded_geometry,
             y_data=dataset_2d,
-            regrid_to="dataset",
+            regrid_to="y",
         )
 
         # Should have both variables
         assert "temperature" in paired.data_vars
         assert "y_temperature" in paired.data_vars
 
-        # Should be on dataset grid
+        # Should be on the y grid
         assert len(paired["lat"]) == len(dataset_2d["lat"])
         assert len(paired["lon"]) == len(dataset_2d["lon"])
 

@@ -174,7 +174,7 @@ class TestPointPipeline:
                 "scatter_o3": {
                     "type": "scatter",
                     "pairs": ["synthetic_surface"],
-                    "title": "O3: Dataset vs Datasets",
+                    "title": "O3: Y vs X",
                 },
                 "taylor_o3": {
                     "type": "taylor",
@@ -205,7 +205,7 @@ class TestPointPipeline:
                 "spatial_dist_o3": {
                     "type": "spatial_distribution",
                     "pairs": ["synthetic_surface"],
-                    "title": "O3 Dataset Distribution",
+                    "title": "O3 Distribution",
                     "show_var": "x",
                 },
                 "scorecard_o3": {
