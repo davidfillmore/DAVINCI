@@ -86,19 +86,19 @@ class PairingEngine:
         # Import here to avoid circular imports
         from davinci_monet.pairing.strategies import (
             GridStrategy,
+            IntermediateGridStrategy,
             PointStrategy,
             ProfileStrategy,
-            SwathGridStrategy,
             TrackStrategy,
         )
 
         self.register_strategy(PointStrategy())
         self.register_strategy(TrackStrategy())
         self.register_strategy(ProfileStrategy())
-        # SwathGridStrategy (numba binning onto a target grid) is the production
-        # SWATH handler. SwathStrategy (per-pixel nearest-neighbor) is preserved
-        # for direct use but is intentionally NOT the engine default.
-        self.register_strategy(SwathGridStrategy())
+        # IntermediateGridStrategy (numba binning) is the production SWATH handler.
+        # SwathStrategy (per-pixel nearest-neighbor) is preserved for direct use
+        # but is intentionally NOT the engine default.
+        self.register_strategy(IntermediateGridStrategy())
         self.register_strategy(GridStrategy())
 
     def register_strategy(self, strategy: PairingStrategy) -> None:
@@ -431,9 +431,9 @@ def create_default_engine() -> PairingEngine:
         Engine with point, track, profile, swath, and grid strategies.
     """
     from davinci_monet.pairing.strategies.grid import GridStrategy
+    from davinci_monet.pairing.strategies.intermediate_grid import IntermediateGridStrategy
     from davinci_monet.pairing.strategies.point import PointStrategy
     from davinci_monet.pairing.strategies.profile import ProfileStrategy
-    from davinci_monet.pairing.strategies.swath_grid import SwathGridStrategy
     from davinci_monet.pairing.strategies.track import TrackStrategy
 
     engine = PairingEngine()
@@ -441,7 +441,7 @@ def create_default_engine() -> PairingEngine:
     engine.register_strategy(TrackStrategy())
     engine.register_strategy(ProfileStrategy())
     # Production SWATH handler: bin onto a grid (see _register_default_strategies).
-    engine.register_strategy(SwathGridStrategy())
+    engine.register_strategy(IntermediateGridStrategy())
     engine.register_strategy(GridStrategy())
 
     return engine

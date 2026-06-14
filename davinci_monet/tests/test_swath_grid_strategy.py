@@ -8,7 +8,7 @@ import pytest
 import xarray as xr
 
 from davinci_monet.pairing.grid_binning import bin_swath_to_grid, edges_from_centers, normalize_grid
-from davinci_monet.pairing.strategies.swath_grid import SwathGridStrategy
+from davinci_monet.pairing.strategies.intermediate_grid import SwathGridStrategy
 
 # =============================================================================
 # grid_binning unit tests

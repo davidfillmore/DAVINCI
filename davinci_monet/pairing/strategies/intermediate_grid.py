@@ -1,4 +1,4 @@
-"""Swath-to-grid pairing strategy using numba-accelerated binning.
+"""Intermediate-gridding pairing strategy using numba-accelerated binning.
 
 Bins satellite L2 swath pixels onto a uniform (time, lon, lat) grid,
 then pairs with the y data on the same grid. This is the recommended
@@ -23,7 +23,7 @@ from davinci_monet.pairing.grid_binning import bin_swath_to_grid, edges_from_cen
 from davinci_monet.pairing.strategies.base import BasePairingStrategy
 
 
-class SwathGridStrategy(BasePairingStrategy):
+class IntermediateGridStrategy(BasePairingStrategy):
     """Pairing strategy that bins satellite swath data onto a uniform grid.
 
     The strategy:
@@ -35,7 +35,7 @@ class SwathGridStrategy(BasePairingStrategy):
 
     Examples
     --------
-    >>> strategy = SwathGridStrategy()
+    >>> strategy = IntermediateGridStrategy()
     >>> paired = strategy.pair_sources(
     ...     y_data, satellite_data,
     ...     grid_mode="match_dataset",
@@ -429,3 +429,7 @@ class SwathGridStrategy(BasePairingStrategy):
             dim_order.extend(["lon", "lat"])
             var_interp = var_interp.transpose(*dim_order)
             return var_interp.astype(np.float32)
+
+
+# Back-compat alias (the strategy generalized beyond swath in 2026-06).
+SwathGridStrategy = IntermediateGridStrategy

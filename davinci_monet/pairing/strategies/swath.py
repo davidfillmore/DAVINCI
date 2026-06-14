@@ -5,7 +5,7 @@ with a gridded y source via per-pixel nearest-neighbor matching.
 
 Note
 ----
-For production satellite analyses prefer :class:`SwathGridStrategy` (or the
+For production satellite analyses prefer :class:`IntermediateGridStrategy` (or the
 external `bin_swath_to_grid` helper in ``pairing/grid_binning.py``). Real L2
 swaths have 10^5-10^6 pixels and per-pixel nearest-neighbor matching is too
 slow; the binning path collapses pixels onto a target grid once and then
@@ -46,7 +46,7 @@ class SwathStrategy(BasePairingStrategy):
     4. Creates paired dataset with collocated values
 
     .. note::
-        Production satellite analyses use :class:`SwathGridStrategy` or the
+        Production satellite analyses use :class:`IntermediateGridStrategy` or the
         external ``bin_swath_to_grid`` helper, which collapse pixels onto a
         target grid before pairing. This direct per-pixel class is preserved
         for possible future use and is not on the current production path —
