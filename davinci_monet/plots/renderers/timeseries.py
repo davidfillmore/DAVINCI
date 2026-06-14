@@ -275,8 +275,8 @@ class TimeSeriesPlotter(BasePlotter):
           (the cross-site mean — no more one-line-per-site spaghetti). Opt into
           per-site lines with ``show_individual_sites=True`` and a ±1σ band with
           ``show_uncertainty=True``.
-        - ``2`` series → geometry-vs-dataset; delegates to the paired
-          ``plot()`` so geometry-gray/dataset-blue styling is unchanged.
+        - ``2`` series → x-vs-y; delegates to the paired
+          ``plot()`` so x-gray/y-blue styling is unchanged.
         - ``>2`` series → multi-source overlay, palette-cycled.
         """
         if len(series) == 2:

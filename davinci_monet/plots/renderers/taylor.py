@@ -1,7 +1,7 @@
 """Taylor diagram plot renderer for DAVINCI.
 
 This module provides Taylor diagram plotting functionality for
-visualizing dataset-dataset statistical relationships.
+visualizing x-vs-y statistical relationships.
 """
 
 from __future__ import annotations
@@ -86,7 +86,7 @@ class TaylorPlotter(BasePlotter):
         y_var = y_series.var_name
 
         normalize: bool = kwargs.pop("normalize", True)
-        show_geometry: bool = kwargs.pop("show_geometry", True)
+        show_x: bool = kwargs.pop("show_x", True)
         x_label: str | None = kwargs.pop("x_label", None)
         y_label: str | None = kwargs.pop("y_label", None)
         marker: str | None = kwargs.pop("marker", None)
@@ -132,7 +132,7 @@ class TaylorPlotter(BasePlotter):
         )
         label = y_label or self.config.y_label or get_series_label(paired_data, y_var)
 
-        # Plot dataset point
+        # Plot y point
         # Taylor diagram uses polar coordinates: theta=arccos(correlation), r=std
         theta = np.arccos(correlation)
         ax.plot(
@@ -145,10 +145,9 @@ class TaylorPlotter(BasePlotter):
             linestyle="none",
         )
 
-        # Plot geometry (dataset) point. The geometry is the geometry source;
-        # label it with the geometry source label by default (R-3), keeping the
-        # conventional black star marker.
-        if show_geometry:
+        # Plot the x (reference) point. Label it with the x source label by
+        # default (R-3), keeping the conventional black star marker.
+        if show_x:
             ax.plot(
                 0,  # Perfect correlation
                 x_std_norm,
@@ -172,7 +171,7 @@ class TaylorPlotter(BasePlotter):
         y_var: str,
         ax: matplotlib.axes.Axes | None = None,
         normalize: bool = True,
-        show_geometry: bool = True,
+        show_x: bool = True,
         x_label: str | None = None,
         y_label: str | None = None,
         marker: str | None = None,
@@ -192,17 +191,17 @@ class TaylorPlotter(BasePlotter):
         ax
             Optional axes to plot on (must be polar). If None, creates new.
         normalize
-            If True, normalize by dataset standard deviation.
-        show_geometry
-            If True, show geometry (dataset) point.
+            If True, normalize by x standard deviation.
+        show_x
+            If True, show the x (reference) point.
         x_label
-            Label for geometry point. Defaults to the geometry source label.
+            Label for x point. Defaults to the x source label.
         y_label
-            Label for dataset point.
+            Label for y point.
         marker
-            Marker style for dataset point.
+            Marker style for y point.
         color
-            Color for dataset point.
+            Color for y point.
         **kwargs
             Additional plotting arguments.
 
@@ -215,7 +214,7 @@ class TaylorPlotter(BasePlotter):
             build_series(paired_data, x_var, y_var),
             ax=ax,
             normalize=normalize,
-            show_geometry=show_geometry,
+            show_x=show_x,
             x_label=x_label,
             y_label=y_label,
             marker=marker,
@@ -233,7 +232,7 @@ class TaylorPlotter(BasePlotter):
         Parameters
         ----------
         ref_std
-            Geometry standard deviation for scaling.
+            X (reference) standard deviation for scaling.
         normalized
             Whether values are normalized.
 
@@ -289,11 +288,11 @@ class TaylorPlotter(BasePlotter):
         ax
             Polar axes to add contours to.
         ref_std
-            Geometry standard deviation.
+            X (reference) standard deviation.
         max_std
             Maximum standard deviation for plot limits.
         """
-        # RMS contours are circles centered at the geometry point
+        # RMS contours are circles centered at the x (reference) point
         # In polar coordinates centered at origin, these become more complex
         theta = np.linspace(0, np.pi / 2, 100)
 
@@ -349,7 +348,7 @@ class TaylorPlotter(BasePlotter):
         y_var
             Name of the y variable.
         normalize
-            If True, normalize by dataset standard deviation.
+            If True, normalize by x standard deviation.
         colors
             Optional color mapping for each dataset.
         markers
@@ -389,7 +388,7 @@ class TaylorPlotter(BasePlotter):
                 y_var,
                 ax=ax,
                 normalize=normalize,
-                show_geometry=(i == 0),  # Only show geometry once
+                show_x=(i == 0),  # Only show x once
                 y_label=name,
                 color=color,
                 marker=marker,

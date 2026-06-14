@@ -151,7 +151,7 @@ class StatisticsStage(BaseStage):
         )
         calculator = StatisticsCalculator(calc_config)
 
-        # Pair geometry and dataset variables by canonical name.
+        # Pair x and y variables by canonical name.
         for x_var, y_var, base_name in iter_paired_variable_xy(paired_data):
             df = calculator.compute(
                 paired_data,

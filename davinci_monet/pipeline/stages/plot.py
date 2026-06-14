@@ -361,11 +361,11 @@ class PlottingStage(BaseStage):
         """Assemble the ``(plotter_config, plot_options)`` for a comparison plot.
 
         Resolves per-source variable limits, builds the renderer option dict
-        (including ``spatial_overlay`` dataset-field/coord wiring), the title
+        (including ``spatial_overlay`` y-field/coord wiring), the title
         subtitle, and the axis-label overrides.
         """
-        # Get plotter config from source variable settings. The dataset side
-        # wins for comparison-specific plot limits; geometry settings are a
+        # Get plotter config from source variable settings. The y side
+        # wins for comparison-specific plot limits; x settings are a
         # fallback.
         y_var = var_spec.get("y_var", "")
         x_var = var_spec.get("x_var", "")
@@ -400,9 +400,9 @@ class PlottingStage(BaseStage):
             nlevels=nlevels,
         )
 
-        # spatial_overlay needs the raw gridded y (dataset) field for the
+        # spatial_overlay needs the raw gridded y field for the
         # contour layer; the paired dataset usually carries sampled
-        # values at geometry locations only. The renderer option name is
+        # values at x locations only. The renderer option name is
         # `y_field`.
         if plot_type == "spatial_overlay":
             if "y_field" not in plot_options:

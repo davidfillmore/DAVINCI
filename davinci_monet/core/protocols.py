@@ -53,15 +53,14 @@ class DataGeometry(Enum):
 # =============================================================================
 #
 # A data source is just data of a given geometry (point, track, profile,
-# swath, grid). Datasets and datasets are both data sources; the only thing
-# that distinguishes them is topology, not origin. A dataset/geometry metadata may
-# travel as metadata for labeling and styling, but it never appears in these
-# contracts.
+# swath, grid). All data sources are distinguished only by topology, not
+# origin. An optional ``pair_axis`` tag may travel as metadata for labeling
+# and styling, but it never appears in these contracts.
 
 
 @runtime_checkable
 class SourceReader(Protocol):
-    """Protocol for data source readers (datasets and datasets alike).
+    """Protocol for data source readers.
 
     Every source reader declares the geometry it produces and loads files into
     a standardized xarray Dataset whose ``attrs['geometry']`` is set. This is
@@ -164,7 +163,7 @@ class PairingEngine(Protocol):
     """Protocol for the main pairing orchestrator.
 
     The pairing engine selects the appropriate strategy based on
-    geometry geometry and coordinates the pairing process.
+    data geometry and coordinates the pairing process.
     """
 
     @abstractmethod

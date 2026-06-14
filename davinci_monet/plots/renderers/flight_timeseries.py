@@ -1,6 +1,6 @@
 """Flight-by-flight time series plot renderer for DAVINCI.
 
-This module provides multi-panel time series plots showing dataset vs datasets
+This module provides multi-panel time series plots showing x vs y
 for individual aircraft flights. Designed for track datasets where each
 flight (identified by date) is plotted in a separate panel.
 
@@ -434,9 +434,9 @@ class FlightTimeSeriesPlotter(BasePlotter):
         scale_factor
             Scale factor for display values.
         x_style
-            Style for datasets: 'scatter' or 'line'.
+            Style for x: 'scatter' or 'line'.
         y_style
-            Style for dataset: 'line' or 'scatter'.
+            Style for y: 'line' or 'scatter'.
         show_altitude
             If True, show aircraft altitude on right y-axis.
         altitude_var
@@ -509,9 +509,9 @@ class FlightTimeSeriesPlotter(BasePlotter):
         scale_factor
             Scale factor for display values.
         x_style
-            Style for datasets: 'scatter' or 'line'.
+            Style for x: 'scatter' or 'line'.
         y_style
-            Style for dataset: 'line' or 'scatter'.
+            Style for y: 'line' or 'scatter'.
         show_altitude
             If True, show aircraft altitude on right y-axis.
         altitude_var

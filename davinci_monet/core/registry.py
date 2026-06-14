@@ -300,8 +300,8 @@ class Registry(Generic[T]):
 source_registry: Registry[type] = Registry("source")
 """Unified registry for data source reader classes.
 
-Datasets and datasets both register here, keyed by a single ``type`` id and
-distinguished by reader module, declared geometry, and dataset metadata.
+All data source readers register here, keyed by a single ``type`` id and
+distinguished by reader module, declared geometry, and source metadata.
 This is the single source of truth for reader registration."""
 
 plotter_registry: Registry[type] = Registry("plotter")

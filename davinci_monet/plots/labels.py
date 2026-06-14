@@ -5,7 +5,7 @@ Provides:
 - format_plot_title: apply chemical formula subscripts to a title string
 - format_variable_display_name: friendly name from a raw variable identifier
 - get_variable_label: best display label from a dataset variable
-- canonical_variable_name: strip source-label / geometry/dataset prefix from a variable name
+- canonical_variable_name: strip source-label / x/y prefix from a variable name
 - get_variable_units: read units attr from a dataset variable
 - format_units: rewrite raw unit strings to LaTeX form
 - format_label_with_units: combine a label and its units

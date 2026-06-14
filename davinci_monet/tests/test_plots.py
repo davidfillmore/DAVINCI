@@ -1043,7 +1043,7 @@ class TestCurtainPlotter:
 
         plotter = CurtainPlotter()
 
-        for show_var in ["geometry", "dataset", "bias"]:
+        for show_var in ["x", "y", "bias"]:
             fig = plotter.plot(
                 track_paired_data,
                 "x_o3",
@@ -1078,7 +1078,7 @@ class TestTrackMap3DPlotter:
 
         plotter = TrackMap3DPlotter()
 
-        for show_var in ["geometry", "dataset", "bias"]:
+        for show_var in ["x", "y", "bias"]:
             fig = plotter.plot(
                 track_paired_data,
                 "x_o3",
@@ -1375,7 +1375,7 @@ class TestSpatialPlotters:
             simple_paired_data,
             "x_o3",
             "y_o3",
-            show_var="geometry",
+            show_var="x",
         )
 
         assert fig is not None
@@ -1408,7 +1408,7 @@ class TestSpatialPlotters:
         )
 
         fig = plot_spatial_distribution(
-            ds, "x_o3", "y_o3", show_var="geometry", lat_var="lat", lon_var="lon"
+            ds, "x_o3", "y_o3", show_var="x", lat_var="lat", lon_var="lon"
         )
         ax = fig.axes[0]
         assert any(
@@ -1449,7 +1449,7 @@ class TestSpatialPlotters:
             },
         )
 
-        fig = plot_spatial_distribution(ds, "x_o3", "y_o3", show_var="geometry")
+        fig = plot_spatial_distribution(ds, "x_o3", "y_o3", show_var="x")
         ax = fig.axes[0]
         assert any(
             isinstance(c, PathCollection) for c in ax.collections
@@ -1493,7 +1493,7 @@ class TestSpatialPlotters:
         )
 
         # time_average=False to keep (time, site) shape reaching _plot_data
-        fig = plot_spatial_distribution(ds, "x_o3", "y_o3", show_var="geometry", time_average=False)
+        fig = plot_spatial_distribution(ds, "x_o3", "y_o3", show_var="x", time_average=False)
         ax = fig.axes[0]
         assert any(
             isinstance(c, PathCollection) for c in ax.collections

@@ -206,7 +206,7 @@ class TestPointPipeline:
                     "type": "spatial_distribution",
                     "pairs": ["synthetic_surface"],
                     "title": "O3 Dataset Distribution",
-                    "show_var": "geometry",
+                    "show_var": "x",
                 },
                 "scorecard_o3": {
                     "type": "scorecard",
@@ -329,7 +329,7 @@ class TestTrackPipeline:
                     "type": "track_map_3d",
                     "pairs": ["synthetic_aircraft"],
                     "title": "O3 3D Track",
-                    "show_var": "geometry",
+                    "show_var": "x",
                     "show_coastlines": False,
                 },
                 "flight_ts_o3": {

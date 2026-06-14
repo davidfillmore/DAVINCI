@@ -288,7 +288,7 @@ class ScatterPlotter(BasePlotter):
         show_regression
             If True, show linear regression line.
         show_one_to_one
-            If True, show 1:1 geometry line.
+            If True, show 1:1 line.
         show_stats
             If True, show statistics annotation.
         color_by

@@ -1,7 +1,7 @@
 """Spatial overlay plot renderer for DAVINCI.
 
 This module provides overlay plotting functionality for
-displaying dataset contours with dataset point overlays.
+displaying gridded y-field contours with x point overlays.
 """
 
 from __future__ import annotations
@@ -34,10 +34,10 @@ if TYPE_CHECKING:
 
 @register_plotter("spatial_overlay")
 class SpatialOverlayPlotter(BaseSpatialPlotter):
-    """Plotter for dataset-dataset spatial overlays.
+    """Plotter for x-vs-y spatial overlays.
 
-    Creates maps showing dataset fields as filled contours with
-    dataset values overlaid as scatter points.
+    Creates maps showing y fields as filled contours with
+    x values overlaid as scatter points.
 
     Parameters
     ----------
@@ -130,12 +130,12 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         # Add map features
         self.add_map_features(ax)
 
-        # Get dataset field for contouring
+        # Get y field for contouring
         if y_field is None:
             if y_var in paired_data:
                 y_field = paired_data[y_var]
             else:
-                raise ValueError(f"No dataset field provided and {y_var} not in paired_data")
+                raise ValueError(f"No y field provided and {y_var} not in paired_data")
 
         # Select time/level slice if needed
         if "time" in y_field.dims and y_field.dims.index("time") >= 0:
@@ -186,7 +186,7 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         # Create contour levels
         levels = np.linspace(vmin, vmax, n_levels)
 
-        # Plot dataset field as filled contours
+        # Plot y field as filled contours
         if y_lats.ndim == 1:
             # Regular grid
             lon_grid, lat_grid = np.meshgrid(y_lons, y_lats)
@@ -239,7 +239,7 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         style = self.config.style
         ms = marker_size if marker_size is not None else style.markersize * 2
 
-        # Overlay dataset scatter
+        # Overlay x scatter
         scatter = ax.scatter(
             x_lons_flat,
             x_lats_flat,
@@ -268,7 +268,7 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
             self.set_title(ax, self.config.title)
         else:
             var_label = get_variable_label(paired_data, x_var)
-            self.set_title(ax, f"{var_label}: Dataset (contour) vs Geometry (points)")
+            self.set_title(ax, f"{var_label}: Y (contour) vs X (points)")
 
         return fig
 
@@ -307,7 +307,7 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         ax
             Optional GeoAxes to plot on.
         y_field
-            Optional separate y (dataset) field for contouring.
+            Optional separate y field for contouring.
             If None, tries to use y_var from paired_data.
         lat_var
             Name of latitude coordinate for datasets.

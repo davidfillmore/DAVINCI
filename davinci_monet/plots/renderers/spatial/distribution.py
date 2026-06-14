@@ -1,7 +1,7 @@
 """Spatial distribution plot renderer for DAVINCI.
 
 This module provides spatial distribution plotting functionality for
-displaying dataset or dataset values on a map without comparison.
+displaying x or y source values on a map without comparison.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
     ...     paired_data,
     ...     x_var="x_o3",
     ...     y_var="y_o3",
-    ...     show_var="geometry",
+    ...     show_var="x",
     ... )
     """
 
@@ -97,7 +97,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         x_var = x_series.var_name
         y_var = y_series.var_name
 
-        show_var: str = kwargs.pop("show_var", "geometry")
+        show_var: str = kwargs.pop("show_var", "x")
         lat_var: str = kwargs.pop("lat_var", "latitude")
         lon_var: str = kwargs.pop("lon_var", "longitude")
         time_average: bool = kwargs.pop("time_average", True)
@@ -119,13 +119,13 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
                     dpi=self.config.figure.dpi,
                     subplot_kw={"projection": ccrs.PlateCarree()},
                 )
-                ax_geometry, ax_dataset = axes
+                ax_x, ax_y = axes
             else:
                 fig, ax = self.create_map_figure()
-                ax_geometry = ax_dataset = ax
+                ax_x = ax_y = ax
         else:
             fig = ax.get_figure()  # type: ignore[assignment]
-            ax_geometry = ax_dataset = ax
+            ax_x = ax_y = ax
 
         # Get data
         x_data = paired_data[x_var]
@@ -192,7 +192,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
                     y_data.values.flatten(),
                 ]
             )
-        elif show_var == "geometry":
+        elif show_var == "x":
             all_values = x_data.values.flatten()
         else:
             all_values = y_data.values.flatten()
@@ -215,9 +215,9 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         var_label = get_variable_label(paired_data, x_var)
         cbar_label = format_label_with_units(var_label or x_var, units)
 
-        # Plot dataset
-        if show_var in ("geometry", "both"):
-            target_ax = ax_geometry if show_var == "both" else ax
+        # Plot x source
+        if show_var in ("x", "both"):
+            target_ax = ax_x if show_var == "both" else ax
             self.add_map_features(target_ax)  # type: ignore[arg-type]
 
             mappable = self._plot_data(
@@ -235,11 +235,11 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
 
             if show_var == "both":
                 self.add_colorbar(fig, mappable, target_ax, label=cbar_label)  # type: ignore[arg-type]
-                target_ax.set_title("Datasets", fontsize=self.config.text.title_fontsize)  # type: ignore[union-attr]
+                target_ax.set_title("X", fontsize=self.config.text.title_fontsize)  # type: ignore[union-attr]
 
-        # Plot dataset
-        if show_var in ("dataset", "both"):
-            target_ax = ax_dataset if show_var == "both" else ax
+        # Plot y source
+        if show_var in ("y", "both"):
+            target_ax = ax_y if show_var == "both" else ax
             self.add_map_features(target_ax)  # type: ignore[arg-type]
 
             mappable = self._plot_data(
@@ -257,7 +257,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
 
             if show_var == "both":
                 self.add_colorbar(fig, mappable, target_ax, label=cbar_label)  # type: ignore[arg-type]
-                target_ax.set_title("Dataset", fontsize=self.config.text.title_fontsize)  # type: ignore[union-attr]
+                target_ax.set_title("Y", fontsize=self.config.text.title_fontsize)  # type: ignore[union-attr]
 
         # Add colorbar and title for single panel
         if show_var != "both":
@@ -267,7 +267,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
             else:
                 # Use base variable name without prefix for cleaner title
                 base_label = get_variable_label(paired_data, x_var, include_prefix=False)
-                title = f"{base_label} ({'Datasets' if show_var == 'geometry' else 'Dataset'})"
+                title = f"{base_label} ({'X' if show_var == 'x' else 'Y'})"
             self.set_title(ax, title)  # type: ignore[arg-type]
 
         plt.tight_layout()
@@ -279,7 +279,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         x_var: str,
         y_var: str,
         ax: matplotlib.axes.Axes | None = None,
-        show_var: Literal["geometry", "dataset", "both"] = "geometry",
+        show_var: Literal["x", "y", "both"] = "x",
         lat_var: str = "latitude",
         lon_var: str = "longitude",
         time_average: bool = True,
@@ -302,7 +302,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         ax
             Optional GeoAxes to plot on.
         show_var
-            Which variable to show ('geometry', 'dataset', or 'both').
+            Which variable to show ('x', 'y', or 'both').
         lat_var
             Name of latitude coordinate/variable.
         lon_var

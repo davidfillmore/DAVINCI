@@ -1,7 +1,7 @@
 """Plotting module for DAVINCI.
 
-This module provides a comprehensive plotting system for dataset-dataset
-comparison, including time series, spatial maps, Taylor diagrams, and more.
+This module provides a comprehensive plotting system for source comparison,
+including time series, spatial maps, Taylor diagrams, and more.
 
 Quick Start
 -----------
@@ -27,7 +27,7 @@ Statistical:
 
 Spatial:
     spatial_bias : Bias map
-    spatial_overlay : Dataset contour + geometry scatter
+    spatial_overlay : gridded field contour + point overlay
     spatial_distribution : Value distribution map
 
 Specialized:

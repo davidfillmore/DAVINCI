@@ -323,8 +323,8 @@ def get_bias_cmap() -> str:
     """Get the recommended colormap for bias plots.
 
     Returns a diverging colormap centered on zero, with blue for
-    negative bias (dataset lower than geometry) and red for positive bias
-    (dataset higher than geometry).
+    negative bias (y lower than x) and red for positive bias
+    (y higher than x).
 
     Returns
     -------

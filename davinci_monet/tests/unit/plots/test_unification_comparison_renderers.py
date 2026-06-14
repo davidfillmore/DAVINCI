@@ -392,7 +392,7 @@ class TestCurtainRenderParity:
 
         ds = _track_ds()
         plotter = CurtainPlotter()
-        for show_var in ("geometry", "dataset", "bias"):
+        for show_var in ("x", "y", "bias"):
             fig = plotter.render(
                 build_series(ds, "x_o3", "y_o3"),
                 alt_var="altitude",
@@ -523,7 +523,7 @@ class TestSpatialDistributionRenderParity:
 
         ds = _spatial_point_ds()
         plotter = SpatialDistributionPlotter()
-        for show_var in ("geometry", "dataset", "both"):
+        for show_var in ("x", "y", "both"):
             fig = plotter.render(build_series(ds, "x_o3", "y_o3"), show_var=show_var)
             assert isinstance(fig, matplotlib.figure.Figure)
             plt.close(fig)

@@ -1,6 +1,6 @@
 """Site-by-site time series plot renderer for DAVINCI.
 
-This module provides multi-panel time series plots showing dataset vs datasets
+This module provides multi-panel time series plots showing x vs y
 at individual monitoring sites. Useful for point datasets (surface stations,
 column measurements) where each site has different characteristics.
 """
@@ -353,9 +353,9 @@ class SiteTimeSeriesPlotter(BasePlotter):
         scale_factor
             Scale factor for display (e.g., 1e4 for mol/m2 -> 10^-4 mol/m2).
         x_style
-            Style for datasets: 'scatter' or 'line'.
+            Style for x: 'scatter' or 'line'.
         y_style
-            Style for dataset: 'line' or 'scatter'.
+            Style for y: 'line' or 'scatter'.
         **kwargs
             Additional options.
 

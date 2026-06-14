@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 class SpatialBiasPlotter(BaseSpatialPlotter):
     """Plotter for spatial bias maps.
 
-    Creates maps showing the spatial distribution of dataset-dataset
+    Creates maps showing the spatial distribution of x-vs-y
     bias, with points colored by bias magnitude.
 
     Parameters

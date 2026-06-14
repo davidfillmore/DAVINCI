@@ -141,8 +141,8 @@ class BasePlotter(ABC):
     ) -> matplotlib.figure.Figure:
         """Render a list of source series (unified renderer contract).
 
-        ``len(series) == 1`` -> single line; ``== 2`` -> geometry-vs-dataset
-        (geometry gray / dataset blue); ``>= 2`` -> multi-source overlay. This
+        ``len(series) == 1`` -> single line; ``== 2`` -> x-vs-y
+        (x gray / y blue); ``>= 2`` -> multi-source overlay. This
         default handles only the 2-series case by delegating to
         ``plot(paired_data, x_var, y_var)``. Renderers that support
         1 or N series override this method.

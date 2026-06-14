@@ -35,8 +35,8 @@ if TYPE_CHECKING:
 class DiurnalPlotter(BasePlotter):
     """Plotter for diurnal cycle comparisons.
 
-    Creates plots showing the average diurnal pattern of dataset and
-    dataset values, optionally with uncertainty bands.
+    Creates plots showing the average diurnal pattern of x and
+    y values, optionally with uncertainty bands.
 
     Parameters
     ----------

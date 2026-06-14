@@ -71,7 +71,7 @@ def sanitize_site_id(name: str) -> str:
 class PerSiteTimeSeriesPlotter(BasePlotter):
     """Plotter that generates one detailed figure per monitoring site.
 
-    Each figure is a single-panel timeseries showing dataset vs datasets
+    Each figure is a single-panel timeseries showing x vs y
     with statistics, coordinates, and smart date formatting.
 
     Parameters
@@ -224,9 +224,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         scale_factor
             Scale factor for display values.
         x_style
-            Style for datasets: 'scatter' or 'line'.
+            Style for x: 'scatter' or 'line'.
         y_style
-            Style for dataset: 'line' or 'scatter'.
+            Style for y: 'line' or 'scatter'.
         **kwargs
             Additional options.
 
@@ -287,9 +287,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         scale_factor
             Scale factor for display values.
         x_style
-            Style for datasets: 'scatter' or 'line'.
+            Style for x: 'scatter' or 'line'.
         y_style
-            Style for dataset: 'line' or 'scatter'.
+            Style for y: 'line' or 'scatter'.
         **kwargs
             Additional options.
 
@@ -379,9 +379,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         scale_factor
             Multiplicative scale factor for display.
         x_style
-            'scatter' or 'line' for datasets.
+            'scatter' or 'line' for x.
         y_style
-            'line' or 'scatter' for dataset.
+            'line' or 'scatter' for y.
         show_stats
             Whether to display the statistics box.
         single_panel

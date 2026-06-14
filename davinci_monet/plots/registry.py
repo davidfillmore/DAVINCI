@@ -145,7 +145,7 @@ def has_plotter(name: str) -> bool:
 # Plot Type Categories
 # =============================================================================
 
-# These are the standard plot type categories for geometry
+# These are the standard plot type categories
 TEMPORAL_PLOTS = frozenset(
     {"timeseries", "diurnal", "per_site_timeseries", "site_timeseries", "flight_timeseries"}
 )

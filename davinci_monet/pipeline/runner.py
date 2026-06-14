@@ -614,8 +614,7 @@ class PipelineBuilder:
     def add_sources(self) -> PipelineBuilder:
         """Add the unified data-source loading stage.
 
-        Loads both datasets and datasets (native ``sources:`` configs, or
-        ``sources:`` configs) into
+        Loads all data sources (native ``sources:`` configs) into
         ``context.sources``. Replaces the removed ``add_datasets``/
         registered source readers.
         """

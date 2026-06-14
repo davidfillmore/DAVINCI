@@ -1,7 +1,7 @@
 """Curtain plot renderer for DAVINCI.
 
 This module provides curtain plot functionality for visualizing
-vertical cross-sections of aircraft or dataset data along a trajectory.
+vertical cross-sections of aircraft or gridded data along a trajectory.
 """
 
 from __future__ import annotations
@@ -113,7 +113,7 @@ class CurtainPlotter(BasePlotter):
         if show_var == "bias":
             plot_data = y_data - x_data
             default_cmap = "RdBu_r"
-        elif show_var == "geometry":
+        elif show_var == "x":
             plot_data = x_data
             default_cmap = "viridis"
         else:
@@ -185,11 +185,9 @@ class CurtainPlotter(BasePlotter):
         units = get_variable_units(paired_data, x_var)
 
         if show_var == "bias":
-            ylabel_text = "Bias (Dataset - Geometry)"
+            ylabel_text = "Bias (Y - X)"
         else:
-            ylabel_text = get_variable_label(
-                paired_data, x_var if show_var == "geometry" else y_var
-            )
+            ylabel_text = get_variable_label(paired_data, x_var if show_var == "x" else y_var)
 
         alt_units = get_variable_units(paired_data, alt_var) or "m"
         self.set_labels(
@@ -222,7 +220,7 @@ class CurtainPlotter(BasePlotter):
         ax: matplotlib.axes.Axes | None = None,
         alt_var: str = "altitude",
         time_dim: str = "time",
-        show_var: Literal["geometry", "dataset", "bias"] = "bias",
+        show_var: Literal["x", "y", "bias"] = "bias",
         cmap: str | None = None,
         n_levels: int = 20,
         show_scatter: bool = True,
@@ -247,13 +245,13 @@ class CurtainPlotter(BasePlotter):
         time_dim
             Name of time dimension.
         show_var
-            Which variable to show ('geometry', 'dataset', 'bias').
+            Which variable to show ('x', 'y', 'bias').
         cmap
             Colormap. Defaults to RdBu_r for bias, viridis otherwise.
         n_levels
             Number of contour levels.
         show_scatter
-            If True, overlay dataset points as scatter.
+            If True, overlay x-source points as scatter.
         scatter_size
             Size of scatter points.
         invert_yaxis
@@ -353,7 +351,7 @@ class CurtainPlotter(BasePlotter):
         units = None  # Would need to pass this in
         cbar = ax.get_figure().colorbar(scatter, ax=ax)  # type: ignore[union-attr]
         if show_var == "bias":
-            cbar.set_label("Bias (Dataset - Geometry)")
+            cbar.set_label("Bias (Y - X)")
         else:
             cbar.set_label(show_var.title())
 
@@ -439,7 +437,7 @@ class CurtainPlotter(BasePlotter):
         # Add colorbar
         cbar = ax.get_figure().colorbar(contour, ax=ax)  # type: ignore[union-attr]
         if show_var == "bias":
-            cbar.set_label("Bias (Dataset - Geometry)")
+            cbar.set_label("Bias (Y - X)")
         else:
             cbar.set_label(show_var.title())
 

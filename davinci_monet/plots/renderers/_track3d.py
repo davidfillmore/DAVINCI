@@ -5,7 +5,7 @@ track renderer (module `davinci_monet.plots.renderers.flight_track`) and the
 paired 3D track renderer (module `davinci_monet.plots.renderers.track_map_3d`).
 
 Both renderers differ only in how they derive the colored ``values`` array
-(single dataset variable vs. geometry/dataset/bias) and in the colorbar/title
+(single dataset variable vs. x/y/bias) and in the colorbar/title
 text they compute.  The actual 3D scatter, surface-plane map features
 (coastlines, borders, or a rendered cartopy texture), axis limits, view angle,
 tick formatting, axis labels, and colorbar are identical and live here so the

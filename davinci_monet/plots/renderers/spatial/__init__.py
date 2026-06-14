@@ -1,8 +1,8 @@
 """Spatial plotting renderers for DAVINCI.
 
 This subpackage provides map-based visualization:
-- SpatialBiasPlotter: Dataset-dataset bias on maps
-- SpatialOverlayPlotter: Dataset contours with dataset overlays
+- SpatialBiasPlotter: x-vs-y bias on maps
+- SpatialOverlayPlotter: y contours with x overlays
 - SpatialDistributionPlotter: Single-variable spatial distribution
 """
 

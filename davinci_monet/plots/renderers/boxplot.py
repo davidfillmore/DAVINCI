@@ -34,8 +34,8 @@ if TYPE_CHECKING:
 class BoxPlotter(BasePlotter):
     """Plotter for box plot comparisons.
 
-    Creates box plots showing the distribution of dataset and
-    dataset values, optionally grouped by categories.
+    Creates box plots showing the distribution of x and
+    y values, optionally grouped by categories.
 
     Parameters
     ----------
@@ -105,7 +105,7 @@ class BoxPlotter(BasePlotter):
         # Get style configuration
         style = self.config.style
 
-        # Series legend labels prefer the source label over Geometry/Dataset (R-3).
+        # Series legend labels prefer the source label over X/Y (R-3).
         x_label = x_label or get_series_label(paired_data, x_var, self.config.x_label)
         y_label = y_label or get_series_label(paired_data, y_var, self.config.y_label)
 
@@ -355,7 +355,7 @@ class BoxPlotter(BasePlotter):
         positions_x = np.arange(n_groups) - width / 2
         positions_y = np.arange(n_groups) + width / 2
 
-        # Plot dataset boxes
+        # Plot x boxes
         bp_x = ax.boxplot(
             x_data,
             positions=positions_x,
@@ -367,7 +367,7 @@ class BoxPlotter(BasePlotter):
             patch_artist=True,
         )
 
-        # Plot dataset boxes
+        # Plot y boxes
         bp_y = ax.boxplot(
             y_data,
             positions=positions_y,
