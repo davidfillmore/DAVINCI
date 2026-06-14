@@ -6,7 +6,7 @@ for creating plotters by name.
 Example usage:
     # Get a plotter by name
     plotter = get_plotter("timeseries")
-    fig = plotter.plot(paired_data, "x_o3", "y_o3")
+    fig = plotter.render(build_series(paired_data, "x_o3", "y_o3"))
 
     # List available plotters
     print(list_plotters())
@@ -50,7 +50,7 @@ def register_plotter(name: str, *, replace: bool = False) -> Callable[[type[T]],
     >>> @register_plotter("my_plot")
     ... class MyPlotter(BasePlotter):
     ...     name = "my_plot"
-    ...     def plot(self, paired_data, x_var, y_var, **kwargs):
+    ...     def render(self, series, **kwargs):
     ...         ...
     """
     return plotter_registry.register(name, replace=replace)
@@ -101,7 +101,7 @@ def get_plotter(
     Examples
     --------
     >>> plotter = get_plotter("timeseries", config={"vmin": 0, "vmax": 100})
-    >>> fig = plotter.plot(data, "x_o3", "y_o3")
+    >>> fig = plotter.render(build_series(data, "x_o3", "y_o3"))
     """
     from davinci_monet.plots.base import PlotConfig
 

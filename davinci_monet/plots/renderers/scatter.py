@@ -6,7 +6,6 @@ comparisons, including density coloring and regression lines.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, Literal
 
 import matplotlib.pyplot as plt
@@ -72,7 +71,7 @@ class ScatterPlotter(BasePlotter):
         series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
+    ) -> matplotlib.figure.Figure | list[tuple[str, matplotlib.figure.Figure]]:
         """Render a scatter plot from a list of two PlotSeries.
 
         Parameters
@@ -90,6 +89,19 @@ class ScatterPlotter(BasePlotter):
             The generated figure.
         """
         paired_data, x_var, y_var = extract_xy_series(series, "ScatterPlotter.render")
+
+        split_by_flight: bool = kwargs.pop("split_by_flight", False)
+        flight_coord: str = kwargs.pop("flight_coord", "flight")
+        min_points: int = kwargs.pop("min_points", 10)
+        if split_by_flight:
+            return self._render_by_flight(
+                paired_data,
+                x_var,
+                y_var,
+                flight_coord=flight_coord,
+                min_points=min_points,
+                **kwargs,
+            )
 
         show_density: bool = kwargs.pop("show_density", False)
         density_cmap: str = kwargs.pop("density_cmap", "viridis")
@@ -298,7 +310,7 @@ class ScatterPlotter(BasePlotter):
         matplotlib.figure.Figure
             The generated figure.
         """
-        return self.render(
+        result = self.render(
             build_series(paired_data, x_var, y_var),
             ax=ax,
             show_density=show_density,
@@ -312,8 +324,13 @@ class ScatterPlotter(BasePlotter):
             alpha=alpha,
             **kwargs,
         )
+        if isinstance(result, list):
+            raise TypeError(
+                "ScatterPlotter.plot() expected one figure; use render() for split output."
+            )
+        return result
 
-    def plot_per_flight(
+    def _render_by_flight(
         self,
         paired_data: xr.Dataset,
         x_var: str,
@@ -321,51 +338,22 @@ class ScatterPlotter(BasePlotter):
         flight_coord: str = "flight",
         min_points: int = 10,
         **kwargs: Any,
-    ) -> Iterator[tuple[str, matplotlib.figure.Figure]]:
-        """Generate scatter plots for each flight.
-
-        Yields one figure per unique flight in the data.
-
-        Parameters
-        ----------
-        paired_data
-            Paired dataset with x and y variables.
-        x_var
-            Name of the x variable.
-        y_var
-            Name of the y variable.
-        flight_coord
-            Name of the flight coordinate (default: "flight").
-        min_points
-            Minimum valid data points per flight to generate a plot.
-        **kwargs
-            Additional arguments passed to plot method.
-
-        Yields
-        ------
-        tuple[str, matplotlib.figure.Figure]
-            Tuple of (flight_id, figure) for each flight.
-        """
-        # Check for flight coordinate
+    ) -> list[tuple[str, matplotlib.figure.Figure]]:
+        """Render one labeled scatter figure per flight."""
         if flight_coord not in paired_data.coords:
             raise ValueError(
                 f"Flight coordinate '{flight_coord}' not found in paired data. "
                 f"Available coordinates: {list(paired_data.coords)}"
             )
 
-        # Get unique flights
+        results: list[tuple[str, matplotlib.figure.Figure]] = []
         flight_values = paired_data[flight_coord].values
         unique_flights = np.unique(flight_values)
 
         for flight in unique_flights:
-            # Convert to string (may be datetime or string)
             flight_str = str(flight)
-
-            # Filter data for this flight
             mask = flight_values == flight
             flight_data = paired_data.isel(time=mask)
-
-            # Check for minimum points
             x_vals = flight_data[x_var].values.flatten()
             y_vals = flight_data[y_var].values.flatten()
             valid = np.isfinite(x_vals) & np.isfinite(y_vals)
@@ -373,7 +361,6 @@ class ScatterPlotter(BasePlotter):
             if valid.sum() < min_points:
                 continue
 
-            # Update title/subtitle to identify this flight.
             original_title = self.config.title
             original_subtitle = self.config.subtitle
             self.config.title, flight_subtitle = title_for_labeled_subset(
@@ -384,17 +371,19 @@ class ScatterPlotter(BasePlotter):
             if flight_subtitle:
                 self.config.subtitle = flight_subtitle
 
-            # Generate plot for this flight
-            fig = self.plot(flight_data, x_var, y_var, **kwargs)
+            try:
+                fig = self.render(build_series(flight_data, x_var, y_var), **kwargs)
+            finally:
+                self.config.title = original_title
+                self.config.subtitle = original_subtitle
 
-            # Restore original title/subtitle for next iteration
-            self.config.title = original_title
-            self.config.subtitle = original_subtitle
-
-            # Format flight ID for filename (YYYYMMDD format)
             flight_id = flight_str.replace("-", "")
+            if isinstance(fig, list):
+                results.extend((f"{flight_id}_{label}", subfig) for label, subfig in fig)
+            else:
+                results.append((flight_id, fig))
 
-            yield flight_id, fig
+        return results
 
     def _calculate_density(
         self,

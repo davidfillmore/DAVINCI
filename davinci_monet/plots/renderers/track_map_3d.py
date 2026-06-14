@@ -7,7 +7,6 @@ Includes continent outlines and city markers on the surface plane.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, Literal
 
 import matplotlib.pyplot as plt
@@ -90,7 +89,7 @@ class TrackMap3DPlotter(BasePlotter):
         series: list[PlotSeries],
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
+    ) -> matplotlib.figure.Figure | list[tuple[str, matplotlib.figure.Figure]]:
         """Render a 3D track map from a list of two PlotSeries.
 
         Parameters
@@ -145,6 +144,19 @@ class TrackMap3DPlotter(BasePlotter):
         paired_data = x_series.dataset
         x_var = x_series.var_name
         y_var = y_series.var_name
+
+        split_by_flight: bool = kwargs.pop("split_by_flight", False)
+        flight_coord: str = kwargs.pop("flight_coord", "flight")
+        min_points: int = kwargs.pop("min_points", 10)
+        if split_by_flight:
+            return self._render_by_flight(
+                paired_data,
+                x_var,
+                y_var,
+                flight_coord=flight_coord,
+                min_points=min_points,
+                **kwargs,
+            )
 
         alt_var: str = kwargs.pop("alt_var", "altitude")
         lat_var: str = kwargs.pop("lat_var", "latitude")
@@ -399,7 +411,7 @@ class TrackMap3DPlotter(BasePlotter):
         matplotlib.figure.Figure
             The generated figure.
         """
-        return self.render(
+        result = self.render(
             build_series(paired_data, x_var, y_var),
             ax=ax,
             alt_var=alt_var,
@@ -433,8 +445,13 @@ class TrackMap3DPlotter(BasePlotter):
             ocean_color=ocean_color,
             **kwargs,
         )
+        if isinstance(result, list):
+            raise TypeError(
+                "TrackMap3DPlotter.plot() expected one figure; use render() for split output."
+            )
+        return result
 
-    def plot_per_flight(
+    def _render_by_flight(
         self,
         paired_data: xr.Dataset,
         x_var: str,
@@ -442,51 +459,22 @@ class TrackMap3DPlotter(BasePlotter):
         flight_coord: str = "flight",
         min_points: int = 10,
         **kwargs: Any,
-    ) -> Iterator[tuple[str, matplotlib.figure.Figure]]:
-        """Generate 3D track maps for each flight.
-
-        Yields one figure per unique flight in the data.
-
-        Parameters
-        ----------
-        paired_data
-            Paired dataset with x and y variables.
-        x_var
-            Name of the x variable.
-        y_var
-            Name of the y variable.
-        flight_coord
-            Name of the flight coordinate (default: "flight").
-        min_points
-            Minimum valid data points per flight to generate a plot.
-        **kwargs
-            Additional arguments passed to plot method.
-
-        Yields
-        ------
-        tuple[str, matplotlib.figure.Figure]
-            Tuple of (flight_id, figure) for each flight.
-        """
-        # Check for flight coordinate
+    ) -> list[tuple[str, matplotlib.figure.Figure]]:
+        """Render one labeled 3D track map per flight."""
         if flight_coord not in paired_data.coords:
             raise ValueError(
                 f"Flight coordinate '{flight_coord}' not found in paired data. "
                 f"Available coordinates: {list(paired_data.coords)}"
             )
 
-        # Get unique flights
+        results: list[tuple[str, matplotlib.figure.Figure]] = []
         flight_values = paired_data[flight_coord].values
         unique_flights = np.unique(flight_values)
 
         for flight in unique_flights:
-            # Convert to string
             flight_str = str(flight)
-
-            # Filter data for this flight
             mask = flight_values == flight
             flight_data = paired_data.isel(time=mask)
-
-            # Check for minimum points
             x_vals = flight_data[x_var].values.flatten()
             y_vals = flight_data[y_var].values.flatten()
             valid = np.isfinite(x_vals) & np.isfinite(y_vals)
@@ -505,23 +493,23 @@ class TrackMap3DPlotter(BasePlotter):
             if flight_subtitle:
                 self.config.subtitle = flight_subtitle
 
-            # Generate plot for this flight
             try:
-                fig = self.plot(flight_data, x_var, y_var, **kwargs)
+                fig = self.render(build_series(flight_data, x_var, y_var), **kwargs)
             except ValueError:
-                # Skip if no valid data after filtering
                 self.config.title = original_title
                 self.config.subtitle = original_subtitle
                 continue
+            finally:
+                self.config.title = original_title
+                self.config.subtitle = original_subtitle
 
-            # Restore original title/subtitle for next iteration
-            self.config.title = original_title
-            self.config.subtitle = original_subtitle
-
-            # Format flight ID for filename (YYYYMMDD format)
             flight_id = flight_str.replace("-", "")
+            if isinstance(fig, list):
+                results.extend((f"{flight_id}_{label}", subfig) for label, subfig in fig)
+            else:
+                results.append((flight_id, fig))
 
-            yield flight_id, fig
+        return results
 
 
 def plot_track_map_3d(

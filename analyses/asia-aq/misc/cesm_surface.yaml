@@ -86,25 +86,25 @@ plots:
     type: timeseries
     domain_type: [all]
     domain_name: [ASIA]
-    data: [cesm_asiaq_openaq_asia]
+    pairs: [cesm_asiaq_openaq_asia]
 
   scatter_o3:
     type: scatter
     domain_type: [all]
     domain_name: [ASIA]
-    data: [cesm_asiaq_openaq_asia]
+    pairs: [cesm_asiaq_openaq_asia]
 
   diurnal_o3:
     type: diurnal
     domain_type: [all]
     domain_name: [ASIA]
-    data: [cesm_asiaq_openaq_asia]
+    pairs: [cesm_asiaq_openaq_asia]
 
   spatial_bias:
     type: spatial_bias
     domain_type: [all]
     domain_name: [ASIA]
-    data: [cesm_asiaq_openaq_asia]
+    pairs: [cesm_asiaq_openaq_asia]
 
 # Statistics to compute
 stats:

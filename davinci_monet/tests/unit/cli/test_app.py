@@ -289,8 +289,8 @@ pairs:
 
         assert "Parsed configuration" in result.stdout
 
-    def test_validate_strict_mode(self, tmp_path: Path) -> None:
-        """Test validate with strict mode."""
+    def test_validate_rejects_core_extra_field_by_default(self, tmp_path: Path) -> None:
+        """Core extra fields are rejected by default."""
         # Config with extra field
         config_content = """
 analysis:
@@ -310,10 +310,9 @@ sources:
 
         runner = CliRunner()
 
-        # With flexible mode (default), should pass
         result = runner.invoke(app, ["validate", str(config_file)])
-        assert result.exit_code == 0
-        assert "Validation passed" in result.stdout
+        assert result.exit_code != 0
+        assert "analysis.extra_field" in result.stdout
 
     def test_validate_strict_mode_rejects_core_extra_field(self, tmp_path: Path) -> None:
         """The --strict flag changes validation behavior."""
@@ -751,7 +750,7 @@ plots:
       - all
     domain_name:
       - CONUS
-    data:
+    pairs:
       - dataset1_geometry1
 
 stats:

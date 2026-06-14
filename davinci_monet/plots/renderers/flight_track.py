@@ -67,7 +67,7 @@ class FlightTrackPlotter(BasePlotter):
         s = series[0]
         return self.plot(s.dataset, s.var_name, **kwargs)
 
-    def plot(  # type: ignore[override]
+    def plot(
         self,
         x_data: xr.Dataset,
         variable: str,

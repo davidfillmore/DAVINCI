@@ -600,34 +600,11 @@ class TestPlottingStage:
 
         assert result.status == StageStatus.SKIPPED
 
-    def test_data_key_resolved_for_pairs(self):
-        """Test that plot specs using 'data' key resolve pair names.
-
-        Regression test for review finding #1: the schema uses 'data' but
-        PlottingStage must read it (not just 'pairs').
-        """
-        stage = PlottingStage()
-        # Simulate what _calculate_stats helper does internally:
-        # the stage reads plot_spec.get("data") or plot_spec.get("pairs", [])
-        plot_spec_data = {"type": "scatter", "data": ["dataset_geometry_pm25"]}
-        plot_spec_pairs = {"type": "scatter", "pairs": ["dataset_geometry_pm25"]}
-        plot_spec_both = {
-            "type": "scatter",
-            "data": ["dataset_geometry_o3"],
-            "pairs": ["dataset_geometry_pm25"],
-        }
-
-        # 'data' key should work
-        resolved_data = plot_spec_data.get("data") or plot_spec_data.get("pairs", [])
-        assert resolved_data == ["dataset_geometry_pm25"]
-
-        # 'pairs' key still works (backward compat)
-        resolved_pairs = plot_spec_pairs.get("data") or plot_spec_pairs.get("pairs", [])
-        assert resolved_pairs == ["dataset_geometry_pm25"]
-
-        # 'data' takes precedence when both present
-        resolved_both = plot_spec_both.get("data") or plot_spec_both.get("pairs", [])
-        assert resolved_both == ["dataset_geometry_o3"]
+    def test_plot_specs_use_pairs_key_only(self):
+        """PlottingStage uses the explicit pairs key; data is no longer a fallback."""
+        plot_spec = {"type": "scatter", "pairs": ["dataset_geometry_pm25"]}
+        assert plot_spec.get("pairs", []) == ["dataset_geometry_pm25"]
+        assert "data" not in plot_spec
 
     def test_plot_options_use_separate_subtitle_not_caption(
         self,
@@ -656,13 +633,72 @@ class TestPlottingStage:
         """A missing plot data reference fails instead of silently producing no plot."""
         context_with_paired.config = {
             "analysis": {"output_dir": "."},
-            "plots": {"scatter": {"type": "scatter", "data": ["missing_pair"]}},
+            "plots": {"scatter": {"type": "scatter", "pairs": ["missing_pair"]}},
         }
 
         result = PlottingStage().execute(context_with_paired)
 
         assert result.status == StageStatus.FAILED
         assert "missing_pair" in (result.error or "")
+
+    def test_labeled_render_results_are_saved_without_legacy_split_helpers(self, tmp_path):
+        """The plotting stage consumes render() lists directly."""
+        from davinci_monet.plots.base import BasePlotter
+        from davinci_monet.plots.registry import register_plotter
+
+        @register_plotter("test_labeled_multi", replace=True)
+        class LabeledMultiPlotter(BasePlotter):
+            name = "test_labeled_multi"
+
+            def render(self, series, ax=None, **kwargs):
+                fig_a, _ = self.create_figure()
+                fig_b, _ = self.create_figure()
+                return [("flight_a", fig_a), ("flight_b", fig_b)]
+
+        paired = xr.Dataset(
+            {
+                "airnow_o3": ("time", np.array([1.0, 2.0])),
+                "cam_O3": ("time", np.array([1.1, 2.2])),
+            },
+            coords={"time": np.array(["2024-01-01", "2024-01-02"], dtype="datetime64[D]")},
+        )
+        paired["airnow_o3"].attrs.update(
+            {
+                "axis": "x",
+                "source_label": "airnow",
+                "dataset_variable": "o3",
+                "canonical_name": "o3",
+            }
+        )
+        paired["cam_O3"].attrs.update(
+            {
+                "axis": "y",
+                "source_label": "cam",
+                "dataset_variable": "O3",
+                "canonical_name": "o3",
+            }
+        )
+        ctx = PipelineContext(
+            config={
+                "analysis": {"output_dir": str(tmp_path)},
+                "pairs": {
+                    "cam_airnow_o3": {
+                        "x": {"source": "airnow", "variable": "o3"},
+                        "y": {"source": "cam", "variable": "O3"},
+                    }
+                },
+                "plots": {"multi": {"type": "test_labeled_multi", "pairs": ["cam_airnow_o3"]}},
+            },
+            paired={"cam_airnow_o3": paired},
+        )
+
+        result = PlottingStage().execute(ctx)
+
+        assert result.status is StageStatus.COMPLETED
+        pngs = [path for path in result.data["plots_generated"] if path.endswith(".png")]
+        assert len(pngs) == 2
+        assert any("flight_a_" in path for path in pngs)
+        assert any("flight_b_" in path for path in pngs)
 
 
 class TestSaveResultsStage:

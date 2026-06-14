@@ -122,11 +122,14 @@ def test_sources_config_pairs_from_pair_variables(tmp_path: Path) -> None:
     assert set(result.context.sources) == {"cam", "airnow"}
     assert set(result.context.paired) == {"cam_airnow_o3"}
     paired = result.context.paired["cam_airnow_o3"].data
+    pair_info = result.context.paired["cam_airnow_o3"].pairing_info
     assert set(paired.data_vars) == {"cam_O3", "airnow_o3"}
     assert paired["cam_O3"].attrs["source_label"] == "cam"
     assert paired["cam_O3"].attrs["dataset_variable"] == "O3"
     assert paired["airnow_o3"].attrs["source_label"] == "airnow"
     assert paired["airnow_o3"].attrs["dataset_variable"] == "o3"
+    assert pair_info["axis_variables"] == {"x": "o3", "y": "O3"}
+    assert paired["cam_O3"].attrs["canonical_name"] == paired["airnow_o3"].attrs["canonical_name"]
 
 
 def test_grid_x_point_y_uses_point_geometry_but_preserves_config_axes(tmp_path: Path) -> None:
@@ -276,7 +279,7 @@ def test_plot_data_geometry_without_pair_spec_uses_paired_dataset(
     ctx = PipelineContext(
         config={
             "analysis": {"output_dir": str(tmp_path)},
-            "plots": {"scatter_o3": {"type": "scatter", "data": ["cam_airnow"]}},
+            "plots": {"scatter_o3": {"type": "scatter", "pairs": ["cam_airnow"]}},
         }
     )
     ctx.paired["cam_airnow"] = paired
@@ -325,7 +328,7 @@ def test_plot_sources_pair_spec_uses_geometry_and_dataset(
                     "y": {"source": "cam", "variable": "O3"},
                 }
             },
-            "plots": {"scatter_o3": {"type": "scatter", "data": ["cam_airnow_o3"]}},
+            "plots": {"scatter_o3": {"type": "scatter", "pairs": ["cam_airnow_o3"]}},
         }
     )
     ctx.paired["cam_airnow_o3"] = paired
@@ -360,7 +363,7 @@ def test_plot_pair_spec_uses_configured_pair_name(
                     "y": {"source": "cam", "variable": "O3"},
                 }
             },
-            "plots": {"scatter_o3": {"type": "scatter", "data": ["cam_airnow_o3"]}},
+            "plots": {"scatter_o3": {"type": "scatter", "pairs": ["cam_airnow_o3"]}},
         }
     )
     ctx.paired["cam_airnow_o3"] = paired

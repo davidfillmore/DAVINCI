@@ -16,7 +16,7 @@ SINGLE_SOURCE_SCHEMA_KEYS = {
     "text_kwargs",
     "domain_type",
     "domain_name",
-    "data",
+    "pairs",
     "data_proc",
 }
 
@@ -50,6 +50,9 @@ FORWARDED_COMPARISON_OPTION_KEYS = {
     "show_borders",
     "show_projection",
     "alt_scale",
+    "split_by_flight",
+    "flight_coord",
+    "min_points",
 }
 
 

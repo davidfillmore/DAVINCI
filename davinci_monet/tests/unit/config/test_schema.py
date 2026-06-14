@@ -244,12 +244,12 @@ class TestPlotGroupConfig:
         assert config.domain_name == ["CONUS"]
 
     def test_data_list(self) -> None:
-        """Test data list."""
+        """Test pairs list."""
         config = PlotGroupConfig(
             type="spatial_bias",
-            data=["airnow_cmaq", "airnow_wrfchem"],
+            pairs=["airnow_cmaq", "airnow_wrfchem"],
         )
-        assert len(config.data) == 2
+        assert len(config.pairs) == 2
 
     def test_data_proc_parsing(self) -> None:
         """Test data_proc is parsed correctly."""
@@ -351,7 +351,7 @@ class TestMonetConfig:
                 "plots": {
                     "plot_grp1": {
                         "type": "timeseries",
-                        "data": ["airnow_cmaq"],
+                        "pairs": ["airnow_cmaq"],
                     },
                 },
             },
@@ -399,7 +399,7 @@ class TestMonetConfig:
                 "plots": {
                     "timeseries": {
                         "type": "timeseries",
-                        "data": ["cmaq_airnow_o3"],
+                        "pairs": ["cmaq_airnow_o3"],
                         "domain_type": ["all"],
                     }
                 },
@@ -436,9 +436,9 @@ class TestMonetConfig:
         assert config.pairs["a_b"].y.source == "b"
         assert config.pairs["a_b"].y.variable == "O3"
 
-    def test_plot_data_names_must_resolve_to_pairs(self) -> None:
-        """Plot data references are validated instead of silently skipped."""
-        with pytest.raises(ValueError, match="plots.scatter.data.*missing_pair"):
+    def test_plot_data_is_rejected(self) -> None:
+        """Plot configs use pairs; legacy data is a hard validation error."""
+        with pytest.raises(ValueError, match="plots.*data.*no longer supported"):
             validate_schema(
                 MonetConfig,
                 {
@@ -452,7 +452,7 @@ class TestMonetConfig:
                             "y": {"source": "b", "variable": "O3"},
                         }
                     },
-                    "plots": {"scatter": {"type": "scatter", "data": ["missing_pair"]}},
+                    "plots": {"scatter": {"type": "scatter", "data": ["a_b"]}},
                 },
             )
 
@@ -517,16 +517,42 @@ class TestMonetConfig:
 class TestExtraFieldsHandling:
     """Tests for handling extra/unknown fields."""
 
-    def test_extra_fields_allowed(self) -> None:
-        """Test that nested extra fields are allowed."""
+    def test_core_extra_fields_rejected(self) -> None:
+        """Modeled core sections reject typos by default."""
+        with pytest.raises(ValueError, match="analysis.*unknown_field"):
+            validate_schema(
+                MonetConfig,
+                {
+                    "analysis": {"unknown_field": "value"},
+                    "sources": {"cmaq": {"type": "cmaq"}},
+                },
+            )
+
+    def test_source_reader_extra_fields_allowed(self) -> None:
+        """Source reader kwargs remain the extension point."""
         config = validate_schema(
             MonetConfig,
-            {
-                "analysis": {"unknown_field": "value"},
-                "sources": {"cmaq": {"type": "cmaq", "custom_option": True}},
-            },
+            {"sources": {"cmaq": {"type": "cmaq", "custom_option": True}}},
         )
-        # Nested config sections allow reader-specific extra fields.
-        extra = config.analysis.__pydantic_extra__
+        extra = config.sources["cmaq"].__pydantic_extra__
         assert extra is not None
-        assert extra.get("unknown_field") == "value"
+        assert extra.get("custom_option") is True
+
+    def test_axis_extra_fields_rejected(self) -> None:
+        """Pair axes are modeled, not arbitrary extension points."""
+        with pytest.raises(ValueError, match="role"):
+            validate_schema(
+                MonetConfig,
+                {
+                    "sources": {
+                        "a": {"type": "generic", "files": "/tmp/a.nc"},
+                        "b": {"type": "generic", "files": "/tmp/b.nc"},
+                    },
+                    "pairs": {
+                        "a_b": {
+                            "x": {"source": "a", "variable": "O3", "role": "old"},
+                            "y": {"source": "b", "variable": "O3"},
+                        }
+                    },
+                },
+            )

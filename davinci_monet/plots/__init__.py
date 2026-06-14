@@ -11,8 +11,9 @@ Quick Start
 >>> fig = plot_timeseries(paired_data, "x_o3", "y_o3")
 >>>
 >>> # Using plotter instance
+>>> from davinci_monet.plots.base import build_series
 >>> plotter = get_plotter("scatter")
->>> fig = plotter.plot(paired_data, "x_o3", "y_o3")
+>>> fig = plotter.render(build_series(paired_data, "x_o3", "y_o3"))
 
 Available Plot Types
 --------------------

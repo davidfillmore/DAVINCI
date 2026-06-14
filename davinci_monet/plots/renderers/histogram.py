@@ -29,7 +29,7 @@ class HistogramPlotter(BasePlotter):
     name: str = "histogram"
     default_figsize: tuple[float, float] = (8, 5)
 
-    def plot(  # type: ignore[override]
+    def plot(
         self,
         x_data: xr.Dataset,
         variable: str,

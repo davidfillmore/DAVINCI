@@ -601,47 +601,42 @@ class TestScatterPlotter:
         assert fig is not None
         plt.close(fig)
 
-    def test_plot_per_flight(self, flight_paired_data):
-        """Test per-flight scatter plot generation."""
+    def test_render_split_by_flight(self, flight_paired_data):
+        """Scatter split output is returned from render as labeled figures."""
+        import matplotlib.figure
+
         from davinci_monet.plots import ScatterPlotter
+        from davinci_monet.plots.base import build_series
 
         plotter = ScatterPlotter()
-        flight_plots = list(
-            plotter.plot_per_flight(
-                flight_paired_data,
-                "x_o3",
-                "y_o3",
-                min_points=10,
-            )
+        flight_plots = plotter.render(
+            build_series(flight_paired_data, "x_o3", "y_o3"),
+            split_by_flight=True,
+            min_points=10,
         )
 
-        # Should generate 3 flights (from fixture)
+        assert isinstance(flight_plots, list)
         assert len(flight_plots) == 3
 
         for flight_id, fig in flight_plots:
-            # Flight ID should be in YYYYMMDD format (no hyphens)
             assert "-" not in flight_id
             assert len(flight_id) == 8
-            assert fig is not None
+            assert isinstance(fig, matplotlib.figure.Figure)
             plt.close(fig)
 
-    def test_plot_per_flight_min_points(self, flight_paired_data):
-        """Test min_points filter in per-flight plotting."""
+    def test_render_split_by_flight_min_points(self, flight_paired_data):
+        """Split rendering filters flights below min_points."""
         from davinci_monet.plots import ScatterPlotter
+        from davinci_monet.plots.base import build_series
 
         plotter = ScatterPlotter()
-        # Set min_points higher than data available per flight
-        flight_plots = list(
-            plotter.plot_per_flight(
-                flight_paired_data,
-                "x_o3",
-                "y_o3",
-                min_points=200,  # Each flight has 120 points
-            )
+        flight_plots = plotter.render(
+            build_series(flight_paired_data, "x_o3", "y_o3"),
+            split_by_flight=True,
+            min_points=200,
         )
 
-        # No flights should pass the filter
-        assert len(flight_plots) == 0
+        assert flight_plots == []
 
     def test_source_named_axis_labels(self, simple_paired_data):
         """Fix C: x_label/y_label config produces source-named scatter axes.
@@ -873,20 +868,19 @@ class TestTrackMap3DPlotter:
         assert fig is not None
         plt.close(fig)
 
-    def test_plot_per_flight(self, flight_paired_data):
-        """Test per-flight 3D track plot generation."""
+    def test_render_split_by_flight(self, flight_paired_data):
+        """Test per-flight 3D track plot generation through render()."""
         from davinci_monet.plots import TrackMap3DPlotter
+        from davinci_monet.plots.base import build_series
 
         plotter = TrackMap3DPlotter()
-        flight_plots = list(
-            plotter.plot_per_flight(
-                flight_paired_data,
-                "x_o3",
-                "y_o3",
-                min_points=10,
-                show_coastlines=False,  # Faster for testing
-            )
+        flight_plots = plotter.render(
+            build_series(flight_paired_data, "x_o3", "y_o3"),
+            split_by_flight=True,
+            min_points=10,
+            show_coastlines=False,  # Faster for testing
         )
+        assert isinstance(flight_plots, list)
 
         # Should generate 3 flights (from fixture)
         assert len(flight_plots) == 3
@@ -898,21 +892,20 @@ class TestTrackMap3DPlotter:
             assert fig is not None
             plt.close(fig)
 
-    def test_plot_per_flight_min_points(self, flight_paired_data):
+    def test_render_split_by_flight_min_points(self, flight_paired_data):
         """Test min_points filter in per-flight 3D track plotting."""
         from davinci_monet.plots import TrackMap3DPlotter
+        from davinci_monet.plots.base import build_series
 
         plotter = TrackMap3DPlotter()
         # Set min_points higher than data available per flight
-        flight_plots = list(
-            plotter.plot_per_flight(
-                flight_paired_data,
-                "x_o3",
-                "y_o3",
-                min_points=200,  # Each flight has 120 points
-                show_coastlines=False,
-            )
+        flight_plots = plotter.render(
+            build_series(flight_paired_data, "x_o3", "y_o3"),
+            split_by_flight=True,
+            min_points=200,  # Each flight has 120 points
+            show_coastlines=False,
         )
+        assert isinstance(flight_plots, list)
 
         # No flights should pass the filter
         assert len(flight_plots) == 0
@@ -1144,15 +1137,17 @@ class TestPlotterEndToEnd:
         for name in list_plotters():
             plotter = get_plotter(name)
             assert plotter is not None
-            assert hasattr(plotter, "plot")
+            assert hasattr(plotter, "render")
             assert hasattr(plotter, "save")
 
     def test_plotter_save(self, simple_paired_data, tmp_path):
         """Test saving a figure."""
         from davinci_monet.plots import get_plotter
+        from davinci_monet.plots.base import build_series
 
         plotter = get_plotter("scatter")
-        fig = plotter.plot(simple_paired_data, "x_o3", "y_o3")
+        fig = plotter.render(build_series(simple_paired_data, "x_o3", "y_o3"))
+        assert isinstance(fig, matplotlib.figure.Figure)
 
         output_path = tmp_path / "test_plot.png"
         saved_path = plotter.save(fig, output_path)

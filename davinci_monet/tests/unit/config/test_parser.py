@@ -205,7 +205,7 @@ class TestValidateConfig:
             validate_config(
                 {
                     "sources": {"cam": {"type": "generic"}},
-                    "plots": {"bad": {"type": "fake_plot_type_xyz", "data": []}},
+                    "plots": {"bad": {"type": "fake_plot_type_xyz", "pairs": []}},
                 }
             )
 
@@ -255,7 +255,7 @@ class TestValidateConfig:
                 "plots": {
                     "plot1": {
                         "type": "timeseries",
-                        "data": [],
+                        "pairs": [],
                         "renderer_specific_kwarg": "passed-through",
                     }
                 },
@@ -265,11 +265,11 @@ class TestValidateConfig:
 
         assert getattr(cfg.plots["plot1"], "renderer_specific_kwarg") == "passed-through"
 
-    def test_load_config_strict_preserves_extra_field_error(self) -> None:
-        """load_config reports the same strict extra-field error as validate_config."""
+    def test_load_config_rejects_extra_field_by_default(self) -> None:
+        """load_config rejects core extra fields without requiring strict mode."""
         with pytest.raises(
             ConfigurationError,
-            match=r"^Strict validation rejected extra field\(s\): analysis\.extra_field$",
+            match=r"analysis\.extra_field",
         ):
             load_config(
                 """
@@ -278,19 +278,18 @@ analysis:
 sources:
   cam:
     type: generic
-""",
-                strict=True,
+"""
             )
 
-    def test_flexible_allows_extra_analysis_field_for_back_compat(self) -> None:
-        """Default validation remains compatible with existing flexible configs."""
-        cfg = validate_config(
-            {
-                "analysis": {"start_time": "2024-01-01", "extra_field": "allowed"},
-                "sources": {"cam": {"type": "generic"}},
-            }
-        )
-        assert cfg.analysis.start_time is not None
+    def test_default_rejects_extra_analysis_field(self) -> None:
+        """Default validation rejects unknown core fields."""
+        with pytest.raises(ConfigurationError, match="Extra inputs"):
+            validate_config(
+                {
+                    "analysis": {"start_time": "2024-01-01", "extra_field": "nope"},
+                    "sources": {"cam": {"type": "generic"}},
+                }
+            )
 
     def test_validate_empty_config(self) -> None:
         """Test validating empty config."""
@@ -411,7 +410,7 @@ class TestConfigBuilder:
                 x={"source": "airnow", "variable": "o3"},
                 y={"source": "cmaq", "variable": "O3"},
             )
-            .add_plot("ts1", "timeseries", data=["airnow_cmaq"])
+            .add_plot("ts1", "timeseries", pairs=["airnow_cmaq"])
             .build()
         )
         assert "ts1" in config.plots
@@ -435,7 +434,7 @@ class TestConfigBuilder:
                 x={"source": "airnow", "variable": "o3"},
                 y={"source": "cmaq", "variable": "O3"},
             )
-            .add_plot("ts", "timeseries", data=["airnow_cmaq"])
+            .add_plot("ts", "timeseries", pairs=["airnow_cmaq"])
             .build()
         )
         assert config.analysis.start_time is not None

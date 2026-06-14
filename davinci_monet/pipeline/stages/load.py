@@ -17,6 +17,20 @@ from davinci_monet.pipeline.stages.base import (
     StageStatus,
 )
 
+SOURCE_LOADER_CONFIG_KEYS = frozenset(
+    {
+        "type",
+        "files",
+        "filename",
+        "variables",
+        "radius_of_influence",
+        "display_name",
+        "resample",
+        "min_sample_count",
+        "track_sample_count",
+    }
+)
+
 
 class LoadSourcesStage(BaseStage):
     """Standard data-source loading stage.
@@ -137,6 +151,32 @@ class LoadSourcesStage(BaseStage):
             return DataGeometry[value.upper()]
         raise ValueError(f"Unsupported geometry value: {value!r}")
 
+    @staticmethod
+    def _reader_kwargs(reader: Any, cfg: dict[str, Any]) -> dict[str, Any]:
+        """Return source config kwargs accepted by ``reader.open``."""
+        import inspect
+
+        candidates = {
+            key: value
+            for key, value in cfg.items()
+            if key not in SOURCE_LOADER_CONFIG_KEYS and value is not None
+        }
+        signature = inspect.signature(reader.open)
+        has_kwargs = any(
+            param.kind is inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
+        )
+        if has_kwargs:
+            return candidates
+
+        accepted = {
+            name
+            for name, param in signature.parameters.items()
+            if param.kind
+            in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+        }
+        accepted.difference_update({"files", "file_paths", "paths", "variables"})
+        return {key: value for key, value in candidates.items() if key in accepted}
+
     def _load_unified_source(
         self,
         label: str,
@@ -172,39 +212,9 @@ class LoadSourcesStage(BaseStage):
             ) from e
 
         reader = reader_cls()
-        # Control keys consumed by the loader / schema, NOT forwarded to the
-        # reader's open().
-        passthrough_keys = {
-            "type",
-            "files",
-            "filename",
-            "variables",
-            "radius_of_influence",
-            "display_name",
-            "resample",
-            "min_sample_count",
-            "track_sample_count",
-            "files_vert",
-            "files_surf",
-            "projection",
-            "plot_kwargs",
-            "apply_ak",
-            "sat_type",
-            "use_airnow",
-            "data_proc",
-            "grid_source",
-            "time_resolution",
-            "save_binned",
-            "load_binned",
-            "binned_file",
-        }
-        reader_kwargs = {k: v for k, v in cfg.items() if k not in passthrough_keys}
-        # Drop None-valued kwargs (schema defaults) so they never leak into the
-        # reader / xarray as unexpected keyword arguments.
-        reader_kwargs = {k: v for k, v in reader_kwargs.items() if v is not None}
         import inspect
 
-        open_kwargs = dict(reader_kwargs)
+        open_kwargs = self._reader_kwargs(reader, cfg)
         if "time_range" in inspect.signature(reader.open).parameters:
             open_kwargs["time_range"] = time_range
         if "progress_callback" in inspect.signature(reader.open).parameters:

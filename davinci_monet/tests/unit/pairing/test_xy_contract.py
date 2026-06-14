@@ -7,6 +7,7 @@ with the rename tasks; its ASSERTIONS (axis assignment + diff sign) must never c
 
 from __future__ import annotations
 
+import matplotlib.figure
 import numpy as np
 import xarray as xr
 
@@ -27,6 +28,7 @@ def _paired() -> xr.Dataset:
 def test_scatter_x_is_geometry_y_is_dataset() -> None:
     ds = _paired()
     fig = ScatterPlotter().render(build_series(ds, "obs_o3", "mod_o3"))
+    assert isinstance(fig, matplotlib.figure.Figure)
     ax = fig.axes[0]
     # x axis names the geometry/x source; y axis names the dataset/y source.
     assert "OBS" in ax.get_xlabel().upper() or "obs" in ax.get_xlabel().lower()

@@ -143,7 +143,7 @@ def test_method_grid_runs_through_pipeline(tmp_path):
                 "grid": {"horizontal_res": 1.0, "time_resolution": "1D", "min_sample_count": 1},
             }
         },
-        "plots": {"sc": {"type": "scatter", "data": ["obs_vs_mod"]}},
+        "plots": {"sc": {"type": "scatter", "pairs": ["obs_vs_mod"]}},
     }
     result = PipelineRunner(show_progress=False).run_from_config(config)
     assert result.success, getattr(result, "error", None)

@@ -104,8 +104,8 @@ class PlottingStage(BaseStage):
         """Single-source plotting.
 
         Renders each plot spec against its single configured source, auto-splitting
-        on a ``flight`` coord with >1 flight. Multi-figure renderers (e.g. hourly
-        LMA density) return a list of ``(fig, suffix)``.
+        on a ``flight`` coord with >1 flight. Multi-figure renderers return a list
+        of ``(label, fig)`` tuples.
         """
         import logging
         import time
@@ -197,7 +197,8 @@ class PlottingStage(BaseStage):
                     plotter.config.subtitle = render_kwargs.pop("subtitle", None)
                     result = plotter.render(build_series(subset, variable), **render_kwargs)
                     if isinstance(result, list):
-                        for fig, fig_suffix in result:
+                        for fig_label, fig in result:
+                            fig_suffix = f"_{fig_label}" if fig_label else ""
                             out_path = output_dir / f"{plot_name}{suffix}{fig_suffix}.png"
                             plotter.save(fig, out_path)
                             plots_generated.append(str(out_path))
@@ -468,100 +469,7 @@ class PlottingStage(BaseStage):
         return plotter_config, plot_options
 
     @staticmethod
-    def _save_per_flight(
-        *,
-        plotter: Any,
-        paired_data: Any,
-        x_var_name: str,
-        y_var_name: str,
-        plot_spec: dict[str, Any],
-        plot_options: dict[str, Any],
-        x_source_output_dir: Any,
-        plot_name: str,
-        file_index: int,
-        plots_generated: list[str],
-        context: PipelineContext,
-        x_source: str,
-    ) -> int:
-        """Render and save one figure per flight; return the advanced file_index."""
-        import matplotlib.pyplot as plt
-
-        flight_coord = plot_spec.get("flight_coord", "flight")
-        min_points = plot_spec.get("min_points", 10)
-
-        flight_count = 0
-        for flight_id, fig in plotter.plot_per_flight(
-            paired_data,
-            x_var_name,
-            y_var_name,
-            flight_coord=flight_coord,
-            min_points=min_points,
-            **plot_options,
-        ):
-            # Save plot with flight ID first for grouping by flight in slideshows
-            output_path = x_source_output_dir / f"{flight_id}_{file_index:02d}_{plot_name}.png"
-            plotter.save(fig, output_path, dpi=300)
-            plots_generated.append(str(output_path))
-
-            pdf_path = x_source_output_dir / f"{flight_id}_{file_index:02d}_{plot_name}.pdf"
-            plotter.save(fig, pdf_path)
-            plots_generated.append(str(pdf_path))
-
-            plt.close(fig)
-            flight_count += 1
-            file_index += 1
-
-        context.log_progress(f"done: saved {flight_count} flights to {x_source}/")
-        return file_index
-
-    @staticmethod
-    def _save_per_site(
-        *,
-        plotter: Any,
-        paired_data: Any,
-        x_var_name: str,
-        y_var_name: str,
-        plot_spec: dict[str, Any],
-        plot_options: dict[str, Any],
-        x_source_output_dir: Any,
-        plot_name: str,
-        file_index: int,
-        plots_generated: list[str],
-        context: PipelineContext,
-        x_source: str,
-    ) -> int:
-        """Render and save one figure per site; return the advanced file_index."""
-        import matplotlib.pyplot as plt
-
-        site_dim = plot_spec.get("site_dim", "site")
-        min_points = plot_spec.get("min_points", 20)
-
-        site_count = 0
-        for site_id, fig in plotter.plot_per_site(
-            paired_data,
-            x_var_name,
-            y_var_name,
-            site_dim=site_dim,
-            min_points=min_points,
-            **plot_options,
-        ):
-            output_path = x_source_output_dir / f"site_{site_id}_{file_index:02d}_{plot_name}.png"
-            plotter.save(fig, output_path, dpi=300)
-            plots_generated.append(str(output_path))
-
-            pdf_path = x_source_output_dir / f"site_{site_id}_{file_index:02d}_{plot_name}.pdf"
-            plotter.save(fig, pdf_path)
-            plots_generated.append(str(pdf_path))
-
-            plt.close(fig)
-            site_count += 1
-            file_index += 1
-
-        context.log_progress(f"done: saved {site_count} sites to {x_source}/")
-        return file_index
-
-    @staticmethod
-    def _save_single(
+    def _save_render_result(
         *,
         plotter: Any,
         paired_data: Any,
@@ -575,31 +483,30 @@ class PlottingStage(BaseStage):
         context: PipelineContext,
         x_source: str,
     ) -> int:
-        """Render and save a single figure via the unified render contract.
-
-        Returns the advanced file_index.
-        """
+        """Render and save one or more figures from the unified render contract."""
         import matplotlib.pyplot as plt
 
         from davinci_monet.plots.base import build_series
 
-        # Generate single plot via the unified render contract.
-        fig = plotter.render(build_series(paired_data, x_var_name, y_var_name), **plot_options)
+        result = plotter.render(build_series(paired_data, x_var_name, y_var_name), **plot_options)
+        figures = result if isinstance(result, list) else [(None, result)]
 
-        # Save plot (prefixed for ordering)
-        output_path = x_source_output_dir / f"{file_index:02d}_{plot_name}.png"
-        plotter.save(fig, output_path, dpi=300)
-        plots_generated.append(str(output_path))
+        saved_count = 0
+        for label, fig in figures:
+            prefix = f"{label}_" if label else ""
+            output_path = x_source_output_dir / f"{prefix}{file_index:02d}_{plot_name}.png"
+            plotter.save(fig, output_path, dpi=300)
+            plots_generated.append(str(output_path))
 
-        # Also save PDF
-        pdf_path = x_source_output_dir / f"{file_index:02d}_{plot_name}.pdf"
-        plotter.save(fig, pdf_path)
-        plots_generated.append(str(pdf_path))
+            pdf_path = x_source_output_dir / f"{prefix}{file_index:02d}_{plot_name}.pdf"
+            plotter.save(fig, pdf_path)
+            plots_generated.append(str(pdf_path))
 
-        plt.close(fig)
-        file_index += 1
+            plt.close(fig)
+            file_index += 1
+            saved_count += 1
 
-        context.log_progress(f"done: saved to {x_source}/")
+        context.log_progress(f"done: saved {saved_count} plot(s) to {x_source}/")
         return file_index
 
     def _render_pair(
@@ -668,57 +575,19 @@ class PlottingStage(BaseStage):
         x_source_output_dir = output_dir / x_source
         x_source_output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Check for per-flight splitting
-        split_by_flight = plot_spec.get("split_by_flight", False)
-        # Check for per-site splitting
-        split_by_site = plot_spec.get("split_by_site", False)
-
-        if split_by_flight and hasattr(plotter, "plot_per_flight"):
-            # Generate separate plot for each flight
-            return self._save_per_flight(
-                plotter=plotter,
-                paired_data=paired_data,
-                x_var_name=x_var_name,
-                y_var_name=y_var_name,
-                plot_spec=plot_spec,
-                plot_options=plot_options,
-                x_source_output_dir=x_source_output_dir,
-                plot_name=plot_name,
-                file_index=file_index,
-                plots_generated=plots_generated,
-                context=context,
-                x_source=x_source,
-            )
-        elif split_by_site and hasattr(plotter, "plot_per_site"):
-            # Generate separate plot for each site
-            return self._save_per_site(
-                plotter=plotter,
-                paired_data=paired_data,
-                x_var_name=x_var_name,
-                y_var_name=y_var_name,
-                plot_spec=plot_spec,
-                plot_options=plot_options,
-                x_source_output_dir=x_source_output_dir,
-                plot_name=plot_name,
-                file_index=file_index,
-                plots_generated=plots_generated,
-                context=context,
-                x_source=x_source,
-            )
-        else:
-            return self._save_single(
-                plotter=plotter,
-                paired_data=paired_data,
-                x_var_name=x_var_name,
-                y_var_name=y_var_name,
-                plot_options=plot_options,
-                x_source_output_dir=x_source_output_dir,
-                plot_name=plot_name,
-                file_index=file_index,
-                plots_generated=plots_generated,
-                context=context,
-                x_source=x_source,
-            )
+        return self._save_render_result(
+            plotter=plotter,
+            paired_data=paired_data,
+            x_var_name=x_var_name,
+            y_var_name=y_var_name,
+            plot_options=plot_options,
+            x_source_output_dir=x_source_output_dir,
+            plot_name=plot_name,
+            file_index=file_index,
+            plots_generated=plots_generated,
+            context=context,
+            x_source=x_source,
+        )
 
     def execute(self, context: PipelineContext) -> StageResult:
         """Generate comparison plots from paired data, or plots from unpaired sources."""
@@ -760,7 +629,7 @@ class PlottingStage(BaseStage):
             try:
                 plot_count += 1
                 plot_type = plot_spec.get("type", "scatter")
-                plot_pairs = plot_spec.get("data") or plot_spec.get("pairs", [])
+                plot_pairs = plot_spec.get("pairs", [])
                 title = format_plot_title(plot_spec.get("title", plot_name))
 
                 context.log_progress(f"    Plot: {plot_name} ({plot_count}/{total_plots})")
