@@ -86,6 +86,39 @@ def detect_spatial_geometry(
     return "point"
 
 
+_LAT_CANDIDATES = ["latitude", "lat", "LAT", "Latitude"]
+_LON_CANDIDATES = ["longitude", "lon", "LON", "Longitude"]
+
+
+def resolve_spatial_coords(
+    ds: xr.Dataset,
+    lat_var: str = "latitude",
+    lon_var: str = "longitude",
+) -> tuple[str, str, np.ndarray, np.ndarray]:
+    """Resolve (lat_name, lon_name, lat_values, lon_values) from a dataset, with
+    0..360 -> -180..180 longitude normalization. Raises ValueError if absent."""
+    import numpy as np
+
+    lat_name = next((c for c in [lat_var, *_LAT_CANDIDATES] if c in ds.coords or c in ds), None)
+    lon_name = next((c for c in [lon_var, *_LON_CANDIDATES] if c in ds.coords or c in ds), None)
+    if lat_name is None or lon_name is None:
+        raise ValueError(
+            f"Could not find latitude/longitude coordinates. Available: {list(ds.coords)}"
+        )
+    lats = ds[lat_name].values
+    lons = ds[lon_name].values
+    if lons.ndim >= 1 and np.any(lons > 180):
+        lons = np.where(lons > 180, lons - 360, lons)
+    return lat_name, lon_name, lats, lons
+
+
+def maybe_time_average(data: Any, time_average: bool = True, time_dim: str = "time") -> Any:
+    """Mean over the time dim when present and requested; else return data."""
+    if time_average and time_dim in getattr(data, "dims", ()):
+        return data.mean(dim=time_dim)
+    return data
+
+
 def surface_level_index(field_da: xr.DataArray, level_dim: str) -> int:
     """Return the index of the surface level along ``level_dim``.
 

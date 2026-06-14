@@ -23,6 +23,7 @@ from davinci_monet.plots.renderers.spatial.base import (
     detect_spatial_geometry,
     draw_spatial_field,
     get_domain_extent,
+    resolve_spatial_coords,
     surface_level_index,
 )
 from davinci_monet.plots.style import get_sequential_cmap
@@ -244,24 +245,21 @@ class SpatialPlotter(BaseSpatialPlotter):
         lon_var: str,
     ) -> tuple[np.ndarray, np.ndarray, xr.DataArray]:
         """Resolve lat/lon arrays, shifting 0..360 lon to -180..180 for cartopy."""
-        resolved_lat = self._resolve_coord_name(ds, _LAT_CANDIDATES, lat_var)
-        resolved_lon = self._resolve_coord_name(ds, _LON_CANDIDATES, lon_var)
-        if resolved_lat is None or resolved_lon is None:
-            raise ValueError(
-                "Could not find latitude/longitude coordinates in dataset. "
-                f"Available coords: {list(ds.coords)}"
-            )
-        lats = ds[resolved_lat].values
-        lons = ds[resolved_lon].values
+        _, resolved_lon, lats, lons = resolve_spatial_coords(ds, lat_var, lon_var)
 
-        if lons.ndim == 1 and np.any(lons > 180):
-            lons = np.where(lons > 180, lons - 360, lons)
+        # A 1-D lon axis that the 0..360 -> -180..180 shift left non-monotonic
+        # must be re-sorted, reordering the field along the lon dim to match so
+        # pcolormesh receives ascending coords. Only do this when lon is a field
+        # dim (grid axis) so coords and data stay paired.
+        if (
+            lons.ndim == 1
+            and lons.size > 1
+            and resolved_lon in field.dims
+            and np.any(np.diff(lons) < 0)
+        ):
             sort_idx = np.argsort(lons)
             lons = lons[sort_idx]
-            if resolved_lon in field.dims:
-                field = field.isel({resolved_lon: sort_idx})
-        elif lons.ndim > 1 and np.any(lons > 180):
-            lons = np.where(lons > 180, lons - 360, lons)
+            field = field.isel({resolved_lon: sort_idx})
 
         return lats, lons, field
 

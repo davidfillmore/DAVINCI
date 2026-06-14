@@ -27,7 +27,10 @@ from davinci_monet.plots.renderers.spatial.base import (
     BaseSpatialPlotter,
     MapConfig,
     detect_spatial_geometry,
+    draw_spatial_field,
     get_domain_extent,
+    maybe_time_average,
+    resolve_spatial_coords,
 )
 
 if TYPE_CHECKING:
@@ -125,43 +128,29 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         y_data = paired_data[y_var]
         bias = y_data - x_data
 
-        # Time average if requested
-        if time_average and "time" in bias.dims:
-            bias = bias.mean(dim="time")
-            x_data = x_data.mean(dim="time")
+        # Time average if requested (both bias and x_data, to keep them aligned).
+        bias = maybe_time_average(bias, time_average)
+        x_data = maybe_time_average(x_data, time_average)
 
-        # Get coordinates — resolve common aliases
-        lat_candidates = [lat_var, "lat", "latitude", "LAT", "Latitude"]
-        lon_candidates = [lon_var, "lon", "longitude", "LON", "Longitude"]
-        resolved_lat = next(
-            (c for c in lat_candidates if c in paired_data.coords or c in paired_data),
-            None,
+        # Resolve coordinates (with 0..360 -> -180..180 lon normalization).
+        resolved_lat, resolved_lon, lats, lons = resolve_spatial_coords(
+            paired_data, lat_var, lon_var
         )
-        resolved_lon = next(
-            (c for c in lon_candidates if c in paired_data.coords or c in paired_data),
-            None,
-        )
-        if resolved_lat is None or resolved_lon is None:
-            raise ValueError(
-                f"Could not find latitude/longitude coordinates in dataset. "
-                f"Available coords: {list(paired_data.coords)}"
-            )
-        lats = paired_data[resolved_lat].values
-        lons = paired_data[resolved_lon].values
 
-        # Shift 0..360 longitudes to -180..180 for cartopy PlateCarree
-        if lons.ndim == 1 and np.any(lons > 180):
-            lons = np.where(lons > 180, lons - 360, lons)
-            # Re-sort lon axis so pcolormesh gets monotonic coords
+        # Re-sort the lon axis so pcolormesh gets monotonic coords, reordering
+        # the bias field (and x_data) along the lon dim to match. Only needed
+        # when the 0..360 -> -180..180 shift left a 1-D lon grid axis
+        # non-monotonic; gated on lon being a field dim so coords/data stay paired.
+        if (
+            lons.ndim == 1
+            and lons.size > 1
+            and resolved_lon in bias.dims
+            and np.any(np.diff(lons) < 0)
+        ):
             sort_idx = np.argsort(lons)
             lons = lons[sort_idx]
-            # Find lon dimension in bias and reorder data to match
-            lon_dim = resolved_lon
-            if lon_dim in bias.dims:
-                bias = bias.isel({lon_dim: sort_idx})
-                x_data = x_data.isel({lon_dim: sort_idx})
-        elif lons.ndim > 1 and np.any(lons > 180):
-            lons = np.where(lons > 180, lons - 360, lons)
+            bias = bias.isel({resolved_lon: sort_idx})
+            x_data = x_data.isel({resolved_lon: sort_idx})
 
         # Detect data geometry from the *DataArray* dims (not just the numpy
         # arrays), since for point/site datasets lats and lons share a
@@ -172,43 +161,15 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         is_point_data = _geometry == "point"
 
         if is_point_data:
-            # Point/site data: drop singleton dims (e.g. AirNow y=1
-            # residual) and broadcast lat/lon along any remaining non-site
-            # dims (e.g. if time_average wasn't applied).
+            # Point/site data: drop singleton dims (e.g. AirNow y=1 residual) so
+            # the field collapses to the site dim; draw_spatial_field broadcasts
+            # the per-site lat/lon over any remaining dims.
             bias = bias.squeeze(drop=True)
-            site_dim = lat_da.dims[0]
-            if bias.ndim > 1 and site_dim in bias.dims:
-                lats_flat = lat_da.broadcast_like(bias).values.flatten()
-                lons_flat = lon_da.broadcast_like(bias).values.flatten()
-            else:
-                lats_flat = lat_da.values.flatten()
-                lons_flat = lon_da.values.flatten()
-            bias_values = bias.values.flatten()
-        elif lats.ndim == 1 and lons.ndim == 1 and bias.ndim >= 2:
-            # Regular grid: meshgrid to match bias shape (lon, lat) or (lat, lon)
-            lon_grid, lat_grid = np.meshgrid(lons, lats, indexing="ij")
-            # Match bias shape — if dims are (lon, lat), indexing="ij" is correct
-            if lon_grid.shape != bias.shape:
-                lon_grid, lat_grid = np.meshgrid(lons, lats)
-            lats_flat = lat_grid.flatten()
-            lons_flat = lon_grid.flatten()
-            bias_values = bias.values.flatten()
-        elif lats.ndim < bias.ndim:
-            lats_flat = np.broadcast_to(lats, bias.shape).flatten()
-            lons_flat = np.broadcast_to(lons, bias.shape).flatten()
-            bias_values = bias.values.flatten()
-        else:
-            lats_flat = lats.flatten()
-            lons_flat = lons.flatten()
-            bias_values = bias.values.flatten()
 
-        # Remove NaN values
-        mask = np.isfinite(bias_values) & np.isfinite(lats_flat) & np.isfinite(lons_flat)
-        bias_values = bias_values[mask]
-        lats_flat = lats_flat[mask]
-        lons_flat = lons_flat[mask]
-
-        if len(bias_values) == 0:
+        bias_values = bias.values
+        finite = bias_values.flatten()
+        finite = finite[np.isfinite(finite)]
+        if finite.size == 0:
             ax.text(
                 0.5,
                 0.5,
@@ -222,10 +183,10 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
 
         # Calculate color limits
         if symmetric_cbar:
-            vmin, vmax = calculate_symmetric_limits(bias_values)
+            vmin, vmax = calculate_symmetric_limits(finite)
         else:
-            vmin = self.config.vmin if self.config.vmin is not None else np.nanmin(bias_values)
-            vmax = self.config.vmax if self.config.vmax is not None else np.nanmax(bias_values)
+            vmin = self.config.vmin if self.config.vmin is not None else float(np.nanmin(finite))
+            vmax = self.config.vmax if self.config.vmax is not None else float(np.nanmax(finite))
 
         # Override with config if set
         if self.config.vmin is not None:
@@ -252,49 +213,23 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
                 "pcolormesh" if _geometry in ("regular_grid", "curvilinear_grid") else "scatter"
             )
 
-        # Choose plot method based on data geometry
-        if effective_plot_type == "pcolormesh" and lats.ndim == 1 and bias.ndim >= 2:
-            # Regular grid with 1D coords — use pcolormesh
-            bias_2d = bias.values
-            scatter = ax.pcolormesh(
-                lons,
-                lats,
-                bias_2d.T if bias_2d.shape[0] == len(lons) else bias_2d,
-                cmap=cmap,
-                norm=norm,
-                vmin=vmin if norm is None else None,
-                vmax=vmax if norm is None else None,
-                transform=ccrs.PlateCarree(),
-                alpha=style.alpha,
-            )
-        elif effective_plot_type == "pcolormesh" and lats.ndim == 2:
-            # Curvilinear grid — use pcolormesh with 2D coords
-            scatter = ax.pcolormesh(
-                lons,
-                lats,
-                bias.values,
-                cmap=cmap,
-                norm=norm,
-                vmin=vmin if norm is None else None,
-                vmax=vmax if norm is None else None,
-                transform=ccrs.PlateCarree(),
-                alpha=style.alpha,
-            )
-        else:
-            # Point data — use scatter
-            scatter = ax.scatter(  # type: ignore[assignment]
-                lons_flat,
-                lats_flat,
-                c=bias_values,
-                s=ms**2,
-                cmap=cmap,
-                norm=norm,
-                vmin=vmin if norm is None else None,
-                vmax=vmax if norm is None else None,
-                transform=ccrs.PlateCarree(),
-                edgecolors="none",
-                alpha=style.alpha,
-            )
+        # Draw the bias field via the shared primitive. A TwoSlopeNorm (when the
+        # symmetric range straddles zero) is applied to the mappable afterwards,
+        # since draw_spatial_field takes vmin/vmax rather than a norm.
+        scatter = draw_spatial_field(
+            ax,
+            bias_values,
+            lats,
+            lons,
+            plot_type=effective_plot_type,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            marker_size=ms,
+            alpha=style.alpha,
+        )
+        if norm is not None:
+            scatter.set_norm(norm)
 
         # Add colorbar
         units = get_variable_units(paired_data, x_var)
@@ -308,6 +243,17 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         # Add site labels if requested
         if show_site_labels and site_label_var in paired_data.coords:
             site_labels = paired_data[site_label_var].values
+            # Recover flattened, NaN-pruned point coords (site labels are
+            # point-data only, so the per-site lat/lon broadcast over the field).
+            if lats.ndim < bias_values.ndim:
+                lats_flat = np.broadcast_to(lats, bias_values.shape).flatten()
+                lons_flat = np.broadcast_to(lons, bias_values.shape).flatten()
+            else:
+                lats_flat = lats.flatten()
+                lons_flat = lons.flatten()
+            finite_mask = np.isfinite(bias_values.flatten())
+            lats_flat = lats_flat[finite_mask]
+            lons_flat = lons_flat[finite_mask]
             # Get unique site locations (after time averaging, each site has one point)
             unique_lons, unique_idx = np.unique(lons_flat, return_index=True)
             for i, idx in enumerate(unique_idx):
