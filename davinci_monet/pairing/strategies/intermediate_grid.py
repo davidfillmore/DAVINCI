@@ -101,6 +101,20 @@ class IntermediateGridStrategy(BasePairingStrategy):
             Paired dataset on common grid with x, y, and count
             variables.
         """
+        if kwargs.get("horizontal_res") is not None:
+            return self._pair_symmetric(
+                x_data,
+                x_data_var=kwargs.get("x_var"),
+                y_data=y_data,
+                y_data_var=kwargs.get("y_var"),
+                x_source=kwargs.get("x_source"),
+                y_source=kwargs.get("y_source"),
+                horizontal_res=float(kwargs["horizontal_res"]),
+                extent=kwargs.get("extent"),
+                time_resolution=kwargs.get("time_resolution", "1D"),
+                min_sample_count=int(kwargs.get("min_sample_count", 1)),
+            )
+
         grid_mode = kwargs.get("grid_mode", "match_dataset")
         time_resolution = kwargs.get("time_resolution", "1D")
         min_sample_count = kwargs.get("min_sample_count", 1)
@@ -234,6 +248,183 @@ class IntermediateGridStrategy(BasePairingStrategy):
         paired[f"y_{y_var}"] = y_on_grid
 
         return paired
+
+    def _pair_symmetric(
+        self,
+        x_data: xr.Dataset,
+        *,
+        x_data_var: str | None,
+        y_data: xr.Dataset,
+        y_data_var: str | None,
+        x_source: str | None,
+        y_source: str | None,
+        horizontal_res: float,
+        extent: tuple[float, float, float, float] | None,
+        time_resolution: str,
+        min_sample_count: int,
+    ) -> xr.Dataset:
+        """Bin BOTH sources onto a common uniform (time, lon, lat) grid and pair."""
+        x_var = x_data_var or str(list(x_data.data_vars)[0])
+        y_var = y_data_var or str(list(y_data.data_vars)[0])
+        # Phase 1 is 2-D: reduce any vertical dim to the surface for both sources.
+        x_proc = self._reduce_to_surface(x_data)
+        y_proc = self._reduce_to_surface(y_data)
+
+        lon_centers, lat_centers, lon_edges, lat_edges = self._uniform_horizontal_grid(
+            [x_proc, y_proc], horizontal_res, extent
+        )
+        time_centers_epoch, time_edges, time_coords = self._uniform_time_grid(
+            [x_proc, y_proc], time_resolution
+        )
+
+        x_grid, x_count = self._bin_one_source(
+            x_proc,
+            x_var,
+            time_edges,
+            lon_edges,
+            lat_edges,
+            len(time_centers_epoch),
+            len(lon_centers),
+            len(lat_centers),
+            min_sample_count,
+        )
+        y_grid, y_count = self._bin_one_source(
+            y_proc,
+            y_var,
+            time_edges,
+            lon_edges,
+            lat_edges,
+            len(time_centers_epoch),
+            len(lon_centers),
+            len(lat_centers),
+            min_sample_count,
+        )
+
+        paired = xr.Dataset(
+            {
+                f"x_{x_var}": (["time", "lon", "lat"], x_grid.astype(np.float32)),
+                f"y_{y_var}": (["time", "lon", "lat"], y_grid.astype(np.float32)),
+                "x_sample_count": (["time", "lon", "lat"], x_count),
+                "y_sample_count": (["time", "lon", "lat"], y_count),
+            },
+            coords={"time": time_coords, "lon": lon_centers, "lat": lat_centers},
+        )
+        paired[f"x_{x_var}"].attrs.update({"axis": "x", "source_label": x_source or ""})
+        paired[f"y_{y_var}"].attrs.update({"axis": "y", "source_label": y_source or ""})
+        paired.attrs.update({"created_by": "davinci_monet", "paired": True})
+        return paired
+
+    def _reduce_to_surface(self, ds: xr.Dataset) -> xr.Dataset:
+        for dim_name in ("lev", "z", "level"):
+            if dim_name in ds.dims:
+                return self._extract_surface(ds, dim_name)
+        return ds
+
+    def _flatten_to_points(
+        self, ds: xr.Dataset, var: str
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Flatten a source variable to (time_epoch, lon, lat, value) flat arrays.
+
+        Uses ``broadcast_like`` so point/track/swath/grid all reduce uniformly:
+        lat/lon (and time) are broadcast against the data variable's dims, then
+        flattened in the variable's dim order (consistent C-order across arrays).
+        """
+        da = ds[var]
+        lat, lon = self._get_x_coords(ds)
+        order = da.dims
+        data_flat = da.transpose(*order).values.astype(np.float64).flatten()
+        lat_flat = lat.broadcast_like(da).transpose(*order).values.astype(np.float64).flatten()
+        lon_flat = lon.broadcast_like(da).transpose(*order).values.astype(np.float64).flatten()
+        if "time" in ds.coords or "time" in ds.dims:
+            t = ds["time"]
+            tvals = t.values
+            if np.issubdtype(tvals.dtype, np.datetime64):
+                epoch = tvals.astype("datetime64[s]").astype(np.float64)
+            else:
+                epoch = np.asarray(tvals, dtype=np.float64)
+            epoch_da = xr.DataArray(epoch, dims=t.dims)
+            time_flat = (
+                epoch_da.broadcast_like(da).transpose(*order).values.astype(np.float64).flatten()
+            )
+        else:
+            time_flat = np.zeros_like(data_flat)
+        return time_flat, lon_flat, lat_flat, data_flat
+
+    def _bin_one_source(
+        self,
+        ds: xr.Dataset,
+        var: str,
+        time_edges: np.ndarray,
+        lon_edges: np.ndarray,
+        lat_edges: np.ndarray,
+        ntime: int,
+        nlon: int,
+        nlat: int,
+        min_sample_count: int,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        time_flat, lon_flat, lat_flat, data_flat = self._flatten_to_points(ds, var)
+        if lon_edges[0] >= 0 and np.any(lon_flat < 0):
+            lon_flat = np.where(lon_flat < 0, lon_flat + 360.0, lon_flat)
+        count = np.zeros((ntime, nlon, nlat), dtype=np.int32)
+        acc = np.zeros((ntime, nlon, nlat), dtype=np.float64)
+        bin_swath_to_grid(
+            time_edges, lon_edges, lat_edges, time_flat, lon_flat, lat_flat, data_flat, count, acc
+        )
+        normalize_grid(count, acc)
+        if min_sample_count > 1:
+            acc[count < min_sample_count] = np.nan
+        return acc, count
+
+    def _uniform_horizontal_grid(
+        self,
+        datasets: list[xr.Dataset],
+        res: float,
+        extent: tuple[float, float, float, float] | None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        if extent is not None:
+            lon0, lon1, lat0, lat1 = (float(v) for v in extent)
+        else:
+            lons: list[float] = []
+            lats: list[float] = []
+            for ds in datasets:
+                lat, lon = self._get_x_coords(ds)
+                lons.append(float(np.nanmin(lon.values)))
+                lons.append(float(np.nanmax(lon.values)))
+                lats.append(float(np.nanmin(lat.values)))
+                lats.append(float(np.nanmax(lat.values)))
+            lon0, lon1, lat0, lat1 = min(lons), max(lons), min(lats), max(lats)
+        lat_centers = np.arange(lat0 + res / 2, lat1 + res / 2, res, dtype=np.float64)
+        lon_centers = np.arange(lon0 + res / 2, lon1 + res / 2, res, dtype=np.float64)
+        if len(lat_centers) == 0:
+            lat_centers = np.array([(lat0 + lat1) / 2.0])
+        if len(lon_centers) == 0:
+            lon_centers = np.array([(lon0 + lon1) / 2.0])
+        return (
+            lon_centers,
+            lat_centers,
+            edges_from_centers(lon_centers),
+            edges_from_centers(lat_centers),
+        )
+
+    def _uniform_time_grid(
+        self, datasets: list[xr.Dataset], time_resolution: str
+    ) -> tuple[np.ndarray, np.ndarray, pd.DatetimeIndex]:
+        starts: list[pd.Timestamp] = []
+        ends: list[pd.Timestamp] = []
+        for ds in datasets:
+            if "time" in ds.coords or "time" in ds.dims:
+                ti = pd.DatetimeIndex(np.atleast_1d(ds["time"].values).ravel())
+                starts.append(ti.min())
+                ends.append(ti.max())
+        if not starts:
+            t0 = pd.Timestamp("1970-01-01")
+            rng: pd.DatetimeIndex = pd.DatetimeIndex([t0])
+        else:
+            rng = pd.date_range(min(starts), max(ends), freq=time_resolution)
+            if len(rng) < 1:
+                rng = pd.DatetimeIndex([min(starts)])
+        centers = rng.values.astype("datetime64[s]").astype(np.float64)
+        return centers, edges_from_centers(centers), pd.to_datetime(centers, unit="s")
 
     def _build_grid(
         self,
