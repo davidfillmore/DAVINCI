@@ -25,6 +25,7 @@ from davinci_monet.plots.renderers.spatial.base import (
     BaseSpatialPlotter,
     MapConfig,
     detect_spatial_geometry,
+    draw_spatial_field,
 )
 
 if TYPE_CHECKING:
@@ -382,70 +383,18 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         Mappable
             The plot mappable for colorbar.
         """
-        import cartopy.crs as ccrs
-
-        data_flat = data.flatten()
-        if plot_type != "scatter" and lats.ndim == 1 and lons.ndim == 1 and data.ndim >= 2:
-            # Regular grid: lat/lon are independent axes — build a meshgrid so
-            # each grid cell gets the correct coordinate.  Only do this for
-            # pcolormesh; for scatter (point/site data) lat/lon are already
-            # per-dataset and must be broadcast, not meshgridded.
-            lon_grid, lat_grid = np.meshgrid(lons, lats, indexing="ij")
-            if lon_grid.shape != data.shape:
-                lon_grid, lat_grid = np.meshgrid(lons, lats)
-            lats_flat = lat_grid.flatten()
-            lons_flat = lon_grid.flatten()
-        elif lats.ndim < data.ndim:
-            lats_flat = np.broadcast_to(lats, data.shape).flatten()
-            lons_flat = np.broadcast_to(lons, data.shape).flatten()
-        else:
-            lats_flat = lats.flatten()
-            lons_flat = lons.flatten()
-
-        # Remove NaN values
-        mask = np.isfinite(data_flat)
-        data_flat = data_flat[mask]
-        lats_flat = lats_flat[mask]
-        lons_flat = lons_flat[mask]
-
-        if plot_type == "pcolormesh" and lats.ndim == 2:
-            # Curvilinear grid - use pcolormesh with 2D coords
-            return ax.pcolormesh(
-                lons,
-                lats,
-                data,
-                cmap=cmap,
-                vmin=vmin,
-                vmax=vmax,
-                transform=ccrs.PlateCarree(),
-                alpha=alpha,
-            )
-        elif plot_type == "pcolormesh" and lats.ndim == 1 and data.ndim >= 2:
-            # Regular grid with 1D coords - pcolormesh handles natively
-            return ax.pcolormesh(
-                lons,
-                lats,
-                data.T if data.shape[0] == len(lons) else data,
-                cmap=cmap,
-                vmin=vmin,
-                vmax=vmax,
-                transform=ccrs.PlateCarree(),
-                alpha=alpha,
-            )
-        else:
-            # Point data - use scatter
-            return ax.scatter(
-                lons_flat,
-                lats_flat,
-                c=data_flat,
-                s=marker_size**2,
-                cmap=cmap,
-                vmin=vmin,
-                vmax=vmax,
-                transform=ccrs.PlateCarree(),
-                alpha=alpha,
-                edgecolors="none",
-            )
+        return draw_spatial_field(
+            ax,
+            data,
+            lats,
+            lons,
+            plot_type=plot_type,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            marker_size=marker_size,
+            alpha=alpha,
+        )
 
 
 def plot_spatial_distribution(

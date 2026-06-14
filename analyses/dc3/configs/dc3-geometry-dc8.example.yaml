@@ -39,6 +39,14 @@ plots:
     variable: "O3"
     title: "DC-8 Flight Tracks: O3 (ppbv)"
 
+  # General single-source spatial map (shape-aware): a track renders as a
+  # 2-D colored trajectory; a gridded/swath source would render as pcolormesh.
+  dc8_map_o3:
+    type: spatial
+    source: dc8
+    variable: "O3"
+    title: "DC-8 O3 (map)"
+
   dc8_track_no:
     type: flight_track
     source: dc8

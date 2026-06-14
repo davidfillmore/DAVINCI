@@ -104,6 +104,95 @@ def surface_level_index(field_da: xr.DataArray, level_dim: str) -> int:
     return 0
 
 
+def draw_spatial_field(
+    ax: matplotlib.axes.Axes,
+    values: np.ndarray,
+    lats: np.ndarray,
+    lons: np.ndarray,
+    *,
+    plot_type: str,
+    cmap: str,
+    vmin: float,
+    vmax: float,
+    marker_size: float,
+    alpha: float,
+) -> Any:
+    """Draw a single spatial field on a GeoAxes as scatter or pcolormesh.
+
+    The shared field-drawing primitive used by both the single-source
+    :class:`~davinci_monet.plots.renderers.spatial.field.SpatialPlotter` and
+    :class:`~davinci_monet.plots.renderers.spatial.distribution.SpatialDistributionPlotter`.
+
+    ``plot_type`` is ``"scatter"`` for point/site/track data (lat/lon are
+    per-datum and broadcast, not meshgridded) or ``"pcolormesh"`` for gridded
+    data (1-D independent lat/lon axes with a 2-D+ field, or 2-D curvilinear
+    coordinates). Returns the matplotlib mappable for a colorbar.
+    """
+    import cartopy.crs as ccrs
+
+    data = np.asarray(values)
+    data_flat = data.flatten()
+    if plot_type != "scatter" and lats.ndim == 1 and lons.ndim == 1 and data.ndim >= 2:
+        # Regular grid: lat/lon are independent axes — build a meshgrid so each
+        # grid cell gets the correct coordinate. Only for pcolormesh; scatter
+        # (point/site/track) lat/lon are already per-datum and must be broadcast.
+        lon_grid, lat_grid = np.meshgrid(lons, lats, indexing="ij")
+        if lon_grid.shape != data.shape:
+            lon_grid, lat_grid = np.meshgrid(lons, lats)
+        lats_flat = lat_grid.flatten()
+        lons_flat = lon_grid.flatten()
+    elif lats.ndim < data.ndim:
+        lats_flat = np.broadcast_to(lats, data.shape).flatten()
+        lons_flat = np.broadcast_to(lons, data.shape).flatten()
+    else:
+        lats_flat = lats.flatten()
+        lons_flat = lons.flatten()
+
+    # Remove NaN values (scatter path)
+    mask = np.isfinite(data_flat)
+    data_flat = data_flat[mask]
+    lats_flat = lats_flat[mask]
+    lons_flat = lons_flat[mask]
+
+    if plot_type == "pcolormesh" and lats.ndim == 2:
+        # Curvilinear grid (e.g. swath) — pcolormesh with 2-D coords
+        return ax.pcolormesh(
+            lons,
+            lats,
+            data,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            transform=ccrs.PlateCarree(),
+            alpha=alpha,
+        )
+    if plot_type == "pcolormesh" and lats.ndim == 1 and data.ndim >= 2:
+        # Regular grid with 1-D coords — pcolormesh handles natively
+        return ax.pcolormesh(
+            lons,
+            lats,
+            data.T if data.shape[0] == len(lons) else data,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            transform=ccrs.PlateCarree(),
+            alpha=alpha,
+        )
+    # Point/track/site data — scatter
+    return ax.scatter(
+        lons_flat,
+        lats_flat,
+        c=data_flat,
+        s=marker_size**2,
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        transform=ccrs.PlateCarree(),
+        alpha=alpha,
+        edgecolors="none",
+    )
+
+
 @dataclass
 class MapConfig:
     """Configuration for map display.

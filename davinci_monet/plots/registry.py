@@ -150,7 +150,7 @@ TEMPORAL_PLOTS = frozenset(
     {"timeseries", "diurnal", "per_site_timeseries", "site_timeseries", "flight_timeseries"}
 )
 STATISTICAL_PLOTS = frozenset({"taylor", "boxplot", "scatter", "histogram"})
-SPATIAL_PLOTS = frozenset({"spatial_bias", "spatial_overlay", "spatial_distribution"})
+SPATIAL_PLOTS = frozenset({"spatial", "spatial_bias", "spatial_overlay", "spatial_distribution"})
 SPECIALIZED_PLOTS = frozenset(
     {"curtain", "scorecard", "vertical_profile", "flight_track", "lma_density", "track_map_3d"}
 )

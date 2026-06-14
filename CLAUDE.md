@@ -346,6 +346,34 @@ but those are not the public paired dataset convention.
 
 Either way it is **prefix** format, NOT suffix (`pm25_cam`, `pm25_source`).
 
+### Plot Arity & Single-Source Spatial Plots
+
+Plots differ by how many sources they take:
+- **Time series** overlays **N** source series on a shared value axis.
+- **Scatter** and **spatial bias** are intrinsically **pairwise** (x vs y; bias = `y − x`).
+- **Single-source** plots take **one** source via a `source:` + `variable:` plot spec
+  (no `data:`/`pairs:`). The pipeline's single-source path renders these.
+
+`type: spatial` is the **general single-source spatial map** (`plots/renderers/spatial/field.py`,
+`SpatialPlotter`). It takes one source and chooses the mark from the source's **shape**
+(the `geometry` attr `point`/`track`/`profile`/`swath`/`grid`, with coordinate-based fallback):
+point/track/profile → **scatter**, grid/swath → **pcolormesh**. 3-D fields slice the **surface**
+via `surface_level_index` (CESM convention); point/grid/swath time-average by default (track/profile
+keep time as the sampling path). The shared scatter/pcolormesh primitive is `draw_spatial_field()`
+in `plots/renderers/spatial/base.py` (used by both `spatial` and `spatial_distribution`).
+
+```yaml
+plots:
+  cam_o3_map:
+    type: spatial
+    source: cam        # one source — NOT a pair
+    variable: O3
+```
+
+When adding/altering spatial render logic, **verify the render mark programmatically**
+(QuadMesh for grid/swath, PathCollection for point/track) — not by eye. See
+`tests/test_spatial_single_source.py`.
+
 ## Key Design Patterns
 
 1. **Plugin Registry**: Components register via decorators
