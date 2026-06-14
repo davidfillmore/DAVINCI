@@ -40,3 +40,37 @@ def test_auto_with_grid_block_is_rejected():
             method="auto",
             grid={"horizontal_res": 0.5},  # type: ignore[arg-type]
         )
+
+
+def test_grid_vertical_block_parses():
+    from davinci_monet.config.schema import SourcePairConfig
+
+    p = SourcePairConfig(
+        x={"source": "a", "variable": "v"},  # type: ignore[arg-type]
+        y={"source": "b", "variable": "V"},  # type: ignore[arg-type]
+        method="grid",
+        grid={"horizontal_res": 0.5, "vertical": {"res": 500, "units": "m", "extent": [0, 12000]}},  # type: ignore[arg-type]
+    )
+    assert p.grid is not None and p.grid.vertical is not None
+    assert p.grid.vertical.res == 500.0 and p.grid.vertical.units == "m"
+    assert p.grid.vertical.extent == (0.0, 12000.0)
+
+
+def test_grid_vertical_defaults_units_m_and_optional():
+    from davinci_monet.config.schema import SourcePairConfig
+
+    p = SourcePairConfig(
+        x={"source": "a", "variable": "v"},  # type: ignore[arg-type]
+        y={"source": "b", "variable": "V"},  # type: ignore[arg-type]
+        method="grid",
+        grid={"horizontal_res": 0.5},  # type: ignore[arg-type]
+    )
+    assert p.grid is not None and p.grid.vertical is None  # 2-D when omitted
+    p2 = SourcePairConfig(
+        x={"source": "a", "variable": "v"},  # type: ignore[arg-type]
+        y={"source": "b", "variable": "V"},  # type: ignore[arg-type]
+        method="grid",
+        grid={"horizontal_res": 0.5, "vertical": {"res": 1.0}},  # type: ignore[arg-type]
+    )
+    assert p2.grid is not None and p2.grid.vertical is not None
+    assert p2.grid.vertical.units == "m"

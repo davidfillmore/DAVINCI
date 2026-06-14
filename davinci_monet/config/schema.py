@@ -310,6 +310,14 @@ class AxisRef(FlexibleSchema):
     variable: str
 
 
+class VerticalGridConfig(FlexibleSchema):
+    """Vertical (altitude) settings for a 3-D intermediate grid (Phase 2)."""
+
+    res: float
+    units: str = "m"
+    extent: tuple[float, float] | None = None
+
+
 class GridConfig(FlexibleSchema):
     """Intermediate-grid settings for a pair using ``method: grid`` (2-D, Phase 1)."""
 
@@ -317,6 +325,12 @@ class GridConfig(FlexibleSchema):
     extent: tuple[float, float, float, float] | None = None
     time_resolution: str = "1D"
     min_sample_count: int = 1
+    vertical: VerticalGridConfig | None = None
+
+    @field_validator("vertical", mode="before")
+    @classmethod
+    def _parse_vertical(cls, v: Any) -> Any:
+        return VerticalGridConfig(**v) if isinstance(v, dict) else v
 
 
 class SourcePairConfig(FlexibleSchema):
