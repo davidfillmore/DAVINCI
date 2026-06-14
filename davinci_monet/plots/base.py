@@ -63,7 +63,38 @@ from davinci_monet.plots.series import (
 if TYPE_CHECKING:
     import matplotlib.axes
     import matplotlib.figure
+    import numpy as np
     import xarray as xr
+
+
+# =============================================================================
+# Paired-series helpers (shared by statistical renderers)
+# =============================================================================
+
+
+def extract_xy_series(series: list[PlotSeries], who: str = "render") -> tuple[xr.Dataset, str, str]:
+    """From a 2-element series list, return (paired_dataset, x_var, y_var) selecting
+    by the 'x'/'y' axis attr (falling back to positional order).
+
+    ``who`` is the caller's identifier (e.g. ``"ScatterPlotter.render"``) and is
+    embedded in the error message raised when the series count is not 2, so the
+    message matches each renderer's prior inline guard.
+    """
+    if len(series) != 2:
+        raise NotImplementedError(f"{who} requires exactly 2 series; got {len(series)}.")
+    x_series = next((s for s in series if s.axis == "x"), series[0])
+    y_series = next((s for s in series if s.axis == "y"), series[1])
+    return x_series.dataset, x_series.var_name, y_series.var_name
+
+
+def clean_xy(x: Any, y: Any) -> tuple[np.ndarray, np.ndarray]:
+    """Flatten and drop non-finite pairs; return (x_clean, y_clean)."""
+    import numpy as np
+
+    x = np.asarray(x).flatten()
+    y = np.asarray(y).flatten()
+    mask = np.isfinite(x) & np.isfinite(y)
+    return x[mask], y[mask]
 
 
 # =============================================================================
@@ -431,6 +462,9 @@ __all__ = [
     "PlotConfig",
     # Base ABC
     "BasePlotter",
+    # Paired-series helpers
+    "extract_xy_series",
+    "clean_xy",
     # Label/formatting utilities
     "VARIABLE_DISPLAY_NAMES",
     "TITLE_FORMULA_REPLACEMENTS",
