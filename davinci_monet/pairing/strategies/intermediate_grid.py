@@ -393,18 +393,23 @@ class IntermediateGridStrategy(BasePairingStrategy):
                 lats.append(float(np.nanmin(lat.values)))
                 lats.append(float(np.nanmax(lat.values)))
             lon0, lon1, lat0, lat1 = min(lons), max(lons), min(lats), max(lats)
-        lat_centers = np.arange(lat0 + res / 2, lat1 + res / 2, res, dtype=np.float64)
-        lon_centers = np.arange(lon0 + res / 2, lon1 + res / 2, res, dtype=np.float64)
-        if len(lat_centers) == 0:
-            lat_centers = np.array([(lat0 + lat1) / 2.0])
-        if len(lon_centers) == 0:
-            lon_centers = np.array([(lon0 + lon1) / 2.0])
-        return (
-            lon_centers,
-            lat_centers,
-            edges_from_centers(lon_centers),
-            edges_from_centers(lat_centers),
-        )
+        # Build edges directly from the span so the grid always COVERS the data
+        # extent with full ``res``-width cells — even when the span is smaller
+        # than ``res`` (a single cell still spans a full ``res`` and contains the
+        # data). Deriving centers then edges (the old path) could collapse a
+        # small span to one center whose ``edges_from_centers`` window was too
+        # narrow, silently dropping edge points.
+        lon_edges = self._span_edges(lon0, lon1, res)
+        lat_edges = self._span_edges(lat0, lat1, res)
+        lon_centers = (lon_edges[:-1] + lon_edges[1:]) / 2.0
+        lat_centers = (lat_edges[:-1] + lat_edges[1:]) / 2.0
+        return lon_centers, lat_centers, lon_edges, lat_edges
+
+    @staticmethod
+    def _span_edges(lo: float, hi: float, res: float) -> np.ndarray:
+        """Uniform bin edges of width ``res`` covering ``[lo, hi]`` (always ≥1 cell)."""
+        n = max(1, int(np.ceil((hi - lo) / res - 1e-9)))
+        return lo + res * np.arange(n + 1, dtype=np.float64)
 
     def _uniform_time_grid(
         self, datasets: list[xr.Dataset], time_resolution: str

@@ -54,6 +54,29 @@ def test_symmetric_bins_both_point_sources_cell_means():
     assert paired["y_AOD"].attrs["axis"] == "y" and paired["y_AOD"].attrs["source_label"] == "mod"
 
 
+def test_small_span_auto_extent_keeps_all_points():
+    # Regression: data span (~0.9 deg) smaller than horizontal_res (2.0) with the
+    # default (auto) extent must NOT silently drop edge points — the grid must
+    # still span the full data extent.
+    x = _point_ds(
+        [30.0, 30.3, 30.6, 30.9], [-110.0, -110.3, -110.6, -110.9], [1.0, 1.0, 1.0, 1.0], "aod"
+    )
+    y = _point_ds([30.4, 30.5], [-110.4, -110.5], [2.0, 2.0], "AOD")
+    paired = IntermediateGridStrategy().pair_sources(
+        x_data=x,
+        y_data=y,
+        x_var="aod",
+        y_var="AOD",
+        x_source="obs",
+        y_source="mod",
+        horizontal_res=2.0,
+        time_resolution="1D",
+        min_sample_count=1,
+    )
+    assert int(paired["x_sample_count"].sum().item()) == 4  # all 4 x points retained
+    assert int(paired["y_sample_count"].sum().item()) == 2  # all 2 y points retained
+
+
 def test_min_sample_count_masks_sparse_cells():
     x = _point_ds([10.2, 10.7], [20.2, 20.6], [1.0, 3.0], "aod")  # 2 in one cell
     y = _point_ds([10.4], [20.4], [2.0], "AOD")  # 1 in that cell
