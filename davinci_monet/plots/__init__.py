@@ -8,11 +8,11 @@ Quick Start
 >>> from davinci_monet.plots import get_plotter, plot_timeseries
 >>>
 >>> # Using convenience function
->>> fig = plot_timeseries(paired_data, "geometry_o3", "dataset_o3")
+>>> fig = plot_timeseries(paired_data, "x_o3", "y_o3")
 >>>
 >>> # Using plotter instance
 >>> plotter = get_plotter("scatter")
->>> fig = plotter.plot(paired_data, "geometry_o3", "dataset_o3")
+>>> fig = plotter.plot(paired_data, "x_o3", "y_o3")
 
 Available Plot Types
 --------------------

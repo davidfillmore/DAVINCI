@@ -19,11 +19,11 @@ from davinci_monet.plots.style import (
 
 
 class TestGetColorForVariable:
-    def test_geometry_variable_is_geometry_color(self) -> None:
-        assert get_color_for_variable("geometry_o3") == DATASET_A_COLOR
+    def test_x_variable_is_x_color(self) -> None:
+        assert get_color_for_variable("x_o3") == DATASET_A_COLOR
 
-    def test_dataset_variable_is_dataset_color(self) -> None:
-        assert get_color_for_variable("dataset_o3") == DATASET_B_COLOR
+    def test_y_variable_is_y_color(self) -> None:
+        assert get_color_for_variable("y_o3") == DATASET_B_COLOR
 
     def test_bias_variable_is_bias_color(self) -> None:
         assert get_color_for_variable("bias_o3") == NCAR_COLORS["red"]

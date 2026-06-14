@@ -75,8 +75,8 @@ class TrackMap3DPlotter(BasePlotter):
     >>> plotter = TrackMap3DPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     x_var="geometry_O3",
-    ...     y_var="dataset_O3",
+    ...     x_var="x_O3",
+    ...     y_var="y_O3",
     ...     show_var="bias",
     ... )
     """

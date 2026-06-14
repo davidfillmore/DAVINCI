@@ -750,7 +750,7 @@ class TestTrackStrategy:
         track_alts = np.array([0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000])
 
         track = xr.Dataset(
-            {"geometry_o3": ("time", np.full(10, 50.0))},
+            {"x_o3": ("time", np.full(10, 50.0))},
             coords={
                 "time": track_times,
                 "latitude": ("time", track_lats),

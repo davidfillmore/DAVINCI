@@ -50,8 +50,8 @@ class TimeSeriesPlotter(BasePlotter):
     >>> plotter = TimeSeriesPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     x_var="geometry_o3",
-    ...     y_var="dataset_o3",
+    ...     x_var="x_o3",
+    ...     y_var="y_o3",
     ...     resample="1h",
     ... )
     """
@@ -494,40 +494,40 @@ class TimeSeriesPlotter(BasePlotter):
 
         # Plot each site
         for i in range(n_sites):
-            site_geometry = x_data.isel({site_dim: i})
-            site_dataset = y_data.isel({site_dim: i})
+            site_x = x_data.isel({site_dim: i})
+            site_y = y_data.isel({site_dim: i})
 
             # Skip if all NaN
-            if site_geometry.isnull().all() and site_dataset.isnull().all():
+            if site_x.isnull().all() and site_y.isnull().all():
                 continue
 
             color = colors[i % len(colors)]
             label = str(site_labels[i]) if i < len(site_labels) else f"Site {i}"
 
-            # Plot datasets as solid lines
+            # Plot x series as solid lines
             ax.plot(
                 time_values,
-                site_geometry.values,
+                site_x.values,
                 color=color,
                 linestyle="-",
                 marker="o",
                 markersize=4,
                 linewidth=1,
                 alpha=0.7,
-                label=f"{label} (geometry)",
+                label=f"{label} (x)",
             )
 
-            # Plot dataset as dashed lines
+            # Plot y series as dashed lines
             ax.plot(
                 time_values,
-                site_dataset.values,
+                site_y.values,
                 color=color,
                 linestyle="--",
                 marker="s",
                 markersize=4,
                 linewidth=1,
                 alpha=0.7,
-                label=f"{label} (dataset)",
+                label=f"{label} (y)",
             )
 
         # Formatting

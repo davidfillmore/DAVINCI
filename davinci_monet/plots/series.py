@@ -35,8 +35,8 @@ def build_series(dataset: xr.Dataset, *var_args: Any) -> list[PlotSeries]:
 
     A trailing positional ``matplotlib`` Axes (``plot(ds, var, ax)``) is
     ignored for series building. ``axis``/``source_label``/``canonical``
-    are read from the dataset's attrs, with the ``geometry_``/``dataset_``
-    prefix fallback.
+    are read from the dataset's attrs, with the ``x_``/``y_`` prefix
+    fallback.
     """
     import matplotlib.axes
 
@@ -160,7 +160,7 @@ def resolve_source_variable(
     Supports the unified source-label naming (``<source_label>_<canonical>``,
     e.g. ``cam_o3``) while falling back to the bare canonical name. Returns the
     matching variable name present in the dataset, or ``None`` if neither is
-    found. Does not alter the existing ``dataset_``/``geometry_`` prefix handling.
+    found. Does not alter the existing ``x_``/``y_`` prefix handling.
 
     Parameters
     ----------

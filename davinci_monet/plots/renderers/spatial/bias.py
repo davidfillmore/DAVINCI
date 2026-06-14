@@ -55,8 +55,8 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
     >>> plotter = SpatialBiasPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     x_var="geometry_o3",
-    ...     y_var="dataset_o3",
+    ...     x_var="x_o3",
+    ...     y_var="y_o3",
     ... )
     """
 

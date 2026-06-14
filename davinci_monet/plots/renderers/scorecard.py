@@ -90,11 +90,11 @@ class ScorecardPlotter(BasePlotter):
         x = paired_data[x_var].values.flatten()
         y = paired_data[y_var].values.flatten()
 
-        registry_stats = annotation_metrics(x, y, ["N", "MG", "MD", "MB", "RMSE", "R"])
+        registry_stats = annotation_metrics(x, y, ["N", "MX", "MY", "MB", "RMSE", "R"])
         stats = {
             "N": int(registry_stats["N"]),
-            "Mean Geometry": registry_stats["MG"],
-            "Mean Dataset": registry_stats["MD"],
+            "Mean X": registry_stats["MX"],
+            "Mean Y": registry_stats["MY"],
             "MB": registry_stats["MB"],
             "RMSE": registry_stats["RMSE"],
             "R": registry_stats["R"],

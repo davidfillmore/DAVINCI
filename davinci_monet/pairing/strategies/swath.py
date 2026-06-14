@@ -1,7 +1,7 @@
 """Swath-to-grid pairing strategy.
 
-This module implements pairing for satellite swath datasets (L2 products)
-with gridded dataset output via per-pixel nearest-neighbor matching.
+This module implements pairing for satellite swath x sources (L2 products)
+with a gridded y source via per-pixel nearest-neighbor matching.
 
 Note
 ----
@@ -34,15 +34,15 @@ _logger = logging.getLogger(__name__)
 
 
 class SwathStrategy(BasePairingStrategy):
-    """Pairing strategy for satellite swath datasets.
+    """Pairing strategy for satellite swath sources.
 
-    Matches satellite swath datasets (L2 products) to dataset
+    Matches satellite swath x sources (L2 products) to a y
     grid, optionally applying averaging kernels.
 
     The strategy:
-    1. For each swath pixel, finds nearest dataset grid cell
-    2. Optionally matches dataset to satellite overpass time
-    3. Optionally applies averaging kernels to dataset profiles
+    1. For each swath pixel, finds nearest y grid cell
+    2. Optionally matches the y source to satellite overpass time
+    3. Optionally applies averaging kernels to y profiles
     4. Creates paired dataset with collocated values
 
     .. note::
@@ -74,14 +74,14 @@ class SwathStrategy(BasePairingStrategy):
         horizontal_method: str = "nearest",
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Pair swath datasets with dataset grid.
+        """Pair swath data with the y grid.
 
         Parameters
         ----------
-        dataset
-            Dataset Dataset with dims (time, [z], lat, lon).
-        geometry
-            Dataset Dataset with dims (time, scanline, pixel) or similar.
+        x_data
+            The x source. Dataset with dims (time, scanline, pixel) or similar.
+        y_data
+            The y source. Dataset with dims (time, [z], lat, lon).
         radius_of_influence
             Maximum distance in meters for matching.
         time_tolerance
@@ -94,29 +94,26 @@ class SwathStrategy(BasePairingStrategy):
             Additional options:
             - apply_averaging_kernel: bool, whether to apply AK
             - ak_var: str, name of averaging kernel variable
-            - match_overpass: bool, whether to match dataset to overpass time
+            - match_overpass: bool, whether to match the y source to overpass time
 
         Returns
         -------
         xr.Dataset
             Paired dataset with y values at swath pixels.
         """
-        dataset = y_data
-        geometry = x_data
-
         apply_ak = kwargs.get("apply_averaging_kernel", False)
         match_overpass = kwargs.get("match_overpass", False)
 
         # Get coordinates
-        y_lat, y_lon = self._get_dataset_coords(dataset)
-        x_lat, x_lon = self._get_geometry_coords(geometry)
+        y_lat, y_lon = self._get_y_coords(y_data)
+        x_lat, x_lon = self._get_x_coords(x_data)
 
         # Flatten swath coordinates for processing
         x_lat_flat = x_lat.values.flatten()
         x_lon_flat = x_lon.values.flatten()
         n_pixels = len(x_lat_flat)
 
-        # Find nearest dataset grid for each pixel
+        # Find nearest y grid for each pixel
         lat_idx, lon_idx = self._find_nearest_indices(
             y_lat,
             y_lon,
@@ -125,11 +122,11 @@ class SwathStrategy(BasePairingStrategy):
             radius_of_influence=radius_of_influence,
         )
 
-        # Mask geometry values at pixels outside radius_of_influence so the paired
-        # output has geometry and dataset NaN at the same locations. Swath data is
+        # Mask x values at pixels outside radius_of_influence so the paired
+        # output has x and y NaN at the same locations. Swath data is
         # inherently 2D (scanline x pixel), so we mask rather than drop —
         # preserving the swath geometry for downstream spatial plotting.
-        # Without this, _extract_at_pixels NaNs the dataset side but the geometry
+        # Without this, _extract_at_pixels NaNs the y side but the x
         # side retains valid values, polluting cross-pixel aggregates.
         valid_flat = (lat_idx.values >= 0) & (lon_idx.values >= 0)
         if not valid_flat.all():
@@ -144,91 +141,91 @@ class SwathStrategy(BasePairingStrategy):
                 int(valid_flat.sum()),
                 len(valid_flat),
             )
-            masked = geometry.copy()
-            for var in geometry.data_vars:
-                if all(d in geometry[var].dims for d in spatial_dims):
-                    masked[var] = geometry[var].where(valid_da)
-            geometry = masked
+            masked = x_data.copy()
+            for var in x_data.data_vars:
+                if all(d in x_data[var].dims for d in spatial_dims):
+                    masked[var] = x_data[var].where(valid_da)
+            x_data = masked
 
         # Handle time matching
-        if match_overpass and "time" in geometry.coords:
-            # Get overpass times and match dataset
-            y_matched = self._match_to_overpass(dataset, geometry)
+        if match_overpass and "time" in x_data.coords:
+            # Get overpass times and match the y source
+            y_matched = self._match_to_overpass(y_data, x_data)
         else:
-            y_matched = dataset
+            y_matched = y_data
 
-        # Extract dataset values at pixel locations
+        # Extract y values at pixel locations
         y_at_pixels = self._extract_at_pixels(
             y_matched,
             y_lat,
             y_lon,
             lat_idx.values,
             lon_idx.values,
-            geometry.shape if hasattr(geometry, "shape") else x_lat.shape,
+            x_data.shape if hasattr(x_data, "shape") else x_lat.shape,
         )
 
         # Apply averaging kernel if requested
         if apply_ak:
             ak_var = kwargs.get("ak_var", "averaging_kernel")
-            if ak_var in geometry:
-                y_at_pixels = self._apply_averaging_kernel(y_at_pixels, geometry, ak_var)
+            if ak_var in x_data:
+                y_at_pixels = self._apply_averaging_kernel(y_at_pixels, x_data, ak_var)
 
         # Create paired output
-        paired = self._create_paired_output(geometry, y_at_pixels)
+        paired = self._create_paired_output(x_data, y_at_pixels)
 
         return paired
 
     def _match_to_overpass(
         self,
-        dataset: xr.Dataset,
-        geometry: xr.Dataset,
+        y_data: xr.Dataset,
+        x_data: xr.Dataset,
     ) -> xr.Dataset:
-        """Match dataset to satellite overpass times.
+        """Match the y source to satellite overpass times.
 
         Parameters
         ----------
-        dataset
-            Dataset dataset.
-        geometry
-            Dataset dataset with time info.
+        y_data
+            The y source.
+        x_data
+            The x source with time info.
 
         Returns
         -------
         xr.Dataset
-            Dataset data at overpass times.
+            The y data at overpass times.
         """
-        if "time" not in dataset.dims:
-            return dataset
+        if "time" not in y_data.dims:
+            return y_data
 
-        # Get dataset times
-        if "time" in geometry.coords:
-            x_times = geometry["time"]
+        # Get x times
+        if "time" in x_data.coords:
+            x_times = x_data["time"]
             if x_times.ndim > 0:
                 # Use median time as representative overpass
                 x_time = x_times.values.flat[len(x_times.values.flat) // 2]
             else:
                 x_time = x_times.values
-            return dataset.sel(time=x_time, method="nearest")
+            return y_data.sel(time=x_time, method="nearest")
 
-        return dataset
+        return y_data
 
     def _extract_at_pixels(
         self,
-        dataset: xr.Dataset,
+        y_data: xr.Dataset,
         y_lat: xr.DataArray,
         y_lon: xr.DataArray,
         lat_idx: np.ndarray[Any, np.dtype[Any]],
         lon_idx: np.ndarray[Any, np.dtype[Any]],
         output_shape: tuple[int, ...],
     ) -> xr.Dataset:
-        """Extract dataset values at pixel locations.
+        """Extract y values at pixel locations.
 
         Parameters
         ----------
-        dataset
-            Dataset dataset.
-        dataset_lat, dataset_lon
-            Dataset coordinate arrays.
+        y_data
+            The y source.
+        y_lat, y_lon
+            The y coordinate arrays.
         lat_idx, lon_idx
             Flat arrays of nearest grid indices.
         output_shape
@@ -237,7 +234,7 @@ class SwathStrategy(BasePairingStrategy):
         Returns
         -------
         xr.Dataset
-            Dataset values at pixel locations.
+            The y values at pixel locations.
         """
         n_pixels = len(lat_idx)
 
@@ -252,8 +249,8 @@ class SwathStrategy(BasePairingStrategy):
         # Build output for each variable
         data_vars: dict[str, tuple[tuple[str, ...], np.ndarray[Any, np.dtype[Any]]]] = {}
 
-        for var in dataset.data_vars:
-            var_data = dataset[var]
+        for var in y_data.data_vars:
+            var_data = y_data[var]
 
             # Determine which dims to keep (excluding lat/lon)
             keep_dims = [d for d in var_data.dims if d not in (lat_dim, lon_dim)]
@@ -295,43 +292,43 @@ class SwathStrategy(BasePairingStrategy):
     def _apply_averaging_kernel(
         self,
         y_data: xr.Dataset,
-        geometry: xr.Dataset,
+        x_data: xr.Dataset,
         ak_var: str,
     ) -> xr.Dataset:
-        """Apply satellite averaging kernel to dataset data.
+        """Apply satellite averaging kernel to the y data.
 
         Parameters
         ----------
         y_data
-            Dataset data at pixel locations.
-        geometry
-            Dataset dataset containing averaging kernel.
+            The y data at pixel locations.
+        x_data
+            The x source containing averaging kernel.
         ak_var
             Name of averaging kernel variable.
 
         Returns
         -------
         xr.Dataset
-            Dataset data with averaging kernel applied.
+            The y data with averaging kernel applied.
         """
         # This is a placeholder - full AK application requires
         # knowledge of the specific satellite product
-        # For now, just return dataset data unchanged
+        # For now, just return the y data unchanged
         return y_data
 
     def _create_paired_output(
         self,
-        geometry: xr.Dataset,
+        x_data: xr.Dataset,
         y_at_pixels: xr.Dataset,
     ) -> xr.Dataset:
         """Create the final paired output dataset.
 
         Parameters
         ----------
-        geometry
-            Dataset dataset.
-        dataset_at_pixels
-            Dataset values at pixel locations.
+        x_data
+            The x source.
+        y_at_pixels
+            The y values at pixel locations.
 
         Returns
         -------
@@ -339,16 +336,16 @@ class SwathStrategy(BasePairingStrategy):
             Combined dataset.
         """
         # Combine coordinates
-        coords = dict(geometry.coords)
+        coords = dict(x_data.coords)
 
         # Combine data variables
         data_vars: dict[str, Any] = {}
 
-        # Add dataset variables
-        for var in geometry.data_vars:
-            data_vars[str(var)] = geometry[var]
+        # Add x variables
+        for var in x_data.data_vars:
+            data_vars[str(var)] = x_data[var]
 
-        # Add dataset variables with prefix
+        # Add y variables with prefix
         for var in y_at_pixels.data_vars:
             y_var_name = f"y_{var}"
             data_vars[y_var_name] = y_at_pixels[var]

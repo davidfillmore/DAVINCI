@@ -83,7 +83,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
     --------
     >>> plotter = PerSiteTimeSeriesPlotter()
     >>> for site_id, fig in plotter.plot_per_site(
-    ...     paired_data, "geometry_o3", "dataset_o3"
+    ...     paired_data, "x_o3", "y_o3"
     ... ):
     ...     fig.savefig(f"site_{site_id}.png")
     ...     plt.close(fig)

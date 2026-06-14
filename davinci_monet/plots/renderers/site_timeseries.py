@@ -51,8 +51,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
     >>> plotter = SiteTimeSeriesPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     x_var="geometry_no2_column",
-    ...     y_var="dataset_no2_column",
+    ...     x_var="x_no2_column",
+    ...     y_var="y_no2_column",
     ...     ncols=3,
     ... )
     """

@@ -1,12 +1,12 @@
 """Pair-direction resolution for data-source pairing.
 
-A binary pair has a *geometry* (whose geometry the dataset is sampled onto)
-and a *dataset*. The default direction follows a geometry precedence rule:
-irregular geometries (POINT/TRACK/PROFILE/SWATH) outrank GRID as the geometry,
-so a GRID source is sampled onto them. When both sources share the same precedence tier (e.g. GRID vs GRID,
-or two different irregular geometries) and no explicit geometry is given, the
-first-listed source is used as the geometry and a :class:`PairDirectionWarning`
-is emitted.
+A binary pair has an *x* source (whose geometry the *y* source is sampled onto)
+and a *y* source. The default direction follows a geometry precedence rule:
+irregular geometries (POINT/TRACK/PROFILE/SWATH) outrank GRID as the pairing
+geometry, so a GRID source is sampled onto them. When both sources share the
+same precedence tier (e.g. GRID vs GRID, or two different irregular geometries)
+and no explicit choice is given, the first-listed source is used as the x source
+and a :class:`PairDirectionWarning` is emitted.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ IRREGULAR_GEOMETRIES = frozenset(
 
 
 def _rank(geometry: DataGeometry) -> int:
-    """Precedence rank; higher wins the geometry. GRID is lowest."""
+    """Precedence rank; higher wins the pairing geometry. GRID is lowest."""
     return 0 if geometry is DataGeometry.GRID else 1
 
 
@@ -42,7 +42,7 @@ def resolve_pair_direction(
     geom_b: DataGeometry,
     explicit_geometry: str | None = None,
 ) -> tuple[DataGeometry, DataGeometry]:
-    """Resolve which source is the geometry and which is the dataset.
+    """Resolve which source is the x source and which is the y source.
 
     Parameters
     ----------
@@ -51,14 +51,14 @@ def resolve_pair_direction(
     geom_b
         Geometry of the second-listed source.
     explicit_geometry
-        Optional override naming which positional source is the geometry:
+        Optional override naming which positional source is the x source:
         ``"a"`` for ``geom_a`` or ``"b"`` for ``geom_b``. When given, precedence
         is bypassed and no warning is emitted.
 
     Returns
     -------
     tuple[DataGeometry, DataGeometry]
-        ``(geometry, dataset_geometry)``.
+        ``(x_geometry, y_geometry)``.
     """
     if explicit_geometry is not None:
         if explicit_geometry == "a":
@@ -76,8 +76,8 @@ def resolve_pair_direction(
     # Same precedence tier (GRID/GRID or two irregular geometries): ambiguous.
     warnings.warn(
         f"Pair direction is ambiguous for geometries {geom_a.name} and {geom_b.name} "
-        f"(same precedence tier) and no explicit geometry was given; defaulting to "
-        f"the first-listed source ({geom_a.name}) as the geometry.",
+        f"(same precedence tier) and no explicit choice was given; defaulting to "
+        f"the first-listed source ({geom_a.name}) as the x source.",
         PairDirectionWarning,
         stacklevel=2,
     )

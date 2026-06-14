@@ -185,7 +185,7 @@ class PlottingStage(BaseStage):
                     continue
 
                 if "flight_tracks" in plot_spec:
-                    flight_kwargs["geometry_datasets"] = {
+                    flight_kwargs["x_datasets"] = {
                         label: source_ds for label, (_obj, source_ds) in source_map.items()
                     }
 

@@ -1,11 +1,11 @@
 """Statistical metrics for paired source comparison.
 
 This module provides individual metric implementations for comparing a
-``y`` (dataset/model) source against an ``x`` (geometry/reference) source.
+``y`` source against an ``x`` source.
 
 All metrics follow the convention:
-- x: reference values (geometry source)
-- y: comparison values (dataset source)
+- x: reference values
+- y: comparison values
 - Positive bias means y > x
 """
 
@@ -148,7 +148,7 @@ def _prepare_arrays(
 
 @statistic_registry.register("N")
 class CountMetric(BaseMetric):
-    """Number of valid geometry-dataset pairs."""
+    """Number of valid x-y pairs."""
 
     name = "N"
     long_name = "Sample Size"
@@ -159,12 +159,12 @@ class CountMetric(BaseMetric):
         return float(len(x))
 
 
-@statistic_registry.register("MG")
-class MeanGeometryMetric(BaseMetric):
-    """Mean of geometry values."""
+@statistic_registry.register("MX")
+class MeanXMetric(BaseMetric):
+    """Mean of x values."""
 
-    name = "MG"
-    long_name = "Mean Geometry"
+    name = "MX"
+    long_name = "Mean X"
     units = None  # Inherits from data
 
     def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
@@ -174,12 +174,12 @@ class MeanGeometryMetric(BaseMetric):
         return float(np.mean(x))
 
 
-@statistic_registry.register("MD")
-class MeanDatasetMetric(BaseMetric):
-    """Mean of dataset values."""
+@statistic_registry.register("MY")
+class MeanYMetric(BaseMetric):
+    """Mean of y values."""
 
-    name = "MD"
-    long_name = "Mean Dataset"
+    name = "MY"
+    long_name = "Mean Y"
     units = None
 
     def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
@@ -189,12 +189,12 @@ class MeanDatasetMetric(BaseMetric):
         return float(np.mean(y))
 
 
-@statistic_registry.register("STDG")
-class StdGeometryMetric(BaseMetric):
-    """Standard deviation of geometry values."""
+@statistic_registry.register("STDX")
+class StdXMetric(BaseMetric):
+    """Standard deviation of x values."""
 
-    name = "STDG"
-    long_name = "Geometry Standard Deviation"
+    name = "STDX"
+    long_name = "X Standard Deviation"
     units = None
 
     def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
@@ -204,12 +204,12 @@ class StdGeometryMetric(BaseMetric):
         return float(np.std(x, ddof=1))
 
 
-@statistic_registry.register("STDD")
-class StdDatasetMetric(BaseMetric):
-    """Standard deviation of dataset values."""
+@statistic_registry.register("STDY")
+class StdYMetric(BaseMetric):
+    """Standard deviation of y values."""
 
-    name = "STDD"
-    long_name = "Dataset Standard Deviation"
+    name = "STDY"
+    long_name = "Y Standard Deviation"
     units = None
 
     def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
@@ -219,12 +219,12 @@ class StdDatasetMetric(BaseMetric):
         return float(np.std(y, ddof=1))
 
 
-@statistic_registry.register("MdnG")
-class MedianGeometryMetric(BaseMetric):
-    """Median of geometry values."""
+@statistic_registry.register("MdnX")
+class MedianXMetric(BaseMetric):
+    """Median of x values."""
 
-    name = "MdnG"
-    long_name = "Median Geometry"
+    name = "MdnX"
+    long_name = "Median X"
     units = None
 
     def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
@@ -234,12 +234,12 @@ class MedianGeometryMetric(BaseMetric):
         return float(np.median(x))
 
 
-@statistic_registry.register("MdnD")
-class MedianDatasetMetric(BaseMetric):
-    """Median of dataset values."""
+@statistic_registry.register("MdnY")
+class MedianYMetric(BaseMetric):
+    """Median of y values."""
 
-    name = "MdnD"
-    long_name = "Median Dataset"
+    name = "MdnY"
+    long_name = "Median Y"
     units = None
 
     def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
@@ -256,11 +256,11 @@ class MedianDatasetMetric(BaseMetric):
 
 @statistic_registry.register("MB")
 class MeanBiasMetric(BaseMetric):
-    """Mean Bias: average difference (dataset - geometry).
+    """Mean Bias: average difference (y - x).
 
-    MB = (1/N) * Σ(dataset - geometry)
+    MB = (1/N) * Σ(y - x)
 
-    Positive values indicate dataset values are higher than geometry values.
+    Positive values indicate y values are higher than x values.
     """
 
     name = "MB"
@@ -276,7 +276,7 @@ class MeanBiasMetric(BaseMetric):
 
 @statistic_registry.register("MdnB")
 class MedianBiasMetric(BaseMetric):
-    """Median Bias: median difference (dataset - geometry)."""
+    """Median Bias: median difference (y - x)."""
 
     name = "MdnB"
     long_name = "Median Bias"
@@ -293,7 +293,7 @@ class MedianBiasMetric(BaseMetric):
 class NormalizedMeanBiasMetric(BaseMetric):
     """Normalized Mean Bias (%).
 
-    NMB = 100 * Σ(dataset - geometry) / Σ(geometry)
+    NMB = 100 * Σ(y - x) / Σ(x)
     """
 
     name = "NMB"
@@ -304,10 +304,10 @@ class NormalizedMeanBiasMetric(BaseMetric):
         x, y = _prepare_arrays(x, y)
         if len(x) == 0:
             return np.nan
-        sum_geometry = np.sum(x)
-        if sum_geometry == 0:
+        sum_x = np.sum(x)
+        if sum_x == 0:
             return np.nan
-        return float(100.0 * np.sum(y - x) / sum_geometry)
+        return float(100.0 * np.sum(y - x) / sum_x)
 
 
 @statistic_registry.register("NMdnB")
@@ -322,17 +322,17 @@ class NormalizedMedianBiasMetric(BaseMetric):
         x, y = _prepare_arrays(x, y)
         if len(x) == 0:
             return np.nan
-        mdn_geometry = np.median(x)
-        if mdn_geometry == 0:
+        mdn_x = np.median(x)
+        if mdn_x == 0:
             return np.nan
-        return float(100.0 * np.median(y - x) / mdn_geometry)
+        return float(100.0 * np.median(y - x) / mdn_x)
 
 
 @statistic_registry.register("FB")
 class FractionalBiasMetric(BaseMetric):
     """Fractional Bias (%).
 
-    FB = 200 * (mean(dataset) - mean(geometry)) / (mean(dataset) + mean(geometry))
+    FB = 200 * (mean(y) - mean(x)) / (mean(y) + mean(x))
 
     Range: -200% to +200%
     """
@@ -345,19 +345,19 @@ class FractionalBiasMetric(BaseMetric):
         x, y = _prepare_arrays(x, y)
         if len(x) == 0:
             return np.nan
-        mean_geometry = np.mean(x)
-        mean_dataset = np.mean(y)
-        denom = mean_geometry + mean_dataset
+        mean_x = np.mean(x)
+        mean_y = np.mean(y)
+        denom = mean_x + mean_y
         if denom == 0:
             return np.nan
-        return float(200.0 * (mean_dataset - mean_geometry) / denom)
+        return float(200.0 * (mean_y - mean_x) / denom)
 
 
 @statistic_registry.register("MNB")
 class MeanNormalizedBiasMetric(BaseMetric):
     """Mean Normalized Bias (%).
 
-    MNB = 100 * (1/N) * Σ((dataset - geometry) / geometry)
+    MNB = 100 * (1/N) * Σ((y - x) / x)
     """
 
     name = "MNB"
@@ -384,7 +384,7 @@ class MeanNormalizedBiasMetric(BaseMetric):
 class MeanErrorMetric(BaseMetric):
     """Mean (Gross) Error: average absolute difference.
 
-    ME = (1/N) * Σ|dataset - geometry|
+    ME = (1/N) * Σ|y - x|
     """
 
     name = "ME"
@@ -417,7 +417,7 @@ class MedianErrorMetric(BaseMetric):
 class RMSEMetric(BaseMetric):
     """Root Mean Square Error.
 
-    RMSE = sqrt((1/N) * Σ(dataset - geometry)²)
+    RMSE = sqrt((1/N) * Σ(y - x)²)
     """
 
     name = "RMSE"
@@ -435,7 +435,7 @@ class RMSEMetric(BaseMetric):
 class NormalizedMeanErrorMetric(BaseMetric):
     """Normalized Mean Error (%).
 
-    NME = 100 * Σ|dataset - geometry| / Σ(geometry)
+    NME = 100 * Σ|y - x| / Σ(x)
     """
 
     name = "NME"
@@ -446,17 +446,17 @@ class NormalizedMeanErrorMetric(BaseMetric):
         x, y = _prepare_arrays(x, y)
         if len(x) == 0:
             return np.nan
-        sum_geometry = np.sum(x)
-        if sum_geometry == 0:
+        sum_x = np.sum(x)
+        if sum_x == 0:
             return np.nan
-        return float(100.0 * np.sum(np.abs(y - x)) / sum_geometry)
+        return float(100.0 * np.sum(np.abs(y - x)) / sum_x)
 
 
 @statistic_registry.register("FE")
 class FractionalErrorMetric(BaseMetric):
     """Fractional Error (%).
 
-    FE = 200 * (1/N) * Σ|dataset - geometry| / (dataset + geometry)
+    FE = 200 * (1/N) * Σ|y - x| / (y + x)
 
     Range: 0% to 200%
     """
@@ -481,7 +481,7 @@ class FractionalErrorMetric(BaseMetric):
 class MeanNormalizedErrorMetric(BaseMetric):
     """Mean Normalized (Gross) Error (%).
 
-    MNE = 100 * (1/N) * Σ(|dataset - geometry| / geometry)
+    MNE = 100 * (1/N) * Σ(|y - x| / x)
     """
 
     name = "MNE"
@@ -490,7 +490,7 @@ class MeanNormalizedErrorMetric(BaseMetric):
 
     def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
         x, y = _prepare_arrays(x, y)
-        # Exclude zero datasets
+        # Exclude zero x
         mask = x != 0
         x = x[mask]
         y = y[mask]
@@ -508,7 +508,7 @@ class MeanNormalizedErrorMetric(BaseMetric):
 class CorrelationMetric(BaseMetric):
     """Pearson Correlation Coefficient.
 
-    R = cov(geometry, dataset) / (std(geometry) * std(dataset))
+    R = cov(x, y) / (std(x) * std(y))
 
     Range: -1 to +1
     """
@@ -554,7 +554,7 @@ class R2Metric(BaseMetric):
 class IndexOfAgreementMetric(BaseMetric):
     """Index of Agreement (Willmott, 1981).
 
-    IOA = 1 - Σ(dataset - geometry)² / Σ(|dataset - mean(geometry)| + |geometry - mean(geometry)|)²
+    IOA = 1 - Σ(y - x)² / Σ(|y - mean(x)| + |x - mean(x)|)²
 
     Range: 0 to 1, where 1 indicates perfect agreement.
     """
@@ -568,9 +568,9 @@ class IndexOfAgreementMetric(BaseMetric):
         if len(x) == 0:
             return np.nan
 
-        mean_geometry = np.mean(x)
+        mean_x = np.mean(x)
         numerator = np.sum((y - x) ** 2)
-        denominator = np.sum((np.abs(y - mean_geometry) + np.abs(x - mean_geometry)) ** 2)
+        denominator = np.sum((np.abs(y - mean_x) + np.abs(x - mean_x)) ** 2)
 
         if denominator == 0:
             return np.nan
@@ -581,7 +581,7 @@ class IndexOfAgreementMetric(BaseMetric):
 class ModifiedIndexOfAgreementMetric(BaseMetric):
     """Modified Index of Agreement (d1).
 
-    d1 = 1 - Σ|dataset - geometry| / Σ(|dataset - mean(geometry)| + |geometry - mean(geometry)|)
+    d1 = 1 - Σ|y - x| / Σ(|y - mean(x)| + |x - mean(x)|)
 
     Range: 0 to 1
     """
@@ -595,9 +595,9 @@ class ModifiedIndexOfAgreementMetric(BaseMetric):
         if len(x) == 0:
             return np.nan
 
-        mean_geometry = np.mean(x)
+        mean_x = np.mean(x)
         numerator = np.sum(np.abs(y - x))
-        denominator = np.sum(np.abs(y - mean_geometry) + np.abs(x - mean_geometry))
+        denominator = np.sum(np.abs(y - mean_x) + np.abs(x - mean_x))
 
         if denominator == 0:
             return np.nan
@@ -608,7 +608,7 @@ class ModifiedIndexOfAgreementMetric(BaseMetric):
 class ModifiedCoefficientOfEfficiencyMetric(BaseMetric):
     """Modified Coefficient of Efficiency (E1).
 
-    E1 = 1 - Σ|dataset - geometry| / Σ|geometry - mean(geometry)|
+    E1 = 1 - Σ|y - x| / Σ|x - mean(x)|
 
     Range: -∞ to 1
     """
@@ -622,9 +622,9 @@ class ModifiedCoefficientOfEfficiencyMetric(BaseMetric):
         if len(x) == 0:
             return np.nan
 
-        mean_geometry = np.mean(x)
+        mean_x = np.mean(x)
         numerator = np.sum(np.abs(y - x))
-        denominator = np.sum(np.abs(x - mean_geometry))
+        denominator = np.sum(np.abs(x - mean_x))
 
         if denominator == 0:
             return np.nan
@@ -635,8 +635,8 @@ class ModifiedCoefficientOfEfficiencyMetric(BaseMetric):
 class AnomalyCorrelationMetric(BaseMetric):
     """Anomaly Correlation.
 
-    AC = Σ((geometry - mean(geometry)) * (dataset - mean(dataset))) /
-         sqrt(Σ(geometry - mean(geometry))² * Σ(dataset - mean(dataset))²)
+    AC = Σ((x - mean(x)) * (y - mean(y))) /
+         sqrt(Σ(x - mean(x))² * Σ(y - mean(y))²)
 
     Range: -1 to +1
     """
@@ -668,7 +668,7 @@ class AnomalyCorrelationMetric(BaseMetric):
 
 @statistic_registry.register("RM")
 class MeanRatioMetric(BaseMetric):
-    """Mean Ratio (geometry/dataset)."""
+    """Mean Ratio (x/y)."""
 
     name = "RM"
     long_name = "Mean Ratio"
@@ -687,7 +687,7 @@ class MeanRatioMetric(BaseMetric):
 
 @statistic_registry.register("RMdn")
 class MedianRatioMetric(BaseMetric):
-    """Median Ratio (geometry/dataset)."""
+    """Median Ratio (x/y)."""
 
     name = "RMdn"
     long_name = "Median Ratio"
@@ -709,18 +709,18 @@ class MedianRatioMetric(BaseMetric):
 # =============================================================================
 
 #: Standard set of metrics for general evaluation
-STANDARD_METRICS = ["N", "MG", "MD", "MB", "RMSE", "R", "R2", "NMB", "NME", "IOA"]
+STANDARD_METRICS = ["N", "MX", "MY", "MB", "RMSE", "R", "R2", "NMB", "NME", "IOA"]
 
 #: Full set of all implemented metrics
 ALL_METRICS = [
     # Basic
     "N",
-    "MG",
-    "MD",
-    "STDG",
-    "STDD",
-    "MdnG",
-    "MdnD",
+    "MX",
+    "MY",
+    "STDX",
+    "STDY",
+    "MdnX",
+    "MdnY",
     # Bias
     "MB",
     "MdnB",

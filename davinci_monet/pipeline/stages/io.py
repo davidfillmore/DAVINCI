@@ -74,10 +74,10 @@ class SaveResultsStage(BaseStage):
                         continue
                     row = {"Variable": var_name}
                     row["N"] = _get_metric(var_stats, "N", "n", default=0)
-                    mean_geometry = _get_metric(var_stats, "MG", "geometry_mean")
-                    mean_dataset = _get_metric(var_stats, "MD", "dataset_mean")
-                    row["Mean_Geometry"] = mean_geometry
-                    row["Mean_Dataset"] = mean_dataset
+                    mean_x = _get_metric(var_stats, "MX", "x_mean")
+                    mean_y = _get_metric(var_stats, "MY", "y_mean")
+                    row["Mean_X"] = mean_x
+                    row["Mean_Y"] = mean_y
                     row["MB"] = _get_metric(var_stats, "MB", "mean_bias")
                     row["RMSE"] = _get_metric(var_stats, "RMSE", "rmse")
                     row["R"] = _get_metric(var_stats, "R", "correlation")
@@ -86,7 +86,7 @@ class SaveResultsStage(BaseStage):
                     # Prefer computed NMB/NME if present; otherwise derive as fallback
                     nmb = _get_metric(var_stats, "NMB", default=float("nan"))
                     nme = _get_metric(var_stats, "NME", default=float("nan"))
-                    x_mean = row["Mean_Geometry"]
+                    x_mean = row["Mean_X"]
 
                     if isinstance(nmb, (int, float)) and not math.isnan(float(nmb)):
                         row["NMB_%"] = nmb
@@ -106,7 +106,7 @@ class SaveResultsStage(BaseStage):
                     if isinstance(nme, (int, float)) and not math.isnan(float(nme)):
                         row["NME_%"] = nme
                     else:
-                        # No correct fallback: NME requires per-point |dataset-geometry|,
+                        # No correct fallback: NME requires per-point |y-x|,
                         # which can't be derived from RMSE or other summary scalars.
                         row["NME_%"] = float("nan")
 
@@ -134,8 +134,8 @@ class SaveResultsStage(BaseStage):
                     "variable",
                     "flight",
                     "N",
-                    "MG",
-                    "MD",
+                    "MX",
+                    "MY",
                     "MB",
                     "RMSE",
                     "R",

@@ -28,8 +28,8 @@ def _paired_point_dataset() -> xr.Dataset:
     geometry[:, 4:] = 9999.0  # sentinel to detect leakage
     return xr.Dataset(
         {
-            "geometry_pm25": (["time", "site"], geometry),
-            "dataset_pm25": (["time", "site"], dataset),
+            "x_pm25": (["time", "site"], geometry),
+            "y_pm25": (["time", "site"], dataset),
         },
         coords={
             "time": times,
@@ -59,7 +59,7 @@ class TestFilterPairedByDomain:
         # 4 CONUS sites kept, 2 Asian sites dropped
         assert out.sizes["site"] == 4
         # Sentinel geometry values from dropped sites must not survive
-        assert (out["geometry_pm25"].values < 9000.0).all()
+        assert (out["x_pm25"].values < 9000.0).all()
         np.testing.assert_array_equal(
             np.sort(out["latitude"].values), np.array([35.0, 40.0, 43.0, 45.0])
         )
@@ -98,8 +98,8 @@ class TestFilterPairedByDomain:
         lons = np.linspace(-130, -60, 8)
         ds = xr.Dataset(
             {
-                "geometry_pm25": (["time", "lat", "lon"], np.zeros((3, 5, 8))),
-                "dataset_pm25": (["time", "lat", "lon"], np.zeros((3, 5, 8))),
+                "x_pm25": (["time", "lat", "lon"], np.zeros((3, 5, 8))),
+                "y_pm25": (["time", "lat", "lon"], np.zeros((3, 5, 8))),
             },
             coords={"time": times, "lat": lats, "lon": lons},
         )

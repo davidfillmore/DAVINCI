@@ -1,7 +1,7 @@
 """Unified pairing engine for source matching.
 
 This module provides the main pairing orchestrator that dispatches to
-geometry-specific strategies based on geometry and dataset data geometry.
+geometry-specific strategies based on the x and y source geometries.
 """
 
 from __future__ import annotations
@@ -61,10 +61,10 @@ class PairingEngine:
     --------
     >>> engine = PairingEngine()
     >>> paired = engine.pair_sources(
-    ...     geometry=x_data,
-    ...     dataset=y_data,
-    ...     geometry_vars=["O3"],
-    ...     dataset_vars=["OZONE"],
+    ...     x_data=x_data,
+    ...     y_data=y_data,
+    ...     x_vars=["O3"],
+    ...     y_vars=["OZONE"],
     ... )
     """
 
@@ -166,9 +166,9 @@ class PairingEngine:
         Parameters
         ----------
         geometry
-            Geometry of the geometry source (sampled *onto*).
-        dataset_geometry
-            Geometry of the dataset source (sampled *from*).
+            Geometry of the x source (sampled *onto*).
+        y_geometry
+            Geometry of the y source (sampled *from*).
 
         Returns
         -------
@@ -204,7 +204,7 @@ class PairingEngine:
     ) -> PairedData:
         """Pair two sources.
 
-        ``dataset`` is sampled onto ``geometry``. The paired output uses
+        ``y_data`` is sampled onto ``x_data``. The paired output uses
         ``<source_label>_<dataset_variable>`` variable names with ``axis``,
         ``source_label``, and ``dataset_variable`` attrs.
         """
@@ -249,7 +249,7 @@ class PairingEngine:
                 "x_source": x_source,
                 "source_label": y_source,
                 "geometry": output_geometry.name,
-                "dataset_geometry": y_geometry.name,
+                "y_geometry": y_geometry.name,
                 "radius_of_influence": config.radius_of_influence,
                 "time_tolerance": config.time_tolerance,
                 "vertical_method": config.vertical_method,
@@ -386,14 +386,14 @@ class PairingEngine:
             "Please set the 'geometry' attribute on the dataset."
         )
 
-    def _check_temporal_overlap(self, dataset: xr.Dataset, geometry: xr.Dataset) -> None:
+    def _check_temporal_overlap(self, y_data: xr.Dataset, x_data: xr.Dataset) -> None:
         """Check if the two sources have temporal overlap.
 
         Parameters
         ----------
-        dataset
+        y_data
             Source sampled from.
-        geometry
+        x_data
             Source sampled onto.
 
         Raises
@@ -401,11 +401,11 @@ class PairingEngine:
         NoOverlapError
             If no temporal overlap exists.
         """
-        if "time" not in dataset.dims or "time" not in geometry.dims:
+        if "time" not in y_data.dims or "time" not in x_data.dims:
             return
 
-        y_times = dataset["time"].values
-        x_times = geometry["time"].values
+        y_times = y_data["time"].values
+        x_times = x_data["time"].values
 
         if len(y_times) == 0 or len(x_times) == 0:
             return
@@ -417,8 +417,8 @@ class PairingEngine:
 
         if y_end < x_start or x_end < y_start:
             raise NoOverlapError(
-                f"No temporal overlap between dataset ({y_start} to {y_end}) "
-                f"and geometry ({x_start} to {x_end})"
+                f"No temporal overlap between y ({y_start} to {y_end}) "
+                f"and x ({x_start} to {x_end})"
             )
 
 

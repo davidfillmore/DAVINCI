@@ -17,7 +17,7 @@ Quick Start
 Available Metrics
 -----------------
 Basic:
-    N, MG, MD, STDG, STDD, MdnG, MdnD
+    N, MX, MY, STDX, STDY, MdnX, MdnY
 
 Bias:
     MB, MdnB, NMB, NMdnB, FB, MNB

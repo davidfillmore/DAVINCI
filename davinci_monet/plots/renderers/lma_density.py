@@ -71,8 +71,8 @@ class LMADensityPlotter(BasePlotter):
         map : dict, optional
             Map configuration (projection, features).
         flight_tracks : dict, optional
-            Mapping of {label: geometry_key} for flight track overlays.
-            Track data is resolved from kwargs['geometry_datasets'].
+            Mapping of {label: source_key} for flight track overlays.
+            Track data is resolved from kwargs['x_datasets'].
 
         Returns
         -------
@@ -281,7 +281,7 @@ class LMADensityPlotter(BasePlotter):
         **kwargs: Any,
     ) -> None:
         """Overlay aircraft flight tracks on the map."""
-        x_datasets: dict[str, xr.Dataset] = kwargs.get("geometry_datasets", {})
+        x_datasets: dict[str, xr.Dataset] = kwargs.get("x_datasets", {})
         if not x_datasets:
             return
 

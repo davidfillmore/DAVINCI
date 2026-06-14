@@ -1,4 +1,4 @@
-"""Tests for dataset/geometry pairing direction and dispatch."""
+"""Tests for x/y pairing direction and dispatch."""
 
 from __future__ import annotations
 
@@ -30,22 +30,22 @@ class TestResolvePairDirection:
 
     def test_same_geometry_warns_and_defaults_to_first(self) -> None:
         with pytest.warns(PairDirectionWarning):
-            geometry, y_geometry = resolve_pair_direction(G.GRID, G.GRID)
-        assert (geometry, y_geometry) == (G.GRID, G.GRID)
+            x_geometry, y_geometry = resolve_pair_direction(G.GRID, G.GRID)
+        assert (x_geometry, y_geometry) == (G.GRID, G.GRID)
 
     def test_two_different_irregular_warns_and_defaults_to_first(self) -> None:
         with pytest.warns(PairDirectionWarning):
-            geometry, y_geometry = resolve_pair_direction(G.POINT, G.TRACK)
-        assert (geometry, y_geometry) == (G.POINT, G.TRACK)
+            x_geometry, y_geometry = resolve_pair_direction(G.POINT, G.TRACK)
+        assert (x_geometry, y_geometry) == (G.POINT, G.TRACK)
 
     def test_explicit_geometry_overrides_precedence(self) -> None:
-        # Force GRID as the geometry even though POINT would outrank it.
-        geometry, y_geometry = resolve_pair_direction(G.POINT, G.GRID, explicit_geometry="b")
-        assert (geometry, y_geometry) == (G.GRID, G.POINT)
+        # Force GRID as the x source even though POINT would outrank it.
+        x_geometry, y_geometry = resolve_pair_direction(G.POINT, G.GRID, explicit_geometry="b")
+        assert (x_geometry, y_geometry) == (G.GRID, G.POINT)
 
     def test_explicit_geometry_a(self) -> None:
-        geometry, y_geometry = resolve_pair_direction(G.GRID, G.POINT, explicit_geometry="a")
-        assert (geometry, y_geometry) == (G.GRID, G.POINT)
+        x_geometry, y_geometry = resolve_pair_direction(G.GRID, G.POINT, explicit_geometry="a")
+        assert (x_geometry, y_geometry) == (G.GRID, G.POINT)
 
 
 class TestEnginePairDispatch:
@@ -71,7 +71,7 @@ class TestEnginePairDispatch:
 
     def test_unsupported_combo_raises(self) -> None:
         engine = PairingEngine()
-        # dataset must be GRID in the seeded combinations.
+        # y source must be GRID in the seeded combinations.
         with pytest.raises(PairingError):
             engine.get_strategy_for(G.POINT, G.TRACK)
 
@@ -108,7 +108,7 @@ class _SpyStrategy(BasePairingStrategy):
                 "horizontal_method": horizontal_method,
             }
         )
-        self.captured = {"dataset": y_data, "geometry": x_data, "kwargs": kwargs}
+        self.captured = {"y": y_data, "x": x_data, "kwargs": kwargs}
         return xr.Dataset(attrs={"ok": True})
 
 
@@ -120,23 +120,23 @@ def _coords_ds(lat: float, lon: float) -> xr.Dataset:
 
 
 class TestPairSourcesWrapper:
-    def test_pair_sources_maps_geometry_to_geometry_and_dataset_to_dataset(self) -> None:
+    def test_pair_sources_maps_x_to_x_and_y_to_y(self) -> None:
         strat = _SpyStrategy()
-        geometry = _coords_ds(10.0, 20.0)
-        dataset = _coords_ds(30.0, 40.0)
-        out = strat.pair_sources(x_data=geometry, y_data=dataset, radius_of_influence=1.0)
+        x = _coords_ds(10.0, 20.0)
+        y = _coords_ds(30.0, 40.0)
+        out = strat.pair_sources(x_data=x, y_data=y, radius_of_influence=1.0)
         assert out.attrs["ok"] is True
-        assert strat.captured["geometry"] is geometry
-        assert strat.captured["dataset"] is dataset
+        assert strat.captured["x"] is x
+        assert strat.captured["y"] is y
         assert strat.captured["kwargs"]["radius_of_influence"] == 1.0
 
-    def test_coord_helpers_return_dataset_and_geometry_coordinates(self) -> None:
+    def test_coord_helpers_return_x_and_y_coordinates(self) -> None:
         strat = _SpyStrategy()
-        geometry = _coords_ds(1.0, 2.0)
-        dataset = _coords_ds(3.0, 4.0)
+        x = _coords_ds(1.0, 2.0)
+        y = _coords_ds(3.0, 4.0)
 
-        x_lat, x_lon = strat._get_geometry_coords(geometry)
-        y_lat, y_lon = strat._get_dataset_coords(dataset)
+        x_lat, x_lon = strat._get_x_coords(x)
+        y_lat, y_lon = strat._get_y_coords(y)
 
         assert x_lat.values == pytest.approx(np.array([1.0]))
         assert x_lon.values == pytest.approx(np.array([2.0]))

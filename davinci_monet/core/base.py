@@ -28,9 +28,9 @@ def paired_variable_axis(dataset: xr.Dataset, var_name: str) -> str | None:
         if axis in ("x", "y"):
             return str(axis)
     lname = str(var_name).lower()
-    if lname.startswith("geometry_"):
+    if lname.startswith("x_"):
         return "x"
-    if lname.startswith("dataset_"):
+    if lname.startswith("y_"):
         return "y"
     return None
 
@@ -39,8 +39,8 @@ def paired_canonical_name(dataset: xr.Dataset, var_name: str) -> str:
     """Canonical name of a paired variable.
 
     Strips the source-label prefix (from the variable's ``source_label`` attr,
-    e.g. ``cam_o3`` -> ``o3``) or the ``geometry_``/``dataset_`` prefix. Names
-    with no recognized prefix are returned unchanged.
+    e.g. ``cam_o3`` -> ``o3``) or the ``x_``/``y_`` prefix. Names with no
+    recognized prefix are returned unchanged.
     """
     if var_name in dataset.data_vars:
         canonical = dataset[var_name].attrs.get("canonical_name")
@@ -50,15 +50,16 @@ def paired_canonical_name(dataset: xr.Dataset, var_name: str) -> str:
         if source_label and var_name.startswith(f"{source_label}_"):
             return var_name[len(source_label) + 1 :]
     lname = str(var_name).lower()
-    for prefix in ("geometry_", "dataset_"):
+    for prefix in ("x_", "y_"):
         if lname.startswith(prefix):
             return var_name[len(prefix) :]
     return var_name
 
 
 def iter_paired_variable_xy(dataset: xr.Dataset) -> list[tuple[str, str, str]]:
-    """Pair geometry variables with their dataset counterparts.
-    counterparts by canonical name (renderer rewire R-5).
+    """Pair x variables with their y counterparts.
+
+    Matched by canonical name (renderer rewire R-5).
 
     Returns ``(x_var, y_var, canonical)`` triples. One variable
     per axis is used, so dual-named data never double-counts.
@@ -111,9 +112,9 @@ def iter_canonical_variable_series(dataset: xr.Dataset) -> dict[str, list[PlotSe
     """Group a dataset's source variables by canonical name into :class:`PlotSeries`.
 
     N-capable sibling of :func:`iter_paired_variable_xy`: where that returns a
-    single ``(geometry, dataset)`` pair per canonical, this returns *every*
+    single ``(x, y)`` pair per canonical, this returns *every*
     source variable for each canonical as an ordered list (1 → single series,
-    2 → geometry + dataset, N → multi-source overlay). Variables are included
+    2 → x + y, N → multi-source overlay). Variables are included
     when they carry a ``source_label`` or a ``axis``. Series preserve
     ``data_vars`` order; ``index`` is the 0-based position within the canonical
     group.
@@ -144,17 +145,17 @@ def iter_canonical_variable_series(dataset: xr.Dataset) -> dict[str, list[PlotSe
 class PairedData:
     """Container for paired source data.
 
-    Canonically, paired data has a geometry source (x) and a dataset source (y).
+    Canonically, paired data has an x source and a y source.
     Attributes
     ----------
     data : xr.Dataset
-        The paired dataset with geometry and dataset variables.
+        The paired dataset with x and y variables.
     y_source : str
-        Source label of the dataset (y-axis) source.
+        Source label of the y-axis source.
     x_source : str
-        Source label of the geometry (x-axis) source.
+        Source label of the x-axis source.
     geometry : DataGeometry
-        The geometry type of the geometry data.
+        The geometry type of the x source.
     pairing_info : dict[str, Any]
         Metadata about the pairing process.
     """
@@ -175,7 +176,7 @@ class PairedData:
         geometry: DataGeometry,
         pairing_info: dict[str, Any] | None = None,
     ) -> "PairedData":
-        """Construct paired data from geometry (x) and dataset (y) source labels."""
+        """Construct paired data from x and y source labels."""
         info = dict(pairing_info or {})
         info.setdefault("x_source", x_source)
         info.setdefault("source_label", y_source)
@@ -194,14 +195,14 @@ class PairedData:
 
     @property
     def x_variables(self) -> list[str]:
-        """List of geometry variables in the paired data."""
+        """List of x variables in the paired data."""
         return [
             str(v) for v in self.data.data_vars if paired_variable_axis(self.data, str(v)) == "x"
         ]
 
     @property
     def y_variables(self) -> list[str]:
-        """List of dataset variables in the paired data."""
+        """List of y variables in the paired data."""
         return [
             str(v) for v in self.data.data_vars if paired_variable_axis(self.data, str(v)) == "y"
         ]
@@ -216,7 +217,7 @@ class PairedData:
         wanted = "x" if axis == "x" else "y"
         if variable in self.data.data_vars and paired_variable_axis(self.data, variable) == wanted:
             return variable
-        prefix = "geometry_" if wanted == "x" else "dataset_"
+        prefix = "x_" if wanted == "x" else "y_"
         prefixed = variable if variable.startswith(prefix) else f"{prefix}{variable}"
         if prefixed in self.data.data_vars and paired_variable_axis(self.data, prefixed) == wanted:
             return prefixed
@@ -231,7 +232,7 @@ class PairedData:
         return None
 
     def get_x(self, variable: str) -> xr.DataArray:
-        """Get an x (geometry/reference) variable."""
+        """Get an x (reference) variable."""
         name = self._resolve_axis_var(variable, "x")
         if name is None:
             raise VariableNotFoundError(
@@ -241,7 +242,7 @@ class PairedData:
         return result
 
     def get_y(self, variable: str) -> xr.DataArray:
-        """Get a y (dataset/comparison) variable."""
+        """Get a y (comparison) variable."""
         name = self._resolve_axis_var(variable, "y")
         if name is None:
             raise VariableNotFoundError(

@@ -117,8 +117,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
     >>> plotter = FlightTimeSeriesPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     x_var="geometry_O3_ROZE_STCLAIR",
-    ...     y_var="dataset_O3_ROZE_STCLAIR",
+    ...     x_var="x_O3_ROZE_STCLAIR",
+    ...     y_var="y_O3_ROZE_STCLAIR",
     ...     ncols=3,
     ... )
     """

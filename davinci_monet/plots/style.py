@@ -16,7 +16,7 @@ Usage
 >>> apply_ncar_style()
 >>>
 >>> # Then create plots as usual
->>> fig = plot_timeseries(paired_data, "geometry_o3", "dataset_o3")
+>>> fig = plot_timeseries(paired_data, "x_o3", "y_o3")
 
 The apply_ncar_style() function sets matplotlib rcParams globally, affecting
 all subsequent plots. For individual plots, you can also pass style options
@@ -271,8 +271,8 @@ def get_color_for_variable(variable: str) -> str:
     ----------
     variable
         Variable name or type. Recognized prefixes:
-        - "geometry_*": Returns geometry color
-        - "dataset_*": Returns dataset color
+        - "x_*": Returns x-source color
+        - "y_*": Returns y-source color
         - "bias_*": Returns bias color
 
     Returns
@@ -281,9 +281,9 @@ def get_color_for_variable(variable: str) -> str:
         Hex color code.
     """
     var_lower = variable.lower()
-    if var_lower.startswith("geometry"):
+    if var_lower.startswith("x_"):
         return DATASET_A_COLOR
-    elif var_lower.startswith("dataset"):
+    elif var_lower.startswith("y_"):
         return DATASET_B_COLOR
     elif var_lower.startswith("bias"):
         return NCAR_COLORS["red"]

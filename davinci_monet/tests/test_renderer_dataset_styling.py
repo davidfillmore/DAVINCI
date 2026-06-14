@@ -53,25 +53,26 @@ class TestGetDatasetColor:
         # that carry no axis attr; they must still map to geometry gray / dataset blue,
         # not the palette.
         ds = xr.Dataset(
-            {"geometry_o3": ("time", np.zeros(3)), "dataset_o3": ("time", np.zeros(3))},
+            {"x_o3": ("time", np.zeros(3)), "y_o3": ("time", np.zeros(3))},
             coords={"time": np.arange(3)},
         )
-        assert get_axis_color(ds, "geometry_o3", index=0) == DATASET_A_COLOR
-        assert get_axis_color(ds, "dataset_o3", index=1) == DATASET_B_COLOR
+        assert get_axis_color(ds, "x_o3", index=0) == DATASET_A_COLOR
+        assert get_axis_color(ds, "y_o3", index=1) == DATASET_B_COLOR
 
-    def test_style_overrides_honoured_for_geometry_dataset_axes(self) -> None:
-        # A customised StyleConfig color is used for geometry/dataset axes.
+    def test_style_overrides_honoured_for_xy_axes(self) -> None:
+        # A customised StyleConfig color is used for x/y axes.
         ds = _paired_with_aliases()
         assert get_axis_color(ds, "airnow_o3", x_color="#111111") == "#111111"
         assert get_axis_color(ds, "cam_o3", index=1, y_color="#222222") == "#222222"
-        unpaired = xr.Dataset({"x_o3": ("time", np.zeros(2))}, coords={"time": np.arange(2)})
-        assert get_axis_color(unpaired, "x_o3", index=1, x_color="#111111") == NCAR_PALETTE[1]
+        # A lone series with no axis prefix/attr ignores the override.
+        unpaired = xr.Dataset({"o3": ("time", np.zeros(2))}, coords={"time": np.arange(2)})
+        assert get_axis_color(unpaired, "o3", index=1, x_color="#111111") == NCAR_PALETTE[1]
 
 
 class TestGetSeriesLabel:
     def test_custom_label_wins(self) -> None:
         ds = _paired_with_aliases()
-        assert get_series_label(ds, "geometry_o3", custom_label="My Geometry") == "My Geometry"
+        assert get_series_label(ds, "x_o3", custom_label="My Geometry") == "My Geometry"
 
     def test_dataset_label_used_when_no_custom(self) -> None:
         # After R-5 the paired vars are renamed to their source labels.
@@ -81,10 +82,10 @@ class TestGetSeriesLabel:
 
     def test_falls_back_to_variable_label_without_source_label(self) -> None:
         # A var without axis/source_label attrs falls back to the standard label.
-        ds = xr.Dataset({"geometry_o3": ("time", np.zeros(3))}, coords={"time": np.arange(3)})
+        ds = xr.Dataset({"x_o3": ("time", np.zeros(3))}, coords={"time": np.arange(3)})
         from davinci_monet.plots.base import get_variable_label
 
-        assert get_series_label(ds, "geometry_o3") == get_variable_label(ds, "geometry_o3")
+        assert get_series_label(ds, "x_o3") == get_variable_label(ds, "x_o3")
 
 
 def _ts_paired() -> xr.Dataset:

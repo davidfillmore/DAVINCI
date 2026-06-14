@@ -113,20 +113,20 @@ class TestIterPairedVariablePairsUnchanged:
         assert iter_paired_variable_xy(ds) == [("airnow_o3", "cam_o3", "o3")]
 
     def test_prefix_order_preserved(self) -> None:
-        # geometry_/dataset_ names, dataset variables appearing in b-then-a order.
+        # x_/y_ names, y variables appearing in b-then-a order.
         ds = xr.Dataset(
             {
-                "geometry_a": ("t", [1.0]),
-                "geometry_b": ("t", [1.0]),
-                "dataset_b": ("t", [1.0]),
-                "dataset_a": ("t", [1.0]),
+                "x_a": ("t", [1.0]),
+                "x_b": ("t", [1.0]),
+                "y_b": ("t", [1.0]),
+                "y_a": ("t", [1.0]),
             },
             coords={"t": [0]},
         )
         # Dataset-appearance order is b, then a.
         assert iter_paired_variable_xy(ds) == [
-            ("geometry_b", "dataset_b", "b"),
-            ("geometry_a", "dataset_a", "a"),
+            ("x_b", "y_b", "b"),
+            ("x_a", "y_a", "a"),
         ]
 
 

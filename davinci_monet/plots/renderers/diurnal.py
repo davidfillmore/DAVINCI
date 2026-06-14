@@ -48,8 +48,8 @@ class DiurnalPlotter(BasePlotter):
     >>> plotter = DiurnalPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     x_var="geometry_o3",
-    ...     y_var="dataset_o3",
+    ...     x_var="x_o3",
+    ...     y_var="y_o3",
     ...     show_spread="iqr",
     ... )
     """
@@ -289,7 +289,7 @@ class DiurnalPlotter(BasePlotter):
         ----------
         ax
             Axes to add bands to.
-        geometry_hourly, dataset_hourly
+        x_hourly, y_hourly
             Grouped data by hour.
         hours
             Hour values for x-axis.

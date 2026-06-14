@@ -65,8 +65,8 @@ def sample_paired_dataset() -> xr.Dataset:
 
     return xr.Dataset(
         {
-            "dataset_o3": (["time"], y_vals),
-            "geometry_o3": (["time"], x_vals),
+            "y_o3": (["time"], y_vals),
+            "x_o3": (["time"], x_vals),
             "latitude": (["time"], np.full(n_times, 40.0)),
             "longitude": (["time"], np.full(n_times, -105.0)),
         },
@@ -492,8 +492,8 @@ class TestStatisticsStage:
 
         paired = xr.Dataset(
             {
-                "geometry_pm25": (["time", "site"], geometry),
-                "dataset_pm25": (["time", "site"], dataset),
+                "x_pm25": (["time", "site"], geometry),
+                "y_pm25": (["time", "site"], dataset),
             },
             coords={
                 "time": times,
