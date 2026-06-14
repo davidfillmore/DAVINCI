@@ -390,7 +390,7 @@ def test_per_scanline_time_bins_across_multiple_days() -> None:
     """2-D swath with per-scanline times spanning 3 days must bin per day.
 
     Regression: DataArray.astype("datetime64[s]") silently kept ns units,
-    collapsing every pixel into the final time bin (fixed in SSF Phase 3).
+    collapsing every pixel into the final time bin.
 
     The test uses a constant geometry value per day (100 / 200 / 300) so the
     per-bin means are assertable without statistical uncertainty.

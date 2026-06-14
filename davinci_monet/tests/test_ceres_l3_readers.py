@@ -1,4 +1,4 @@
-"""Unit tests for the CERES L3 readers (EBAF in Phase 1)."""
+"""Unit tests for the CERES L3 readers."""
 
 from __future__ import annotations
 
@@ -133,7 +133,7 @@ def test_drop_unused_dims_handles_dim_without_data_vars(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# SYN1deg (Phase 2)
+# SYN1deg reader
 # ---------------------------------------------------------------------------
 
 from davinci_monet.datasets.satellite.ceres_l3 import CERESSYN1degReader  # noqa: E402

@@ -1,4 +1,4 @@
-"""P3 map renderers are available under canonical names."""
+"""Map renderers are available under canonical names."""
 
 from __future__ import annotations
 

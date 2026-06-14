@@ -58,12 +58,15 @@ def collect_payload(context: "PipelineContext", cfg: "SummaryConfig") -> Summary
     period = {"start": analysis.get("start_time"), "end": analysis.get("end_time")}
 
     sources_summary: list[str] = []
-    for label, spec in (config.get("sources") or {}).items():
-        if isinstance(spec, dict):
-            stype = spec.get("type") or "?"
-            sources_summary.append(f"{label} ({stype})")
+    sources = config.get("sources") or {}
+    if isinstance(sources, dict):
+        for label, spec in sources.items():
+            if isinstance(spec, dict):
+                stype = spec.get("type") or "?"
+                sources_summary.append(f"{label} ({stype})")
 
-    pairs_summary = list((config.get("pairs") or {}).keys())
+    pairs = config.get("pairs") or {}
+    pairs_summary = list(pairs.keys()) if isinstance(pairs, dict) else []
 
     stats_rows: list[dict[str, Any]] = []
     for stage_key in _STATS_STAGES:
@@ -75,7 +78,11 @@ def collect_payload(context: "PipelineContext", cfg: "SummaryConfig") -> Summary
             if not isinstance(pair_stats, dict):
                 continue
             for var_name, var_stats in pair_stats.items():
-                if var_name.startswith("_") or not isinstance(var_stats, dict):
+                if (
+                    not isinstance(var_name, str)
+                    or var_name.startswith("_")
+                    or not isinstance(var_stats, dict)
+                ):
                     continue
                 metrics = {k: v for k, v in var_stats.items() if not k.startswith("_")}
                 stats_rows.append({"pair": pair_key, "variable": var_name, "metrics": metrics})
