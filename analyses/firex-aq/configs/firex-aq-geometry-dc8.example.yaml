@@ -39,64 +39,64 @@ sources:
 plots:
   dc8_track_co:
     type: flight_track
-    geometry: dc8
+    source: dc8
     variable: "CO"
     title: "DC-8 Flight Tracks: CO (ppbv)"
 
   dc8_track_o3:
     type: flight_track
-    geometry: dc8
+    source: dc8
     variable: "O3"
     title: "DC-8 Flight Tracks: O3 (ppbv)"
 
   dc8_profile_co:
     type: vertical_profile
-    geometry: dc8
+    source: dc8
     variable: "CO"
     title: "DC-8 CO Vertical Profile"
 
   dc8_profile_o3:
     type: vertical_profile
-    geometry: dc8
+    source: dc8
     variable: "O3"
     title: "DC-8 O3 Vertical Profile"
 
   dc8_profile_no:
     type: vertical_profile
-    geometry: dc8
+    source: dc8
     variable: "NO"
     mode: binned
     title: "DC-8 NO Vertical Profile (binned)"
 
   dc8_ts_co:
     type: timeseries
-    geometry: dc8
+    source: dc8
     variable: "CO"
     show_altitude: true
     title: "DC-8 CO Time Series"
 
   dc8_ts_o3:
     type: timeseries
-    geometry: dc8
+    source: dc8
     variable: "O3"
     show_altitude: true
     title: "DC-8 O3 Time Series"
 
   dc8_hist_co:
     type: histogram
-    geometry: dc8
+    source: dc8
     variable: "CO"
     title: "DC-8 CO Distribution"
 
   dc8_hist_o3:
     type: histogram
-    geometry: dc8
+    source: dc8
     variable: "O3"
     title: "DC-8 O3 Distribution"
 
   dc8_hist_ch2o:
     type: histogram
-    geometry: dc8
+    source: dc8
     variable: "CH2O"
     title: "DC-8 CH2O Distribution"
 
