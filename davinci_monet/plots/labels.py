@@ -263,8 +263,8 @@ def get_variable_label(
             return str(attrs["standard_name"])
         # Pair-axis metadata drives pairing and styling only; labels should name
         # the quantity.
-        pair_axis = attrs.get("pair_axis")
-        if pair_axis in ("geometry", "dataset"):
+        axis = attrs.get("axis")
+        if axis in ("x", "y"):
             var_name = canonical_variable_name(dataset, var_name)
 
     # Fall back to automatic formatting

@@ -3,7 +3,7 @@
 Provides:
 - build_series: resolve var-args into an ordered list of PlotSeries
 - series_colors: per-series colors under the unified, count-aware rule
-- get_axis_color: plot color for a paired series by pair_axis
+- get_axis_color: plot color for a paired series by axis
 - source_label: source label for a single-source dataset
 - get_series_label: legend label for a paired series
 - resolve_source_variable: resolve a variable name by source label
@@ -34,7 +34,7 @@ def build_series(dataset: xr.Dataset, *var_args: Any) -> list[PlotSeries]:
     - ``build_series(ds, [v1, ..., vN])`` → N series
 
     A trailing positional ``matplotlib`` Axes (``plot(ds, var, ax)``) is
-    ignored for series building. ``pair_axis``/``dataset_label``/``canonical``
+    ignored for series building. ``axis``/``dataset_label``/``canonical``
     are read from the dataset's attrs, with the ``geometry_``/``dataset_``
     prefix fallback.
     """
@@ -60,7 +60,7 @@ def build_series(dataset: xr.Dataset, *var_args: Any) -> list[PlotSeries]:
                 dataset=dataset,
                 var_name=name,
                 canonical=canonical_variable_name(dataset, name),
-                pair_axis=paired_variable_axis(dataset, name),
+                axis=paired_variable_axis(dataset, name),
                 dataset_label=str(dataset_label) if dataset_label else None,
                 index=i,
             )
@@ -90,7 +90,7 @@ def series_colors(
     if n == 2:
         out: list[str] = []
         for s in series:
-            is_dataset = s.pair_axis == "dataset" or (s.pair_axis is None and s.index == 1)
+            is_dataset = s.axis == "y" or (s.axis is None and s.index == 1)
             out.append((y_color or DATASET_B_COLOR) if is_dataset else (x_color or DATASET_A_COLOR))
         return out
     return [NCAR_PALETTE[s.index % len(NCAR_PALETTE)] for s in series]
@@ -104,15 +104,15 @@ def get_axis_color(
     x_color: str | None = None,
     y_color: str | None = None,
 ) -> str:
-    """Plot color for a paired series by pair_axis.
+    """Plot color for a paired series by axis.
 
     ``x_color``/``y_color`` let a caller supply the active ``StyleConfig``
     colors so a customised style is honoured for the geometry/dataset axes.
     """
-    pair_axis = paired_variable_axis(dataset, var_name)
-    if pair_axis == "geometry":
+    axis = paired_variable_axis(dataset, var_name)
+    if axis == "x":
         return x_color or DATASET_A_COLOR
-    if pair_axis == "dataset":
+    if axis == "y":
         return y_color or DATASET_B_COLOR
     return NCAR_PALETTE[index % len(NCAR_PALETTE)]
 

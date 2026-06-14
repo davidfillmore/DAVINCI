@@ -110,10 +110,10 @@ class TestPairedSourceLabelPipeline:
         assert "dataset_O3" not in ds.data_vars
         assert "geometry_O3" not in ds.data_vars
 
-        # Vars self-describe pair_axis and source label.
-        assert ds["cam_O3"].attrs["pair_axis"] == "dataset"
+        # Vars self-describe axis and source label.
+        assert ds["cam_O3"].attrs["axis"] == "y"
         assert ds["cam_O3"].attrs["dataset_label"] == "cam"
-        assert ds["airnow_O3"].attrs["pair_axis"] == "geometry"
+        assert ds["airnow_O3"].attrs["axis"] == "x"
         assert ds["airnow_O3"].attrs["dataset_label"] == "airnow"
 
         # Statistics still computed for the canonical variable (pair-axis).
@@ -130,8 +130,8 @@ class TestPairedHelperRobustness:
             {"Dataset_O3": ("time", np.zeros(3)), "geometry_O3": ("time", np.ones(3))},
             coords={"time": np.arange(3)},
         )
-        ds["Dataset_O3"].attrs["pair_axis"] = "dataset"
-        ds["geometry_O3"].attrs["pair_axis"] = "geometry"
+        ds["Dataset_O3"].attrs["axis"] = "y"
+        ds["geometry_O3"].attrs["axis"] = "x"
         assert iter_paired_variable_xy(ds) == [("geometry_O3", "Dataset_O3", "O3")]
 
     def test_geometry_dataset_resolve_canonical(self) -> None:
@@ -139,8 +139,8 @@ class TestPairedHelperRobustness:
             {"airnow_o3": ("time", np.ones(3)), "cam_o3": ("time", np.zeros(3))},
             coords={"time": np.arange(3)},
         )
-        ds["airnow_o3"].attrs.update({"pair_axis": "geometry", "dataset_label": "airnow"})
-        ds["cam_o3"].attrs.update({"pair_axis": "dataset", "dataset_label": "cam"})
+        ds["airnow_o3"].attrs.update({"axis": "x", "dataset_label": "airnow"})
+        ds["cam_o3"].attrs.update({"axis": "y", "dataset_label": "cam"})
         pd = PairedData(
             data=ds, dataset_label="cam", geometry_label="airnow", geometry=DataGeometry.POINT
         )
@@ -152,8 +152,8 @@ class TestPairedHelperRobustness:
             {"airnow_o3": ("time", np.ones(3)), "cam_o3": ("time", np.zeros(3))},
             coords={"time": np.arange(3)},
         )
-        ds["airnow_o3"].attrs.update({"pair_axis": "geometry", "dataset_label": "airnow"})
-        ds["cam_o3"].attrs.update({"pair_axis": "dataset", "dataset_label": "cam"})
+        ds["airnow_o3"].attrs.update({"axis": "x", "dataset_label": "airnow"})
+        ds["cam_o3"].attrs.update({"axis": "y", "dataset_label": "cam"})
         pd = PairedData(
             data=ds,
             dataset_label="cam",
@@ -169,14 +169,14 @@ class TestPairedHelperRobustness:
         np.testing.assert_array_equal(pd.get_geometry("o3").values, np.ones(3))
         np.testing.assert_array_equal(pd.get_dataset("o3").values, np.zeros(3))
 
-    def test_prefix_fallback_respects_pair_axis(self) -> None:
-        # get_dataset must not return a prefixed var whose pair_axis attr is 'geometry'.
+    def test_prefix_fallback_respects_axis(self) -> None:
+        # get_dataset must not return a prefixed var whose axis attr is 'x'.
         ds = xr.Dataset(
             {"dataset_o3": ("time", np.zeros(3)), "geometry_o3": ("time", np.ones(3))},
             coords={"time": np.arange(3)},
         )
-        ds["dataset_o3"].attrs["pair_axis"] = "dataset"
-        ds["geometry_o3"].attrs["pair_axis"] = "geometry"
+        ds["dataset_o3"].attrs["axis"] = "y"
+        ds["geometry_o3"].attrs["axis"] = "x"
         pd = PairedData(
             data=ds, dataset_label="cam", geometry_label="airnow", geometry=DataGeometry.POINT
         )

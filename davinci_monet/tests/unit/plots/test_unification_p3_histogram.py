@@ -13,15 +13,15 @@ from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.renderers.histogram import HistogramPlotter
 
 
-def _series(label: str, index: int = 0, pair_axis: str = "geometry") -> PlotSeries:
+def _series(label: str, index: int = 0, axis: str = "x") -> PlotSeries:
     rng = np.random.default_rng(index)
     ds = xr.Dataset(
         {"o3": (("time", "site"), rng.uniform(10, 60, (20, 4)), {"units": "ppb"})},
         coords={"time": np.arange(20), "site": np.arange(4)},
     )
-    ds["o3"].attrs["pair_axis"] = pair_axis
+    ds["o3"].attrs["axis"] = axis
     ds["o3"].attrs["dataset_label"] = label
-    return PlotSeries(ds, "o3", "o3", pair_axis, label, index)
+    return PlotSeries(ds, "o3", "o3", axis, label, index)
 
 
 class TestHistogramRender:

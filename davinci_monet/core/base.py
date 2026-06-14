@@ -22,16 +22,16 @@ from davinci_monet.core.types import TimeRange
 
 
 def paired_variable_axis(dataset: xr.Dataset, var_name: str) -> str | None:
-    """Return whether a paired variable belongs to geometry or dataset data."""
+    """Return the pairing axis (``"x"``/``"y"``) of a paired variable."""
     if var_name in dataset.data_vars:
-        pair_axis = dataset[var_name].attrs.get("pair_axis")
-        if pair_axis in ("geometry", "dataset"):
-            return str(pair_axis)
+        axis = dataset[var_name].attrs.get("axis")
+        if axis in ("x", "y"):
+            return str(axis)
     lname = str(var_name).lower()
     if lname.startswith("geometry_"):
-        return "geometry"
+        return "x"
     if lname.startswith("dataset_"):
-        return "dataset"
+        return "y"
     return None
 
 
@@ -63,16 +63,16 @@ def iter_paired_variable_xy(dataset: xr.Dataset) -> list[tuple[str, str, str]]:
     Returns ``(x_var, y_var, canonical)`` triples. One variable
     per axis is used, so dual-named data never double-counts.
     """
-    geometries: dict[str, str] = {}
-    datasets: dict[str, str] = {}
+    xs: dict[str, str] = {}
+    ys: dict[str, str] = {}
     for v in dataset.data_vars:
         name = str(v)
-        pair_axis = paired_variable_axis(dataset, name)
-        if pair_axis not in ("geometry", "dataset"):
+        axis = paired_variable_axis(dataset, name)
+        if axis not in ("x", "y"):
             continue
         canonical = paired_canonical_name(dataset, name)
-        (geometries if pair_axis == "geometry" else datasets).setdefault(canonical, name)
-    return [(geometries[c], datasets[c], c) for c in datasets if c in geometries]
+        (xs if axis == "x" else ys).setdefault(canonical, name)
+    return [(xs[c], ys[c], c) for c in ys if c in xs]
 
 
 @dataclass
@@ -91,8 +91,8 @@ class PlotSeries:
         The actual variable name in ``dataset`` (e.g. ``cam_o3``/``airnow_o3``/``o3``).
     canonical
         The unprefixed canonical name (e.g. ``o3``).
-    pair_axis
-        Pairing position (``"geometry"``/``"dataset"``) or ``None`` when unpaired.
+    axis
+        Pairing position (``"x"``/``"y"``) or ``None`` when unpaired.
     dataset_label
         The source's identity in a unified pair (e.g. ``airnow``/``cam``) or ``None``.
     index
@@ -102,7 +102,7 @@ class PlotSeries:
     dataset: xr.Dataset
     var_name: str
     canonical: str
-    pair_axis: str | None
+    axis: str | None
     dataset_label: str | None
     index: int
 
@@ -114,16 +114,16 @@ def iter_canonical_variable_series(dataset: xr.Dataset) -> dict[str, list[PlotSe
     single ``(geometry, dataset)`` pair per canonical, this returns *every*
     source variable for each canonical as an ordered list (1 → single series,
     2 → geometry + dataset, N → multi-source overlay). Variables are included
-    when they carry a ``dataset_label`` or a ``pair_axis``. Series preserve
+    when they carry a ``dataset_label`` or a ``axis``. Series preserve
     ``data_vars`` order; ``index`` is the 0-based position within the canonical
     group.
     """
     groups: dict[str, list[PlotSeries]] = {}
     for v in dataset.data_vars:
         name = str(v)
-        pair_axis = paired_variable_axis(dataset, name)
+        axis = paired_variable_axis(dataset, name)
         dataset_label = dataset[name].attrs.get("dataset_label")
-        if dataset_label is None and pair_axis is None:
+        if dataset_label is None and axis is None:
             continue
         canonical = paired_canonical_name(dataset, name)
         group = groups.setdefault(canonical, [])
@@ -132,7 +132,7 @@ def iter_canonical_variable_series(dataset: xr.Dataset) -> dict[str, list[PlotSe
                 dataset=dataset,
                 var_name=name,
                 canonical=canonical,
-                pair_axis=pair_axis,
+                axis=axis,
                 dataset_label=str(dataset_label) if dataset_label else None,
                 index=len(group),
             )
@@ -196,18 +196,14 @@ class PairedData:
     def geometry_variables(self) -> list[str]:
         """List of geometry variables in the paired data."""
         return [
-            str(v)
-            for v in self.data.data_vars
-            if paired_variable_axis(self.data, str(v)) == "geometry"
+            str(v) for v in self.data.data_vars if paired_variable_axis(self.data, str(v)) == "x"
         ]
 
     @property
     def dataset_variables(self) -> list[str]:
         """List of dataset variables in the paired data."""
         return [
-            str(v)
-            for v in self.data.data_vars
-            if paired_variable_axis(self.data, str(v)) == "dataset"
+            str(v) for v in self.data.data_vars if paired_variable_axis(self.data, str(v)) == "y"
         ]
 
     @property
@@ -215,12 +211,12 @@ class PairedData:
         """List of (x_var, y_var) pairs, matched by canonical name."""
         return [(x_var, y_var) for x_var, y_var, _ in iter_paired_variable_xy(self.data)]
 
-    def _resolve_pair_axis_var(self, variable: str, pair_axis: str) -> str | None:
-        """Resolve a paired variable for ``pair_axis``."""
-        wanted = "geometry" if pair_axis == "geometry" else "dataset"
+    def _resolve_axis_var(self, variable: str, axis: str) -> str | None:
+        """Resolve a paired variable for ``axis`` (``"x"``/``"y"``)."""
+        wanted = "x" if axis == "x" else "y"
         if variable in self.data.data_vars and paired_variable_axis(self.data, variable) == wanted:
             return variable
-        prefix = "geometry_" if wanted == "geometry" else "dataset_"
+        prefix = "geometry_" if wanted == "x" else "dataset_"
         prefixed = variable if variable.startswith(prefix) else f"{prefix}{variable}"
         if prefixed in self.data.data_vars and paired_variable_axis(self.data, prefixed) == wanted:
             return prefixed
@@ -236,7 +232,7 @@ class PairedData:
 
     def get_geometry(self, variable: str) -> xr.DataArray:
         """Get a geometry variable."""
-        name = self._resolve_pair_axis_var(variable, "geometry")
+        name = self._resolve_axis_var(variable, "x")
         if name is None:
             raise VariableNotFoundError(
                 f"Geometry variable '{variable}' not found. "
@@ -247,7 +243,7 @@ class PairedData:
 
     def get_dataset(self, variable: str) -> xr.DataArray:
         """Get a dataset variable."""
-        name = self._resolve_pair_axis_var(variable, "dataset")
+        name = self._resolve_axis_var(variable, "y")
         if name is None:
             raise VariableNotFoundError(
                 f"Dataset variable '{variable}' not found. " f"Available: {self.dataset_variables}"

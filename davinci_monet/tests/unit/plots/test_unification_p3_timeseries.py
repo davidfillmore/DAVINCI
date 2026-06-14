@@ -30,9 +30,9 @@ def _multisite_series(n_t: int = 12, n_s: int = 6, dataset_label: str = "airnow"
         {"o3": (("time", "site"), rng.uniform(10, 60, (n_t, n_s)), {"units": "ppb"})},
         coords={"time": times, "site": np.arange(n_s)},
     )
-    ds["o3"].attrs["pair_axis"] = "geometry"
+    ds["o3"].attrs["axis"] = "x"
     ds["o3"].attrs["dataset_label"] = dataset_label
-    return PlotSeries(ds, "o3", "o3", "geometry", dataset_label, 0)
+    return PlotSeries(ds, "o3", "o3", "x", dataset_label, 0)
 
 
 class TestTimeseriesRenderSingleSource:
@@ -86,18 +86,18 @@ class TestTimeseriesRenderPaired:
                 "airnow_o3": (
                     "time",
                     rng.uniform(10, 60, 10),
-                    {"pair_axis": "geometry", "dataset_label": "airnow"},
+                    {"axis": "x", "dataset_label": "airnow"},
                 ),
                 "cam_o3": (
                     "time",
                     rng.uniform(10, 60, 10),
-                    {"pair_axis": "dataset", "dataset_label": "cam"},
+                    {"axis": "y", "dataset_label": "cam"},
                 ),
             },
             coords={"time": t},
         )
-        x_series = PlotSeries(ds, "airnow_o3", "o3", "geometry", "airnow", 0)
-        y_series = PlotSeries(ds, "cam_o3", "o3", "dataset", "cam", 1)
+        x_series = PlotSeries(ds, "airnow_o3", "o3", "x", "airnow", 0)
+        y_series = PlotSeries(ds, "cam_o3", "o3", "y", "cam", 1)
         fig = TimeSeriesPlotter().render([x_series, y_series])
         # Two series (geometry + dataset) on the axes.
         assert len(fig.axes[0].get_lines()) == 2

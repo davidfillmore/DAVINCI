@@ -195,8 +195,8 @@ def test_sources_config_supports_dataset_dataset_pair(tmp_path: Path) -> None:
     assert result.context is not None
     paired = result.context.paired["cam_grid_cam_offset_o3"].data
     assert set(paired.data_vars) == {"cam_grid_O3", "cam_offset_O3"}
-    assert paired["cam_grid_O3"].attrs["pair_axis"] == "geometry"
-    assert paired["cam_offset_O3"].attrs["pair_axis"] == "dataset"
+    assert paired["cam_grid_O3"].attrs["axis"] == "x"
+    assert paired["cam_offset_O3"].attrs["axis"] == "y"
 
 
 def test_plot_data_geometry_without_pair_spec_uses_paired_dataset(
@@ -214,7 +214,7 @@ def test_plot_data_geometry_without_pair_spec_uses_paired_dataset(
     )
     paired["airnow_o3"].attrs.update(
         {
-            "pair_axis": "geometry",
+            "axis": "x",
             "dataset_label": "airnow",
             "dataset_variable": "o3",
             "canonical_name": "o3",
@@ -222,7 +222,7 @@ def test_plot_data_geometry_without_pair_spec_uses_paired_dataset(
     )
     paired["cam_O3"].attrs.update(
         {
-            "pair_axis": "dataset",
+            "axis": "y",
             "dataset_label": "cam",
             "dataset_variable": "O3",
             "canonical_name": "o3",
@@ -257,7 +257,7 @@ def test_plot_sources_pair_spec_uses_geometry_and_dataset(
     )
     paired["airnow_o3"].attrs.update(
         {
-            "pair_axis": "geometry",
+            "axis": "x",
             "dataset_label": "airnow",
             "dataset_variable": "o3",
             "canonical_name": "o3",
@@ -265,7 +265,7 @@ def test_plot_sources_pair_spec_uses_geometry_and_dataset(
     )
     paired["cam_O3"].attrs.update(
         {
-            "pair_axis": "dataset",
+            "axis": "y",
             "dataset_label": "cam",
             "dataset_variable": "O3",
             "canonical_name": "o3",
@@ -305,8 +305,8 @@ def test_plot_pair_spec_uses_configured_pair_name(
         },
         coords={"time": times},
     )
-    paired["airnow_o3"].attrs.update({"pair_axis": "geometry", "dataset_label": "airnow"})
-    paired["cam_o3"].attrs.update({"pair_axis": "dataset", "dataset_label": "cam"})
+    paired["airnow_o3"].attrs.update({"axis": "x", "dataset_label": "airnow"})
+    paired["cam_o3"].attrs.update({"axis": "y", "dataset_label": "cam"})
     ctx = PipelineContext(
         config={
             "analysis": {"output_dir": str(tmp_path)},
@@ -550,8 +550,8 @@ def test_sources_config_supports_geometry_geometry_grid_pair(tmp_path: Path) -> 
     assert result.context is not None
     paired = result.context.paired["modis_viirs_o3"].data
     assert set(paired.data_vars) == {"modis_O3", "viirs_O3"}
-    assert paired["modis_O3"].attrs["pair_axis"] == "geometry"
-    assert paired["viirs_O3"].attrs["pair_axis"] == "dataset"
+    assert paired["modis_O3"].attrs["axis"] == "x"
+    assert paired["viirs_O3"].attrs["axis"] == "y"
 
 
 def test_unified_source_applies_resample(tmp_path: Path) -> None:
@@ -604,7 +604,7 @@ def test_sources_config_pairs_swath_onto_grid(tmp_path: Path) -> None:
     Proves the production ``SwathGridStrategy`` (numba binning) is what the
     engine routes a swath-vs-grid pair through: the swath pixels are binned onto
     the grid, so the paired output is GRID-geometry ``(time, lon, lat)`` with
-    geometry/dataset variables and pair_axis tags. Before SwathGridStrategy was
+    geometry/dataset variables and axis tags. Before SwathGridStrategy was
     registered, the engine could route through a per-pixel SwathStrategy, whose
     output uses ``(y, x)``/``(pixel,)`` dimensions. These assertions require the
     binned grid path instead.
@@ -658,13 +658,13 @@ def test_sources_config_pairs_swath_onto_grid(tmp_path: Path) -> None:
     assert set(paired.dims) >= {"time", "lon", "lat"}
     assert not ({"scanline", "pixel", "y", "x"} & set(paired.dims))
     # Geometry and dataset share the canonical stem (aod_550nm) under their
-    # source-label prefixes, with pair_axis + pair_axis tags.
+    # source-label prefixes, with axis + axis tags.
     assert "modis_aod_550nm" in paired.data_vars
     assert "cam_AOD" in paired.data_vars
-    assert paired["modis_aod_550nm"].attrs["pair_axis"] == "geometry"
-    assert paired["cam_AOD"].attrs["pair_axis"] == "dataset"
-    assert paired["modis_aod_550nm"].attrs["pair_axis"] == "geometry"
-    assert paired["cam_AOD"].attrs["pair_axis"] == "dataset"
+    assert paired["modis_aod_550nm"].attrs["axis"] == "x"
+    assert paired["cam_AOD"].attrs["axis"] == "y"
+    assert paired["modis_aod_550nm"].attrs["axis"] == "x"
+    assert paired["cam_AOD"].attrs["axis"] == "y"
     # At least one grid cell received binned swath pixels (non-NaN), proving the
     # numba binning actually ran end-to-end.
     assert bool(np.isfinite(paired["modis_aod_550nm"].values).any())

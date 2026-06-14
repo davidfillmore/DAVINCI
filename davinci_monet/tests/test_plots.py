@@ -932,12 +932,12 @@ class TestScatterPlotter:
         plt.close(fig)
 
     def test_dataset_label_attrs_qualify_default_axis_labels(self, simple_paired_data):
-        """Scatter axes use source identity without pair_axis-derived words."""
+        """Scatter axes use source identity without axis-derived words."""
         from davinci_monet.plots import ScatterPlotter
 
         data = simple_paired_data.copy()
-        data["geometry_o3"].attrs.update({"pair_axis": "geometry", "dataset_label": "airnow"})
-        data["dataset_o3"].attrs.update({"pair_axis": "dataset", "dataset_label": "cam"})
+        data["geometry_o3"].attrs.update({"axis": "x", "dataset_label": "airnow"})
+        data["dataset_o3"].attrs.update({"axis": "y", "dataset_label": "cam"})
 
         fig = ScatterPlotter().plot(data, "geometry_o3", "dataset_o3")
 

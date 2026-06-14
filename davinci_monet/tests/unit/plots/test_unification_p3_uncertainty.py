@@ -25,9 +25,9 @@ def _series(n_t: int = 10, n_s: int = 8) -> PlotSeries:
         {"o3": (("time", "site"), rng.uniform(10, 60, (n_t, n_s)), {"units": "ppb"})},
         coords={"time": times, "site": np.arange(n_s)},
     )
-    ds["o3"].attrs["pair_axis"] = "geometry"
+    ds["o3"].attrs["axis"] = "x"
     ds["o3"].attrs["dataset_label"] = "airnow"
-    return PlotSeries(ds, "o3", "o3", "geometry", "airnow", 0)
+    return PlotSeries(ds, "o3", "o3", "x", "airnow", 0)
 
 
 def _band_extents(uncertainty_type: str) -> tuple[float, float]:

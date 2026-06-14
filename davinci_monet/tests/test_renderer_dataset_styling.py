@@ -19,8 +19,8 @@ def _paired_with_aliases() -> xr.Dataset:
         },
         coords={"time": np.arange(n)},
     )
-    ds["cam_o3"].attrs.update({"pair_axis": "dataset", "dataset_label": "cam"})
-    ds["airnow_o3"].attrs.update({"pair_axis": "geometry", "dataset_label": "airnow"})
+    ds["cam_o3"].attrs.update({"axis": "y", "dataset_label": "cam"})
+    ds["airnow_o3"].attrs.update({"axis": "x", "dataset_label": "airnow"})
     return ds
 
 
@@ -50,7 +50,7 @@ class TestGetDatasetColor:
 
     def test_infers_axis_from_prefix_without_attrs(self) -> None:
         # Direct callers (tests, examples, user scripts) pass geometry_/dataset_ vars
-        # that carry no pair_axis attr; they must still map to geometry gray / dataset blue,
+        # that carry no axis attr; they must still map to geometry gray / dataset blue,
         # not the palette.
         ds = xr.Dataset(
             {"geometry_o3": ("time", np.zeros(3)), "dataset_o3": ("time", np.zeros(3))},
@@ -80,7 +80,7 @@ class TestGetSeriesLabel:
         assert get_series_label(ds, "cam_o3") == "cam"
 
     def test_falls_back_to_variable_label_without_dataset_label(self) -> None:
-        # A var without pair_axis/dataset_label attrs falls back to the standard label.
+        # A var without axis/dataset_label attrs falls back to the standard label.
         ds = xr.Dataset({"geometry_o3": ("time", np.zeros(3))}, coords={"time": np.arange(3)})
         from davinci_monet.plots.base import get_variable_label
 
@@ -97,8 +97,8 @@ def _ts_paired() -> xr.Dataset:
         },
         coords={"time": np.arange(n)},
     )
-    ds["cam_o3"].attrs.update({"pair_axis": "dataset", "dataset_label": "cam"})
-    ds["airnow_o3"].attrs.update({"pair_axis": "geometry", "dataset_label": "airnow"})
+    ds["cam_o3"].attrs.update({"axis": "y", "dataset_label": "cam"})
+    ds["airnow_o3"].attrs.update({"axis": "x", "dataset_label": "airnow"})
     return ds
 
 
@@ -129,7 +129,7 @@ class TestTimeseriesAxisStyling:
         assert "Dataset" not in labels
 
     def test_two_unpaired_sources_get_distinct_palette_colors(self) -> None:
-        # A dataset-vs-dataset style pair (both pair_axis-less here) yields two distinct
+        # A dataset-vs-dataset style pair (both axis-less here) yields two distinct
         # palette colors rather than a single shared color.
         from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 
@@ -142,7 +142,7 @@ class TestTimeseriesAxisStyling:
             coords={"time": np.arange(12)},
         )
         for name, label in (("wrf_o3", "wrf"), ("cam_o3", "cam")):
-            ds[name].attrs["dataset_label"] = label  # pair_axis-less (no geometry/dataset)
+            ds[name].attrs["dataset_label"] = label  # axis-less (no geometry/dataset)
         fig = TimeSeriesPlotter().plot(ds, "wrf_o3", "cam_o3")
         colors = self._line_colors_by_label(fig)
         assert colors["wrf"] == NCAR_PALETTE[0]

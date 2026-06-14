@@ -13,7 +13,7 @@ def _context(stats: dict) -> SimpleNamespace:
     return SimpleNamespace(
         config={
             "analysis": {"start_time": "2024-02-01", "end_time": "2024-02-03"},
-            "sources": {"cam": {"type": "cesm_fv", "pair_axis": "dataset"}},
+            "sources": {"cam": {"type": "cesm_fv", "axis": "y"}},
             "pairs": {"p_o3": {}, "p_pm": {}},
         },
         results={"statistics": SimpleNamespace(data=stats)},

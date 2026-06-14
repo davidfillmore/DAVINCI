@@ -284,8 +284,8 @@ class TimeSeriesPlotter(BasePlotter):
         - ``>2`` series → multi-source overlay, palette-cycled.
         """
         if len(series) == 2:
-            x_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-            y_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+            x_series = next((s for s in series if s.axis == "x"), series[0])
+            y_series = next((s for s in series if s.axis == "y"), series[1])
             return self.plot(
                 x_series.dataset,
                 x_series.var_name,

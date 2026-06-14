@@ -17,9 +17,9 @@ from davinci_monet.plots.renderers.scatter import ScatterPlotter
 def _paired() -> xr.Dataset:
     time = np.arange(5)
     obs = xr.DataArray(np.arange(5.0), dims="time", name="obs_o3")
-    obs.attrs.update({"pair_axis": "geometry", "dataset_label": "obs", "units": "ppb"})
+    obs.attrs.update({"axis": "x", "dataset_label": "obs", "units": "ppb"})
     mod = xr.DataArray(np.arange(5.0) + 2.0, dims="time", name="mod_o3")
-    mod.attrs.update({"pair_axis": "dataset", "dataset_label": "mod", "units": "ppb"})
+    mod.attrs.update({"axis": "y", "dataset_label": "mod", "units": "ppb"})
     ds = xr.Dataset({"obs_o3": obs, "mod_o3": mod}, coords={"time": time})
     return ds
 

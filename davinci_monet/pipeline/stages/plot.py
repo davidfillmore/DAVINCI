@@ -66,7 +66,7 @@ class PlottingStage(BaseStage):
         *,
         dataset_label: str,
         dataset_variable: str,
-        pair_axis: str,
+        axis: str,
         fallback_name: str | None = None,
     ) -> str | None:
         """Resolve a variable from unified paired metadata."""
@@ -83,7 +83,7 @@ class PlottingStage(BaseStage):
                 continue
             seen.add(name)
             attrs = paired_data[name].attrs
-            if attrs.get("pair_axis") != pair_axis:
+            if attrs.get("axis") != axis:
                 continue
             if attrs.get("dataset_label") != dataset_label:
                 continue
@@ -298,14 +298,14 @@ class PlottingStage(BaseStage):
                 paired_data,
                 dataset_label=geometry_label,
                 dataset_variable=x_var,
-                pair_axis="geometry",
+                axis="x",
                 fallback_name=fallback_geometry_name,
             )
             dataset_var_name = self._resolve_paired_dataset_variable(
                 paired_data,
                 dataset_label=dataset_label,
                 dataset_variable=y_var,
-                pair_axis="dataset",
+                axis="y",
                 fallback_name=fallback_dataset_name,
             )
             if geometry_var_name is None or dataset_var_name is None:

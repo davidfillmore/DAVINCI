@@ -20,10 +20,10 @@ def _paired_with_labels(geometry: str, dataset: str) -> xr.Dataset:
         coords={"time": np.arange(n)},
     )
     ds[f"{geometry}_o3"].attrs.update(
-        {"pair_axis": "geometry", "dataset_label": geometry, "canonical_name": "o3"}
+        {"axis": "x", "dataset_label": geometry, "canonical_name": "o3"}
     )
     ds[f"{dataset}_o3"].attrs.update(
-        {"pair_axis": "dataset", "dataset_label": dataset, "canonical_name": "o3"}
+        {"axis": "y", "dataset_label": dataset, "canonical_name": "o3"}
     )
     return ds
 
@@ -79,7 +79,7 @@ class TestGetVariableLabelPreserved:
                     "time",
                     np.array([1.0, 2.0]),
                     {
-                        "pair_axis": "dataset",
+                        "axis": "y",
                         "dataset_label": "merra2",
                         "dataset_variable": "LWTUP",
                         "canonical_name": "toa_lw_up",

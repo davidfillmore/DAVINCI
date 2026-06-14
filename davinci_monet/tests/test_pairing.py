@@ -994,9 +994,9 @@ class TestPairingWorkflow:
         assert all(
             not str(name).startswith(("geometry_", "dataset_")) for name in paired.data.data_vars
         )
-        assert paired.data["sensor_GEOMETRY_AOD"].attrs["pair_axis"] == "geometry"
+        assert paired.data["sensor_GEOMETRY_AOD"].attrs["axis"] == "x"
         assert paired.data["sensor_GEOMETRY_AOD"].attrs["dataset_label"] == "sensor"
-        assert paired.data["reanalysis_DATASET_AOD"].attrs["pair_axis"] == "dataset"
+        assert paired.data["reanalysis_DATASET_AOD"].attrs["axis"] == "y"
         assert paired.data["reanalysis_DATASET_AOD"].attrs["dataset_label"] == "reanalysis"
         assert iter_paired_variable_xy(paired.data) == [
             ("sensor_GEOMETRY_AOD", "reanalysis_DATASET_AOD", "GEOMETRY_AOD")

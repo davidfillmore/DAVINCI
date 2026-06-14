@@ -158,8 +158,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
             raise NotImplementedError(
                 f"FlightTimeSeriesPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        x_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-        y_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        x_series = next((s for s in series if s.axis == "x"), series[0])
+        y_series = next((s for s in series if s.axis == "y"), series[1])
         paired_data = x_series.dataset
         x_var = x_series.var_name
         y_var = y_series.var_name

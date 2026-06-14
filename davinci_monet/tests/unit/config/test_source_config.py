@@ -47,8 +47,8 @@ class TestSourceConfig:
         cfg = validate_schema(
             MonetConfig, {"sources": {"x": {"type": "pt_sfc", "filename": "/d.nc"}}}
         )
-        assert "pair_axis" not in SourceConfig.__pydantic_fields__
-        assert "pair_axis" not in (cfg.sources["x"].__pydantic_extra__ or {})
+        assert "axis" not in SourceConfig.__pydantic_fields__
+        assert "axis" not in (cfg.sources["x"].__pydantic_extra__ or {})
 
     def test_sources_default_empty(self) -> None:
         assert MonetConfig().sources == {}
