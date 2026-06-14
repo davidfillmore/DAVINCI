@@ -94,3 +94,36 @@ def test_engine_routes_method_grid_to_symmetric():
     assert isinstance(data, xr.Dataset)
     assert "x_aod" in data and "y_AOD" in data
     assert list(data["x_aod"].dims) == ["time", "lon", "lat"]
+
+
+@pytest.mark.integration
+def test_method_grid_runs_through_pipeline(tmp_path):
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    x = _point_ds([10.2, 10.7, 40.5], [20.2, 20.6, 50.5], [1.0, 3.0, 9.0], "aod")
+    y = _point_ds([10.4, 40.4], [20.4, 50.4], [2.0, 8.0], "AOD")
+    xp, yp = tmp_path / "x.nc", tmp_path / "y.nc"
+    x.to_netcdf(xp)
+    y.to_netcdf(yp)
+
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "sources": {
+            "obs": {"type": "generic", "files": str(xp), "variables": {"aod": {"units": "1"}}},
+            "mod": {"type": "generic", "files": str(yp), "variables": {"AOD": {"units": "1"}}},
+        },
+        "pairs": {
+            "obs_vs_mod": {
+                "x": {"source": "obs", "variable": "aod"},
+                "y": {"source": "mod", "variable": "AOD"},
+                "method": "grid",
+                "grid": {"horizontal_res": 1.0, "time_resolution": "1D", "min_sample_count": 1},
+            }
+        },
+        "plots": {"sc": {"type": "scatter", "data": ["obs_vs_mod"]}},
+    }
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+    assert result.success, getattr(result, "error", None)
+    ctx = result.context
+    assert ctx is not None
+    assert "obs_vs_mod" in ctx.paired
