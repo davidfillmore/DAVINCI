@@ -246,3 +246,63 @@ def test_source_altitude_errors_without_vertical():
     )
     with pytest.raises(PairingError, match="vertical"):
         IntermediateGridStrategy()._source_altitude(ds, "O3", "m")
+
+
+def test_symmetric_3d_bins_by_altitude():
+    import numpy as np
+    import pandas as pd
+    import xarray as xr
+
+    from davinci_monet.pairing.strategies.intermediate_grid import IntermediateGridStrategy
+
+    # x: a track with native altitude (m); two points at ~500 m, one at ~6000 m
+    x = xr.Dataset(
+        {"O3": (["time"], np.array([10.0, 30.0, 99.0]))},
+        coords={
+            "time": pd.to_datetime(["2012-05-29"] * 3),
+            "latitude": ("time", [35.1, 35.2, 35.3]),
+            "longitude": ("time", [-97.1, -97.2, -97.3]),
+            "altitude": ("time", np.array([400.0, 700.0, 6000.0]), {"units": "m"}),
+        },
+    )
+    # y: a 3-D grid with geopotential height Z3 (m)
+    lev = np.array([1, 2])
+    lat = np.array([35.0])
+    lon = np.array([-97.0])
+    y = xr.Dataset(
+        {
+            "O3": (["time", "lev", "lat", "lon"], np.full((1, 2, 1, 1), 50.0)),
+            "Z3": (
+                ["time", "lev", "lat", "lon"],
+                np.array([[[[500.0]], [[6000.0]]]]),
+                {"units": "m"},
+            ),
+        },
+        coords={
+            "time": pd.to_datetime(["2012-05-29"]),
+            "lev": lev,
+            "lat": lat,
+            "lon": lon,
+            "latitude": ("lat", lat),
+            "longitude": ("lon", lon),
+        },
+    )
+    paired = IntermediateGridStrategy().pair_sources(
+        x_data=x,
+        y_data=y,
+        x_var="O3",
+        y_var="O3",
+        x_source="dc8",
+        y_source="cam",
+        horizontal_res=1.0,
+        time_resolution="1D",
+        min_sample_count=1,
+        vertical={"res": 1000.0, "units": "m", "extent": [0.0, 7000.0]},
+    )
+    assert list(paired["x_O3"].dims) == ["time", "lon", "lat", "alt"]
+    assert "alt" in paired.coords and "x_sample_count" in paired and "y_sample_count" in paired
+    # the two ~500 m x points share the 0-1000 m alt bin -> mean(10,30)=20
+    low = paired["x_O3"].sel(alt=500.0, method="nearest").max().item()
+    assert low == pytest.approx(20.0)
+    # the 6000 m x point sits in a higher alt bin, away from the 500 m bin
+    assert int(paired["x_sample_count"].sel(alt=500.0, method="nearest").max().item()) == 2

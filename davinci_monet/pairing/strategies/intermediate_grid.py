@@ -120,6 +120,7 @@ class IntermediateGridStrategy(BasePairingStrategy):
                 extent=kwargs.get("extent"),
                 time_resolution=kwargs.get("time_resolution", "1D"),
                 min_sample_count=int(kwargs.get("min_sample_count", 1)),
+                vertical=kwargs.get("vertical"),
             )
 
         grid_mode = kwargs.get("grid_mode", "match_dataset")
@@ -269,8 +270,24 @@ class IntermediateGridStrategy(BasePairingStrategy):
         extent: tuple[float, float, float, float] | None,
         time_resolution: str,
         min_sample_count: int,
+        vertical: Any = None,
     ) -> xr.Dataset:
         """Bin BOTH sources onto a common uniform (time, lon, lat) grid and pair."""
+        if vertical is not None:
+            return self._pair_symmetric_3d(
+                x_data,
+                x_data_var=x_data_var,
+                y_data=y_data,
+                y_data_var=y_data_var,
+                x_source=x_source,
+                y_source=y_source,
+                horizontal_res=horizontal_res,
+                extent=extent,
+                time_resolution=time_resolution,
+                min_sample_count=min_sample_count,
+                vertical=vertical,
+            )
+
         x_var = x_data_var or str(list(x_data.data_vars)[0])
         y_var = y_data_var or str(list(y_data.data_vars)[0])
         # Phase 1 is 2-D: reduce any vertical dim to the surface for both sources.
@@ -320,6 +337,146 @@ class IntermediateGridStrategy(BasePairingStrategy):
         paired[f"y_{y_var}"].attrs.update({"axis": "y", "source_label": y_source or ""})
         paired.attrs.update({"created_by": "davinci_monet", "paired": True})
         return paired
+
+    def _pair_symmetric_3d(
+        self,
+        x_data: xr.Dataset,
+        *,
+        x_data_var: str | None,
+        y_data: xr.Dataset,
+        y_data_var: str | None,
+        x_source: str | None,
+        y_source: str | None,
+        horizontal_res: float,
+        extent: tuple[float, float, float, float] | None,
+        time_resolution: str,
+        min_sample_count: int,
+        vertical: Any,
+    ) -> xr.Dataset:
+        """Bin BOTH sources onto a common (time, lon, lat, alt) grid and pair."""
+        x_var = x_data_var or str(list(x_data.data_vars)[0])
+        y_var = y_data_var or str(list(y_data.data_vars)[0])
+
+        # ``vertical`` arrives as a plain dict at runtime (config is re-dumped to
+        # dicts in the pipeline); handle the model form defensively as well.
+        if isinstance(vertical, dict):
+            units = str(vertical.get("units", "m"))
+            vres = float(vertical["res"])
+            vextent = vertical.get("extent")
+        else:
+            units = str(getattr(vertical, "units", "m"))
+            vres = float(vertical.res)
+            vextent = getattr(vertical, "extent", None)
+
+        x_alt = self._source_altitude(x_data, x_var, units)
+        y_alt = self._source_altitude(y_data, y_var, units)
+
+        lon_centers, lat_centers, lon_edges, lat_edges = self._uniform_horizontal_grid(
+            [x_data, y_data], horizontal_res, extent
+        )
+        time_centers, time_edges, time_coords = self._uniform_time_grid(
+            [x_data, y_data], time_resolution
+        )
+        alt_centers, alt_edges = self._uniform_vertical_grid([x_alt, y_alt], vres, vextent)
+
+        shape = (len(time_centers), len(lon_centers), len(lat_centers), len(alt_centers))
+        xg, xc = self._bin_one_source_3d(
+            x_data,
+            x_var,
+            x_alt,
+            time_edges,
+            lon_edges,
+            lat_edges,
+            alt_edges,
+            shape,
+            min_sample_count,
+        )
+        yg, yc = self._bin_one_source_3d(
+            y_data,
+            y_var,
+            y_alt,
+            time_edges,
+            lon_edges,
+            lat_edges,
+            alt_edges,
+            shape,
+            min_sample_count,
+        )
+        dims = ["time", "lon", "lat", "alt"]
+        paired = xr.Dataset(
+            {
+                f"x_{x_var}": (dims, xg.astype(np.float32)),
+                f"y_{y_var}": (dims, yg.astype(np.float32)),
+                "x_sample_count": (dims, xc),
+                "y_sample_count": (dims, yc),
+            },
+            coords={
+                "time": time_coords,
+                "lon": lon_centers,
+                "lat": lat_centers,
+                "alt": alt_centers,
+            },
+        )
+        paired["alt"].attrs["units"] = units
+        paired[f"x_{x_var}"].attrs.update({"axis": "x", "source_label": x_source or ""})
+        paired[f"y_{y_var}"].attrs.update({"axis": "y", "source_label": y_source or ""})
+        paired.attrs.update({"created_by": "davinci_monet", "paired": True})
+        return paired
+
+    def _bin_one_source_3d(
+        self,
+        ds: xr.Dataset,
+        var: str,
+        alt: xr.DataArray,
+        time_edges: np.ndarray,
+        lon_edges: np.ndarray,
+        lat_edges: np.ndarray,
+        alt_edges: np.ndarray,
+        shape: tuple[int, int, int, int],
+        min_sample_count: int,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        from davinci_monet.pairing.grid_binning import bin_points_to_grid_4d
+
+        time_flat, lon_flat, lat_flat, data_flat = self._flatten_to_points(ds, var)
+        da = ds[var]
+        # IMPORTANT: build ``alt_flat`` with the IDENTICAL broadcast/transpose/
+        # flatten pattern as the lat/lon flatten in ``_flatten_to_points`` so the
+        # i-th altitude aligns element-wise with the i-th value/lat/lon/time.
+        alt_flat = alt.broadcast_like(da).transpose(*da.dims).values.astype(np.float64).flatten()
+        if lon_edges[0] >= 0 and np.any(lon_flat < 0):
+            lon_flat = np.where(lon_flat < 0, lon_flat + 360.0, lon_flat)
+        count = np.zeros(shape, dtype=np.int32)
+        acc = np.zeros(shape, dtype=np.float64)
+        bin_points_to_grid_4d(
+            time_edges,
+            lon_edges,
+            lat_edges,
+            alt_edges,
+            time_flat,
+            lon_flat,
+            lat_flat,
+            alt_flat,
+            data_flat,
+            count,
+            acc,
+        )
+        normalize_grid(count, acc)
+        if min_sample_count > 1:
+            acc[count < min_sample_count] = np.nan
+        return acc, count
+
+    def _uniform_vertical_grid(
+        self, alt_arrays: list[xr.DataArray], res: float, extent: Any
+    ) -> tuple[np.ndarray, np.ndarray]:
+        if extent is not None:
+            z0, z1 = float(extent[0]), float(extent[1])
+        else:
+            mins = [float(np.nanmin(a.values)) for a in alt_arrays]
+            maxs = [float(np.nanmax(a.values)) for a in alt_arrays]
+            z0, z1 = min(mins), max(maxs)
+        edges = self._span_edges(z0, z1, res)
+        centers = (edges[:-1] + edges[1:]) / 2.0
+        return centers, edges
 
     def _reduce_to_surface(self, ds: xr.Dataset) -> xr.Dataset:
         for dim_name in ("lev", "z", "level"):

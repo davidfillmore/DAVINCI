@@ -233,6 +233,7 @@ class PairingEngine:
                 extent=kwargs.get("extent"),
                 time_resolution=kwargs.get("time_resolution", "1D"),
                 min_sample_count=kwargs.get("min_sample_count", 1),
+                vertical=kwargs.get("vertical"),
             )
             return PairedData.from_sources(
                 data=grid_paired_ds,
