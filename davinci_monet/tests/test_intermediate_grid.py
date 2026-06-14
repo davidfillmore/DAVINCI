@@ -166,3 +166,83 @@ def test_pressure_to_altitude_standard_atmosphere():
     from davinci_monet.pairing.strategies.track import altitude_to_pressure
 
     assert altitude_to_pressure(z)[1] == pytest.approx(500.0, rel=1e-3)
+
+
+def _track_alt_ds(alts_m, var="O3"):
+    import numpy as np
+    import pandas as pd
+    import xarray as xr
+
+    n = len(alts_m)
+    return xr.Dataset(
+        {var: (["time"], np.arange(n, dtype=float))},
+        coords={
+            "time": pd.to_datetime(["2012-05-29"] * n),
+            "latitude": ("time", np.full(n, 35.0)),
+            "longitude": ("time", np.full(n, -97.0)),
+            "altitude": ("time", np.asarray(alts_m, float), {"units": "m"}),
+        },
+    )
+
+
+def test_source_altitude_native_meters():
+    from davinci_monet.pairing.strategies.intermediate_grid import IntermediateGridStrategy
+
+    ds = _track_alt_ds([500.0, 8000.0])
+    alt = IntermediateGridStrategy()._source_altitude(ds, "O3", "m")
+    assert list(alt.dims) == ["time"]
+    assert float(alt.values[0]) == pytest.approx(500.0)
+    assert float(alt.values[1]) == pytest.approx(8000.0)
+
+
+def test_source_altitude_native_km_units_conversion():
+    from davinci_monet.pairing.strategies.intermediate_grid import IntermediateGridStrategy
+
+    ds = _track_alt_ds([500.0, 8000.0])  # source in metres
+    alt = IntermediateGridStrategy()._source_altitude(ds, "O3", "km")  # request km
+    assert float(alt.values[1]) == pytest.approx(8.0)
+
+
+def test_source_altitude_pressure_fallback():
+    import numpy as np
+    import pandas as pd
+    import xarray as xr
+
+    from davinci_monet.pairing.strategies.intermediate_grid import IntermediateGridStrategy
+
+    ds = xr.Dataset(
+        {"O3": (["time", "lev"], np.zeros((1, 2)))},
+        coords={
+            "time": pd.to_datetime(["2012-05-29"]),
+            "lev": ("lev", np.array([1013.25, 500.0]), {"units": "hPa"}),
+            "latitude": ("time", [35.0]),
+            "longitude": ("time", [-97.0]),
+        },
+    )
+    alt = IntermediateGridStrategy()._source_altitude(ds, "O3", "m")
+    # broadcast to (time, lev): lev 1013->~0 m, 500->~5572 m
+    vals = alt.transpose("time", "lev").values[0]
+    assert vals[0] == pytest.approx(0.0, abs=1.0)
+    assert vals[1] == pytest.approx(5572.0, abs=50.0)
+
+
+def test_source_altitude_errors_without_vertical():
+    import numpy as np
+    import pandas as pd
+    import xarray as xr
+
+    from davinci_monet.core.exceptions import PairingError
+    from davinci_monet.pairing.strategies.intermediate_grid import IntermediateGridStrategy
+
+    # hybrid 'z' level, no length units, no geopotential, no pressure
+    ds = xr.Dataset(
+        {"O3": (["time", "z"], np.zeros((1, 2)))},
+        coords={
+            "time": pd.to_datetime(["2012-05-29"]),
+            "z": ("z", np.array([0.5, 0.9])),  # hybrid, unitless
+            "latitude": ("time", [35.0]),
+            "longitude": ("time", [-97.0]),
+        },
+    )
+    with pytest.raises(PairingError, match="vertical"):
+        IntermediateGridStrategy()._source_altitude(ds, "O3", "m")

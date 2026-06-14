@@ -22,6 +22,13 @@ from davinci_monet.core.types import TimeDelta
 from davinci_monet.pairing.grid_binning import bin_swath_to_grid, edges_from_centers, normalize_grid
 from davinci_monet.pairing.strategies.base import BasePairingStrategy
 
+_UNIT_TO_M = {"m": 1.0, "meter": 1.0, "meters": 1.0, "km": 1000.0, "ft": 0.3048, "feet": 0.3048}
+_ALT_NAMES = {"altitude", "alt", "height", "geometric_height"}
+_GEOPOT_NAMES = {"z3", "zg", "geopotential_height", "geopotential_height_msl"}
+_PRESSURE_NAMES = {"lev", "level", "plev", "pressure", "p"}
+_PRESSURE_HPA_UNITS = {"hpa", "mb", "millibar", "hectopascal"}
+_PRESSURE_PA_UNITS = {"pa", "pascal"}
+
 
 class IntermediateGridStrategy(BasePairingStrategy):
     """Pairing strategy that bins satellite swath data onto a uniform grid.
@@ -319,6 +326,59 @@ class IntermediateGridStrategy(BasePairingStrategy):
             if dim_name in ds.dims:
                 return self._extract_surface(ds, dim_name)
         return ds
+
+    def _source_altitude(self, ds: xr.Dataset, var: str, units: str) -> xr.DataArray:
+        """Per-datum altitude (broadcast to ``ds[var]``'s dims) in ``units``.
+
+        Order: native geometric altitude (length units) -> geopotential height
+        (length units) -> pressure (US Std Atm). Errors if the dataset supplies
+        none — it is the dataset's responsibility to carry a usable vertical.
+        """
+        from davinci_monet.pairing.strategies.track import pressure_to_altitude
+
+        da = ds[var]
+        tu = units.lower()
+        if tu not in _UNIT_TO_M:
+            raise PairingError(
+                f"Unsupported vertical units '{units}'; use one of {sorted(_UNIT_TO_M)}"
+            )
+        tfac = _UNIT_TO_M[tu]
+
+        # 1. native geometric altitude — a coord/var with length units
+        for name in list(da.coords) + [v for v in ds.variables if v != var]:
+            if str(name).lower() in _ALT_NAMES:
+                cand = ds[name]
+                su = str(cand.attrs.get("units", "")).lower()
+                if su in _UNIT_TO_M:
+                    return (cand * (_UNIT_TO_M[su] / tfac)).broadcast_like(da)
+
+        # 2. geopotential height — a data variable with length units
+        for name in ds.data_vars:
+            if str(name).lower() in _GEOPOT_NAMES:
+                cand = ds[name]
+                su = str(cand.attrs.get("units", "m")).lower()
+                if su in _UNIT_TO_M:
+                    return (cand * (_UNIT_TO_M[su] / tfac)).broadcast_like(da)
+
+        # 3. pressure vertical coordinate -> altitude (US Std Atm)
+        for name in list(da.dims) + list(da.coords):
+            if str(name).lower() in _PRESSURE_NAMES and name in ds.coords:
+                cand = ds[name]
+                su = str(cand.attrs.get("units", "")).lower()
+                if su in _PRESSURE_HPA_UNITS or su in _PRESSURE_PA_UNITS:
+                    p_hpa = cand if su in _PRESSURE_HPA_UNITS else cand / 100.0
+                    alt_m = xr.DataArray(
+                        pressure_to_altitude(np.asarray(p_hpa.values, dtype=float)),
+                        dims=p_hpa.dims,
+                        coords=p_hpa.coords,
+                    )
+                    return (alt_m * (1.0 / tfac)).broadcast_like(da)
+
+        raise PairingError(
+            f"Source variable '{var}' has no usable vertical coordinate for a 3-D "
+            f"altitude grid; supply geometric altitude (m), geopotential height (m), "
+            f"or pressure (hPa). Found dims: {list(da.dims)}"
+        )
 
     def _flatten_to_points(
         self, ds: xr.Dataset, var: str
