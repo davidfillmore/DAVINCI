@@ -280,30 +280,25 @@ sources:
     filename: ${MY_ANALYSIS}/data/datasets.nc
     variables:
       pm25:
-        geometry_min: 0
+        valid_min: 0
       o3:
-        geometry_min: 0
+        valid_min: 0
+        valid_max: 500
 
 pairs:
-  cam_airnow:
-    sources: [cam, airnow]
-    geometry: airnow
-    variables: {cam: O3, airnow: o3}
-        geometry_max: 500
+  cam_vs_airnow_o3:
+    x: {source: airnow, variable: o3}   # horizontal axis; the "− x" in diffs
+    y: {source: cam,    variable: O3}   # vertical axis;   the "y −" in diffs
 
-pairs:
-  dataset_geometry_pm25:
-    dataset: my_dataset
-    geometry: my_geometry
-    variable:
-      dataset_var: PM25
-      geometry_var: pm25
+  cam_vs_airnow_pm25:
+    x: {source: airnow, variable: pm25}
+    y: {source: cam,    variable: PM25}
 
 plots:
   pm25_scatter:
     type: scatter
-    pairs: [dataset_geometry_pm25]
-    title: "PM2.5 Dataset vs Datasets"
+    pairs: [cam_vs_airnow_pm25]
+    title: "PM2.5 CAM vs AirNow"
 
 stats:
   metrics: [N, MB, RMSE, R, NMB, NME, IOA]
@@ -313,6 +308,8 @@ summary:
   dataset: claude-haiku-4-5  # cheapest vision dataset
   max_images: 8
 ```
+
+**Note**: The old pair shape (`sources: [a, b]` + `geometry:` + `variables:`) is rejected with a migration error. Use the nested `x:`/`y:` shape above.
 
 ### Config Naming Convention
 
@@ -334,20 +331,20 @@ export MY_ANALYSIS=/path/to/analysis
 ### Variable Naming Convention
 
 Paired datasets produced by the pipeline use **source-label prefix** format —
-`<dataset_label>_<var>`, where `<dataset_label>` is the source's key in the
+`<source_label>_<var>`, where `<source_label>` is the source's key in the
 `sources:`/`pairs:` config:
-- `cam_pm25` - the `cam` source's values (dataset, `pair_axis: dataset`)
-- `airnow_pm25` - the `airnow` source's values (geometry, `pair_axis: geometry`)
+- `cam_pm25` - the `cam` source's values (y axis in the pair)
+- `airnow_pm25` - the `airnow` source's values (x axis in the pair)
 
-Each paired variable carries `pair_axis` (`dataset`/`geometry`) and `dataset_label` attrs, so
-consumers select series by pair_axis/source rather than by a name prefix. This is the
+Each paired variable carries `axis` (`"x"`/`"y"`) and `source_label` attrs, so
+consumers select series by axis/source rather than by a name prefix. This is the
 going-forward naming after the renderer rewire clean break (R-5).
 
 Pipeline and `PairingEngine.pair_sources()` output is source-label named. Direct
 strategy implementations may still use adapter-local variable names internally,
 but those are not the public paired dataset convention.
 
-Either way it is **prefix** format, NOT suffix (`pm25_cam`, `pm25_dataset`).
+Either way it is **prefix** format, NOT suffix (`pm25_cam`, `pm25_source`).
 
 ## Key Design Patterns
 
@@ -378,40 +375,38 @@ Paired:  xr.Dataset with aligned dataset + geometry variables
 ## External Dependencies
 
 - Continues using monet/monetio libraries for data I/O
-- YAML control files should use the unified `sources:` schema.
-  `dataset:`/`geometry:` pair shapes are rejected by validation.
+- YAML control files must use the unified `sources:` schema with nested `x:`/`y:` pairs.
+  Old pair shapes (`sources: [a, b]` + `geometry:` + `variables:`) are rejected by validation.
 
 ## Unified Data-Source Config (`sources:`)
 
-As of the dataset/geometry unification, the going-forward config format is a single
-`sources:` block plus binary `pairs:`. Datasets and datasets are both data
-sources distinguished only by geometry; a `pair_axis: dataset|geometry` tag is optional
-metadata for plot styling/legends and never drives pairing.
+The going-forward config format is a single `sources:` block plus binary `pairs:`
+with nested `x:`/`y:` keys. All data sources (model, satellite, surface network)
+are defined in `sources:`; the pair specifies which variable from each source goes
+on each axis. The old shape (`sources: [a, b]` + `geometry:` + `variables:`) is
+rejected with a migration error.
 
 ```yaml
 sources:
   cam:
     type: cesm_fv
-    pair_axis: dataset            # optional — styling/legend only
     files: ${DATA}/cam/*.nc
     variables: { O3: { unit_scale: 1.0e9 } }
   airnow:
     type: pt_sfc
-    pair_axis: geometry
     filename: ${DATA}/airnow.nc
-    variables: { o3: { geometry_min: 0, geometry_max: 500 } }
+    variables: { o3: { valid_min: 0, valid_max: 500 } }
 
 pairs:
   cam_vs_airnow_o3:
-    sources: [cam, airnow]   # order does not imply direction
-    geometry: airnow        # optional; default by geometry precedence
-    variables: { cam: O3, airnow: o3 }
+    x: {source: airnow, variable: o3}   # horizontal axis; the "− x" in diffs
+    y: {source: cam,    variable: O3}   # vertical axis;   the "y −" in diffs
 ```
 
-Direction precedence: irregular geometries (point/track/profile/swath) outrank
-GRID as the pairing geometry, so a gridded source is sampled onto them. When two
-same-geometry sources are paired with no explicit `geometry:`, the first-listed
-source is the geometry (with a warning).
+**Pairing direction** is decided by spatial geometry (shape) precedence: irregular
+geometries (point/track/profile/swath) outrank GRID, so a gridded source is
+sampled onto them. x/y assignment is plot-axis labeling only and does not affect
+which source drives the spatial sampling.
 
 ## Working Example: ASIA-AQ Analysis
 
@@ -463,14 +458,14 @@ from davinci_monet.plots import apply_ncar_style, plot_timeseries
 apply_ncar_style()
 
 # Create plots with consistent styling
-fig = plot_timeseries(paired_data, "geometry_o3", "dataset_o3")
+fig = plot_timeseries(paired_data, "airnow_o3", "cam_o3")
 ```
 
 **Key colors** (`davinci_monet.plots.style`):
-- `NCAR_PRIMARY`: NCAR Blue (#0A5DDA) — brand color, used for **geometry-only** plots
-- `DATASET_A_COLOR`: Gray (#58595B) — datasets **in dataset-vs-geometry paired** plots (for contrast)
-- `DATASET_B_COLOR`: NCAR Blue (#0A5DDA) — dataset data in paired plots
-- `NCAR_PALETTE`: 8-color palette for multiple datasets / per-flight coloring
+- `NCAR_PRIMARY`: NCAR Blue (#0A5DDA) — brand color, used for single-source plots
+- `x_color` / `DATASET_A_COLOR`: Gray (#58595B) — x-axis source in paired plots (conventional reference)
+- `y_color` / `DATASET_B_COLOR`: NCAR Blue (#0A5DDA) — y-axis source in paired plots
+- `NCAR_PALETTE`: 8-color palette for multiple sources / per-flight coloring
 
 **Context presets**:
 - `default`: Standard sizes for general use
@@ -495,13 +490,13 @@ fig = plot_timeseries(paired_data, "geometry_o3", "dataset_o3")
 
 6. **High-frequency datasets**: Use `resample` to average sub-hourly data to match dataset resolution:
    ```yaml
-   geometry:
+   sources:
      pandora:
        type: pt_sfc
        filename: /data/pandora/*.nc
        resample: "h"           # Average to hourly
-       min_geometry_count: 3        # Require ≥3 geometry per hour (reject sparse hours)
-       track_geometry_count: true   # Add geometry_count variable for diagnostics
+       min_sample_count: 3     # Require ≥3 samples per hour (reject sparse hours)
+       track_sample_count: true  # Add sample_count variable for diagnostics
    ```
 
 7. **Scatter plot density**: For busy scatter plots with many points, enable density coloring:
