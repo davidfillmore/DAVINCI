@@ -310,6 +310,15 @@ class AxisRef(FlexibleSchema):
     variable: str
 
 
+class GridConfig(FlexibleSchema):
+    """Intermediate-grid settings for a pair using ``method: grid`` (2-D, Phase 1)."""
+
+    horizontal_res: float
+    extent: tuple[float, float, float, float] | None = None
+    time_resolution: str = "1D"
+    min_sample_count: int = 1
+
+
 class SourcePairConfig(FlexibleSchema):
     """Binary pair definition as an ordered (x, y).
 
@@ -321,6 +330,8 @@ class SourcePairConfig(FlexibleSchema):
 
     x: AxisRef
     y: AxisRef
+    method: Literal["auto", "grid"] = "auto"
+    grid: GridConfig | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -338,6 +349,19 @@ class SourcePairConfig(FlexibleSchema):
     @classmethod
     def _parse_axis(cls, v: Any) -> Any:
         return AxisRef(**v) if isinstance(v, dict) else v
+
+    @field_validator("grid", mode="before")
+    @classmethod
+    def _parse_grid(cls, v: Any) -> Any:
+        return GridConfig(**v) if isinstance(v, dict) else v
+
+    @model_validator(mode="after")
+    def _validate_method_grid(self) -> "SourcePairConfig":
+        if self.method == "grid" and self.grid is None:
+            raise ValueError("method: grid requires a 'grid:' block with horizontal_res")
+        if self.method == "auto" and self.grid is not None:
+            raise ValueError("'grid:' is only valid with method: grid (got method: auto)")
+        return self
 
     @property
     def sources(self) -> list[str]:
