@@ -150,3 +150,19 @@ def test_method_grid_runs_through_pipeline(tmp_path):
     ctx = result.context
     assert ctx is not None
     assert "obs_vs_mod" in ctx.paired
+
+
+def test_pressure_to_altitude_standard_atmosphere():
+    import numpy as np
+
+    from davinci_monet.pairing.strategies.track import pressure_to_altitude
+
+    p = np.array([1013.25, 500.0, 700.0])
+    z = pressure_to_altitude(p)
+    assert z[0] == pytest.approx(0.0, abs=1.0)  # sea level
+    assert z[1] == pytest.approx(5572.0, abs=50.0)  # ~500 hPa
+    assert z[2] == pytest.approx(3012.0, abs=50.0)  # ~700 hPa
+    # round-trips with the existing forward conversion
+    from davinci_monet.pairing.strategies.track import altitude_to_pressure
+
+    assert altitude_to_pressure(z)[1] == pytest.approx(500.0, rel=1e-3)
