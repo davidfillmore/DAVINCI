@@ -8,10 +8,9 @@ Data: Satellite swath datasets (NO2 column density)
 """
 
 import matplotlib.pyplot as plt
+from _helpers import create_paired_swath_data, save_figure
 
 from davinci_monet.plots import plot_spatial_bias, plot_spatial_distribution
-
-from _helpers import create_paired_swath_data, save_figure
 
 
 def main():
@@ -32,26 +31,26 @@ def main():
     import numpy as np
     import xarray as xr
 
-    geometry_flat = paired["geometry_no2"].values.flatten()
-    dataset_flat = paired["dataset_no2"].values.flatten()
+    x_flat = paired["x_no2"].values.flatten()
+    y_flat = paired["y_no2"].values.flatten()
     lat_flat = paired["latitude"].values.flatten()
     lon_flat = paired["longitude"].values.flatten()
 
     # Remove NaN values
-    valid = np.isfinite(geometry_flat) & np.isfinite(dataset_flat)
-    geometry_flat = geometry_flat[valid]
-    dataset_flat = dataset_flat[valid]
+    valid = np.isfinite(x_flat) & np.isfinite(y_flat)
+    x_flat = x_flat[valid]
+    y_flat = y_flat[valid]
     lat_flat = lat_flat[valid]
     lon_flat = lon_flat[valid]
 
     # Create flattened dataset for spatial plotting
     paired_flat = xr.Dataset(
         {
-            "geometry_no2": ("point", geometry_flat),
-            "dataset_no2": ("point", dataset_flat),
+            "x_no2": ("point", x_flat),
+            "y_no2": ("point", y_flat),
         },
         coords={
-            "point": np.arange(len(geometry_flat)),
+            "point": np.arange(len(x_flat)),
             "latitude": ("point", lat_flat),
             "longitude": ("point", lon_flat),
         },
@@ -64,8 +63,8 @@ def main():
     # 1. Spatial bias plot (colorbar indicates "Dataset - Geometry")
     fig1 = plot_spatial_bias(
         paired_flat,
-        geometry_var="geometry_no2",
-        dataset_var="dataset_no2",
+        x_var="x_no2",
+        y_var="y_no2",
         lat_var="latitude",
         lon_var="longitude",
         time_average=False,  # Already 1D
@@ -78,11 +77,11 @@ def main():
     # 2. Spatial distribution (datasets)
     fig2 = plot_spatial_distribution(
         paired_flat,
-        geometry_var="geometry_no2",
-        dataset_var="dataset_no2",
+        x_var="x_no2",
+        y_var="y_no2",
         lat_var="latitude",
         lon_var="longitude",
-        show_var="geometry",
+        show_var="x",
         time_average=False,
         title="Spatial Distribution: TROPOMI L2 NO2 (Geometry)",
         marker_size=3,
@@ -93,11 +92,11 @@ def main():
     # 3. Spatial distribution (dataset)
     fig3 = plot_spatial_distribution(
         paired_flat,
-        geometry_var="geometry_no2",
-        dataset_var="dataset_no2",
+        x_var="x_no2",
+        y_var="y_no2",
         lat_var="latitude",
         lon_var="longitude",
-        show_var="dataset",
+        show_var="y",
         time_average=False,
         title="Spatial Distribution: TROPOMI L2 NO2 (Dataset)",
         marker_size=3,

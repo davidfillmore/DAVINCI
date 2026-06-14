@@ -74,7 +74,7 @@ def x_context(x_data: SourceData, tmp_path: Any) -> PipelineContext:
             "plots": {
                 "o3_histogram": {
                     "type": "histogram",
-                    "geometry": "dc8",
+                    "source": "dc8",
                     "variable": "O3",
                     "title": "O3 Distribution",
                 },

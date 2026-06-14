@@ -151,7 +151,7 @@ class StatisticsStage(BaseStage):
         )
         calculator = StatisticsCalculator(calc_config)
 
-        # Pair geometry and dataset variables by canonical name.
+        # Pair x and y variables by canonical name.
         for x_var, y_var, base_name in iter_paired_variable_xy(paired_data):
             df = calculator.compute(
                 paired_data,
@@ -174,8 +174,8 @@ class StatisticsStage(BaseStage):
                 "mean_bias": "MB",
                 "rmse": "RMSE",
                 "correlation": "R",
-                "dataset_mean": "MD",
-                "geometry_mean": "MG",
+                "y_mean": "MY",
+                "x_mean": "MX",
             }
             for alias_key, metric_key in alias_map.items():
                 if metric_key in row and alias_key not in row:
@@ -233,16 +233,16 @@ class StatisticsStage(BaseStage):
                     "flight": str(flight),
                     "variable": base_name,
                     "N": len(m),
-                    "MG": float(np.mean(o)),
-                    "MD": float(np.mean(m)),
+                    "MX": float(np.mean(o)),
+                    "MY": float(np.mean(m)),
                     "MB": float(np.mean(diff)),
                     "RMSE": float(np.sqrt(np.mean(diff**2))),
                     "R": float(np.corrcoef(o, m)[0, 1]) if len(m) > 1 else np.nan,
                 }
                 # NMB/NME
-                if row["MG"] != 0:
-                    row["NMB_%"] = (row["MB"] / row["MG"]) * 100
-                    row["NME_%"] = (float(np.mean(np.abs(diff))) / row["MG"]) * 100
+                if row["MX"] != 0:
+                    row["NMB_%"] = (row["MB"] / row["MX"]) * 100
+                    row["NME_%"] = (float(np.mean(np.abs(diff))) / row["MX"]) * 100
                 else:
                     row["NMB_%"] = np.nan
                     row["NME_%"] = np.nan

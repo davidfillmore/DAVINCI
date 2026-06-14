@@ -36,14 +36,14 @@ class TestResolvePairedVarNames:
     def test_prefix_names_are_fallbacks(self) -> None:
         ds = xr.Dataset(
             {
-                "geometry_o3": ("time", np.zeros(4)),
-                "dataset_o3": ("time", np.ones(4)),
+                "x_o3": ("time", np.zeros(4)),
+                "y_o3": ("time", np.ones(4)),
             },
             coords={"time": np.arange(4)},
         )
         x_name, y_name = resolve_paired_var_names(ds, "o3", "airnow", "cam")
-        assert x_name == "geometry_o3"
-        assert y_name == "dataset_o3"
+        assert x_name == "x_o3"
+        assert y_name == "y_o3"
 
 
 class TestCanonicalVariableName:

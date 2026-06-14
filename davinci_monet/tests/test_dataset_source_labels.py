@@ -1,7 +1,7 @@
 """Tests for source-label naming on geometry-only/single-source renderers (R-4).
 
-R-4: geometry-only plots draw a single source. They keep the geometry-only brand color
-(NCAR blue, *not* the paired-geometry gray) but now label their primary series by the
+R-4: geometry-only plots draw a single source. They keep the single-source brand color
+(NCAR blue, *not* the paired x-axis gray) but now label their primary series by the
 dataset's ``source_label`` so the plot self-identifies its source, consistent
 with the source-label dataset used by the paired renderers (R-3).
 """
@@ -49,7 +49,7 @@ class TestGeometryTimeseriesSourceLabel:
         assert fig.axes[0].get_lines()[0].get_label() == "pandora"
 
     def test_single_series_keeps_geometry_only_blue(self) -> None:
-        # Geometry-only convention: NCAR blue, NOT the paired-geometry gray.
+        # Geometry-only convention: NCAR blue, NOT the paired x-axis gray.
         from davinci_monet.plots.base import build_series
         from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 

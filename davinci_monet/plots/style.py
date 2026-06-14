@@ -16,7 +16,7 @@ Usage
 >>> apply_ncar_style()
 >>>
 >>> # Then create plots as usual
->>> fig = plot_timeseries(paired_data, "geometry_o3", "dataset_o3")
+>>> fig = plot_timeseries(paired_data, "x_o3", "y_o3")
 
 The apply_ncar_style() function sets matplotlib rcParams globally, affecting
 all subsequent plots. For individual plots, you can also pass style options
@@ -61,11 +61,11 @@ NCAR_PRIMARY = NCAR_COLORS["ncar_blue"]
 NCAR_SECONDARY = NCAR_COLORS["aqua"]
 NCAR_ACCENT = NCAR_COLORS["orange"]
 
-# Color scheme for geometry-dataset comparisons.
-DATASET_A_COLOR = NCAR_COLORS["gray"]  # Geometry values in neutral gray
-DATASET_B_COLOR = NCAR_COLORS["ncar_blue"]  # Dataset in primary blue
-BIAS_POSITIVE_COLOR = NCAR_COLORS["red"]  # Dataset is higher than geometry
-BIAS_NEGATIVE_COLOR = NCAR_COLORS["ncar_blue"]  # Dataset is lower than geometry
+# Color scheme for x-y comparisons.
+X_COLOR = NCAR_COLORS["gray"]  # x-axis values in neutral gray
+Y_COLOR = NCAR_COLORS["ncar_blue"]  # y-axis values in primary blue
+BIAS_POSITIVE_COLOR = NCAR_COLORS["red"]  # y is higher than x
+BIAS_NEGATIVE_COLOR = NCAR_COLORS["ncar_blue"]  # y is lower than x
 
 # Sequential color palette for multiple plotted series.
 NCAR_PALETTE = [
@@ -271,8 +271,8 @@ def get_color_for_variable(variable: str) -> str:
     ----------
     variable
         Variable name or type. Recognized prefixes:
-        - "geometry_*": Returns geometry color
-        - "dataset_*": Returns dataset color
+        - "x_*": Returns x-source color
+        - "y_*": Returns y-source color
         - "bias_*": Returns bias color
 
     Returns
@@ -281,10 +281,10 @@ def get_color_for_variable(variable: str) -> str:
         Hex color code.
     """
     var_lower = variable.lower()
-    if var_lower.startswith("geometry"):
-        return DATASET_A_COLOR
-    elif var_lower.startswith("dataset"):
-        return DATASET_B_COLOR
+    if var_lower.startswith("x_"):
+        return X_COLOR
+    elif var_lower.startswith("y_"):
+        return Y_COLOR
     elif var_lower.startswith("bias"):
         return NCAR_COLORS["red"]
     else:
@@ -323,8 +323,8 @@ def get_bias_cmap() -> str:
     """Get the recommended colormap for bias plots.
 
     Returns a diverging colormap centered on zero, with blue for
-    negative bias (dataset lower than geometry) and red for positive bias
-    (dataset higher than geometry).
+    negative bias (y lower than x) and red for positive bias
+    (y higher than x).
 
     Returns
     -------

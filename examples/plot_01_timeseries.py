@@ -8,10 +8,9 @@ Data: Surface point datasets (O3)
 """
 
 import matplotlib.pyplot as plt
-
-from davinci_monet.plots import plot_timeseries, PlotConfig
-
 from _helpers import create_paired_surface_data, save_figure
+
+from davinci_monet.plots import PlotConfig, plot_timeseries
 
 
 def main():
@@ -24,9 +23,9 @@ def main():
     # Create plot using davinci_monet.plots
     fig = plot_timeseries(
         paired,
-        geometry_var="geometry_o3",
-        dataset_var="dataset_o3",
-        title="Time Series: O3 Dataset vs Datasets",
+        x_var="x_o3",
+        y_var="y_o3",
+        title="Time Series: O3 Y vs X",
     )
 
     save_figure(fig, "01_timeseries")

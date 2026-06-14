@@ -1,18 +1,18 @@
 """Plotting module for DAVINCI.
 
-This module provides a comprehensive plotting system for dataset-dataset
-comparison, including time series, spatial maps, Taylor diagrams, and more.
+This module provides a comprehensive plotting system for source comparison,
+including time series, spatial maps, Taylor diagrams, and more.
 
 Quick Start
 -----------
 >>> from davinci_monet.plots import get_plotter, plot_timeseries
 >>>
 >>> # Using convenience function
->>> fig = plot_timeseries(paired_data, "geometry_o3", "dataset_o3")
+>>> fig = plot_timeseries(paired_data, "x_o3", "y_o3")
 >>>
 >>> # Using plotter instance
 >>> plotter = get_plotter("scatter")
->>> fig = plotter.plot(paired_data, "geometry_o3", "dataset_o3")
+>>> fig = plotter.plot(paired_data, "x_o3", "y_o3")
 
 Available Plot Types
 --------------------
@@ -27,7 +27,7 @@ Statistical:
 
 Spatial:
     spatial_bias : Bias map
-    spatial_overlay : Dataset contour + geometry scatter
+    spatial_overlay : gridded field contour + point overlay
     spatial_distribution : Value distribution map
 
 Specialized:
@@ -110,8 +110,6 @@ from davinci_monet.plots.renderers import (  # Temporal; Statistical; Specialize
 
 # Style configuration (NCAR branding)
 from davinci_monet.plots.style import (
-    DATASET_A_COLOR,
-    DATASET_B_COLOR,
     FONT_SIZES_DEFAULT,
     FONT_SIZES_PRESENTATION,
     FONT_SIZES_PUBLICATION,
@@ -120,6 +118,8 @@ from davinci_monet.plots.style import (
     NCAR_PALETTE,
     NCAR_PRIMARY,
     NCAR_SECONDARY,
+    X_COLOR,
+    Y_COLOR,
     FontSizes,
     apply_ncar_style,
     get_bias_cmap,
@@ -152,8 +152,8 @@ __all__ = [
     "NCAR_PRIMARY",
     "NCAR_SECONDARY",
     "NCAR_ACCENT",
-    "DATASET_A_COLOR",
-    "DATASET_B_COLOR",
+    "X_COLOR",
+    "Y_COLOR",
     "apply_ncar_style",
     "reset_style",
     "get_color_for_variable",

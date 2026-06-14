@@ -113,8 +113,8 @@ stats:
     precision: 3
   metrics:
     - N        # Number of pairs
-    - MG       # Mean geometry
-    - MD       # Mean dataset
+    - MX       # Mean x
+    - MY       # Mean y
     - MB       # Mean bias
     - RMSE     # Root mean square error
     - R        # Correlation coefficient

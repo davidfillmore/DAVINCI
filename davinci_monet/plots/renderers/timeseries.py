@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 class TimeSeriesPlotter(BasePlotter):
     """Plotter for time series comparisons.
 
-    Creates line plots showing dataset and dataset values over time.
+    Creates line plots showing x and y values over time.
     Supports temporal resampling and uncertainty bands.
 
     Parameters
@@ -50,8 +50,8 @@ class TimeSeriesPlotter(BasePlotter):
     >>> plotter = TimeSeriesPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     x_var="geometry_o3",
-    ...     y_var="dataset_o3",
+    ...     x_var="x_o3",
+    ...     y_var="y_o3",
     ...     resample="1h",
     ... )
     """
@@ -82,11 +82,11 @@ class TimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         ax
             Optional axes to plot on. If None, creates new figure.
         resample
@@ -100,9 +100,9 @@ class TimeSeriesPlotter(BasePlotter):
         aggregate_dim
             Optional dimension to aggregate over (e.g., 'site').
         x_label
-            Custom label for datasets.
+            Custom label for the x series.
         y_label
-            Custom label for dataset.
+            Custom label for the y series.
         **kwargs
             Additional plotting arguments.
 
@@ -169,8 +169,8 @@ class TimeSeriesPlotter(BasePlotter):
         x_label = x_label or get_series_label(paired_data, x_var, self.config.x_label)
         y_label = y_label or get_series_label(paired_data, y_var, self.config.y_label)
 
-        # Series colors by source axis (geometry gray, dataset blue, else palette); a
-        # customised StyleConfig still wins for the geometry/dataset axes (R-3).
+        # Series colors by source axis (x gray, y blue, else palette); a
+        # customised StyleConfig still wins for the x/y axes (R-3).
         x_color = get_axis_color(
             paired_data,
             x_var,
@@ -275,8 +275,8 @@ class TimeSeriesPlotter(BasePlotter):
           (the cross-site mean — no more one-line-per-site spaghetti). Opt into
           per-site lines with ``show_individual_sites=True`` and a ±1σ band with
           ``show_uncertainty=True``.
-        - ``2`` series → geometry-vs-dataset; delegates to the paired
-          ``plot()`` so geometry-gray/dataset-blue styling is unchanged.
+        - ``2`` series → x-vs-y; delegates to the paired
+          ``plot()`` so x-gray/y-blue styling is unchanged.
         - ``>2`` series → multi-source overlay, palette-cycled.
         """
         if len(series) == 2:
@@ -494,40 +494,40 @@ class TimeSeriesPlotter(BasePlotter):
 
         # Plot each site
         for i in range(n_sites):
-            site_geometry = x_data.isel({site_dim: i})
-            site_dataset = y_data.isel({site_dim: i})
+            site_x = x_data.isel({site_dim: i})
+            site_y = y_data.isel({site_dim: i})
 
             # Skip if all NaN
-            if site_geometry.isnull().all() and site_dataset.isnull().all():
+            if site_x.isnull().all() and site_y.isnull().all():
                 continue
 
             color = colors[i % len(colors)]
             label = str(site_labels[i]) if i < len(site_labels) else f"Site {i}"
 
-            # Plot datasets as solid lines
+            # Plot x series as solid lines
             ax.plot(
                 time_values,
-                site_geometry.values,
+                site_x.values,
                 color=color,
                 linestyle="-",
                 marker="o",
                 markersize=4,
                 linewidth=1,
                 alpha=0.7,
-                label=f"{label} (geometry)",
+                label=f"{label} (x)",
             )
 
-            # Plot dataset as dashed lines
+            # Plot y series as dashed lines
             ax.plot(
                 time_values,
-                site_dataset.values,
+                site_y.values,
                 color=color,
                 linestyle="--",
                 marker="s",
                 markersize=4,
                 linewidth=1,
                 alpha=0.7,
-                label=f"{label} (dataset)",
+                label=f"{label} (y)",
             )
 
         # Formatting
@@ -774,9 +774,9 @@ class TimeSeriesPlotter(BasePlotter):
 
         # Check if raw data is non-negative (physical constraint)
         # Use original data before aggregation to check this
-        raw_geometry = paired_data[x_var]
-        raw_dataset = paired_data[y_var]
-        raw_min = float(min(np.nanmin(raw_geometry.values), np.nanmin(raw_dataset.values)))
+        raw_x = paired_data[x_var]
+        raw_y = paired_data[y_var]
+        raw_min = float(min(np.nanmin(raw_x.values), np.nanmin(raw_y.values)))
         is_positive_definite = raw_min >= 0
 
         # Add padding (10% of range)
@@ -813,11 +813,11 @@ def plot_timeseries(
     Parameters
     ----------
     paired_data
-        Paired dataset with dataset and dataset variables.
+        Paired dataset with x and y variables.
     x_var
-        Name of dataset variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     config
         Plot configuration.
     **kwargs

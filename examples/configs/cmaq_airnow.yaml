@@ -90,8 +90,8 @@ stats:
     precision: 3
   metrics:
     - N
-    - MG
-    - MD
+    - MX
+    - MY
     - MB
     - RMSE
     - R

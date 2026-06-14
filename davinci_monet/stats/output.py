@@ -66,12 +66,12 @@ class OutputConfig:
 #: Mapping of metric abbreviations to full names
 METRIC_FULL_NAMES = {
     "N": "Sample Size",
-    "MG": "Mean Geometry",
-    "MD": "Mean Dataset",
-    "STDG": "Geometry Standard Deviation",
-    "STDD": "Dataset Standard Deviation",
-    "MdnG": "Median Geometry",
-    "MdnD": "Median Dataset",
+    "MX": "Mean X",
+    "MY": "Mean Y",
+    "STDX": "X Standard Deviation",
+    "STDY": "Y Standard Deviation",
+    "MdnX": "Median X",
+    "MdnY": "Median Y",
     "MB": "Mean Bias",
     "MdnB": "Median Bias",
     "NMB": "Normalized Mean Bias",

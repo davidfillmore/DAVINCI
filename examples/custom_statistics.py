@@ -24,14 +24,14 @@ def main():
     from davinci_monet.stats import quick_stats
 
     np.random.seed(42)
-    geometry = np.random.randn(1000) * 10 + 50
-    dataset = geometry + np.random.randn(1000) * 5 + 3  # Positive bias, some scatter
+    x = np.random.randn(1000) * 10 + 50
+    y = x + np.random.randn(1000) * 5 + 3  # Positive bias, some scatter
 
-    stats = quick_stats(geometry, dataset)
+    stats = quick_stats(x, y)
 
     print(f"   Sample size:  {stats['N']:.0f}")
-    print(f"   Mean Geometry:     {stats['MG']:.2f}")
-    print(f"   Mean Dataset:   {stats['MD']:.2f}")
+    print(f"   Mean X:     {stats['MX']:.2f}")
+    print(f"   Mean Y:   {stats['MY']:.2f}")
     print(f"   Mean Bias:    {stats['MB']:.2f}")
     print(f"   RMSE:         {stats['RMSE']:.2f}")
     print(f"   Correlation:  {stats['R']:.3f}")
@@ -50,9 +50,9 @@ def main():
     print(f"   {list_metrics()[:10]}...")
 
     # Compute specific metrics
-    rmse = compute_metric("RMSE", geometry, dataset)
-    ioa = compute_metric("IOA", geometry, dataset)
-    fb = compute_metric("FB", geometry, dataset)
+    rmse = compute_metric("RMSE", x, y)
+    ioa = compute_metric("IOA", x, y)
+    fb = compute_metric("FB", x, y)
 
     print(f"\n   RMSE = {rmse:.3f}")
     print(f"   IOA  = {ioa:.3f}")
@@ -60,7 +60,7 @@ def main():
 
     # Get metric with metadata
     metric = get_metric("NME")
-    value = metric.compute(geometry, dataset)
+    value = metric.compute(x, y)
     print(f"\n   {metric.long_name} ({metric.name}) = {value:.1f}%")
 
     # =========================================================================
@@ -75,21 +75,23 @@ def main():
     times = np.arange("2024-07-01", "2024-07-08", dtype="datetime64[h]")
     sites = [f"SITE_{i:02d}" for i in range(20)]
 
-    geometry_data = np.random.randn(len(times), len(sites)) * 10 + 50
-    dataset_data = geometry_data + np.random.randn(len(times), len(sites)) * 5 + 2
+    x_data = np.random.randn(len(times), len(sites)) * 10 + 50
+    y_data = x_data + np.random.randn(len(times), len(sites)) * 5 + 2
 
-    paired = xr.Dataset({
-        "geometry_o3": (["time", "site"], geometry_data),
-        "dataset_o3": (["time", "site"], dataset_data),
-    }, coords={
-        "time": times,
-        "site": sites,
-    })
+    paired = xr.Dataset(
+        {
+            "x_o3": (["time", "site"], x_data),
+            "y_o3": (["time", "site"], y_data),
+        },
+        coords={
+            "time": times,
+            "site": sites,
+        },
+    )
 
     # Calculate with specific metrics
     stats_df = calculate_statistics(
-        paired, "geometry_o3", "dataset_o3",
-        metrics=["N", "MB", "RMSE", "R", "NMB", "NME", "IOA"]
+        paired, "x_o3", "y_o3", metrics=["N", "MB", "RMSE", "R", "NMB", "NME", "IOA"]
     )
     print("\n   Overall Statistics:")
     print(stats_df.to_string())
@@ -103,25 +105,20 @@ def main():
     # Add site metadata
     np.random.seed(123)
     paired["region"] = xr.DataArray(
-        np.random.choice(["East", "West", "Central"], len(sites)),
-        dims=["site"]
+        np.random.choice(["East", "West", "Central"], len(sites)), dims=["site"]
     )
 
     # Statistics by site
     print("\n   By Site (first 5):")
     stats_by_site = calculate_statistics(
-        paired, "geometry_o3", "dataset_o3",
-        metrics=["N", "MB", "RMSE", "R"],
-        groupby="site"
+        paired, "x_o3", "y_o3", metrics=["N", "MB", "RMSE", "R"], groupby="site"
     )
     print(stats_by_site.head().to_string())
 
     # Statistics by hour of day
     print("\n   By Hour of Day (sample):")
     stats_by_hour = calculate_statistics(
-        paired, "geometry_o3", "dataset_o3",
-        metrics=["N", "MB", "RMSE"],
-        groupby="time.hour"
+        paired, "x_o3", "y_o3", metrics=["N", "MB", "RMSE"], groupby="time.hour"
     )
     print(stats_by_hour.iloc[::6].to_string())  # Every 6 hours
 
@@ -132,10 +129,10 @@ def main():
     print("-" * 40)
 
     from davinci_monet.stats import (
+        METRIC_FULL_NAMES,
         StatisticsFormatter,
         format_stats_summary,
         get_metric_fullname,
-        METRIC_FULL_NAMES,
     )
 
     # Format summary string
@@ -156,6 +153,7 @@ def main():
     print("-" * 40)
 
     from pathlib import Path
+
     from davinci_monet.stats import write_statistics_csv
 
     output_dir = Path("examples/output/custom_stats")
@@ -179,14 +177,14 @@ def main():
 
     # Configure calculator
     config = StatisticsConfig(
-        metrics=["N", "MG", "MD", "MB", "RMSE", "R", "R2", "NMB", "NME", "IOA", "d1"],
+        metrics=["N", "MX", "MY", "MB", "RMSE", "R", "R2", "NMB", "NME", "IOA", "d1"],
         round_precision=4,
     )
 
     calc = StatisticsCalculator(config)
 
     # Compute with custom config
-    result = calc.compute(paired, "geometry_o3", "dataset_o3")
+    result = calc.compute(paired, "x_o3", "y_o3")
     print("\n   Calculator Result:")
     print(result.T.to_string())
 

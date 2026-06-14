@@ -235,8 +235,8 @@ class TestSwathGridStrategy:
             y_var="AODVIS",
         )
         # Check output structure
-        assert "geometry_AOD_550" in paired.data_vars
-        assert "dataset_AODVIS" in paired.data_vars
+        assert "x_AOD_550" in paired.data_vars
+        assert "y_AODVIS" in paired.data_vars
         assert "sample_count" in paired.data_vars
         assert "time" in paired.dims
         assert "lat" in paired.dims
@@ -272,7 +272,7 @@ class TestSwathGridStrategy:
         )
         # Where sample_count > 0, geometry data should be finite
         count = paired["sample_count"].values
-        x_data = paired["geometry_AOD_550"].values
+        x_data = paired["x_AOD_550"].values
         assert np.all(np.isfinite(x_data[count > 0]))
 
     def test_geometry_nan_where_no_data(self):
@@ -288,7 +288,7 @@ class TestSwathGridStrategy:
             y_var="AODVIS",
         )
         count = paired["sample_count"].values
-        x_data = paired["geometry_AOD_550"].values
+        x_data = paired["x_AOD_550"].values
         # Where count == 0, data should be NaN
         assert np.all(np.isnan(x_data[count == 0]))
 
@@ -306,7 +306,7 @@ class TestSwathGridStrategy:
             min_sample_count=3,
         )
         count = paired["sample_count"].values
-        x_data = paired["geometry_AOD_550"].values
+        x_data = paired["x_AOD_550"].values
         # Cells with count < 3 should be NaN
         assert np.all(np.isnan(x_data[(count > 0) & (count < 3)]))
 
@@ -357,10 +357,10 @@ class TestSwathGridStrategy:
             x_var="AOD_550",
             y_var="AODVIS",
         )
-        # Check naming convention: geometry_ and dataset_ prefixes
+        # Check naming convention: x_ and y_ prefixes
         var_names = list(paired.data_vars)
-        assert any(str(v).startswith("geometry_") for v in var_names)
-        assert any(str(v).startswith("dataset_") for v in var_names)
+        assert any(str(v).startswith("x_") for v in var_names)
+        assert any(str(v).startswith("y_") for v in var_names)
 
     def test_aod_values_reasonable(self):
         """Binned values should be within input range."""
@@ -375,7 +375,7 @@ class TestSwathGridStrategy:
             x_var="AOD_550",
             y_var="AODVIS",
         )
-        x_data = paired["geometry_AOD_550"].values
+        x_data = paired["x_AOD_550"].values
         valid = x_data[np.isfinite(x_data)]
         assert np.all(valid >= 0.05)
         assert np.all(valid <= 0.8)
@@ -447,7 +447,7 @@ def test_per_scanline_time_bins_across_multiple_days() -> None:
         y_var="FLUX",
     )
 
-    x_binned = paired["geometry_flux"].values  # (time, lon, lat)
+    x_binned = paired["x_flux"].values  # (time, lon, lat)
     sample_count = paired["sample_count"].values
 
     # 3 distinct time bins must be present

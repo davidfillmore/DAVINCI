@@ -1,6 +1,6 @@
 """Site-by-site time series plot renderer for DAVINCI.
 
-This module provides multi-panel time series plots showing dataset vs datasets
+This module provides multi-panel time series plots showing x vs y
 at individual monitoring sites. Useful for point datasets (surface stations,
 column measurements) where each site has different characteristics.
 """
@@ -39,7 +39,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
     """Plotter for site-by-site time series comparisons.
 
     Creates a multi-panel figure with one subplot per monitoring site,
-    showing both dataset and dataset time series for direct comparison.
+    showing both x and y time series for direct comparison.
 
     Parameters
     ----------
@@ -51,8 +51,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
     >>> plotter = SiteTimeSeriesPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     x_var="geometry_no2_column",
-    ...     y_var="dataset_no2_column",
+    ...     x_var="x_no2_column",
+    ...     y_var="y_no2_column",
     ...     ncols=3,
     ... )
     """
@@ -71,7 +71,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
+            Exactly 2 series: one x series and one y series.
         ax
             Ignored for this plot type (creates own figure).
         **kwargs
@@ -154,10 +154,10 @@ class SiteTimeSeriesPlotter(BasePlotter):
             x_vals = x_da.values * scale_factor
             y_vals = y_da.values * scale_factor
 
-            valid_geometry = ~np.isnan(x_vals)
-            valid_both = valid_geometry & ~np.isnan(y_vals)
+            valid_x = ~np.isnan(x_vals)
+            valid_both = valid_x & ~np.isnan(y_vals)
 
-            # Series colors/labels by source axis (R-3): geometry gray, dataset blue,
+            # Series colors/labels by source axis (R-3): x gray, y blue,
             # else palette; legends use the source label.
             x_color = get_axis_color(
                 site_data,
@@ -179,8 +179,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
             # Plot datasets
             if x_style == "scatter":
                 panel_ax.scatter(
-                    times[valid_geometry],
-                    x_vals[valid_geometry],
+                    times[valid_x],
+                    x_vals[valid_x],
                     s=8,
                     alpha=0.6,
                     color=x_color,
@@ -189,8 +189,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
                 )
             else:
                 panel_ax.plot(
-                    times[valid_geometry],
-                    x_vals[valid_geometry],
+                    times[valid_x],
+                    x_vals[valid_x],
                     "o-",
                     color=x_color,
                     markersize=3,
@@ -333,11 +333,11 @@ class SiteTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         ax
             Ignored for this plot type (creates own figure).
         ncols
@@ -353,9 +353,9 @@ class SiteTimeSeriesPlotter(BasePlotter):
         scale_factor
             Scale factor for display (e.g., 1e4 for mol/m2 -> 10^-4 mol/m2).
         x_style
-            Style for datasets: 'scatter' or 'line'.
+            Style for x: 'scatter' or 'line'.
         y_style
-            Style for dataset: 'line' or 'scatter'.
+            Style for y: 'line' or 'scatter'.
         **kwargs
             Additional options.
 
@@ -412,11 +412,11 @@ def plot_site_timeseries(
     Parameters
     ----------
     paired_data
-        Paired dataset with dataset and dataset variables.
+        Paired dataset with x and y variables.
     x_var
-        Name of dataset variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     title
         Plot title.
     ncols

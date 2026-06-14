@@ -1,7 +1,7 @@
 """Profile-to-grid pairing strategy.
 
-This module implements pairing for profile datasets (sondes, lidar)
-with gridded dataset output.
+This module implements pairing for profile x sources (sondes, lidar)
+with a gridded y source.
 """
 
 from __future__ import annotations
@@ -18,15 +18,15 @@ from davinci_monet.pairing.strategies.base import BasePairingStrategy
 
 
 class ProfileStrategy(BasePairingStrategy):
-    """Pairing strategy for profile datasets.
+    """Pairing strategy for profile sources.
 
-    Matches vertical profile datasets (sondes, lidar) to dataset
+    Matches vertical profile x sources (sondes, lidar) to y
     columns at the profile location.
 
     The strategy:
-    1. Finds nearest dataset grid column for profile location
-    2. Interpolates dataset temporally to profile time
-    3. Interpolates both dataset and geometry to common vertical grid
+    1. Finds nearest y grid column for profile location
+    2. Interpolates the y source temporally to profile time
+    3. Interpolates both x and y to common vertical grid
     4. Creates paired dataset with aligned vertical profiles
 
     Examples
@@ -51,14 +51,14 @@ class ProfileStrategy(BasePairingStrategy):
         horizontal_method: str = "nearest",
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Pair profile datasets with dataset grid.
+        """Pair profile data with the y grid.
 
         Parameters
         ----------
-        dataset
-            Dataset Dataset with dims (time, z, lat, lon).
-        geometry
-            Dataset Dataset with dims (time, level) or (level,).
+        x_data
+            The x source. Dataset with dims (time, level) or (level,).
+        y_data
+            The y source. Dataset with dims (time, z, lat, lon).
         radius_of_influence
             Maximum horizontal distance in meters.
         time_tolerance
@@ -69,23 +69,20 @@ class ProfileStrategy(BasePairingStrategy):
             Horizontal matching method.
         **kwargs
             Additional options:
-            - level_coord: str, name of vertical coordinate in geometry
-            - interp_to_geometry_levels: bool, whether to interp dataset to geometry levels
+            - level_coord: str, name of vertical coordinate in the x source
+            - interp_to_geometry_levels: bool, whether to interp the y source to x levels
 
         Returns
         -------
         xr.Dataset
-            Paired dataset with dataset and geometry profiles.
+            Paired dataset with x and y profiles.
         """
-        dataset = y_data
-        geometry = x_data
-
         level_coord = kwargs.get("level_coord", "level")
         interp_to_geometry_levels = kwargs.get("interp_to_geometry_levels", True)
 
         # Get coordinates
-        y_lat, y_lon = self._get_dataset_coords(dataset)
-        x_lat, x_lon = self._get_geometry_coords(geometry)
+        y_lat, y_lon = self._get_y_coords(y_data)
+        x_lat, x_lon = self._get_x_coords(x_data)
 
         # Get profile location (may be single point or time-varying)
         if x_lat.ndim == 0:
@@ -97,7 +94,7 @@ class ProfileStrategy(BasePairingStrategy):
             profile_lat = float(x_lat.values.flat[0])
             profile_lon = float(x_lon.values.flat[0])
 
-        # Find nearest dataset column
+        # Find nearest y column
         lat_idx, lon_idx = self._find_nearest_indices(
             y_lat,
             y_lon,
@@ -109,60 +106,60 @@ class ProfileStrategy(BasePairingStrategy):
         if lat_idx.values[0] < 0:
             raise PairingError(
                 f"Profile location ({profile_lat}, {profile_lon}) is outside "
-                f"radius of influence ({radius_of_influence}m) from dataset grid"
+                f"radius of influence ({radius_of_influence}m) from the y grid"
             )
 
-        # Extract dataset column at profile location
+        # Extract y column at profile location
         y_column = self._extract_column(
-            dataset,
+            y_data,
             y_lat,
             y_lon,
             int(lat_idx.values[0]),
             int(lon_idx.values[0]),
         )
 
-        # Interpolate dataset to dataset times if needed
-        if "time" in y_column.dims and "time" in geometry.dims:
-            x_times = geometry["time"]
+        # Interpolate the y source to the x times if needed
+        if "time" in y_column.dims and "time" in x_data.dims:
+            x_times = x_data["time"]
             y_column = self._interpolate_time(
                 y_column, x_times, "nearest", time_tolerance=time_tolerance
             )
 
         # Handle vertical interpolation
-        if interp_to_geometry_levels and level_coord in geometry.dims:
-            x_levels = geometry[level_coord]
+        if interp_to_geometry_levels and level_coord in x_data.dims:
+            x_levels = x_data[level_coord]
             y_column = self._interpolate_vertical(
                 y_column, x_levels, level_coord="z", method=vertical_method
             )
 
         # Create paired output
-        paired = self._create_paired_output(geometry, y_column, level_coord)
+        paired = self._create_paired_output(x_data, y_column, level_coord)
 
         return paired
 
     def _extract_column(
         self,
-        dataset: xr.Dataset,
+        y_data: xr.Dataset,
         y_lat: xr.DataArray,
         y_lon: xr.DataArray,
         lat_idx: int,
         lon_idx: int,
     ) -> xr.Dataset:
-        """Extract a single dataset column.
+        """Extract a single y column.
 
         Parameters
         ----------
-        dataset
-            Dataset dataset.
-        dataset_lat, dataset_lon
-            Dataset coordinate arrays.
+        y_data
+            The y source.
+        y_lat, y_lon
+            The y coordinate arrays.
         lat_idx, lon_idx
             Grid indices for column location.
 
         Returns
         -------
         xr.Dataset
-            Dataset data at single column with (time, z) dims.
+            The y data at single column with (time, z) dims.
         """
         # Determine dimension names
         if y_lat.ndim == 1:
@@ -173,11 +170,11 @@ class ProfileStrategy(BasePairingStrategy):
             lon_dim = y_lat.dims[1]
 
         # Extract column
-        return dataset.isel({lat_dim: lat_idx, lon_dim: lon_idx})
+        return y_data.isel({lat_dim: lat_idx, lon_dim: lon_idx})
 
     def _create_paired_output(
         self,
-        geometry: xr.Dataset,
+        x_data: xr.Dataset,
         y_column: xr.Dataset,
         level_coord: str,
     ) -> xr.Dataset:
@@ -185,10 +182,10 @@ class ProfileStrategy(BasePairingStrategy):
 
         Parameters
         ----------
-        geometry
-            Dataset dataset.
-        dataset_column
-            Dataset column data.
+        x_data
+            The x source.
+        y_column
+            The y column data.
         level_coord
             Name of vertical coordinate.
 
@@ -198,7 +195,7 @@ class ProfileStrategy(BasePairingStrategy):
             Combined dataset.
         """
         # Combine coordinates
-        coords = dict(geometry.coords)
+        coords = dict(x_data.coords)
         for coord in y_column.coords:
             if coord not in coords:
                 coords[coord] = y_column.coords[coord]
@@ -206,13 +203,13 @@ class ProfileStrategy(BasePairingStrategy):
         # Combine data variables
         data_vars: dict[str, Any] = {}
 
-        # Add dataset variables
-        for var in geometry.data_vars:
-            data_vars[str(var)] = geometry[var]
+        # Add x variables
+        for var in x_data.data_vars:
+            data_vars[str(var)] = x_data[var]
 
-        # Add dataset variables with prefix
+        # Add y variables with prefix
         for var in y_column.data_vars:
-            y_var_name = f"dataset_{var}"
+            y_var_name = f"y_{var}"
             data_vars[y_var_name] = y_column[var]
 
         return xr.Dataset(data_vars, coords=coords)

@@ -131,11 +131,11 @@ class PlottingStage(BaseStage):
 
         for plot_name, plot_spec in plots_config.items():
             plot_type = plot_spec.get("type", "")
-            # Single-source specs carry either ``source:`` or ``geometry:``.
-            if not plot_type or ("source" not in plot_spec and "geometry" not in plot_spec):
+            # Single-source specs carry a ``source:`` key.
+            if not plot_type or "source" not in plot_spec:
                 continue
 
-            source_label = str(plot_spec.get("source") or plot_spec.get("geometry") or "")
+            source_label = str(plot_spec.get("source") or "")
             variable = plot_spec.get("variable", "")
 
             if source_label not in source_map:
@@ -185,7 +185,7 @@ class PlottingStage(BaseStage):
                     continue
 
                 if "flight_tracks" in plot_spec:
-                    flight_kwargs["geometry_datasets"] = {
+                    flight_kwargs["x_datasets"] = {
                         label: source_ds for label, (_obj, source_ds) in source_map.items()
                     }
 
@@ -315,8 +315,8 @@ class PlottingStage(BaseStage):
             if not pair_vars:
                 return None
             x_var_name, y_var_name, x_var = pair_vars[0]
-            x_source = str(paired_data[x_var_name].attrs.get("source_label", "geometry"))
-            y_source = str(paired_data[y_var_name].attrs.get("source_label", "dataset"))
+            x_source = str(paired_data[x_var_name].attrs.get("source_label", "x"))
+            y_source = str(paired_data[y_var_name].attrs.get("source_label", "y"))
             var_spec = {"x_var": x_var, "y_var": x_var}
 
         return (
@@ -361,11 +361,11 @@ class PlottingStage(BaseStage):
         """Assemble the ``(plotter_config, plot_options)`` for a comparison plot.
 
         Resolves per-source variable limits, builds the renderer option dict
-        (including ``spatial_overlay`` dataset-field/coord wiring), the title
+        (including ``spatial_overlay`` y-field/coord wiring), the title
         subtitle, and the axis-label overrides.
         """
-        # Get plotter config from source variable settings. The dataset side
-        # wins for comparison-specific plot limits; geometry settings are a
+        # Get plotter config from source variable settings. The y side
+        # wins for comparison-specific plot limits; x settings are a
         # fallback.
         y_var = var_spec.get("y_var", "")
         x_var = var_spec.get("x_var", "")
@@ -400,9 +400,9 @@ class PlottingStage(BaseStage):
             nlevels=nlevels,
         )
 
-        # spatial_overlay needs the raw gridded y (dataset) field for the
+        # spatial_overlay needs the raw gridded y field for the
         # contour layer; the paired dataset usually carries sampled
-        # values at geometry locations only. The renderer option name is
+        # values at x locations only. The renderer option name is
         # `y_field`.
         if plot_type == "spatial_overlay":
             if "y_field" not in plot_options:

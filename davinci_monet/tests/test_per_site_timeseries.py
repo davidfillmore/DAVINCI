@@ -39,8 +39,8 @@ def synthetic_paired_data() -> xr.Dataset:
 
     ds = xr.Dataset(
         {
-            "geometry_o3": (["site", "time"], x_data),
-            "dataset_o3": (["site", "time"], y_data),
+            "x_o3": (["site", "time"], x_data),
+            "y_o3": (["site", "time"], y_data),
         },
         coords={
             "site": sites,
@@ -49,8 +49,8 @@ def synthetic_paired_data() -> xr.Dataset:
             "longitude": ("site", lons),
         },
     )
-    ds["geometry_o3"].attrs["units"] = "ppb"
-    ds["dataset_o3"].attrs["units"] = "ppb"
+    ds["x_o3"].attrs["units"] = "ppb"
+    ds["y_o3"].attrs["units"] = "ppb"
     return ds
 
 
@@ -82,8 +82,8 @@ def sparse_paired_data() -> xr.Dataset:
 
     ds = xr.Dataset(
         {
-            "geometry_pm25": (["site", "time"], x_data),
-            "dataset_pm25": (["site", "time"], y_data),
+            "x_pm25": (["site", "time"], x_data),
+            "y_pm25": (["site", "time"], y_data),
         },
         coords={
             "site": sites,
@@ -98,7 +98,7 @@ class TestPerSiteTimeSeriesPlotter:
 
     def test_plot_returns_figure(self, synthetic_paired_data: xr.Dataset) -> None:
         plotter = PerSiteTimeSeriesPlotter()
-        fig = plotter.plot(synthetic_paired_data, "geometry_o3", "dataset_o3", min_points=5)
+        fig = plotter.plot(synthetic_paired_data, "x_o3", "y_o3", min_points=5)
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
 
@@ -106,8 +106,8 @@ class TestPerSiteTimeSeriesPlotter:
         plotter = PerSiteTimeSeriesPlotter()
         fig = plotter.plot(
             synthetic_paired_data,
-            "geometry_o3",
-            "dataset_o3",
+            "x_o3",
+            "y_o3",
             site="Seoul",
             min_points=5,
         )
@@ -119,8 +119,8 @@ class TestPerSiteTimeSeriesPlotter:
         results = list(
             plotter.plot_per_site(
                 synthetic_paired_data,
-                "geometry_o3",
-                "dataset_o3",
+                "x_o3",
+                "y_o3",
                 min_points=5,
             )
         )
@@ -135,8 +135,8 @@ class TestPerSiteTimeSeriesPlotter:
         results = list(
             plotter.plot_per_site(
                 synthetic_paired_data,
-                "geometry_o3",
-                "dataset_o3",
+                "x_o3",
+                "y_o3",
                 min_points=5,
             )
         )
@@ -150,8 +150,8 @@ class TestPerSiteTimeSeriesPlotter:
         results = list(
             plotter.plot_per_site(
                 sparse_paired_data,
-                "geometry_pm25",
-                "dataset_pm25",
+                "x_pm25",
+                "y_pm25",
                 min_points=20,
             )
         )
@@ -167,8 +167,8 @@ class TestPerSiteTimeSeriesPlotter:
         # With scale_factor=2, y-values should be doubled
         fig = plotter.plot(
             synthetic_paired_data,
-            "geometry_o3",
-            "dataset_o3",
+            "x_o3",
+            "y_o3",
             site="Bangkok",
             min_points=5,
             scale_factor=2.0,
@@ -183,8 +183,8 @@ class TestPerSiteTimeSeriesPlotter:
         plotter = PerSiteTimeSeriesPlotter()
         fig = plotter.plot(
             synthetic_paired_data,
-            "geometry_o3",
-            "dataset_o3",
+            "x_o3",
+            "y_o3",
             site="Bangkok",
             min_points=5,
             show_stats=False,
@@ -197,8 +197,8 @@ class TestPerSiteTimeSeriesPlotter:
         with pytest.raises(ValueError, match="Site dimension"):
             plotter.plot(
                 synthetic_paired_data,
-                "geometry_o3",
-                "dataset_o3",
+                "x_o3",
+                "y_o3",
                 site_dim="nonexistent",
             )
 
@@ -207,8 +207,8 @@ class TestPerSiteTimeSeriesPlotter:
         with pytest.raises(ValueError, match="No sites"):
             plotter.plot(
                 sparse_paired_data,
-                "geometry_pm25",
-                "dataset_pm25",
+                "x_pm25",
+                "y_pm25",
                 min_points=1000,
             )
 
@@ -218,19 +218,19 @@ class TestPerSiteTimeSeriesPlotter:
             list(
                 plotter.plot_per_site(
                     synthetic_paired_data,
-                    "geometry_o3",
-                    "dataset_o3",
+                    "x_o3",
+                    "y_o3",
                     site_dim="nonexistent",
                 )
             )
 
     def test_with_title(self, synthetic_paired_data: xr.Dataset) -> None:
-        config = PlotConfig(title="O3: Dataset vs AirNow")
+        config = PlotConfig(title="O3: Y vs AirNow")
         plotter = PerSiteTimeSeriesPlotter(config=config)
         fig = plotter.plot(
             synthetic_paired_data,
-            "geometry_o3",
-            "dataset_o3",
+            "x_o3",
+            "y_o3",
             site="Bangkok",
             min_points=5,
         )
@@ -241,8 +241,8 @@ class TestPerSiteTimeSeriesPlotter:
         plotter = PerSiteTimeSeriesPlotter()
         fig = plotter.plot(
             synthetic_paired_data,
-            "geometry_o3",
-            "dataset_o3",
+            "x_o3",
+            "y_o3",
             site="Bangkok",
             min_points=5,
             x_style="line",
@@ -254,8 +254,8 @@ class TestPerSiteTimeSeriesPlotter:
         plotter = PerSiteTimeSeriesPlotter()
         fig = plotter.plot(
             synthetic_paired_data,
-            "geometry_o3",
-            "dataset_o3",
+            "x_o3",
+            "y_o3",
             site="Bangkok",
             min_points=5,
             y_style="scatter",
@@ -292,8 +292,8 @@ class TestConvenienceFunction:
     def test_returns_figure(self, synthetic_paired_data: xr.Dataset) -> None:
         fig = plot_per_site_timeseries(
             synthetic_paired_data,
-            "geometry_o3",
-            "dataset_o3",
+            "x_o3",
+            "y_o3",
             min_points=5,
         )
         assert isinstance(fig, plt.Figure)
@@ -302,8 +302,8 @@ class TestConvenienceFunction:
     def test_with_title(self, synthetic_paired_data: xr.Dataset) -> None:
         fig = plot_per_site_timeseries(
             synthetic_paired_data,
-            "geometry_o3",
-            "dataset_o3",
+            "x_o3",
+            "y_o3",
             title="O3 Comparison",
             min_points=5,
         )

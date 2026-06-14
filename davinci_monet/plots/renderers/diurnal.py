@@ -35,8 +35,8 @@ if TYPE_CHECKING:
 class DiurnalPlotter(BasePlotter):
     """Plotter for diurnal cycle comparisons.
 
-    Creates plots showing the average diurnal pattern of dataset and
-    dataset values, optionally with uncertainty bands.
+    Creates plots showing the average diurnal pattern of x and
+    y values, optionally with uncertainty bands.
 
     Parameters
     ----------
@@ -48,8 +48,8 @@ class DiurnalPlotter(BasePlotter):
     >>> plotter = DiurnalPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     x_var="geometry_o3",
-    ...     y_var="dataset_o3",
+    ...     x_var="x_o3",
+    ...     y_var="y_o3",
     ...     show_spread="iqr",
     ... )
     """
@@ -68,7 +68,7 @@ class DiurnalPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
+            Exactly 2 series: one x series and one y series.
         ax
             Optional axes to plot on. If None, creates new figure.
         **kwargs
@@ -139,7 +139,7 @@ class DiurnalPlotter(BasePlotter):
         x_label = x_label or get_series_label(paired_data, x_var, self.config.x_label)
         y_label = y_label or get_series_label(paired_data, y_var, self.config.y_label)
 
-        # Series colors by source axis (geometry gray, dataset blue, else palette) (R-3).
+        # Series colors by source axis (x gray, y blue, else palette) (R-3).
         x_color = get_axis_color(
             paired_data,
             x_var,
@@ -234,11 +234,11 @@ class DiurnalPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         ax
             Optional axes to plot on. If None, creates new figure.
         time_dim
@@ -248,9 +248,9 @@ class DiurnalPlotter(BasePlotter):
         aggregate_dim
             Optional additional dimension to aggregate (e.g., 'site').
         x_label
-            Custom label for datasets.
+            Custom label for the x series.
         y_label
-            Custom label for dataset.
+            Custom label for the y series.
         utc_offset
             Offset from UTC for local time (hours).
         **kwargs
@@ -289,7 +289,7 @@ class DiurnalPlotter(BasePlotter):
         ----------
         ax
             Axes to add bands to.
-        geometry_hourly, dataset_hourly
+        x_hourly, y_hourly
             Grouped data by hour.
         hours
             Hour values for x-axis.
@@ -367,11 +367,11 @@ def plot_diurnal(
     Parameters
     ----------
     paired_data
-        Paired dataset with dataset and dataset variables.
+        Paired dataset with x and y variables.
     x_var
-        Name of dataset variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     config
         Plot configuration.
     **kwargs

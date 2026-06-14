@@ -5,7 +5,7 @@ Provides:
 - format_plot_title: apply chemical formula subscripts to a title string
 - format_variable_display_name: friendly name from a raw variable identifier
 - get_variable_label: best display label from a dataset variable
-- canonical_variable_name: strip source-label / geometry/dataset prefix from a variable name
+- canonical_variable_name: strip source-label / x/y prefix from a variable name
 - get_variable_units: read units attr from a dataset variable
 - format_units: rewrite raw unit strings to LaTeX form
 - format_label_with_units: combine a label and its units
@@ -143,8 +143,8 @@ def format_plot_title(title: str) -> str:
 
     Examples
     --------
-    >>> format_plot_title("PM2.5 Dataset vs Datasets")
-    'PM$_{2.5}$ Dataset vs Datasets'
+    >>> format_plot_title("PM2.5 Y vs X")
+    'PM$_{2.5}$ Y vs X'
     >>> format_plot_title("NO2 Time Series")
     'NO$_2$ Time Series'
     """
@@ -175,12 +175,12 @@ def format_variable_display_name(var_name: str, include_prefix: bool = True) -> 
     str
         Formatted display name.
     """
-    # Strip geometry/dataset prefixes for lookup.
+    # Strip x/y prefixes for lookup.
     base_name = var_name
-    if var_name.startswith("geometry_"):
-        base_name = var_name[len("geometry_") :]
-    elif var_name.startswith("dataset_"):
-        base_name = var_name[len("dataset_") :]
+    if var_name.startswith("x_"):
+        base_name = var_name[len("x_") :]
+    elif var_name.startswith("y_"):
+        base_name = var_name[len("y_") :]
 
     # Check lookup table (try exact match first, then lowercase)
     if base_name in VARIABLE_DISPLAY_NAMES:
@@ -205,8 +205,8 @@ def canonical_variable_name(dataset: xr.Dataset, var_name: str) -> str:
 
     Handles source-label naming (``<source_label>_<canonical>``, e.g.
     ``cam_o3`` -> ``o3``, derived from the variable's ``source_label`` attr) and
-    the ``geometry_``/``dataset_`` prefixes. Names with no recognized prefix are
-    returned unchanged.
+    the ``x_``/``y_`` prefixes. Names with no recognized prefix are returned
+    unchanged.
     """
     if var_name in dataset:
         canonical = dataset[var_name].attrs.get("canonical_name")
@@ -215,7 +215,7 @@ def canonical_variable_name(dataset: xr.Dataset, var_name: str) -> str:
         source_label = dataset[var_name].attrs.get("source_label")
         if source_label and var_name.startswith(f"{source_label}_"):
             return var_name[len(source_label) + 1 :]
-    for prefix in ("geometry_", "dataset_"):
+    for prefix in ("x_", "y_"):
         if var_name.startswith(prefix):
             return var_name[len(prefix) :]
     return var_name

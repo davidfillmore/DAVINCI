@@ -174,7 +174,7 @@ class TestPointPipeline:
                 "scatter_o3": {
                     "type": "scatter",
                     "pairs": ["synthetic_surface"],
-                    "title": "O3: Dataset vs Datasets",
+                    "title": "O3: Y vs X",
                 },
                 "taylor_o3": {
                     "type": "taylor",
@@ -205,8 +205,8 @@ class TestPointPipeline:
                 "spatial_dist_o3": {
                     "type": "spatial_distribution",
                     "pairs": ["synthetic_surface"],
-                    "title": "O3 Dataset Distribution",
-                    "show_var": "geometry",
+                    "title": "O3 Distribution",
+                    "show_var": "x",
                 },
                 "scorecard_o3": {
                     "type": "scorecard",
@@ -329,7 +329,7 @@ class TestTrackPipeline:
                     "type": "track_map_3d",
                     "pairs": ["synthetic_aircraft"],
                     "title": "O3 3D Track",
-                    "show_var": "geometry",
+                    "show_var": "x",
                     "show_coastlines": False,
                 },
                 "flight_ts_o3": {
@@ -422,25 +422,25 @@ class TestGeometryOnlyPipeline:
             "plots": {
                 "geometry_ts_o3": {
                     "type": "timeseries",
-                    "geometry": "dc8",
+                    "source": "dc8",
                     "variable": "O3",
                     "title": "O3 Time Series",
                 },
                 "geometry_hist_o3": {
                     "type": "histogram",
-                    "geometry": "dc8",
+                    "source": "dc8",
                     "variable": "O3",
                     "title": "O3 Distribution",
                 },
                 "geometry_profile_o3": {
                     "type": "vertical_profile",
-                    "geometry": "dc8",
+                    "source": "dc8",
                     "variable": "O3",
                     "title": "O3 Vertical Profile",
                 },
                 "geometry_track_o3": {
                     "type": "flight_track",
-                    "geometry": "dc8",
+                    "source": "dc8",
                     "variable": "O3",
                     "title": "O3 Flight Track",
                 },

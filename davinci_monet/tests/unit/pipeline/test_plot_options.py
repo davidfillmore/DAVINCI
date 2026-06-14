@@ -52,7 +52,7 @@ def test_single_source_options_move_trailing_date_to_subtitle() -> None:
     kwargs = single_source_plot_kwargs(
         {
             "type": "flight_track",
-            "geometry": "dc8",
+            "source": "dc8",
             "variable": "O3",
             "title": "DC-8 Flight Track: O3 (ppbv) \u2014 29 May 2012",
         },

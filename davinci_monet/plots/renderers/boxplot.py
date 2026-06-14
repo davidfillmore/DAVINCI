@@ -1,7 +1,7 @@
 """Box plot renderer for DAVINCI.
 
 This module provides box plot functionality for comparing
-dataset and dataset distributions.
+x and y distributions.
 """
 
 from __future__ import annotations
@@ -34,8 +34,8 @@ if TYPE_CHECKING:
 class BoxPlotter(BasePlotter):
     """Plotter for box plot comparisons.
 
-    Creates box plots showing the distribution of dataset and
-    dataset values, optionally grouped by categories.
+    Creates box plots showing the distribution of x and
+    y values, optionally grouped by categories.
 
     Parameters
     ----------
@@ -47,8 +47,8 @@ class BoxPlotter(BasePlotter):
     >>> plotter = BoxPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     x_var="geometry_o3",
-    ...     y_var="dataset_o3",
+    ...     x_var="x_o3",
+    ...     y_var="y_o3",
     ...     group_by="site",
     ... )
     """
@@ -67,7 +67,7 @@ class BoxPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
+            Exactly 2 series: one x series and one y series.
         ax
             Optional axes to plot on. If None, creates new figure.
         **kwargs
@@ -105,7 +105,7 @@ class BoxPlotter(BasePlotter):
         # Get style configuration
         style = self.config.style
 
-        # Series legend labels prefer the source label over Geometry/Dataset (R-3).
+        # Series legend labels prefer the source label over X/Y (R-3).
         x_label = x_label or get_series_label(paired_data, x_var, self.config.x_label)
         y_label = y_label or get_series_label(paired_data, y_var, self.config.y_label)
 
@@ -182,11 +182,11 @@ class BoxPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         ax
             Optional axes to plot on. If None, creates new figure.
         group_by
@@ -200,9 +200,9 @@ class BoxPlotter(BasePlotter):
         orientation
             Box orientation ('vertical' or 'horizontal').
         x_label
-            Custom label for datasets.
+            Custom label for the x series.
         y_label
-            Custom label for dataset.
+            Custom label for the y series.
         **kwargs
             Additional plotting arguments.
 
@@ -238,7 +238,7 @@ class BoxPlotter(BasePlotter):
         notch: bool,
         vert: bool,
     ) -> None:
-        """Plot simple geometry vs dataset comparison.
+        """Plot simple x vs y comparison.
 
         Parameters
         ----------
@@ -352,13 +352,13 @@ class BoxPlotter(BasePlotter):
 
         # Calculate positions
         width = 0.35
-        positions_geometry = np.arange(n_groups) - width / 2
-        positions_dataset = np.arange(n_groups) + width / 2
+        positions_x = np.arange(n_groups) - width / 2
+        positions_y = np.arange(n_groups) + width / 2
 
-        # Plot dataset boxes
-        bp_geometry = ax.boxplot(
+        # Plot x boxes
+        bp_x = ax.boxplot(
             x_data,
-            positions=positions_geometry,
+            positions=positions_x,
             widths=width * 0.8,
             notch=notch,
             vert=vert,
@@ -367,10 +367,10 @@ class BoxPlotter(BasePlotter):
             patch_artist=True,
         )
 
-        # Plot dataset boxes
-        bp_dataset = ax.boxplot(
+        # Plot y boxes
+        bp_y = ax.boxplot(
             y_data,
-            positions=positions_dataset,
+            positions=positions_y,
             widths=width * 0.8,
             notch=notch,
             vert=vert,
@@ -394,10 +394,10 @@ class BoxPlotter(BasePlotter):
             x_color=style.x_color,
             y_color=style.y_color,
         )
-        for patch in bp_geometry["boxes"]:
+        for patch in bp_x["boxes"]:
             patch.set_facecolor(x_color)
             patch.set_alpha(0.5)
-        for patch in bp_dataset["boxes"]:
+        for patch in bp_y["boxes"]:
             patch.set_facecolor(y_color)
             patch.set_alpha(0.5)
 
@@ -431,11 +431,11 @@ def plot_boxplot(
     Parameters
     ----------
     paired_data
-        Paired dataset with dataset and dataset variables.
+        Paired dataset with x and y variables.
     x_var
-        Name of dataset variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     config
         Plot configuration.
     **kwargs

@@ -1,7 +1,7 @@
 """Point-to-grid pairing strategy.
 
-This module implements pairing for point datasets (surface stations,
-ground sites) with gridded dataset output.
+This module implements pairing for point x sources (surface stations,
+ground sites) with a gridded y source.
 """
 
 from __future__ import annotations
@@ -24,15 +24,15 @@ _logger = logging.getLogger(__name__)
 
 
 class PointStrategy(BasePairingStrategy):
-    """Pairing strategy for point datasets.
+    """Pairing strategy for point sources.
 
-    Matches fixed-location datasets (surface stations, ground sites)
-    to the nearest dataset grid cell within the radius of influence.
+    Matches fixed-location x sources (surface stations, ground sites)
+    to the nearest y grid cell within the radius of influence.
 
     The strategy:
-    1. Finds nearest dataset grid cell for each dataset site
-    2. Extracts surface level from dataset (if 3D)
-    3. Interpolates dataset to dataset times
+    1. Finds nearest y grid cell for each x site
+    2. Extracts surface level from the y source (if 3D)
+    3. Interpolates the y source to the x times
     4. Creates paired dataset with aligned values
 
     Examples
@@ -58,14 +58,14 @@ class PointStrategy(BasePairingStrategy):
         time_method: str = "nearest",
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Pair point datasets with dataset grid.
+        """Pair point data with the y grid.
 
         Parameters
         ----------
-        dataset
-            Dataset Dataset with dims (time, [z], lat, lon).
-        geometry
-            Dataset Dataset with dims (time, site).
+        x_data
+            The x source. Dataset with dims (time, site).
+        y_data
+            The y source. Dataset with dims (time, [z], lat, lon).
         radius_of_influence
             Maximum distance in meters for matching. Default 12000m.
         time_tolerance
@@ -76,7 +76,7 @@ class PointStrategy(BasePairingStrategy):
             Horizontal matching method ('nearest' only currently).
         time_method
             Time interpolation method ('nearest' or 'linear'). Use 'linear'
-            when the dataset has sparse time output relative to datasets
+            when the y source has sparse time output relative to the x source
             (e.g. 6-hourly WRF-Chem snapshots vs hourly AirNow) to avoid the
             step-function artifact produced by 'nearest'. Default 'nearest'
             preserves prior behavior.
@@ -87,11 +87,8 @@ class PointStrategy(BasePairingStrategy):
         Returns
         -------
         xr.Dataset
-            Paired dataset with dataset values at dataset locations.
+            Paired dataset with y values at x locations.
         """
-        dataset = y_data
-        geometry = x_data
-
         if radius_of_influence is None:
             radius_of_influence = 12000.0
 
@@ -99,17 +96,17 @@ class PointStrategy(BasePairingStrategy):
         dask_num_workers = kwargs.get("dask_num_workers")
 
         # Get coordinates
-        y_lat, y_lon = self._get_dataset_coords(dataset)
-        x_lat, x_lon = self._get_geometry_coords(geometry)
+        y_lat, y_lon = self._get_y_coords(y_data)
+        x_lat, x_lon = self._get_x_coords(x_data)
 
-        # Extract surface level if dataset is 3D
+        # Extract surface level if the y source is 3D
         if extract_surface:
-            y_surface = self._extract_surface(dataset)
+            y_surface = self._extract_surface(y_data)
         else:
-            y_surface = dataset
+            y_surface = y_data
 
-        # Find site dimension in geometry
-        site_dim = self._get_site_dim(geometry)
+        # Find site dimension in the x source
+        site_dim = self._get_site_dim(x_data)
 
         # Get unique site locations
         if x_lat.dims == (site_dim,):
@@ -120,7 +117,7 @@ class PointStrategy(BasePairingStrategy):
             site_lats = x_lat.isel(time=0).values if "time" in x_lat.dims else x_lat.values
             site_lons = x_lon.isel(time=0).values if "time" in x_lon.dims else x_lon.values
 
-        # Find nearest dataset grid indices for each site
+        # Find nearest y grid indices for each site
         lat_idx, lon_idx = self._find_nearest_indices(
             y_lat,
             y_lon,
@@ -129,28 +126,28 @@ class PointStrategy(BasePairingStrategy):
             radius_of_influence=radius_of_influence,
         )
 
-        # Drop geometry sites that fall outside radius_of_influence. Without this,
-        # _extract_at_sites masks the dataset to NaN at unpaired sites but leaves
-        # the geometry values intact, so cross-site aggregates (timeseries domain-mean)
-        # are polluted by sites with no dataset match.
+        # Drop x sites that fall outside radius_of_influence. Without this,
+        # _extract_at_sites masks the y source to NaN at unpaired sites but leaves
+        # the x values intact, so cross-site aggregates (timeseries domain-mean)
+        # are polluted by sites with no y match.
         valid = (lat_idx.values >= 0) & (lon_idx.values >= 0)
         if not valid.all():
             keep = np.where(valid)[0]
             _logger.info(
-                "PointStrategy: dropping %d geometry site(s) outside %.0f m "
+                "PointStrategy: dropping %d x site(s) outside %.0f m "
                 "radius of influence (kept %d/%d).",
                 int((~valid).sum()),
                 radius_of_influence,
                 int(valid.sum()),
                 len(valid),
             )
-            geometry = geometry.isel({site_dim: keep})
+            x_data = x_data.isel({site_dim: keep})
             site_lats = site_lats[keep]
             site_lons = site_lons[keep]
             lat_idx = xr.DataArray(lat_idx.values[keep])
             lon_idx = xr.DataArray(lon_idx.values[keep])
 
-        # Extract dataset values at dataset sites
+        # Extract y values at the x sites
         y_at_sites = self._extract_at_sites(
             y_surface,
             y_lat,
@@ -161,25 +158,25 @@ class PointStrategy(BasePairingStrategy):
             dask_num_workers=dask_num_workers,
         )
 
-        # Interpolate dataset to dataset times
-        if "time" in y_at_sites.dims and "time" in geometry.dims:
-            x_times = geometry["time"]
+        # Interpolate the y source to the x times
+        if "time" in y_at_sites.dims and "time" in x_data.dims:
+            x_times = x_data["time"]
             y_at_sites = self._interpolate_time(
                 y_at_sites, x_times, method=time_method, time_tolerance=time_tolerance
             )
 
         # Combine into paired dataset
-        paired = self._create_paired_output(geometry, y_at_sites, site_dim)
+        paired = self._create_paired_output(x_data, y_at_sites, site_dim)
 
         return paired
 
-    def _get_site_dim(self, geometry: xr.Dataset) -> str:
-        """Find the site dimension name in datasets.
+    def _get_site_dim(self, x_data: xr.Dataset) -> str:
+        """Find the site dimension name in the x source.
 
         Parameters
         ----------
-        geometry
-            Dataset dataset.
+        x_data
+            The x source.
 
         Returns
         -------
@@ -187,16 +184,16 @@ class PointStrategy(BasePairingStrategy):
             Site dimension name.
         """
         for dim in ["site", "station", "x", "location"]:
-            if dim in geometry.dims:
+            if dim in x_data.dims:
                 return dim
 
         raise PairingError(
-            f"Cannot find site dimension in datasets. " f"Available dims: {list(geometry.dims)}"
+            f"Cannot find site dimension in the x source. " f"Available dims: {list(x_data.dims)}"
         )
 
     def _extract_at_sites(
         self,
-        dataset: xr.Dataset,
+        y_data: xr.Dataset,
         y_lat: xr.DataArray,
         y_lon: xr.DataArray,
         lat_idx: np.ndarray[Any, np.dtype[Any]],
@@ -204,23 +201,23 @@ class PointStrategy(BasePairingStrategy):
         site_dim: str,
         dask_num_workers: int | None = None,
     ) -> xr.Dataset:
-        """Extract dataset values at dataset site locations.
+        """Extract y values at the x site locations.
 
         Parameters
         ----------
-        dataset
-            Dataset dataset (surface level).
-        dataset_lat, dataset_lon
-            Dataset coordinate arrays.
+        y_data
+            The y source (surface level).
+        y_lat, y_lon
+            The y coordinate arrays.
         lat_idx, lon_idx
-            Indices of nearest dataset grid cells.
+            Indices of nearest y grid cells.
         site_dim
             Name of site dimension.
 
         Returns
         -------
         xr.Dataset
-            Dataset values at site locations with site dimension.
+            The y values at site locations with site dimension.
         """
         n_sites = len(lat_idx)
 
@@ -246,7 +243,7 @@ class PointStrategy(BasePairingStrategy):
         lon_indexer = xr.DataArray(np.where(valid_mask, lon_idx, 0), dims=[site_dim])
 
         # Extract all sites at once using advanced indexing
-        extracted = dataset.isel({lat_dim: lat_indexer, lon_dim: lon_indexer})
+        extracted = y_data.isel({lat_dim: lat_indexer, lon_dim: lon_indexer})
 
         # Load data to numpy with optimized parallel scheduler
         # Use threaded scheduler with multiple workers for parallel file I/O
@@ -264,14 +261,14 @@ class PointStrategy(BasePairingStrategy):
 
         # Build output dataset with proper coordinates
         coords = {site_dim: site_coord}
-        if "time" in dataset.coords:
-            coords["time"] = dataset.coords["time"].values
+        if "time" in y_data.coords:
+            coords["time"] = y_data.coords["time"].values
 
         return xr.Dataset({str(var): extracted[var] for var in extracted.data_vars}, coords=coords)
 
     def _create_paired_output(
         self,
-        geometry: xr.Dataset,
+        x_data: xr.Dataset,
         y_at_sites: xr.Dataset,
         site_dim: str,
     ) -> xr.Dataset:
@@ -279,44 +276,42 @@ class PointStrategy(BasePairingStrategy):
 
         Parameters
         ----------
-        geometry
-            Dataset dataset.
-        dataset_at_sites
-            Dataset values at site locations.
+        x_data
+            The x source.
+        y_at_sites
+            The y values at site locations.
         site_dim
             Site dimension name.
 
         Returns
         -------
         xr.Dataset
-            Combined dataset with both geometry and dataset values.
+            Combined dataset with both x and y values.
         """
         # Combine data variables
         data_vars: dict[str, Any] = {}
 
-        # Add dataset variables
+        # Add x variables
         x_var_names = set()
-        for var in geometry.data_vars:
+        for var in x_data.data_vars:
             var_name = str(var)
-            data_vars[var_name] = geometry[var]
+            data_vars[var_name] = x_data[var]
             x_var_names.add(var_name)
 
-        # Add dataset variables - reassign to geometry coordinates to ensure alignment
-        # Dataset was extracted at same site/time locations, just with integer indices
+        # Add y variables - reassign to x coordinates to ensure alignment
+        # The y source was extracted at same site/time locations, just with integer indices
         for var in y_at_sites.data_vars:
             y_var = y_at_sites[var]
-            x_ref = geometry[list(geometry.data_vars)[0]]
+            x_ref = x_data[list(x_data.data_vars)[0]]
 
-            # Handle dimension mismatch (e.g., geometry has extra y=1 dimension)
+            # Handle dimension mismatch (e.g., the x source has extra y=1 dimension)
             if y_var.ndim != x_ref.ndim:
-                # Find extra dims in geometry that aren't in dataset (usually singleton dims like y=1)
+                # Find extra dims in the x source that aren't in y (usually singleton dims like y=1)
                 extra_dims = [d for d in x_ref.dims if d not in y_var.dims]
                 if all(x_ref.sizes[d] == 1 for d in extra_dims):
-                    # Squeeze geometry to match dataset dims, then expand dataset to match geometry
+                    # Squeeze x to match y dims, then expand y to match x
                     target_dims = y_var.dims
-                    target_coords = {
-                        d: geometry.coords[d] for d in target_dims if d in geometry.coords
-                    }
+                    target_coords = {d: x_data.coords[d] for d in target_dims if d in x_data.coords}
                     y_da = xr.DataArray(
                         y_var.values,
                         dims=target_dims,
@@ -325,12 +320,12 @@ class PointStrategy(BasePairingStrategy):
                     )
                     # Expand to include the extra singleton dimensions
                     for ed in extra_dims:
-                        y_da = y_da.expand_dims({ed: geometry.coords[ed].values})
-                    # Reorder to match geometry dims
+                        y_da = y_da.expand_dims({ed: x_data.coords[ed].values})
+                    # Reorder to match x dims
                     y_da = y_da.transpose(*x_ref.dims)
                 else:
                     raise PairingError(
-                        f"Dimension mismatch between dataset ({y_var.dims}) and geometry ({x_ref.dims}). "
+                        f"Dimension mismatch between y ({y_var.dims}) and x ({x_ref.dims}). "
                         f"Extra dimensions {extra_dims} are not singletons."
                     )
             else:
@@ -338,12 +333,12 @@ class PointStrategy(BasePairingStrategy):
                 y_da = xr.DataArray(
                     y_var.values,
                     dims=x_ref.dims,
-                    coords={d: geometry.coords[d] for d in x_ref.dims if d in geometry.coords},
+                    coords={d: x_data.coords[d] for d in x_ref.dims if d in x_data.coords},
                     name=var,
                 )
             var_name = str(var)
             if var_name in x_var_names:
-                var_name = f"dataset_{var_name}"
+                var_name = f"y_{var_name}"
             data_vars[var_name] = y_da
 
-        return xr.Dataset(data_vars, coords=dict(geometry.coords))
+        return xr.Dataset(data_vars, coords=dict(x_data.coords))

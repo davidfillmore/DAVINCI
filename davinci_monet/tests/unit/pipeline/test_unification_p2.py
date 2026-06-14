@@ -50,7 +50,7 @@ def _geometry_ctx(tmp_path: Any) -> PipelineContext:
             "plots": {
                 "o3_hist": {
                     "type": "histogram",
-                    "geometry": "airnow",
+                    "source": "airnow",
                     "variable": "O3",
                     "title": "O3",
                 }

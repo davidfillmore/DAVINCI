@@ -10,12 +10,11 @@ Data: Gridded (L3) datasets with separate dataset field
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
+from _helpers import create_paired_surface_data, save_figure
 
 from davinci_monet.plots import plot_spatial_overlay
-from davinci_monet.tests.synthetic.generators import Domain
 from davinci_monet.tests.synthetic.datasets import create_dataset_dataset
-
-from _helpers import create_paired_surface_data, save_figure
+from davinci_monet.tests.synthetic.generators import Domain
 
 
 def main():
@@ -34,14 +33,14 @@ def main():
         n_levels=0,
         seed=42,
     )
-    dataset_field = dataset_grid["O3"].isel(time=0)
+    y_field = dataset_grid["O3"].isel(time=0)
 
     # Create plot using davinci_monet.plots
     fig = plot_spatial_overlay(
         paired_mean,
-        geometry_var="geometry_o3",
-        dataset_var="dataset_o3",
-        dataset_field=dataset_field,
+        x_var="x_o3",
+        y_var="y_o3",
+        y_field=y_field,
         title="Spatial Overlay: O3 Dataset + Geometry",
     )
 

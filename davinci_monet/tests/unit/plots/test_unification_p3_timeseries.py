@@ -1,7 +1,7 @@
 """P3 of the renderer unification — timeseries merged onto render(series).
 
 The canonical TimeSeriesPlotter gains a render() that handles 1/2/N source
-series: 1 → single aggregated line (the spaghetti fix), 2 → geometry-vs-dataset
+series: 1 → single aggregated line (the spaghetti fix), 2 → x-vs-y
 (delegates to the paired plot), N → overlay. The unified PlottingStage routes
 geometry-only specs through render() for migrated renderers.
 """
@@ -142,7 +142,7 @@ class TestUnifiedStageRoutesTimeseriesThroughRender:
                 "plots": {
                     "o3_ts": {
                         "type": "timeseries",
-                        "geometry": "airnow",
+                        "source": "airnow",
                         "variable": "o3",
                         "title": "O3",
                     }

@@ -63,7 +63,7 @@ class TrackMap3DPlotter(BasePlotter):
     - X-axis: Longitude
     - Y-axis: Latitude
     - Z-axis: Altitude
-    - Color: Variable value (geometry, dataset, or bias)
+    - Color: Variable value (x, y, or bias)
 
     Parameters
     ----------
@@ -75,8 +75,8 @@ class TrackMap3DPlotter(BasePlotter):
     >>> plotter = TrackMap3DPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     x_var="geometry_O3",
-    ...     y_var="dataset_O3",
+    ...     x_var="x_O3",
+    ...     y_var="y_O3",
     ...     show_var="bias",
     ... )
     """
@@ -95,7 +95,7 @@ class TrackMap3DPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
+            Exactly 2 series: one x series and one y series.
         ax
             Ignored (creates new 3D axes).
         **kwargs
@@ -148,7 +148,7 @@ class TrackMap3DPlotter(BasePlotter):
         alt_var: str = kwargs.pop("alt_var", "altitude")
         lat_var: str = kwargs.pop("lat_var", "latitude")
         lon_var: str = kwargs.pop("lon_var", "longitude")
-        show_var: Literal["geometry", "dataset", "bias"] = kwargs.pop("show_var", "bias")
+        show_var: Literal["x", "y", "bias"] = kwargs.pop("show_var", "bias")
         cmap: str | None = kwargs.pop("cmap", None)
         marker_size: float = kwargs.pop("marker_size", 20)
         alpha: float = kwargs.pop("alpha", 0.7)
@@ -202,11 +202,11 @@ class TrackMap3DPlotter(BasePlotter):
         y_vals = paired_data[y_var].values
 
         # Calculate what to show
-        if show_var == "geometry":
+        if show_var == "x":
             values = x_vals
             default_cmap = "viridis"
             label = get_variable_label(paired_data, x_var, include_prefix=False)
-        elif show_var == "dataset":
+        elif show_var == "y":
             values = y_vals
             default_cmap = "viridis"
             label = get_variable_label(paired_data, y_var, include_prefix=False)
@@ -214,7 +214,7 @@ class TrackMap3DPlotter(BasePlotter):
             values = y_vals - x_vals
             default_cmap = "RdBu_r"
             # Consistent bias label with other plotters
-            label = "Bias (Dataset - Geometry)"
+            label = "Bias (Y - X)"
 
         cmap = cmap or default_cmap
 
@@ -302,7 +302,7 @@ class TrackMap3DPlotter(BasePlotter):
         alt_var: str = "altitude",
         lat_var: str = "latitude",
         lon_var: str = "longitude",
-        show_var: Literal["geometry", "dataset", "bias"] = "bias",
+        show_var: Literal["x", "y", "bias"] = "bias",
         cmap: str | None = None,
         marker_size: float = 20,
         alpha: float = 0.7,
@@ -337,11 +337,11 @@ class TrackMap3DPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         ax
             Existing axes (ignored, creates new 3D axes).
         alt_var
@@ -351,7 +351,7 @@ class TrackMap3DPlotter(BasePlotter):
         lon_var
             Name of longitude coordinate.
         show_var
-            Which variable to show: 'geometry', 'dataset', or 'bias'.
+            Which variable to show: 'x', 'y', or 'bias'.
         cmap
             Colormap name. Default depends on show_var.
         marker_size
@@ -461,11 +461,11 @@ class TrackMap3DPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         flight_coord
             Name of the flight coordinate (default: "flight").
         min_points
@@ -540,7 +540,7 @@ def plot_track_map_3d(
     x_var: str,
     y_var: str,
     title: str | None = None,
-    show_var: Literal["geometry", "dataset", "bias"] = "bias",
+    show_var: Literal["x", "y", "bias"] = "bias",
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
     """Convenience function for 3D track map plots.
@@ -548,15 +548,15 @@ def plot_track_map_3d(
     Parameters
     ----------
     paired_data
-        Paired dataset with dataset and dataset variables.
+        Paired dataset with x and y variables.
     x_var
-        Name of dataset variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     title
         Plot title.
     show_var
-        Which variable to show: 'geometry', 'dataset', or 'bias'.
+        Which variable to show: 'x', 'y', or 'bias'.
     **kwargs
         Additional options passed to plotter.
 

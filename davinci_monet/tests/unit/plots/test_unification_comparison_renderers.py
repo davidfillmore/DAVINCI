@@ -28,17 +28,17 @@ from davinci_monet.plots.base import build_series
 
 
 def _paired_ds(n: int = 30, seed: int = 0) -> xr.Dataset:
-    """Minimal paired dataset: geometry_o3 (geometry) + dataset_o3 (dataset)."""
+    """Minimal paired dataset: x_o3 (geometry) + y_o3 (dataset)."""
     rng = np.random.default_rng(seed)
     times = np.datetime64("2024-02-01") + np.arange(n) * np.timedelta64(1, "h")
     ds = xr.Dataset(
         {
-            "geometry_o3": (
+            "x_o3": (
                 "time",
                 rng.uniform(20, 60, n),
                 {"axis": "x", "units": "ppb"},
             ),
-            "dataset_o3": (
+            "y_o3": (
                 "time",
                 rng.uniform(20, 60, n),
                 {"axis": "y", "units": "ppb"},
@@ -60,9 +60,9 @@ class TestScatterRenderParity:
 
         ds = _paired_ds()
         plotter = ScatterPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
@@ -72,10 +72,10 @@ class TestScatterRenderParity:
 
         ds = _paired_ds()
         plotter = ScatterPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         n_axes_plot = len(fig_plot.axes)
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         n_axes_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_axes_plot == n_axes_render
@@ -86,10 +86,10 @@ class TestScatterRenderParity:
 
         ds = _paired_ds()
         plotter = ScatterPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         n_col_plot = len(fig_plot.axes[0].collections)
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         n_col_render = len(fig_render.axes[0].collections)
         plt.close(fig_render)
         assert n_col_plot == n_col_render
@@ -100,7 +100,7 @@ class TestScatterRenderParity:
         ds = _paired_ds()
         plotter = ScatterPlotter()
         with pytest.raises(NotImplementedError, match="ScatterPlotter"):
-            plotter.render(build_series(ds, "geometry_o3"))
+            plotter.render(build_series(ds, "x_o3"))
 
 
 # ---------------------------------------------------------------------------
@@ -114,9 +114,9 @@ class TestBoxRenderParity:
 
         ds = _paired_ds()
         plotter = BoxPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
@@ -126,10 +126,10 @@ class TestBoxRenderParity:
 
         ds = _paired_ds()
         plotter = BoxPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         n_plot = len(fig_plot.axes)
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         n_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_plot == n_render
@@ -140,7 +140,7 @@ class TestBoxRenderParity:
         ds = _paired_ds()
         plotter = BoxPlotter()
         with pytest.raises(NotImplementedError, match="BoxPlotter"):
-            plotter.render(build_series(ds, "geometry_o3"))
+            plotter.render(build_series(ds, "x_o3"))
 
 
 # ---------------------------------------------------------------------------
@@ -154,9 +154,9 @@ class TestDiurnalRenderParity:
 
         ds = _paired_ds(n=48)
         plotter = DiurnalPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
@@ -166,10 +166,10 @@ class TestDiurnalRenderParity:
 
         ds = _paired_ds(n=48)
         plotter = DiurnalPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         n_plot = len(fig_plot.axes)
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         n_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_plot == n_render
@@ -179,10 +179,10 @@ class TestDiurnalRenderParity:
 
         ds = _paired_ds(n=48)
         plotter = DiurnalPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         n_lines_plot = len(fig_plot.axes[0].get_lines())
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         n_lines_render = len(fig_render.axes[0].get_lines())
         plt.close(fig_render)
         assert n_lines_plot == n_lines_render
@@ -193,7 +193,7 @@ class TestDiurnalRenderParity:
         ds = _paired_ds(n=48)
         plotter = DiurnalPlotter()
         with pytest.raises(NotImplementedError, match="DiurnalPlotter"):
-            plotter.render(build_series(ds, "geometry_o3"))
+            plotter.render(build_series(ds, "x_o3"))
 
 
 # ---------------------------------------------------------------------------
@@ -207,9 +207,9 @@ class TestTaylorRenderParity:
 
         ds = _paired_ds()
         plotter = TaylorPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
@@ -222,7 +222,7 @@ class TestTaylorRenderParity:
         plotter = TaylorPlotter(
             PlotConfig(title="O3 Taylor Diagram", subtitle="2024-02-01 - 2024-02-02")
         )
-        fig = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"))
         ax = fig.axes[0]
 
         assert ax.get_title() == r"O$_3$ Taylor Diagram"
@@ -234,10 +234,10 @@ class TestTaylorRenderParity:
 
         ds = _paired_ds()
         plotter = TaylorPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         n_plot = len(fig_plot.axes)
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         n_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_plot == n_render
@@ -247,10 +247,10 @@ class TestTaylorRenderParity:
 
         ds = _paired_ds()
         plotter = TaylorPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         n_lines_plot = len(fig_plot.axes[0].get_lines())
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         n_lines_render = len(fig_render.axes[0].get_lines())
         plt.close(fig_render)
         assert n_lines_plot == n_lines_render
@@ -261,7 +261,7 @@ class TestTaylorRenderParity:
         ds = _paired_ds()
         plotter = TaylorPlotter()
         with pytest.raises(NotImplementedError, match="TaylorPlotter"):
-            plotter.render(build_series(ds, "geometry_o3"))
+            plotter.render(build_series(ds, "x_o3"))
 
 
 # ---------------------------------------------------------------------------
@@ -275,9 +275,9 @@ class TestScorecardRenderParity:
 
         ds = _paired_ds()
         plotter = ScorecardPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
@@ -287,10 +287,10 @@ class TestScorecardRenderParity:
 
         ds = _paired_ds()
         plotter = ScorecardPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         n_plot = len(fig_plot.axes)
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         n_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_plot == n_render
@@ -301,7 +301,7 @@ class TestScorecardRenderParity:
         ds = _paired_ds()
         plotter = ScorecardPlotter()
         with pytest.raises(NotImplementedError, match="ScorecardPlotter"):
-            plotter.render(build_series(ds, "geometry_o3"))
+            plotter.render(build_series(ds, "x_o3"))
 
     def test_side_entries_still_work(self) -> None:
         """plot_from_dataframe and plot_multi_metric must remain callable."""
@@ -341,12 +341,12 @@ def _track_ds(n: int = 30, seed: int = 0) -> xr.Dataset:
     times = np.datetime64("2024-02-01") + np.arange(n) * np.timedelta64(1, "h")
     ds = xr.Dataset(
         {
-            "geometry_o3": (
+            "x_o3": (
                 "time",
                 rng.uniform(20, 60, n),
                 {"axis": "x", "units": "ppb"},
             ),
-            "dataset_o3": (
+            "y_o3": (
                 "time",
                 rng.uniform(20, 60, n),
                 {"axis": "y", "units": "ppb"},
@@ -366,11 +366,9 @@ class TestCurtainRenderParity:
 
         ds = _track_ds()
         plotter = CurtainPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", alt_var="altitude")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3", alt_var="altitude")
         plt.close(fig_plot)
-        fig_render = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"), alt_var="altitude"
-        )
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"), alt_var="altitude")
         plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
@@ -380,12 +378,10 @@ class TestCurtainRenderParity:
 
         ds = _track_ds()
         plotter = CurtainPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", alt_var="altitude")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3", alt_var="altitude")
         n_plot = len(fig_plot.axes)
         plt.close(fig_plot)
-        fig_render = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"), alt_var="altitude"
-        )
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"), alt_var="altitude")
         n_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_plot == n_render
@@ -396,9 +392,9 @@ class TestCurtainRenderParity:
 
         ds = _track_ds()
         plotter = CurtainPlotter()
-        for show_var in ("geometry", "dataset", "bias"):
+        for show_var in ("x", "y", "bias"):
             fig = plotter.render(
-                build_series(ds, "geometry_o3", "dataset_o3"),
+                build_series(ds, "x_o3", "y_o3"),
                 alt_var="altitude",
                 show_var=show_var,
             )
@@ -411,7 +407,7 @@ class TestCurtainRenderParity:
         ds = _track_ds()
         plotter = CurtainPlotter()
         with pytest.raises(NotImplementedError, match="CurtainPlotter"):
-            plotter.render(build_series(ds, "geometry_o3"))
+            plotter.render(build_series(ds, "x_o3"))
 
 
 # ---------------------------------------------------------------------------
@@ -429,12 +425,12 @@ def _spatial_point_ds(n_sites: int = 5, seed: int = 0) -> xr.Dataset:
     dataset = geometry + rng.uniform(-5, 5, size=(2, n_sites))
     ds = xr.Dataset(
         {
-            "geometry_o3": (
+            "x_o3": (
                 ("time", "site"),
                 geometry,
                 {"axis": "x"},
             ),
-            "dataset_o3": (
+            "y_o3": (
                 ("time", "site"),
                 dataset,
                 {"axis": "y"},
@@ -455,9 +451,9 @@ class TestSpatialBiasRenderParity:
 
         ds = _spatial_point_ds()
         plotter = SpatialBiasPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
@@ -467,10 +463,10 @@ class TestSpatialBiasRenderParity:
 
         ds = _spatial_point_ds()
         plotter = SpatialBiasPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         n_plot = len(fig_plot.axes)
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         n_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_plot == n_render
@@ -481,7 +477,7 @@ class TestSpatialBiasRenderParity:
         ds = _spatial_point_ds()
         plotter = SpatialBiasPlotter()
         with pytest.raises(NotImplementedError, match="SpatialBiasPlotter"):
-            plotter.render(build_series(ds, "geometry_o3"))
+            plotter.render(build_series(ds, "x_o3"))
 
 
 # ---------------------------------------------------------------------------
@@ -497,9 +493,9 @@ class TestSpatialDistributionRenderParity:
 
         ds = _spatial_point_ds()
         plotter = SpatialDistributionPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
@@ -511,10 +507,10 @@ class TestSpatialDistributionRenderParity:
 
         ds = _spatial_point_ds()
         plotter = SpatialDistributionPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
         n_plot = len(fig_plot.axes)
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"))
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
         n_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_plot == n_render
@@ -527,8 +523,8 @@ class TestSpatialDistributionRenderParity:
 
         ds = _spatial_point_ds()
         plotter = SpatialDistributionPlotter()
-        for show_var in ("geometry", "dataset", "both"):
-            fig = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"), show_var=show_var)
+        for show_var in ("x", "y", "both"):
+            fig = plotter.render(build_series(ds, "x_o3", "y_o3"), show_var=show_var)
             assert isinstance(fig, matplotlib.figure.Figure)
             plt.close(fig)
 
@@ -540,7 +536,7 @@ class TestSpatialDistributionRenderParity:
         ds = _spatial_point_ds()
         plotter = SpatialDistributionPlotter()
         with pytest.raises(NotImplementedError, match="SpatialDistributionPlotter"):
-            plotter.render(build_series(ds, "geometry_o3"))
+            plotter.render(build_series(ds, "x_o3"))
 
 
 # ---------------------------------------------------------------------------
@@ -557,12 +553,12 @@ def _site_ds(n_times: int = 50, n_sites: int = 3, seed: int = 0) -> xr.Dataset:
     dataset = geometry + rng.uniform(-5, 5, (n_sites, n_times))
     ds = xr.Dataset(
         {
-            "geometry_o3": (
+            "x_o3": (
                 ("site", "time"),
                 geometry,
                 {"axis": "x", "units": "ppb"},
             ),
-            "dataset_o3": (
+            "y_o3": (
                 ("site", "time"),
                 dataset,
                 {"axis": "y", "units": "ppb"},
@@ -584,11 +580,9 @@ class TestSiteTimeSeriesRenderParity:
 
         ds = _site_ds()
         plotter = SiteTimeSeriesPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", ncols=2, min_points=5)
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3", ncols=2, min_points=5)
         plt.close(fig_plot)
-        fig_render = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"), ncols=2, min_points=5
-        )
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"), ncols=2, min_points=5)
         plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
@@ -598,12 +592,10 @@ class TestSiteTimeSeriesRenderParity:
 
         ds = _site_ds()
         plotter = SiteTimeSeriesPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", ncols=2, min_points=5)
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3", ncols=2, min_points=5)
         n_plot = len(fig_plot.axes)
         plt.close(fig_plot)
-        fig_render = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"), ncols=2, min_points=5
-        )
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"), ncols=2, min_points=5)
         n_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_plot == n_render
@@ -614,7 +606,7 @@ class TestSiteTimeSeriesRenderParity:
         ds = _site_ds()
         plotter = SiteTimeSeriesPlotter()
         with pytest.raises(NotImplementedError, match="SiteTimeSeriesPlotter"):
-            plotter.render(build_series(ds, "geometry_o3"))
+            plotter.render(build_series(ds, "x_o3"))
 
 
 # ---------------------------------------------------------------------------
@@ -643,12 +635,12 @@ def _flight_ds(n_per_flight: int = 30, n_flights: int = 2, seed: int = 0) -> xr.
     all_dataset_arr = np.concatenate(all_dataset)
     ds = xr.Dataset(
         {
-            "geometry_o3": (
+            "x_o3": (
                 "time",
                 all_geometry_arr,
                 {"axis": "x", "units": "ppb"},
             ),
-            "dataset_o3": (
+            "y_o3": (
                 "time",
                 all_dataset_arr,
                 {"axis": "y", "units": "ppb"},
@@ -668,11 +660,9 @@ class TestFlightTimeSeriesRenderParity:
 
         ds = _flight_ds()
         plotter = FlightTimeSeriesPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", ncols=2, min_points=5)
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3", ncols=2, min_points=5)
         plt.close(fig_plot)
-        fig_render = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"), ncols=2, min_points=5
-        )
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"), ncols=2, min_points=5)
         plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
@@ -682,13 +672,11 @@ class TestFlightTimeSeriesRenderParity:
 
         ds = _flight_ds()
         plotter = FlightTimeSeriesPlotter()
-        fig_plot = plotter.plot(
-            ds, "geometry_o3", "dataset_o3", ncols=2, min_points=5, show_altitude=False
-        )
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3", ncols=2, min_points=5, show_altitude=False)
         n_plot = len(fig_plot.axes)
         plt.close(fig_plot)
         fig_render = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"),
+            build_series(ds, "x_o3", "y_o3"),
             ncols=2,
             min_points=5,
             show_altitude=False,
@@ -703,7 +691,7 @@ class TestFlightTimeSeriesRenderParity:
 
         ds = _flight_ds()
         plotter = FlightTimeSeriesPlotter()
-        results = list(plotter.plot_per_flight(ds, "geometry_o3", "dataset_o3", min_points=5))
+        results = list(plotter.plot_per_flight(ds, "x_o3", "y_o3", min_points=5))
         assert len(results) == 2
         for flight_id, fig in results:
             assert isinstance(flight_id, str)
@@ -716,7 +704,7 @@ class TestFlightTimeSeriesRenderParity:
         ds = _flight_ds()
         plotter = FlightTimeSeriesPlotter()
         with pytest.raises(NotImplementedError, match="FlightTimeSeriesPlotter"):
-            plotter.render(build_series(ds, "geometry_o3"))
+            plotter.render(build_series(ds, "x_o3"))
 
 
 # ---------------------------------------------------------------------------
@@ -730,9 +718,9 @@ class TestPerSiteTimeSeriesRenderParity:
 
         ds = _site_ds()
         plotter = PerSiteTimeSeriesPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", min_points=5)
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3", min_points=5)
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"), min_points=5)
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"), min_points=5)
         plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
@@ -742,12 +730,10 @@ class TestPerSiteTimeSeriesRenderParity:
 
         ds = _site_ds()
         plotter = PerSiteTimeSeriesPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", site="site_0", min_points=5)
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3", site="site_0", min_points=5)
         n_plot = len(fig_plot.axes)
         plt.close(fig_plot)
-        fig_render = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"), site="site_0", min_points=5
-        )
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"), site="site_0", min_points=5)
         n_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_plot == n_render
@@ -758,7 +744,7 @@ class TestPerSiteTimeSeriesRenderParity:
 
         ds = _site_ds()
         plotter = PerSiteTimeSeriesPlotter()
-        results = list(plotter.plot_per_site(ds, "geometry_o3", "dataset_o3", min_points=5))
+        results = list(plotter.plot_per_site(ds, "x_o3", "y_o3", min_points=5))
         assert len(results) == 3
         for site_id, fig in results:
             assert isinstance(site_id, str)
@@ -771,7 +757,7 @@ class TestPerSiteTimeSeriesRenderParity:
         ds = _site_ds()
         plotter = PerSiteTimeSeriesPlotter()
         with pytest.raises(NotImplementedError, match="PerSiteTimeSeriesPlotter"):
-            plotter.render(build_series(ds, "geometry_o3"))
+            plotter.render(build_series(ds, "x_o3"))
 
 
 # ---------------------------------------------------------------------------
@@ -786,12 +772,12 @@ def _overlay_ds(n_sites: int = 5, seed: int = 0) -> xr.Dataset:
     lons = np.linspace(-110.0, -70.0, n_sites)
     ds = xr.Dataset(
         {
-            "geometry_o3": (
+            "x_o3": (
                 "site",
                 rng.uniform(20, 60, n_sites),
                 {"axis": "x", "units": "ppb"},
             ),
-            "dataset_o3": (
+            "y_o3": (
                 "site",
                 rng.uniform(20, 60, n_sites),
                 {"axis": "y", "units": "ppb"},
@@ -828,9 +814,9 @@ class TestSpatialOverlayRenderParity:
         ds = _overlay_ds()
         y_field = _dataset_field_da()
         plotter = SpatialOverlayPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", y_field=y_field)
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3", y_field=y_field)
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"), y_field=y_field)
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"), y_field=y_field)
         plt.close(fig_render)
         assert isinstance(fig_plot, matplotlib.figure.Figure)
         assert isinstance(fig_render, matplotlib.figure.Figure)
@@ -841,10 +827,10 @@ class TestSpatialOverlayRenderParity:
         ds = _overlay_ds()
         y_field = _dataset_field_da()
         plotter = SpatialOverlayPlotter()
-        fig_plot = plotter.plot(ds, "geometry_o3", "dataset_o3", y_field=y_field)
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3", y_field=y_field)
         n_plot = len(fig_plot.axes)
         plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"), y_field=y_field)
+        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"), y_field=y_field)
         n_render = len(fig_render.axes)
         plt.close(fig_render)
         assert n_plot == n_render
@@ -857,7 +843,7 @@ class TestSpatialOverlayRenderParity:
         y_field = _dataset_field_da()
         plotter = SpatialOverlayPlotter()
         # Should succeed when dataset_field is explicitly provided
-        fig = plotter.render(build_series(ds, "geometry_o3", "dataset_o3"), y_field=y_field)
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"), y_field=y_field)
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
@@ -867,7 +853,7 @@ class TestSpatialOverlayRenderParity:
         ds = _overlay_ds()
         plotter = SpatialOverlayPlotter()
         with pytest.raises(NotImplementedError, match="SpatialOverlayPlotter"):
-            plotter.render(build_series(ds, "geometry_o3"))
+            plotter.render(build_series(ds, "x_o3"))
 
 
 # ---------------------------------------------------------------------------
@@ -881,12 +867,12 @@ def _track_3d_ds(n: int = 40, seed: int = 0) -> xr.Dataset:
     times = np.datetime64("2024-02-01") + np.arange(n) * np.timedelta64(1, "m")
     ds = xr.Dataset(
         {
-            "geometry_o3": (
+            "x_o3": (
                 "time",
                 rng.uniform(20, 60, n),
                 {"axis": "x", "units": "ppb"},
             ),
-            "dataset_o3": (
+            "y_o3": (
                 "time",
                 rng.uniform(20, 60, n),
                 {"axis": "y", "units": "ppb"},
@@ -926,12 +912,12 @@ def _flight_3d_ds(n_per_flight: int = 30, n_flights: int = 2, seed: int = 0) -> 
         all_alt.append(rng.uniform(500, 5000, n_per_flight))
     ds = xr.Dataset(
         {
-            "geometry_o3": (
+            "x_o3": (
                 "time",
                 np.concatenate(all_geometry),
                 {"axis": "x", "units": "ppb"},
             ),
-            "dataset_o3": (
+            "y_o3": (
                 "time",
                 np.concatenate(all_dataset),
                 {"axis": "y", "units": "ppb"},
@@ -954,12 +940,10 @@ class TestTrackMap3DRenderParity:
 
         ds = _track_3d_ds()
         plotter = TrackMap3DPlotter()
-        fig_plot = plotter.plot(
-            ds, "geometry_o3", "dataset_o3", alt_var="altitude", show_coastlines=False
-        )
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3", alt_var="altitude", show_coastlines=False)
         plt.close(fig_plot)
         fig_render = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"),
+            build_series(ds, "x_o3", "y_o3"),
             alt_var="altitude",
             show_coastlines=False,
         )
@@ -972,13 +956,11 @@ class TestTrackMap3DRenderParity:
 
         ds = _track_3d_ds()
         plotter = TrackMap3DPlotter()
-        fig_plot = plotter.plot(
-            ds, "geometry_o3", "dataset_o3", alt_var="altitude", show_coastlines=False
-        )
+        fig_plot = plotter.plot(ds, "x_o3", "y_o3", alt_var="altitude", show_coastlines=False)
         n_plot = len(fig_plot.axes)
         plt.close(fig_plot)
         fig_render = plotter.render(
-            build_series(ds, "geometry_o3", "dataset_o3"),
+            build_series(ds, "x_o3", "y_o3"),
             alt_var="altitude",
             show_coastlines=False,
         )
@@ -995,8 +977,8 @@ class TestTrackMap3DRenderParity:
         results = list(
             plotter.plot_per_flight(
                 ds,
-                "geometry_o3",
-                "dataset_o3",
+                "x_o3",
+                "y_o3",
                 min_points=5,
                 show_coastlines=False,
             )
@@ -1013,4 +995,4 @@ class TestTrackMap3DRenderParity:
         ds = _track_3d_ds()
         plotter = TrackMap3DPlotter()
         with pytest.raises(NotImplementedError, match="TrackMap3DPlotter"):
-            plotter.render(build_series(ds, "geometry_o3"))
+            plotter.render(build_series(ds, "x_o3"))

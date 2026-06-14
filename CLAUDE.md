@@ -302,6 +302,9 @@ plots:
 
 stats:
   metrics: [N, MB, RMSE, R, NMB, NME, IOA]
+  # Per-axis mean/median/std metric keys are x/y-named (output-facing):
+  #   MX/MY (mean), MdnX/MdnY (median), STDX/STDY (std). The CSV columns are
+  #   Mean_X/Mean_Y. (Formerly MG/MD, MdnG/MdnD, STDG/STDD, Mean_Geometry/Mean_Dataset.)
 
 summary:
   enabled: true
@@ -340,9 +343,10 @@ Each paired variable carries `axis` (`"x"`/`"y"`) and `source_label` attrs, so
 consumers select series by axis/source rather than by a name prefix. This is the
 going-forward naming after the renderer rewire clean break (R-5).
 
-Pipeline and `PairingEngine.pair_sources()` output is source-label named. Direct
-strategy implementations may still use adapter-local variable names internally,
-but those are not the public paired dataset convention.
+Pipeline and `PairingEngine.pair_sources()` output is source-label named. Strategy
+implementations emit `x_`/`y_` prefixed variable names, which the engine then
+relabels to the public source-label convention; the `x_`/`y_` prefixes are also
+recognized as a fallback by the axis/canonical helpers in `core/base.py`.
 
 Either way it is **prefix** format, NOT suffix (`pm25_cam`, `pm25_source`).
 

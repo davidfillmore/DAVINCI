@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from davinci_monet.plots.style import DATASET_A_COLOR, DATASET_B_COLOR
+from davinci_monet.plots.style import X_COLOR, Y_COLOR
 
 # =============================================================================
 # Configuration Dataclasses
@@ -86,17 +86,17 @@ class StyleConfig:
     Attributes
     ----------
     x_color : str
-        Color for dataset data (default: NCAR gray #58595B).
+        Color for the x series (default: NCAR gray #58595B).
     y_color : str
-        Color for dataset data (default: NCAR blue #0A5DDA).
+        Color for the y series (default: NCAR blue #0A5DDA).
     x_marker : str
-        Marker style for datasets.
+        Marker style for the x series.
     y_marker : str
-        Marker style for dataset.
+        Marker style for the y series.
     x_linestyle : str
-        Line style for datasets.
+        Line style for the x series.
     y_linestyle : str
-        Line style for dataset.
+        Line style for the y series.
     linewidth : float
         Line width.
     markersize : float
@@ -105,8 +105,8 @@ class StyleConfig:
         Transparency (0-1).
     """
 
-    x_color: str = DATASET_A_COLOR  # NCAR gray
-    y_color: str = DATASET_B_COLOR  # NCAR blue
+    x_color: str = X_COLOR  # NCAR gray
+    y_color: str = Y_COLOR  # NCAR blue
     x_marker: str = "o"
     y_marker: str = "s"
     x_linestyle: str = "-"

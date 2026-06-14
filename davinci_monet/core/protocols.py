@@ -53,15 +53,14 @@ class DataGeometry(Enum):
 # =============================================================================
 #
 # A data source is just data of a given geometry (point, track, profile,
-# swath, grid). Datasets and datasets are both data sources; the only thing
-# that distinguishes them is topology, not origin. A dataset/geometry metadata may
-# travel as metadata for labeling and styling, but it never appears in these
-# contracts.
+# swath, grid). All data sources are distinguished only by topology, not
+# origin. An optional ``pair_axis`` tag may travel as metadata for labeling
+# and styling, but it never appears in these contracts.
 
 
 @runtime_checkable
 class SourceReader(Protocol):
-    """Protocol for data source readers (datasets and datasets alike).
+    """Protocol for data source readers.
 
     Every source reader declares the geometry it produces and loads files into
     a standardized xarray Dataset whose ``attrs['geometry']`` is set. This is
@@ -164,7 +163,7 @@ class PairingEngine(Protocol):
     """Protocol for the main pairing orchestrator.
 
     The pairing engine selects the appropriate strategy based on
-    geometry geometry and coordinates the pairing process.
+    data geometry and coordinates the pairing process.
     """
 
     @abstractmethod
@@ -218,11 +217,11 @@ class Plotter(Protocol):
         Parameters
         ----------
         paired_data
-            Paired Dataset containing dataset and dataset variables.
+            Paired Dataset containing x and y variables.
         x_var
-            Name of the dataset variable to plot.
+            Name of the x variable to plot.
         y_var
-            Name of the dataset variable to plot.
+            Name of the y variable to plot.
         **kwargs
             Plot-specific options (colors, labels, domains, etc.).
 
@@ -289,9 +288,9 @@ class SpatialPlotter(Protocol):
         paired_data
             Paired Dataset.
         x_var
-            Compatibility name for geometry variable.
+            Compatibility name for the x variable.
         y_var
-            Compatibility name for dataset variable.
+            Compatibility name for the y variable.
         domain
             Geographic extent (lon_min, lon_max, lat_min, lat_max).
         projection
@@ -334,18 +333,18 @@ class StatisticMetric(Protocol):
     @abstractmethod
     def compute(
         self,
-        geometry: xr.DataArray,
-        dataset: xr.DataArray,
+        x: xr.DataArray,
+        y: xr.DataArray,
         **kwargs: Any,
     ) -> float:
         """Compute the statistic.
 
         Parameters
         ----------
-        geometry
-            Geometry values.
-        dataset
-            Dataset values (aligned with geometry).
+        x
+            Reference values.
+        y
+            Comparison values (aligned with x).
         **kwargs
             Metric-specific options.
 
@@ -378,9 +377,9 @@ class StatisticsCalculator(Protocol):
         paired_data
             Paired Dataset.
         x_var
-            Geometry variable name.
+            Name of the x variable.
         y_var
-            Dataset variable name.
+            Name of the y variable.
         metrics
             List of metric names to compute. If None, compute all.
         groupby

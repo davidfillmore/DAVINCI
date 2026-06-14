@@ -204,8 +204,8 @@ class LogCollector:
                 details["variables"] = len(ds.data_vars)
                 if "time" in ds.sizes:
                     details["time_steps"] = ds.sizes["time"]
-                elif "geometry_time" in ds.sizes:
-                    details["time_steps"] = ds.sizes["geometry_time"]
+                elif "x_time" in ds.sizes:
+                    details["time_steps"] = ds.sizes["x_time"]
                 if "site" in ds.sizes:
                     details["sites"] = ds.sizes["site"]
                 elif "x" in ds.sizes:
@@ -227,7 +227,7 @@ class LogCollector:
                 for dim in ds.sizes:
                     total_points *= ds.sizes[dim]
                 details["paired_points"] = total_points
-                # Count paired geometry/dataset variable pairs.
+                # Count paired x/y variable pairs.
                 from davinci_monet.core.base import iter_paired_variable_xy
 
                 details["variables"] = len(iter_paired_variable_xy(ds))
@@ -352,8 +352,8 @@ class LogCollector:
                     continue
                 lines.append(f"### {pair_key}")
                 lines.append("")
-                lines.append("| Variable | N | Mean Geometry | Mean Dataset | MB | RMSE | R |")
-                lines.append("|----------|---|----------------|----------------|-----|------|---|")
+                lines.append("| Variable | N | Mean X | Mean Y | MB | RMSE | R |")
+                lines.append("|----------|---|--------|--------|-----|------|---|")
                 for var_name, stats in pair_stats.items():
                     if not isinstance(stats, dict):
                         continue
@@ -365,8 +365,8 @@ class LogCollector:
                         return default
 
                     n = _get_metric("N", "n", default="-")
-                    x_mean = _get_metric("MG", "geometry_mean")
-                    y_mean = _get_metric("MD", "dataset_mean")
+                    x_mean = _get_metric("MX", "x_mean")
+                    y_mean = _get_metric("MY", "y_mean")
                     mb = _get_metric("MB", "mean_bias")
                     rmse = _get_metric("RMSE", "rmse")
                     r = _get_metric("R", "correlation")

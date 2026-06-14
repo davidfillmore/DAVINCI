@@ -23,12 +23,12 @@ CORE_METRICS = [
     "NMB",
     "NME",
     "IOA",
-    "MG",
-    "MD",
-    "STDG",
-    "STDD",
-    "MdnG",
-    "MdnD",
+    "MX",
+    "MY",
+    "STDX",
+    "STDY",
+    "MdnX",
+    "MdnY",
 ]
 
 
@@ -48,11 +48,11 @@ class TestEmptyArrays:
 
     @pytest.mark.parametrize("metric_name", CORE_METRICS)
     def test_all_nan(self, metric_name: str) -> None:
-        geometry = np.array([np.nan, np.nan, np.nan])
-        dataset = np.array([np.nan, np.nan, np.nan])
+        x = np.array([np.nan, np.nan, np.nan])
+        y = np.array([np.nan, np.nan, np.nan])
 
         metric = _get_metric(metric_name)
-        result = metric.compute(geometry, dataset)
+        result = metric.compute(x, y)
 
         if metric_name == "N":
             assert result == 0.0
@@ -61,11 +61,11 @@ class TestEmptyArrays:
 
     @pytest.mark.parametrize("metric_name", CORE_METRICS)
     def test_empty_arrays(self, metric_name: str) -> None:
-        geometry = np.array([])
-        dataset = np.array([])
+        x = np.array([])
+        y = np.array([])
 
         metric = _get_metric(metric_name)
-        result = metric.compute(geometry, dataset)
+        result = metric.compute(x, y)
 
         if metric_name == "N":
             assert result == 0.0
@@ -78,22 +78,22 @@ class TestSinglePoint:
 
     @pytest.mark.parametrize("metric_name", CORE_METRICS)
     def test_single_point(self, metric_name: str) -> None:
-        geometry = np.array([50.0])
-        dataset = np.array([55.0])
+        x = np.array([50.0])
+        y = np.array([55.0])
 
         metric = _get_metric(metric_name)
-        result = metric.compute(geometry, dataset)
+        result = metric.compute(x, y)
 
         if metric_name == "N":
             assert result == 1.0
-        elif metric_name in ("STDG", "STDD", "R"):
+        elif metric_name in ("STDX", "STDY", "R"):
             # Std dev and correlation undefined for single point
             assert np.isnan(result), f"{metric_name} should be NaN for single point"
         elif metric_name == "MB":
             assert result == pytest.approx(5.0)
-        elif metric_name in ("MG", "MdnG"):
+        elif metric_name in ("MX", "MdnX"):
             assert result == pytest.approx(50.0)
-        elif metric_name in ("MD", "MdnD"):
+        elif metric_name in ("MY", "MdnY"):
             assert result == pytest.approx(55.0)
         else:
             # RMSE, NMB, NME, IOA — just verify they return a finite number
@@ -101,28 +101,28 @@ class TestSinglePoint:
 
 
 class TestIdenticalValues:
-    """Metrics where geometry == dataset exactly (zero bias, zero variance scenarios)."""
+    """Metrics where x == y exactly (zero bias, zero variance scenarios)."""
 
     def test_perfect_match(self) -> None:
-        geometry = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
-        dataset = geometry.copy()
+        x = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+        y = x.copy()
 
-        assert _get_metric("MB").compute(geometry, dataset) == pytest.approx(0.0, abs=1e-10)
-        assert _get_metric("RMSE").compute(geometry, dataset) == pytest.approx(0.0, abs=1e-10)
-        assert _get_metric("NMB").compute(geometry, dataset) == pytest.approx(0.0, abs=1e-10)
-        assert _get_metric("NME").compute(geometry, dataset) == pytest.approx(0.0, abs=1e-10)
-        assert _get_metric("R").compute(geometry, dataset) == pytest.approx(1.0)
-        assert _get_metric("IOA").compute(geometry, dataset) == pytest.approx(1.0)
+        assert _get_metric("MB").compute(x, y) == pytest.approx(0.0, abs=1e-10)
+        assert _get_metric("RMSE").compute(x, y) == pytest.approx(0.0, abs=1e-10)
+        assert _get_metric("NMB").compute(x, y) == pytest.approx(0.0, abs=1e-10)
+        assert _get_metric("NME").compute(x, y) == pytest.approx(0.0, abs=1e-10)
+        assert _get_metric("R").compute(x, y) == pytest.approx(1.0)
+        assert _get_metric("IOA").compute(x, y) == pytest.approx(1.0)
 
     def test_constant_geometry_and_dataset(self) -> None:
         """All values identical — std dev is 0, R is undefined."""
-        geometry = np.array([42.0, 42.0, 42.0, 42.0])
-        dataset = np.array([42.0, 42.0, 42.0, 42.0])
+        x = np.array([42.0, 42.0, 42.0, 42.0])
+        y = np.array([42.0, 42.0, 42.0, 42.0])
 
-        assert _get_metric("STDG").compute(geometry, dataset) == pytest.approx(0.0, abs=1e-10)
-        assert _get_metric("STDD").compute(geometry, dataset) == pytest.approx(0.0, abs=1e-10)
+        assert _get_metric("STDX").compute(x, y) == pytest.approx(0.0, abs=1e-10)
+        assert _get_metric("STDY").compute(x, y) == pytest.approx(0.0, abs=1e-10)
         # R is undefined when variance is 0
-        r = _get_metric("R").compute(geometry, dataset)
+        r = _get_metric("R").compute(x, y)
         assert np.isnan(r) or r == pytest.approx(1.0)
 
 
@@ -130,11 +130,11 @@ class TestMixedNaN:
     """Arrays with some NaN values — valid pairs should still compute."""
 
     def test_partial_nan(self) -> None:
-        geometry = np.array([10.0, np.nan, 30.0, 40.0, np.nan])
-        dataset = np.array([12.0, 20.0, np.nan, 42.0, 50.0])
+        x = np.array([10.0, np.nan, 30.0, 40.0, np.nan])
+        y = np.array([12.0, 20.0, np.nan, 42.0, 50.0])
 
         # Only indices 0 and 3 have both valid: (10,12) and (40,42)
-        assert _get_metric("N").compute(geometry, dataset) == 2.0
-        assert _get_metric("MB").compute(geometry, dataset) == pytest.approx(2.0)
-        assert _get_metric("MG").compute(geometry, dataset) == pytest.approx(25.0)
-        assert _get_metric("MD").compute(geometry, dataset) == pytest.approx(27.0)
+        assert _get_metric("N").compute(x, y) == 2.0
+        assert _get_metric("MB").compute(x, y) == pytest.approx(2.0)
+        assert _get_metric("MX").compute(x, y) == pytest.approx(25.0)
+        assert _get_metric("MY").compute(x, y) == pytest.approx(27.0)

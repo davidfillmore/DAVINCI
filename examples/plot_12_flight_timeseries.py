@@ -8,10 +8,9 @@ Data: Aircraft track datasets (O3)
 """
 
 import matplotlib.pyplot as plt
+from _helpers import create_paired_track_data, save_figure
 
 from davinci_monet.plots import plot_flight_timeseries
-
-from _helpers import create_paired_track_data, save_figure
 
 
 def main():
@@ -24,8 +23,8 @@ def main():
     # Create plot using davinci_monet.plots
     fig = plot_flight_timeseries(
         paired,
-        geometry_var="geometry_o3",
-        dataset_var="dataset_o3",
+        x_var="x_o3",
+        y_var="y_o3",
         title="Flight Time Series: O3 Along Aircraft Tracks",
         ncols=3,
         min_points=20,

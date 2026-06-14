@@ -117,7 +117,7 @@ plots:
     type: spatial_distribution
     pairs: [base_terra]
     title: "MODIS Terra AOD (550 nm)"
-    show_var: geometry
+    show_var: x
     plot_type: pcolormesh
     cmap: turbo
 
@@ -134,4 +134,4 @@ plots:
     plot_type: pcolormesh
 
 stats:
-  metrics: [N, MG, MD, MB, RMSE, R, NMB, NME]
+  metrics: [N, MX, MY, MB, RMSE, R, NMB, NME]

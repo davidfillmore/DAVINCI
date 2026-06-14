@@ -44,13 +44,13 @@ class BasePairingStrategy(ABC):
         """Sample ``y_data`` onto ``x_data``."""
         ...
 
-    def _get_dataset_coords(self, dataset: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
-        """Extract latitude and longitude coordinates from dataset.
+    def _get_y_coords(self, data: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
+        """Extract latitude and longitude coordinates from the y source.
 
         Parameters
         ----------
-        dataset
-            Dataset dataset.
+        data
+            The y source dataset.
 
         Returns
         -------
@@ -66,36 +66,36 @@ class BasePairingStrategy(ABC):
         lon = None
 
         for name in ["lat", "latitude", "LAT", "LATITUDE", "XLAT"]:
-            if name in dataset.coords:
-                lat = dataset.coords[name]
+            if name in data.coords:
+                lat = data.coords[name]
                 break
-            if name in dataset.data_vars:
-                lat = dataset[name]
+            if name in data.data_vars:
+                lat = data[name]
                 break
 
         for name in ["lon", "longitude", "LON", "LONGITUDE", "XLONG"]:
-            if name in dataset.coords:
-                lon = dataset.coords[name]
+            if name in data.coords:
+                lon = data.coords[name]
                 break
-            if name in dataset.data_vars:
-                lon = dataset[name]
+            if name in data.data_vars:
+                lon = data[name]
                 break
 
         if lat is None or lon is None:
             raise PairingError(
-                f"Cannot find lat/lon coordinates in dataset. "
-                f"Available coords: {list(dataset.coords)}"
+                f"Cannot find lat/lon coordinates in y source. "
+                f"Available coords: {list(data.coords)}"
             )
 
         return lat, lon
 
-    def _get_geometry_coords(self, geometry: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
-        """Extract latitude and longitude from datasets.
+    def _get_x_coords(self, data: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
+        """Extract latitude and longitude from the x source.
 
         Parameters
         ----------
-        geometry
-            Dataset dataset.
+        data
+            The x source dataset.
 
         Returns
         -------
@@ -106,25 +106,25 @@ class BasePairingStrategy(ABC):
         lon = None
 
         for name in ["lat", "latitude", "LAT", "LATITUDE"]:
-            if name in geometry.coords:
-                lat = geometry.coords[name]
+            if name in data.coords:
+                lat = data.coords[name]
                 break
-            if name in geometry.data_vars:
-                lat = geometry[name]
+            if name in data.data_vars:
+                lat = data[name]
                 break
 
         for name in ["lon", "longitude", "LON", "LONGITUDE"]:
-            if name in geometry.coords:
-                lon = geometry.coords[name]
+            if name in data.coords:
+                lon = data.coords[name]
                 break
-            if name in geometry.data_vars:
-                lon = geometry[name]
+            if name in data.data_vars:
+                lon = data[name]
                 break
 
         if lat is None or lon is None:
             raise PairingError(
-                f"Cannot find lat/lon coordinates in datasets. "
-                f"Available coords: {list(geometry.coords)}"
+                f"Cannot find lat/lon coordinates in x source. "
+                f"Available coords: {list(data.coords)}"
             )
 
         return lat, lon
@@ -137,23 +137,23 @@ class BasePairingStrategy(ABC):
         x_lon: xr.DataArray,
         radius_of_influence: float | None = None,
     ) -> tuple[xr.DataArray, xr.DataArray]:
-        """Find nearest dataset grid indices for dataset locations.
+        """Find nearest y grid indices for x locations.
 
         Parameters
         ----------
-        dataset_lat, dataset_lon
-            Dataset coordinate arrays.
-        geometry_lat, geometry_lon
-            Dataset coordinate arrays.
+        y_lat, y_lon
+            y source coordinate arrays.
+        x_lat, x_lon
+            x source coordinate arrays.
         radius_of_influence
             Maximum distance in meters. Points beyond this are masked.
 
         Returns
         -------
         tuple[xr.DataArray, xr.DataArray]
-            (lat_indices, lon_indices) for each dataset point.
+            (lat_indices, lon_indices) for each x point.
         """
-        # Handle 1D vs 2D dataset grids
+        # Handle 1D vs 2D y grids
         if y_lat.ndim == 1 and y_lon.ndim == 1:
             # Regular grid - find nearest indices directly
             lat_idx = self._find_nearest_1d(y_lat.values, x_lat.values)
@@ -220,21 +220,21 @@ class BasePairingStrategy(ABC):
 
         Parameters
         ----------
-        dataset_lat, dataset_lon
-            2D dataset coordinate arrays.
-        geometry_lat, geometry_lon
-            1D dataset coordinate arrays.
+        y_lat, y_lon
+            2D y source coordinate arrays.
+        x_lat, x_lon
+            1D x source coordinate arrays.
 
         Returns
         -------
         tuple[np.ndarray, np.ndarray]
             (i_indices, j_indices) in the 2D grid.
         """
-        n_geometry = len(x_lat)
-        i_idx = np.zeros(n_geometry, dtype=int)
-        j_idx = np.zeros(n_geometry, dtype=int)
+        n_x = len(x_lat)
+        i_idx = np.zeros(n_x, dtype=int)
+        j_idx = np.zeros(n_x, dtype=int)
 
-        for k in range(n_geometry):
+        for k in range(n_x):
             # Calculate distance to all grid points
             dist = self._haversine_distance(x_lat[k], x_lon[k], y_lat, y_lon)
             # Find minimum
@@ -278,66 +278,65 @@ class BasePairingStrategy(ABC):
 
     def _interpolate_time(
         self,
-        dataset: xr.Dataset,
+        data: xr.Dataset,
         target_times: xr.DataArray,
         method: str = "nearest",
         time_tolerance: TimeDelta | None = None,
     ) -> xr.Dataset:
-        """Interpolate dataset data to target times.
+        """Interpolate data to target times.
 
         Parameters
         ----------
-        dataset
-            Dataset dataset with time dimension.
+        data
+            Dataset with time dimension.
         target_times
             Target time values.
         method
             Interpolation method ('nearest', 'linear').
         time_tolerance
-            Maximum allowed gap between a target (dataset) time and the
-            matched dataset time. When set and ``method == "nearest"``, target
-            times with no dataset time within the tolerance are filled with NaN
-            instead of being silently snapped to a distant dataset time. None
-            (default) disables the gate and matches the nearest time regardless
-            of distance.
+            Maximum allowed gap between a target time and the matched source
+            time. When set and ``method == "nearest"``, target times with no
+            source time within the tolerance are filled with NaN instead of
+            being silently snapped to a distant time. None (default) disables
+            the gate and matches the nearest time regardless of distance.
 
         Returns
         -------
         xr.Dataset
-            Dataset data interpolated to target times.
+            Data interpolated to target times.
         """
-        if "time" not in dataset.dims:
-            return dataset
+        if "time" not in data.dims:
+            return data
 
         if method == "nearest":
             if time_tolerance is not None:
                 # Reindex (not sel) so out-of-tolerance targets become NaN
-                # rather than snapping to a far-away dataset time.
-                return dataset.reindex(
+                # rather than snapping to a far-away time.
+                return data.reindex(
                     time=target_times.values,
                     method="nearest",
                     tolerance=pd.Timedelta(time_tolerance),
                 )
             # Select nearest times and assign target times as coordinate.
-            # This ensures alignment when combining with dataset data.
-            result = dataset.sel(time=target_times, method="nearest")
+            # This ensures alignment when combining sources.
+            result = data.sel(time=target_times, method="nearest")
             return result.assign_coords(time=target_times.values)
         else:
-            return dataset.interp(time=target_times, method=method)  # type: ignore[arg-type]
+            return data.interp(time=target_times, method=method)  # type: ignore[arg-type]
 
     def _interpolate_vertical(
         self,
-        dataset: xr.Dataset,
+        data: xr.Dataset,
         target_levels: xr.DataArray,
         level_coord: str = "z",
         method: str = "linear",
     ) -> xr.Dataset:
-        """Interpolate dataset data to target vertical levels.
+        """Interpolate data to target vertical levels.
 
         Parameters
         ----------
-        dataset
-            Dataset dataset with vertical dimension.
+        data
+            Dataset with vertical dimension.
         target_levels
             Target level values.
         level_coord
@@ -348,58 +347,58 @@ class BasePairingStrategy(ABC):
         Returns
         -------
         xr.Dataset
-            Dataset data interpolated to target levels.
+            Data interpolated to target levels.
         """
-        if level_coord not in dataset.dims:
-            return dataset
+        if level_coord not in data.dims:
+            return data
 
         if method == "nearest":
-            return dataset.sel({level_coord: target_levels}, method="nearest")
+            return data.sel({level_coord: target_levels}, method="nearest")
         elif method == "log":
             # Log-pressure interpolation
-            y_log = dataset.assign_coords({level_coord: np.log(dataset[level_coord].values)})
+            y_log = data.assign_coords({level_coord: np.log(data[level_coord].values)})
             target_log = np.log(target_levels.values)
             result = y_log.interp({level_coord: target_log}, method="linear")
             return result.assign_coords({level_coord: target_levels.values})
         else:
-            return dataset.interp(
+            return data.interp(
                 {level_coord: target_levels.values},
                 method=method,  # type: ignore[arg-type]
             )
 
-    def _extract_surface(self, dataset: xr.Dataset, level_dim: str | None = None) -> xr.Dataset:
-        """Extract surface level from dataset data.
+    def _extract_surface(self, data: xr.Dataset, level_dim: str | None = None) -> xr.Dataset:
+        """Extract surface level from data.
 
         Parameters
         ----------
-        dataset
-            Dataset dataset.
+        data
+            Dataset to extract from.
         level_dim
             Name of vertical dimension. If None, auto-detects from common names.
 
         Returns
         -------
         xr.Dataset
-            Dataset data at surface level only.
+            Data at surface level only.
         """
         # Auto-detect vertical dimension if not specified
         if level_dim is None:
             for dim_name in ["lev", "z", "level", "altitude", "height"]:
-                if dim_name in dataset.dims:
+                if dim_name in data.dims:
                     level_dim = dim_name
                     break
 
-        if level_dim is None or level_dim not in dataset.dims:
-            return dataset
+        if level_dim is None or level_dim not in data.dims:
+            return data
 
         # Determine correct surface index based on coordinate values
         # For CESM-style hybrid coordinates where pressure increases downward,
         # surface is at the last index (highest pressure), not first (TOA)
         surface_idx = 0  # Default: first level is surface
-        if level_dim in dataset.coords:
-            vert_vals = dataset.coords[level_dim].values
+        if level_dim in data.coords:
+            vert_vals = data.coords[level_dim].values
             if len(vert_vals) > 1 and vert_vals[-1] > vert_vals[0]:
                 # Values increase (typical hybrid sigma-pressure) -> surface at end
                 surface_idx = -1
 
-        return dataset.isel({level_dim: surface_idx})
+        return data.isel({level_dim: surface_idx})

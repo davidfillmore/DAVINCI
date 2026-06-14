@@ -77,7 +77,7 @@ class ScatterPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one geometry and one dataset.
+            Exactly 2 series: one x series and one y series.
         ax
             Optional axes to plot on. If None, creates new figure.
         **kwargs
@@ -272,11 +272,11 @@ class ScatterPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with geometry and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of geometry variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         ax
             Optional axes to plot on. If None, creates new figure.
         show_density
@@ -288,7 +288,7 @@ class ScatterPlotter(BasePlotter):
         show_regression
             If True, show linear regression line.
         show_one_to_one
-            If True, show 1:1 geometry line.
+            If True, show 1:1 line.
         show_stats
             If True, show statistics annotation.
         color_by
@@ -336,11 +336,11 @@ class ScatterPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with geometry and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of geometry variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         flight_coord
             Name of the flight coordinate (default: "flight").
         min_points
@@ -438,8 +438,8 @@ class ScatterPlotter(BasePlotter):
     def _add_regression_line(
         self,
         ax: matplotlib.axes.Axes,
-        geometry: np.ndarray,
-        dataset: np.ndarray,
+        x: np.ndarray,
+        y: np.ndarray,
         vmin: float,
         vmax: float,
     ) -> None:
@@ -449,13 +449,13 @@ class ScatterPlotter(BasePlotter):
         ----------
         ax
             Axes to add line to.
-        geometry, dataset
+        x, y
             Data arrays.
         vmin, vmax
             Axis limits.
         """
         # Linear regression
-        coeffs = np.polyfit(geometry, dataset, 1)
+        coeffs = np.polyfit(x, y, 1)
         slope, intercept = coeffs
 
         # Plot line
@@ -474,8 +474,8 @@ class ScatterPlotter(BasePlotter):
     def _add_stats_annotation(
         self,
         ax: matplotlib.axes.Axes,
-        geometry: np.ndarray,
-        dataset: np.ndarray,
+        x: np.ndarray,
+        y: np.ndarray,
     ) -> None:
         """Add statistics annotation to plot.
 
@@ -483,11 +483,11 @@ class ScatterPlotter(BasePlotter):
         ----------
         ax
             Axes to annotate.
-        geometry, dataset
+        x, y
             Data arrays.
         """
         # Calculate statistics (via central metric registry)
-        stats = annotation_metrics(geometry, dataset, ["N", "MB", "RMSE", "R", "NME"])
+        stats = annotation_metrics(x, y, ["N", "MB", "RMSE", "R", "NME"])
         n = int(stats["N"])
         mb = stats["MB"]
         rmse = stats["RMSE"]
@@ -529,11 +529,11 @@ def plot_scatter(
     Parameters
     ----------
     paired_data
-        Paired dataset with geometry and dataset variables.
+        Paired dataset with x and y variables.
     x_var
-        Name of geometry variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     config
         Plot configuration.
     **kwargs

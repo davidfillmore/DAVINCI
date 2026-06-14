@@ -71,7 +71,7 @@ def sanitize_site_id(name: str) -> str:
 class PerSiteTimeSeriesPlotter(BasePlotter):
     """Plotter that generates one detailed figure per monitoring site.
 
-    Each figure is a single-panel timeseries showing dataset vs datasets
+    Each figure is a single-panel timeseries showing x vs y
     with statistics, coordinates, and smart date formatting.
 
     Parameters
@@ -83,7 +83,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
     --------
     >>> plotter = PerSiteTimeSeriesPlotter()
     >>> for site_id, fig in plotter.plot_per_site(
-    ...     paired_data, "geometry_o3", "dataset_o3"
+    ...     paired_data, "x_o3", "y_o3"
     ... ):
     ...     fig.savefig(f"site_{site_id}.png")
     ...     plt.close(fig)
@@ -103,7 +103,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
+            Exactly 2 series: one x series and one y series.
         ax
             Ignored (creates own figure).
         **kwargs
@@ -204,11 +204,11 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         ax
             Ignored (creates own figure).
         site
@@ -224,9 +224,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         scale_factor
             Scale factor for display values.
         x_style
-            Style for datasets: 'scatter' or 'line'.
+            Style for x: 'scatter' or 'line'.
         y_style
-            Style for dataset: 'line' or 'scatter'.
+            Style for y: 'line' or 'scatter'.
         **kwargs
             Additional options.
 
@@ -271,11 +271,11 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         time_dim
             Name of time dimension.
         site_dim
@@ -287,9 +287,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         scale_factor
             Scale factor for display values.
         x_style
-            Style for datasets: 'scatter' or 'line'.
+            Style for x: 'scatter' or 'line'.
         y_style
-            Style for dataset: 'line' or 'scatter'.
+            Style for y: 'line' or 'scatter'.
         **kwargs
             Additional options.
 
@@ -369,9 +369,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         site
             Site identifier value.
         x_var
-            Dataset variable name.
+            Name of the x variable.
         y_var
-            Dataset variable name.
+            Name of the y variable.
         time_dim
             Time dimension name.
         site_dim
@@ -379,9 +379,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         scale_factor
             Multiplicative scale factor for display.
         x_style
-            'scatter' or 'line' for datasets.
+            'scatter' or 'line' for x.
         y_style
-            'line' or 'scatter' for dataset.
+            'line' or 'scatter' for y.
         show_stats
             Whether to display the statistics box.
         single_panel
@@ -394,10 +394,10 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         x_vals = site_data[x_var].values * scale_factor
         y_vals = site_data[y_var].values * scale_factor
 
-        valid_geometry = ~np.isnan(x_vals)
-        valid_both = valid_geometry & ~np.isnan(y_vals)
+        valid_x = ~np.isnan(x_vals)
+        valid_both = valid_x & ~np.isnan(y_vals)
 
-        # Series colors/labels by source axis (R-3): geometry gray, dataset blue, else
+        # Series colors/labels by source axis (R-3): x gray, y blue, else
         # palette; legends use the source label.
         x_color = get_axis_color(
             site_data,
@@ -419,8 +419,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         # Plot datasets
         if x_style == "scatter":
             ax.scatter(
-                times[valid_geometry],
-                x_vals[valid_geometry],
+                times[valid_x],
+                x_vals[valid_x],
                 s=20,
                 alpha=0.7,
                 color=x_color,
@@ -429,8 +429,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             )
         else:
             ax.plot(
-                times[valid_geometry],
-                x_vals[valid_geometry],
+                times[valid_x],
+                x_vals[valid_x],
                 "o-",
                 color=x_color,
                 markersize=4,
@@ -564,11 +564,11 @@ def plot_per_site_timeseries(
     Parameters
     ----------
     paired_data
-        Paired dataset with dataset and dataset variables.
+        Paired dataset with x and y variables.
     x_var
-        Name of dataset variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     title
         Plot title.
     site

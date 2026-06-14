@@ -8,10 +8,9 @@ Data: Surface point datasets (O3)
 """
 
 import matplotlib.pyplot as plt
+from _helpers import create_paired_surface_data, save_figure
 
 from davinci_monet.plots import plot_site_timeseries
-
-from _helpers import create_paired_surface_data, save_figure
 
 
 def main():
@@ -25,8 +24,8 @@ def main():
     # Shows all 4 sites in a 2x2 grid
     fig = plot_site_timeseries(
         paired,
-        geometry_var="geometry_o3",
-        dataset_var="dataset_o3",
+        x_var="x_o3",
+        y_var="y_o3",
         title="Site Time Series: O3 at Individual Stations",
         ncols=2,
         min_points=10,

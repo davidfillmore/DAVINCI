@@ -76,15 +76,15 @@ def resolve_paired_var_names(
     x_source: str,
     y_source: str,
 ) -> tuple[str, str]:
-    """Resolve the (geometry, dataset) variable names to plot from a paired dataset.
+    """Resolve the (x, y) variable names to plot from a paired dataset.
 
     Prefer the source-label aliases (``<label>_<var>``, e.g. ``airnow_o3`` /
-    ``cam_o3``), falling back to the ``geometry_``/``dataset_`` prefixes. The
+    ``cam_o3``), falling back to the ``x_``/``y_`` prefixes. The
     returned names are concrete strings; the caller checks membership before
     plotting.
     """
     from davinci_monet.plots.base import resolve_source_variable
 
-    x_name = resolve_source_variable(paired_data, x_var, x_source) or f"geometry_{x_var}"
-    y_name = resolve_source_variable(paired_data, x_var, y_source) or f"dataset_{x_var}"
+    x_name = resolve_source_variable(paired_data, x_var, x_source) or f"x_{x_var}"
+    y_name = resolve_source_variable(paired_data, x_var, y_source) or f"y_{x_var}"
     return x_name, y_name

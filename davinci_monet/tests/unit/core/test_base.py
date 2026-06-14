@@ -24,10 +24,10 @@ class TestPairedData:
         sites = np.arange(5)
         return xr.Dataset(
             {
-                "geometry_ozone": (["time", "site"], np.random.randn(10, 5) + 40),
-                "dataset_ozone": (["time", "site"], np.random.randn(10, 5) + 42),
-                "geometry_pm25": (["time", "site"], np.random.randn(10, 5) + 10),
-                "dataset_pm25": (["time", "site"], np.random.randn(10, 5) + 12),
+                "x_ozone": (["time", "site"], np.random.randn(10, 5) + 40),
+                "y_ozone": (["time", "site"], np.random.randn(10, 5) + 42),
+                "x_pm25": (["time", "site"], np.random.randn(10, 5) + 10),
+                "y_pm25": (["time", "site"], np.random.randn(10, 5) + 12),
             },
             coords={
                 "time": times,
@@ -73,8 +73,8 @@ class TestPairedData:
             x_source="airnow",
             geometry=DataGeometry.POINT,
         )
-        assert "dataset_ozone" in paired.y_variables
-        assert "dataset_pm25" in paired.y_variables
+        assert "y_ozone" in paired.y_variables
+        assert "y_pm25" in paired.y_variables
 
     def test_geometry_variables(self, paired_dataset: xr.Dataset) -> None:
         """Test listing geometry variables."""
@@ -84,8 +84,8 @@ class TestPairedData:
             x_source="airnow",
             geometry=DataGeometry.POINT,
         )
-        assert "geometry_ozone" in paired.x_variables
-        assert "geometry_pm25" in paired.x_variables
+        assert "x_ozone" in paired.x_variables
+        assert "x_pm25" in paired.x_variables
 
     def test_paired_variable_names(self, paired_dataset: xr.Dataset) -> None:
         """Test getting paired variable names."""
@@ -96,11 +96,11 @@ class TestPairedData:
             geometry=DataGeometry.POINT,
         )
         pairs = paired.paired_variable_names
-        assert ("geometry_ozone", "dataset_ozone") in pairs
-        assert ("geometry_pm25", "dataset_pm25") in pairs
+        assert ("x_ozone", "y_ozone") in pairs
+        assert ("x_pm25", "y_pm25") in pairs
 
-    def test_get_geometry(self, paired_dataset: xr.Dataset) -> None:
-        """Test getting geometry variable."""
+    def test_get_x(self, paired_dataset: xr.Dataset) -> None:
+        """Test getting x (geometry) variable."""
         paired = PairedData(
             data=paired_dataset,
             y_source="cmaq",
@@ -108,14 +108,14 @@ class TestPairedData:
             geometry=DataGeometry.POINT,
         )
         # With prefix
-        geometry = paired.get_geometry("geometry_ozone")
-        assert geometry is not None
+        x = paired.get_x("x_ozone")
+        assert x is not None
         # Without prefix
-        geometry = paired.get_geometry("ozone")
-        assert geometry is not None
+        x = paired.get_x("ozone")
+        assert x is not None
 
-    def test_get_dataset(self, paired_dataset: xr.Dataset) -> None:
-        """Test getting dataset variable."""
+    def test_get_y(self, paired_dataset: xr.Dataset) -> None:
+        """Test getting y (dataset) variable."""
         paired = PairedData(
             data=paired_dataset,
             y_source="cmaq",
@@ -123,11 +123,11 @@ class TestPairedData:
             geometry=DataGeometry.POINT,
         )
         # With prefix
-        dataset = paired.get_dataset("dataset_ozone")
-        assert dataset is not None
+        y = paired.get_y("y_ozone")
+        assert y is not None
         # Without prefix
-        dataset = paired.get_dataset("ozone")
-        assert dataset is not None
+        y = paired.get_y("ozone")
+        assert y is not None
 
     def test_get_pair(self, paired_dataset: xr.Dataset) -> None:
         """Test getting paired arrays."""
@@ -137,9 +137,9 @@ class TestPairedData:
             x_source="airnow",
             geometry=DataGeometry.POINT,
         )
-        geometry, dataset = paired.get_pair("ozone")
-        assert geometry is not None
-        assert dataset is not None
+        x, y = paired.get_pair("ozone")
+        assert x is not None
+        assert y is not None
 
     def test_n_points(self, paired_dataset: xr.Dataset) -> None:
         """Test counting data points."""
@@ -161,8 +161,8 @@ class TestPairedData:
         )
         df = paired.to_dataframe()
         assert len(df) == 50
-        assert "geometry_ozone" in df.columns
-        assert "dataset_ozone" in df.columns
+        assert "x_ozone" in df.columns
+        assert "y_ozone" in df.columns
 
     def test_subset_time(self, paired_dataset: xr.Dataset) -> None:
         """Test subsetting paired data by time."""
