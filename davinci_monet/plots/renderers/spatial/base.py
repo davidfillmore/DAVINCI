@@ -119,9 +119,8 @@ def draw_spatial_field(
 ) -> Any:
     """Draw a single spatial field on a GeoAxes as scatter or pcolormesh.
 
-    The shared field-drawing primitive used by both the single-source
-    :class:`~davinci_monet.plots.renderers.spatial.field.SpatialPlotter` and
-    :class:`~davinci_monet.plots.renderers.spatial.distribution.SpatialDistributionPlotter`.
+    The shared field-drawing primitive used by the single-source
+    :class:`~davinci_monet.plots.renderers.spatial.field.SpatialPlotter`.
 
     ``plot_type`` is ``"scatter"`` for point/site/track data (lat/lon are
     per-datum and broadcast, not meshgridded) or ``"pcolormesh"`` for gridded

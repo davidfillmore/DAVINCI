@@ -2,7 +2,7 @@
 """Satellite Swath Plot Example.
 
 Demonstrates plotting satellite swath data (e.g., TROPOMI NO2)
-using spatial bias and spatial distribution plotters.
+using the spatial bias plotter and the single-source spatial field plotter.
 
 Data: Satellite swath datasets (NO2 column density)
 """
@@ -10,7 +10,9 @@ Data: Satellite swath datasets (NO2 column density)
 import matplotlib.pyplot as plt
 from _helpers import create_paired_swath_data, save_figure
 
-from davinci_monet.plots import plot_spatial_bias, plot_spatial_distribution
+from davinci_monet.plots import plot_spatial_bias
+from davinci_monet.plots.base import build_series
+from davinci_monet.plots.renderers.spatial.field import SpatialPlotter
 
 
 def main():
@@ -74,31 +76,38 @@ def main():
     save_figure(fig1, "14a_satellite_swath_bias")
     plt.close(fig1)
 
-    # 2. Spatial distribution (datasets)
-    fig2 = plot_spatial_distribution(
-        paired_flat,
-        x_var="x_no2",
-        y_var="y_no2",
-        lat_var="latitude",
-        lon_var="longitude",
-        show_var="x",
+    # Build single-source point datasets for the single-source spatial field
+    # plotter (one field per source).
+    def _single_source(var: str, label: str) -> xr.Dataset:
+        out = xr.Dataset(
+            {"NO2": ("point", paired_flat[var].values)},
+            coords={
+                "point": paired_flat["point"].values,
+                "latitude": ("point", paired_flat["latitude"].values),
+                "longitude": ("point", paired_flat["longitude"].values),
+            },
+            attrs={"geometry": "point", "source_label": label},
+        )
+        out["NO2"].attrs["units"] = "mol/m2"
+        return out
+
+    # 2. Spatial field (geometry / x source)
+    plotter_x = SpatialPlotter()
+    plotter_x.config.title = "Spatial Field: TROPOMI L2 NO2 (Geometry)"
+    fig2 = plotter_x.render(
+        build_series(_single_source("x_no2", "geometry"), "NO2"),
         time_average=False,
-        title="Spatial Distribution: TROPOMI L2 NO2 (Geometry)",
         marker_size=3,
     )
     save_figure(fig2, "14b_satellite_swath_geometry")
     plt.close(fig2)
 
-    # 3. Spatial distribution (dataset)
-    fig3 = plot_spatial_distribution(
-        paired_flat,
-        x_var="x_no2",
-        y_var="y_no2",
-        lat_var="latitude",
-        lon_var="longitude",
-        show_var="y",
+    # 3. Spatial field (dataset / y source)
+    plotter_y = SpatialPlotter()
+    plotter_y.config.title = "Spatial Field: TROPOMI L2 NO2 (Dataset)"
+    fig3 = plotter_y.render(
+        build_series(_single_source("y_no2", "dataset"), "NO2"),
         time_average=False,
-        title="Spatial Distribution: TROPOMI L2 NO2 (Dataset)",
         marker_size=3,
     )
     save_figure(fig3, "14c_satellite_swath_dataset")

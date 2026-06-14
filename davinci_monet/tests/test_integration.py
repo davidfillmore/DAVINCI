@@ -202,11 +202,10 @@ class TestPointPipeline:
                     "pairs": ["synthetic_surface"],
                     "title": "O3 Spatial Bias",
                 },
-                "spatial_dist_o3": {
-                    "type": "spatial_distribution",
+                "histogram_o3": {
+                    "type": "histogram",
                     "pairs": ["synthetic_surface"],
                     "title": "O3 Distribution",
-                    "show_var": "x",
                 },
                 "scorecard_o3": {
                     "type": "scorecard",

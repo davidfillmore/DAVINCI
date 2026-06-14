@@ -26,9 +26,9 @@ Statistical:
     boxplot : Box plot comparison
 
 Spatial:
+    spatial : Single-source spatial field map (shape-aware)
     spatial_bias : Bias map
     spatial_overlay : gridded field contour + point overlay
-    spatial_distribution : Value distribution map
 
 Specialized:
     curtain : Vertical cross-section
@@ -81,7 +81,6 @@ from davinci_monet.plots.renderers import (  # Temporal; Statistical; Specialize
     ScatterPlotter,
     ScorecardPlotter,
     SpatialBiasPlotter,
-    SpatialDistributionPlotter,
     SpatialOverlayPlotter,
     TaylorPlotter,
     TimeSeriesPlotter,
@@ -95,7 +94,6 @@ from davinci_monet.plots.renderers import (  # Temporal; Statistical; Specialize
     plot_scatter,
     plot_scorecard,
     plot_spatial_bias,
-    plot_spatial_distribution,
     plot_spatial_overlay,
     plot_taylor,
     plot_timeseries,
@@ -196,10 +194,8 @@ __all__ = [
     "MapConfig",
     "SpatialBiasPlotter",
     "SpatialOverlayPlotter",
-    "SpatialDistributionPlotter",
     "plot_spatial_bias",
     "plot_spatial_overlay",
-    "plot_spatial_distribution",
     "get_domain_extent",
     "get_projection",
     # Single-source / distribution plotters (unified onto BasePlotter)

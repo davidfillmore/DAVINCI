@@ -25,11 +25,11 @@ Output is saved to `output/plots/` as PNG (300 DPI) and PDF.
 | 5 | `plot_05_boxplot.py` | `boxplot` | Point | Distribution comparison |
 | 6 | `plot_06_spatial_bias.py` | `spatial_bias` | Point | Geographic bias distribution |
 | 7 | `plot_07_spatial_overlay.py` | `spatial_overlay` | Point + Grid | Dataset contours + geometry points |
-| 8 | `plot_08_spatial_distribution.py` | `spatial_distribution` | Point | Geographic value distribution |
+| 8 | `plot_08_spatial_field.py` | `spatial` | Point | Single-source geographic field map |
 | 9 | `plot_09_curtain.py` | `curtain` | Track | Vertical cross-section (time x altitude) |
 | 10 | `plot_10_scorecard.py` | `scorecard` | Point | Multi-metric performance heatmap |
 | 13 | `plot_13_track_map_3d.py` | `track_map_3d` | Track | 3D flight trajectory visualization |
-| 14 | `plot_14_satellite_swath.py` | `spatial_bias`, `spatial_distribution` | Swath | Satellite swath (TROPOMI-like) plots |
+| 14 | `plot_14_satellite_swath.py` | `spatial_bias`, `spatial` | Swath | Satellite swath (TROPOMI-like) plots |
 | 15 | `plot_15_satellite_gridded.py` | pcolormesh | Grid | L3 gridded satellite data visualization |
 
 ## Architecture

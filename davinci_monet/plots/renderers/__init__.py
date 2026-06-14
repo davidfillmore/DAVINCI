@@ -14,7 +14,7 @@ Statistical plots:
 Spatial plots:
 - SpatialBiasPlotter: Bias maps
 - SpatialOverlayPlotter: y/x overlays
-- SpatialDistributionPlotter: Value distribution maps
+- SpatialPlotter: Single-source spatial field maps
 
 Specialized plots:
 - CurtainPlotter: Vertical cross-sections
@@ -39,12 +39,11 @@ from davinci_monet.plots.renderers.spatial import (
     BaseSpatialPlotter,
     MapConfig,
     SpatialBiasPlotter,
-    SpatialDistributionPlotter,
     SpatialOverlayPlotter,
+    SpatialPlotter,
     get_domain_extent,
     get_projection,
     plot_spatial_bias,
-    plot_spatial_distribution,
     plot_spatial_overlay,
 )
 from davinci_monet.plots.renderers.taylor import TaylorPlotter, plot_taylor
@@ -79,10 +78,9 @@ __all__ = [
     "MapConfig",
     "SpatialBiasPlotter",
     "SpatialOverlayPlotter",
-    "SpatialDistributionPlotter",
+    "SpatialPlotter",
     "plot_spatial_bias",
     "plot_spatial_overlay",
-    "plot_spatial_distribution",
     "get_domain_extent",
     "get_projection",
 ]

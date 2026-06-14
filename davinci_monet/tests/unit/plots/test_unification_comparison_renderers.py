@@ -481,65 +481,6 @@ class TestSpatialBiasRenderParity:
 
 
 # ---------------------------------------------------------------------------
-# SpatialDistributionPlotter
-# ---------------------------------------------------------------------------
-
-
-class TestSpatialDistributionRenderParity:
-    def test_plot_and_render_both_return_figure(self) -> None:
-        from davinci_monet.plots.renderers.spatial.distribution import (
-            SpatialDistributionPlotter,
-        )
-
-        ds = _spatial_point_ds()
-        plotter = SpatialDistributionPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        plt.close(fig_render)
-        assert isinstance(fig_plot, matplotlib.figure.Figure)
-        assert isinstance(fig_render, matplotlib.figure.Figure)
-
-    def test_plot_and_render_same_axes_count(self) -> None:
-        from davinci_monet.plots.renderers.spatial.distribution import (
-            SpatialDistributionPlotter,
-        )
-
-        ds = _spatial_point_ds()
-        plotter = SpatialDistributionPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        n_plot = len(fig_plot.axes)
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        n_render = len(fig_render.axes)
-        plt.close(fig_render)
-        assert n_plot == n_render
-
-    def test_show_var_forwarded_via_render(self) -> None:
-        """render() must accept show_var kwarg and produce correct figure."""
-        from davinci_monet.plots.renderers.spatial.distribution import (
-            SpatialDistributionPlotter,
-        )
-
-        ds = _spatial_point_ds()
-        plotter = SpatialDistributionPlotter()
-        for show_var in ("x", "y", "both"):
-            fig = plotter.render(build_series(ds, "x_o3", "y_o3"), show_var=show_var)
-            assert isinstance(fig, matplotlib.figure.Figure)
-            plt.close(fig)
-
-    def test_render_wrong_series_count_raises(self) -> None:
-        from davinci_monet.plots.renderers.spatial.distribution import (
-            SpatialDistributionPlotter,
-        )
-
-        ds = _spatial_point_ds()
-        plotter = SpatialDistributionPlotter()
-        with pytest.raises(NotImplementedError, match="SpatialDistributionPlotter"):
-            plotter.render(build_series(ds, "x_o3"))
-
-
-# ---------------------------------------------------------------------------
 # SpatialOverlayPlotter
 # ---------------------------------------------------------------------------
 
