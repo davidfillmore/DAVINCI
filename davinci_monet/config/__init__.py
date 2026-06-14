@@ -14,6 +14,7 @@ from davinci_monet.config.parser import (
 )
 from davinci_monet.config.schema import (
     AnalysisConfig,
+    AxisRef,
     Config,
     DataProcConfig,
     MonetConfig,
@@ -31,6 +32,7 @@ __all__ = [
     "Config",
     "AnalysisConfig",
     "SourceConfig",
+    "AxisRef",
     "SourcePairConfig",
     "PlotGroupConfig",
     "PlotStyleConfig",

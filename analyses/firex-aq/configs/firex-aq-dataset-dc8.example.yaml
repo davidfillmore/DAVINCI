@@ -87,32 +87,20 @@ sources:
 
 pairs:
   cam_dc8_o3:
-    sources: [cam_firex, dc8]
-    geometry: dc8
-    variables:
-      cam_firex: O3
-      dc8: O3_CL
+    x: { source: dc8, variable: O3_CL }
+    y: { source: cam_firex, variable: O3 }
 
   cam_dc8_co:
-    sources: [cam_firex, dc8]
-    geometry: dc8
-    variables:
-      cam_firex: CO
-      dc8: CO_DACOM
+    x: { source: dc8, variable: CO_DACOM }
+    y: { source: cam_firex, variable: CO }
 
   cam_dc8_no:
-    sources: [cam_firex, dc8]
-    geometry: dc8
-    variables:
-      cam_firex: "NO"
-      dc8: NO_CL
+    x: { source: dc8, variable: NO_CL }
+    y: { source: cam_firex, variable: "NO" }
 
   cam_dc8_no2:
-    sources: [cam_firex, dc8]
-    geometry: dc8
-    variables:
-      cam_firex: NO2
-      dc8: NO2_CL
+    x: { source: dc8, variable: NO2_CL }
+    y: { source: cam_firex, variable: NO2 }
 
 plots:
   dc8_o3_scatter:

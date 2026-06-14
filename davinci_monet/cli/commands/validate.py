@@ -70,8 +70,11 @@ def validate_config_command(
         if config.pairs:
             typer.echo(f"  Pairs: {len(config.pairs)} defined")
             for name, pair_cfg in config.pairs.items():
-                geometry = f", geometry={pair_cfg.geometry}" if pair_cfg.geometry else ""
-                typer.echo(f"    - {name}: {', '.join(pair_cfg.sources)}{geometry}")
+                axes = (
+                    f"x={pair_cfg.x.source}:{pair_cfg.x.variable}, "
+                    f"y={pair_cfg.y.source}:{pair_cfg.y.variable}"
+                )
+                typer.echo(f"    - {name}: {axes}")
 
         # Plots
         if config.plots:

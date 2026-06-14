@@ -108,9 +108,8 @@ def test_sources_config_pairs_from_pair_variables(tmp_path: Path) -> None:
         },
         "pairs": {
             "cam_airnow_o3": {
-                "sources": ["cam", "airnow"],
-                "geometry": "airnow",
-                "variables": {"cam": "O3", "airnow": "o3"},
+                "x": {"source": "airnow", "variable": "o3"},
+                "y": {"source": "cam", "variable": "O3"},
             }
         },
         "stats": {"metrics": ["N", "MB"]},
@@ -181,9 +180,8 @@ def test_sources_config_supports_dataset_dataset_pair(tmp_path: Path) -> None:
         },
         "pairs": {
             "cam_grid_cam_offset_o3": {
-                "sources": ["cam_grid", "cam_offset"],
-                "geometry": "cam_grid",
-                "variables": {"cam_grid": "O3", "cam_offset": "O3"},
+                "x": {"source": "cam_grid", "variable": "O3"},
+                "y": {"source": "cam_offset", "variable": "O3"},
             }
         },
         "stats": {"metrics": ["N", "MB"]},
@@ -276,9 +274,8 @@ def test_plot_sources_pair_spec_uses_geometry_and_dataset(
             "analysis": {"output_dir": str(tmp_path)},
             "pairs": {
                 "cam_airnow_o3": {
-                    "sources": ["cam", "airnow"],
-                    "geometry": "airnow",
-                    "variables": {"cam": "O3", "airnow": "o3"},
+                    "x": {"source": "airnow", "variable": "o3"},
+                    "y": {"source": "cam", "variable": "O3"},
                 }
             },
             "plots": {"scatter_o3": {"type": "scatter", "data": ["cam_airnow_o3"]}},
@@ -312,9 +309,8 @@ def test_plot_pair_spec_uses_configured_pair_name(
             "analysis": {"output_dir": str(tmp_path)},
             "pairs": {
                 "cam_airnow_o3": {
-                    "sources": ["cam", "airnow"],
-                    "geometry": "airnow",
-                    "variables": {"cam": "O3", "airnow": "o3"},
+                    "x": {"source": "airnow", "variable": "o3"},
+                    "y": {"source": "cam", "variable": "O3"},
                 }
             },
             "plots": {"scatter_o3": {"type": "scatter", "data": ["cam_airnow_o3"]}},
@@ -341,9 +337,8 @@ def test_invalid_sources_pair_missing_variable_fails() -> None:
         config={
             "pairs": {
                 "cam_airnow_o3": {
-                    "sources": ["cam", "airnow"],
-                    "geometry": "airnow",
-                    "variables": {"cam": "O3"},
+                    "x": {"source": "airnow"},
+                    "y": {"source": "cam", "variable": "O3"},
                 }
             }
         },
@@ -367,7 +362,7 @@ def test_invalid_sources_pair_missing_variable_fails() -> None:
 
     assert result.status is StageStatus.FAILED
     assert "cam_airnow_o3" in str(result.error)
-    assert "missing variable mapping" in str(result.error)
+    assert "missing variable" in str(result.error)
     assert ctx.paired == {}
 
 
@@ -384,9 +379,8 @@ def test_invalid_sources_pair_unknown_source_fails() -> None:
         config={
             "pairs": {
                 "cam_missing_o3": {
-                    "sources": ["cam", "missing_geometry"],
-                    "geometry": "missing_geometry",
-                    "variables": {"cam": "O3", "missing_geometry": "o3"},
+                    "x": {"source": "missing_geometry", "variable": "o3"},
+                    "y": {"source": "cam", "variable": "O3"},
                 }
             }
         },
@@ -501,9 +495,8 @@ def test_unsupported_source_pair_fails_pairing_stage() -> None:
         config={
             "pairs": {
                 "a_b_o3": {
-                    "sources": ["a", "b"],
-                    "geometry": "a",
-                    "variables": {"a": "o3", "b": "o3"},
+                    "x": {"source": "a", "variable": "o3"},
+                    "y": {"source": "b", "variable": "o3"},
                 }
             }
         },
@@ -536,9 +529,8 @@ def test_sources_config_supports_geometry_geometry_grid_pair(tmp_path: Path) -> 
         },
         "pairs": {
             "modis_viirs_o3": {
-                "sources": ["modis", "viirs"],
-                "geometry": "modis",
-                "variables": {"modis": "O3", "viirs": "O3"},
+                "x": {"source": "modis", "variable": "O3"},
+                "y": {"source": "viirs", "variable": "O3"},
             }
         },
         "stats": {"metrics": ["N", "MB"]},
@@ -634,9 +626,8 @@ def test_sources_config_pairs_swath_onto_grid(tmp_path: Path) -> None:
         },
         "pairs": {
             "cam_modis_aod": {
-                "sources": ["cam", "modis"],
-                "geometry": "modis",
-                "variables": {"cam": "AOD", "modis": "aod_550nm"},
+                "x": {"source": "modis", "variable": "aod_550nm"},
+                "y": {"source": "cam", "variable": "AOD"},
             }
         },
         "stats": {"metrics": ["N", "MB"]},
@@ -710,14 +701,12 @@ def test_two_explicit_pairs_both_produced_via_executor(tmp_path: Path) -> None:
         },
         "pairs": {
             "cam_a_airnow_o3": {
-                "sources": ["cam_a", "airnow"],
-                "geometry": "airnow",
-                "variables": {"cam_a": "O3", "airnow": "o3"},
+                "x": {"source": "airnow", "variable": "o3"},
+                "y": {"source": "cam_a", "variable": "O3"},
             },
             "cam_b_airnow_o3": {
-                "sources": ["cam_b", "airnow"],
-                "geometry": "airnow",
-                "variables": {"cam_b": "O3", "airnow": "o3"},
+                "x": {"source": "airnow", "variable": "o3"},
+                "y": {"source": "cam_b", "variable": "O3"},
             },
         },
         "stats": {"metrics": ["N", "MB"]},
@@ -774,14 +763,12 @@ def test_two_explicit_pairs_with_max_pair_workers(tmp_path: Path) -> None:
         },
         "pairs": {
             "cam_a_airnow_o3": {
-                "sources": ["cam_a", "airnow"],
-                "geometry": "airnow",
-                "variables": {"cam_a": "O3", "airnow": "o3"},
+                "x": {"source": "airnow", "variable": "o3"},
+                "y": {"source": "cam_a", "variable": "O3"},
             },
             "cam_b_airnow_o3": {
-                "sources": ["cam_b", "airnow"],
-                "geometry": "airnow",
-                "variables": {"cam_b": "O3", "airnow": "o3"},
+                "x": {"source": "airnow", "variable": "o3"},
+                "y": {"source": "cam_b", "variable": "O3"},
             },
         },
         "stats": {"metrics": ["N", "MB"]},

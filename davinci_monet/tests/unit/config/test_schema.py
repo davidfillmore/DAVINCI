@@ -377,9 +377,8 @@ class TestMonetConfig:
                 },
                 "pairs": {
                     "cmaq_airnow_o3": {
-                        "sources": ["cmaq", "airnow"],
-                        "geometry": "airnow",
-                        "variables": {"cmaq": "OZONE", "airnow": "OZONE"},
+                        "x": {"source": "airnow", "variable": "OZONE"},
+                        "y": {"source": "cmaq", "variable": "OZONE"},
                     }
                 },
                 "plots": {
@@ -408,9 +407,8 @@ class TestMonetConfig:
                 },
                 "pairs": {
                     "a_b": {
-                        "sources": ["a", "b"],
-                        "geometry": "a",
-                        "variables": {"a": "O3", "b": "O3"},
+                        "x": {"source": "a", "variable": "O3"},
+                        "y": {"source": "b", "variable": "O3"},
                     }
                 },
             },
@@ -418,8 +416,10 @@ class TestMonetConfig:
 
         assert "a_b" in config.pairs
         assert config.pairs["a_b"].sources == ["a", "b"]
-        assert config.pairs["a_b"].geometry == "a"
-        assert config.pairs["a_b"].variables == {"a": "O3", "b": "O3"}
+        assert config.pairs["a_b"].x.source == "a"
+        assert config.pairs["a_b"].x.variable == "O3"
+        assert config.pairs["a_b"].y.source == "b"
+        assert config.pairs["a_b"].y.variable == "O3"
 
 
 class TestExtraFieldsHandling:

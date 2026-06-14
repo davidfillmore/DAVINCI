@@ -44,18 +44,12 @@ sources:
 # One binary pair per variable. The plots below geometry cmaq_v54_airnow (O3).
 pairs:
   cmaq_v54_airnow:
-    sources: [cmaq_v54, airnow]
-    geometry: airnow
-    variables:
-      cmaq_v54: O3
-      airnow: o3
+    x: { source: airnow, variable: o3 }
+    y: { source: cmaq_v54, variable: O3 }
 
   cmaq_v54_airnow_pm25:
-    sources: [cmaq_v54, airnow]
-    geometry: airnow
-    variables:
-      cmaq_v54: PM25_TOT
-      airnow: pm25
+    x: { source: airnow, variable: pm25 }
+    y: { source: cmaq_v54, variable: PM25_TOT }
 
 plots:
   timeseries_o3:

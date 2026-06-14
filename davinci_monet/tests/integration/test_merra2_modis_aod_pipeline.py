@@ -97,9 +97,8 @@ def test_merra2_modis_aod_pipeline(tmp_path: Path) -> None:
         },
         "pairs": {
             "merra2_vs_terra": {
-                "sources": ["merra2", "modis_terra"],
-                "geometry": "modis_terra",
-                "variables": {"merra2": "TOTEXTTAU", "modis_terra": "aod_550nm"},
+                "x": {"source": "modis_terra", "variable": "aod_550nm"},
+                "y": {"source": "merra2", "variable": "TOTEXTTAU"},
             }
         },
         "plots": {

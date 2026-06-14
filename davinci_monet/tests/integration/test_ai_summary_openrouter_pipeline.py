@@ -68,9 +68,8 @@ def _build_config(tmp_path: Path) -> dict:
         },
         "pairs": {
             "synthetic_surface": {
-                "sources": ["synthetic", "surface"],
-                "geometry": "surface",
-                "variables": {"synthetic": "O3", "surface": "O3"},
+                "x": {"source": "surface", "variable": "O3"},
+                "y": {"source": "synthetic", "variable": "O3"},
             },
         },
         "plots": {

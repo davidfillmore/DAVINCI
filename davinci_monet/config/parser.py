@@ -350,15 +350,16 @@ class ConfigBuilder:
     def add_pair(
         self,
         name: str,
-        sources: list[str],
-        variables: dict[str, str],
-        geometry: str | None = None,
+        x: dict[str, str],
+        y: dict[str, str],
         **kwargs: Any,
     ) -> "ConfigBuilder":
-        """Add a unified binary pair configuration."""
-        pair: dict[str, Any] = {"sources": sources, "variables": variables}
-        if geometry is not None:
-            pair["geometry"] = geometry
+        """Add a binary pair as an ordered ``(x, y)``.
+
+        Each axis is ``{"source": <label>, "variable": <var>}``. ``x`` is the
+        horizontal/reference axis; ``y`` is vertical (diffs are ``y - x``).
+        """
+        pair: dict[str, Any] = {"x": dict(x), "y": dict(y)}
         pair.update(kwargs)
         self._data["pairs"][name] = pair
         return self

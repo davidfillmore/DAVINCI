@@ -26,11 +26,8 @@ sources:
 
 pairs:
   merra2_vs_modis:
-    sources: [merra2, modis]
-    geometry: modis
-    variables:
-      merra2: TOTEXTTAU
-      modis: aod_550nm
+    x: { source: modis, variable: aod_550nm }
+    y: { source: merra2, variable: TOTEXTTAU }
 
 plots:
   aod_bias:

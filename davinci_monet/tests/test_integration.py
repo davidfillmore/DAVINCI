@@ -166,9 +166,8 @@ class TestPointPipeline:
             },
             "pairs": {
                 "synthetic_surface": {
-                    "sources": ["synthetic", "surface"],
-                    "geometry": "surface",
-                    "variables": {"synthetic": "O3", "surface": "O3"},
+                    "x": {"source": "surface", "variable": "O3"},
+                    "y": {"source": "synthetic", "variable": "O3"},
                 },
             },
             "plots": {
@@ -316,9 +315,8 @@ class TestTrackPipeline:
             },
             "pairs": {
                 "synthetic_aircraft": {
-                    "sources": ["synthetic", "aircraft"],
-                    "geometry": "aircraft",
-                    "variables": {"synthetic": "O3", "aircraft": "O3"},
+                    "x": {"source": "aircraft", "variable": "O3"},
+                    "y": {"source": "synthetic", "variable": "O3"},
                 },
             },
             "plots": {

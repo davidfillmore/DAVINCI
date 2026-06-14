@@ -85,32 +85,20 @@ sources:
 
 pairs:
   base_terra:
-    sources: [cam6_base, terra_modis]
-    geometry: terra_modis
-    variables:
-      cam6_base: AODVIS
-      terra_modis: AOD_550
+    x: { source: terra_modis, variable: AOD_550 }
+    y: { source: cam6_base, variable: AODVIS }
 
   base_aqua:
-    sources: [cam6_base, aqua_modis]
-    geometry: aqua_modis
-    variables:
-      cam6_base: AODVIS
-      aqua_modis: AOD_550
+    x: { source: aqua_modis, variable: AOD_550 }
+    y: { source: cam6_base, variable: AODVIS }
 
   newdust_terra:
-    sources: [cam6_newdust, terra_modis]
-    geometry: terra_modis
-    variables:
-      cam6_newdust: AODVIS
-      terra_modis: AOD_550
+    x: { source: terra_modis, variable: AOD_550 }
+    y: { source: cam6_newdust, variable: AODVIS }
 
   newdust_aqua:
-    sources: [cam6_newdust, aqua_modis]
-    geometry: aqua_modis
-    variables:
-      cam6_newdust: AODVIS
-      aqua_modis: AOD_550
+    x: { source: aqua_modis, variable: AOD_550 }
+    y: { source: cam6_newdust, variable: AODVIS }
 
 plots:
   aod_scatter_base_terra:

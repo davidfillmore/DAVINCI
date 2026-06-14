@@ -57,17 +57,14 @@ class TestSourceConfig:
 class TestSourcePairConfig:
     def test_binary_pair_parses(self) -> None:
         pair = SourcePairConfig(
-            sources=["cam", "airnow"],
-            geometry="airnow",
-            variables={"cam": "O3", "airnow": "o3"},
+            x={"source": "airnow", "variable": "o3"},  # type: ignore[arg-type]
+            y={"source": "cam", "variable": "O3"},  # type: ignore[arg-type]
         )
-        assert pair.sources == ["cam", "airnow"]
-        assert pair.geometry == "airnow"
-        assert pair.variables == {"cam": "O3", "airnow": "o3"}
-
-    def test_geometry_optional(self) -> None:
-        pair = SourcePairConfig(sources=["a", "b"], variables={"a": "v", "b": "v"})
-        assert pair.geometry is None
+        assert pair.sources == ["airnow", "cam"]
+        assert pair.x.source == "airnow"
+        assert pair.x.variable == "o3"
+        assert pair.y.source == "cam"
+        assert pair.y.variable == "O3"
 
 
 class TestRootConfigShape:

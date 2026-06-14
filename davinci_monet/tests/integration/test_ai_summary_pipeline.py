@@ -101,9 +101,8 @@ def _build_config(tmp_path: Path) -> dict:
         },
         "pairs": {
             "synthetic_surface": {
-                "sources": ["synthetic", "surface"],
-                "geometry": "surface",
-                "variables": {"synthetic": "O3", "surface": "O3"},
+                "x": {"source": "surface", "variable": "O3"},
+                "y": {"source": "synthetic", "variable": "O3"},
             },
         },
         "plots": {
@@ -233,14 +232,12 @@ def _build_two_species_config(tmp_path: Path) -> dict:
         },
         "pairs": {
             "o3_pair": {
-                "sources": ["synthetic", "surface"],
-                "geometry": "surface",
-                "variables": {"synthetic": "O3", "surface": "O3"},
+                "x": {"source": "surface", "variable": "O3"},
+                "y": {"source": "synthetic", "variable": "O3"},
             },
             "pm_pair": {
-                "sources": ["synthetic", "surface"],
-                "geometry": "surface",
-                "variables": {"synthetic": "PM25", "surface": "PM25"},
+                "x": {"source": "surface", "variable": "PM25"},
+                "y": {"source": "synthetic", "variable": "PM25"},
             },
         },
         "stats": {"metrics": ["N", "MB", "RMSE", "R"]},

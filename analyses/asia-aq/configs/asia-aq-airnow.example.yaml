@@ -90,32 +90,20 @@ sources:
 
 pairs:
   cesm_airnow_pm25:
-    sources: [cesm_asiaq, airnow]
-    geometry: airnow
-    variables:
-      cesm_asiaq: PM25
-      airnow: pm25
+    x: { source: airnow, variable: pm25 }
+    y: { source: cesm_asiaq, variable: PM25 }
 
   cesm_airnow_o3:
-    sources: [cesm_asiaq, airnow]
-    geometry: airnow
-    variables:
-      cesm_asiaq: O3
-      airnow: ozone
+    x: { source: airnow, variable: ozone }
+    y: { source: cesm_asiaq, variable: O3 }
 
   cesm_airnow_no2:
-    sources: [cesm_asiaq, airnow]
-    geometry: airnow
-    variables:
-      cesm_asiaq: NO2
-      airnow: no2
+    x: { source: airnow, variable: no2 }
+    y: { source: cesm_asiaq, variable: NO2 }
 
   cesm_airnow_co:
-    sources: [cesm_asiaq, airnow]
-    geometry: airnow
-    variables:
-      cesm_asiaq: CO
-      airnow: co
+    x: { source: airnow, variable: co }
+    y: { source: cesm_asiaq, variable: CO }
 
 plots:
   airnow_pm25_scatter:

@@ -61,9 +61,8 @@ def test_merra2_reader_pipeline(tmp_path: Path) -> None:
         },
         "pairs": {
             "merra2_aod_grid": {
-                "sources": ["merra2", "aod_grid"],
-                "geometry": "aod_grid",
-                "variables": {"merra2": "TOTEXTTAU", "aod_grid": "aod_550nm"},
+                "x": {"source": "aod_grid", "variable": "aod_550nm"},
+                "y": {"source": "merra2", "variable": "TOTEXTTAU"},
             }
         },
         "plots": {

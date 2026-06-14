@@ -333,9 +333,8 @@ class TestPairingStage:
             config={
                 "pairs": {
                     "dataset_geometry": {
-                        "sources": ["dataset", "geometry"],
-                        "geometry": "geometry",
-                        "variables": {"dataset": "v", "geometry": "v"},
+                        "x": {"source": "geometry", "variable": "v"},
+                        "y": {"source": "dataset", "variable": "v"},
                     }
                 }
             }
@@ -387,9 +386,8 @@ class TestPairingStage:
             config={
                 "pairs": {
                     "met_vs_ceres": {
-                        "sources": ["met", "ceres"],
-                        "geometry": "ceres",
-                        "variables": {"met": "flux", "ceres": "flux"},
+                        "x": {"source": "ceres", "variable": "flux"},
+                        "y": {"source": "met", "variable": "flux"},
                         "time_resolution": "1h",
                     }
                 },

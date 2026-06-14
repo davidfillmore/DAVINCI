@@ -50,13 +50,11 @@ sources:
 
 pairs:
   merra2_vs_terra:
-    sources: [merra2, modis_terra]
-    geometry: modis_terra
-    variables: { merra2: TOTEXTTAU, modis_terra: aod_550nm }
+    x: { source: modis_terra, variable: aod_550nm }
+    y: { source: merra2, variable: TOTEXTTAU }
   merra2_vs_aqua:
-    sources: [merra2, modis_aqua]
-    geometry: modis_aqua
-    variables: { merra2: TOTEXTTAU, modis_aqua: aod_550nm }
+    x: { source: modis_aqua, variable: aod_550nm }
+    y: { source: merra2, variable: TOTEXTTAU }
 
 plots:
   terra_aod_spatial_bias:

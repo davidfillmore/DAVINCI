@@ -82,9 +82,8 @@ class TestPairedSourceLabelPipeline:
             },
             "pairs": {
                 "cam_airnow": {
-                    "sources": ["cam", "airnow"],
-                    "geometry": "airnow",
-                    "variables": {"cam": "O3", "airnow": "O3"},
+                    "x": {"source": "airnow", "variable": "O3"},
+                    "y": {"source": "cam", "variable": "O3"},
                 },
             },
             "stats": {"metrics": ["N", "MB", "RMSE", "R"]},

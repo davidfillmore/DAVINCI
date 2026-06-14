@@ -102,11 +102,12 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
 
         pairs:
           synthetic_surface:
-            sources: [synthetic, surface]
-            geometry: surface
-            variables:
-              synthetic: O3
-              surface: O3
+            x:
+              source: surface
+              variable: O3
+            y:
+              source: synthetic
+              variable: O3
 
         plots:
           scatter_o3:

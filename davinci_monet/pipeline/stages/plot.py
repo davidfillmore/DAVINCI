@@ -242,31 +242,30 @@ class PlottingStage(BaseStage):
         dataset_var_name)`` or ``None`` when the pair should be skipped (mirrors the
         ``continue`` branches of the original loop body).
         """
-        sources = [str(src) for src in pair_spec.get("sources", [])]
+        x_axis = pair_spec.get("x") if isinstance(pair_spec.get("x"), dict) else None
+        y_axis = pair_spec.get("y") if isinstance(pair_spec.get("y"), dict) else None
+        has_xy = x_axis is not None and y_axis is not None
         y_source = ""
         x_source = ""
         var_spec: dict[str, Any] = {}
 
-        # Resolve the paired-data key. Unified ``sources:`` pairs and
+        # Resolve the paired-data key. Unified ``x:``/``y:`` pairs and
         # implicitly auto-paired pairs are both keyed by the pair name
         # in ``context.paired``; for unified pairs we also recover the
-        # geometry/dataset labels from the spec.
+        # x (reference) / y (sampled) labels from the spec.
         pair_key = pair_name
-        if "sources" in pair_spec:
-            geometry_value = pair_spec.get("geometry")
-            if geometry_value is not None and str(geometry_value) in sources:
-                x_source = str(geometry_value)
-                y_source = next(
-                    (src for src in sources if src != x_source),
-                    "",
-                )
+        if has_xy:
+            assert x_axis is not None and y_axis is not None  # narrow for mypy
+            x_source = str(x_axis.get("source") or "")
+            y_source = str(y_axis.get("source") or "")
         if pair_key not in context.paired:
             return None
 
         paired_obj = context.paired[pair_key]
         paired_data = paired_obj.data if hasattr(paired_obj, "data") else paired_obj
 
-        if "sources" in pair_spec:
+        if has_xy:
+            assert x_axis is not None and y_axis is not None  # narrow for mypy
             pair_vars = iter_paired_variable_xy(paired_data)
             if not pair_vars:
                 return None
@@ -279,14 +278,13 @@ class PlottingStage(BaseStage):
                 y_source = str(
                     paired_data[fallback_dataset_name].attrs.get("source_label", "dataset")
                 )
-            source_vars = pair_spec.get("variables") or {}
             x_var = str(
-                source_vars.get(x_source)
+                x_axis.get("variable")
                 or paired_data[fallback_geometry_name].attrs.get("dataset_variable")
                 or fallback_var
             )
             y_var = str(
-                source_vars.get(y_source)
+                y_axis.get("variable")
                 or paired_data[fallback_dataset_name].attrs.get("dataset_variable")
                 or fallback_var
             )
