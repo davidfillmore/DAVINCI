@@ -222,6 +222,10 @@ class PairingStage(BaseStage):
         }
         options = {k: v for k, v in pairing_config_dict.items() if k not in control_keys}
         options.update({k: v for k, v in pair_spec.items() if k not in control_keys})
+        # Flatten a nested ``grid:`` block (method: grid) into top-level kwargs.
+        grid_block = options.pop("grid", None)
+        if isinstance(grid_block, dict):
+            options.update(grid_block)
         return {k: v for k, v in options.items() if v is not None}
 
     @staticmethod

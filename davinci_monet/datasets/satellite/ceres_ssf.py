@@ -7,7 +7,7 @@ grouped variables, true latitude, epoch time). This reader standardizes
 both to dims ``(time,)`` with ``lat``/``lon`` coords, canonical variable
 names via ``SSF_CATALOG`` (raw source names pass through as an escape
 hatch; for netCDF use ``"Group/var"``), fill-masked values, and SWATH
-geometry. Pairing flows through ``SwathGridStrategy``, which flattens and
+geometry. Pairing flows through ``IntermediateGridStrategy``, which flattens and
 bins footprints by lat/lon/time values — no 2-D swath dims required.
 
 Footprints with invalid time/lat/lon are dropped (they cannot be paired);

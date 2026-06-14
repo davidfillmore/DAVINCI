@@ -112,6 +112,66 @@ def normalize_grid(
     data_grid[mask] /= count_grid[mask]
 
 
+@numba.jit(nopython=True)
+def bin_points_to_grid_4d(
+    time_edges: np.ndarray,
+    lon_edges: np.ndarray,
+    lat_edges: np.ndarray,
+    alt_edges: np.ndarray,
+    time_values: np.ndarray,
+    lon_values: np.ndarray,
+    lat_values: np.ndarray,
+    alt_values: np.ndarray,
+    data_values: np.ndarray,
+    count_grid: np.ndarray,
+    data_grid: np.ndarray,
+) -> None:
+    """Accumulate points into (time, lon, lat, alt) grid cells (sum + count, in-place)."""
+    dt = time_edges[1] - time_edges[0]
+    dx = lon_edges[1] - lon_edges[0]
+    dy = lat_edges[1] - lat_edges[0]
+    dz = alt_edges[1] - alt_edges[0]
+    nt, nx, ny, nz = data_grid.shape
+    for i in range(len(data_values)):
+        if (
+            not math.isnan(data_values[i])
+            and not math.isnan(time_values[i])
+            and not math.isnan(lon_values[i])
+            and not math.isnan(lat_values[i])
+            and not math.isnan(alt_values[i])
+            and time_values[i] >= time_edges[0]
+            and time_values[i] <= time_edges[-1]
+            and lon_values[i] >= lon_edges[0]
+            and lon_values[i] <= lon_edges[-1]
+            and lat_values[i] >= lat_edges[0]
+            and lat_values[i] <= lat_edges[-1]
+            and alt_values[i] >= alt_edges[0]
+            and alt_values[i] <= alt_edges[-1]
+        ):
+            it = int((time_values[i] - time_edges[0]) / dt)
+            ix = int((lon_values[i] - lon_edges[0]) / dx)
+            iy = int((lat_values[i] - lat_edges[0]) / dy)
+            iz = int((alt_values[i] - alt_edges[0]) / dz)
+            if it < 0:
+                it = 0
+            elif it >= nt:
+                it = nt - 1
+            if ix < 0:
+                ix = 0
+            elif ix >= nx:
+                ix = nx - 1
+            if iy < 0:
+                iy = 0
+            elif iy >= ny:
+                iy = ny - 1
+            if iz < 0:
+                iz = 0
+            elif iz >= nz:
+                iz = nz - 1
+            count_grid[it, ix, iy, iz] += 1
+            data_grid[it, ix, iy, iz] += data_values[i]
+
+
 def edges_from_centers(centers: np.ndarray) -> np.ndarray:
     """Derive bin edges from uniformly-spaced center coordinates.
 

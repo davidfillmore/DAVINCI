@@ -57,6 +57,24 @@ def altitude_to_pressure(
     return pressure
 
 
+def pressure_to_altitude(
+    pressure_hpa: np.ndarray[Any, np.dtype[Any]],
+) -> np.ndarray[Any, np.dtype[Any]]:
+    """Convert pressure (hPa) to altitude (metres) — inverse of altitude_to_pressure.
+
+    Inverts the US Standard Atmosphere barometric formula (troposphere,
+    valid to ~11 km): h = (T0/L) * (1 - (P/P0)**(1/exponent)).
+    """
+    P0 = 1013.25
+    L = 0.0065
+    T0 = 288.15
+    g = 9.80665
+    M = 0.0289644
+    R = 8.31447
+    exponent = g * M / (R * L)  # ≈ 5.2559
+    return (T0 / L) * (1.0 - (pressure_hpa / P0) ** (1.0 / exponent))
+
+
 class TrackStrategy(BasePairingStrategy):
     """Pairing strategy for track sources.
 
