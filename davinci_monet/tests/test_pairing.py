@@ -28,8 +28,8 @@ from davinci_monet.pairing import (
 
 
 @pytest.fixture
-def model_2d() -> xr.Dataset:
-    """Create a simple 2D model dataset (time, lat, lon)."""
+def dataset_2d() -> xr.Dataset:
+    """Create a simple 2D dataset dataset (time, lat, lon)."""
     times = pd.date_range("2024-01-01", periods=24, freq="h")
     lats = np.linspace(30, 50, 20)
     lons = np.linspace(-120, -80, 40)
@@ -55,9 +55,9 @@ def model_2d() -> xr.Dataset:
 
 
 @pytest.fixture
-def model_3d() -> xr.Dataset:
-    """Create a 3D model dataset (time, z, lat, lon)."""
-    times = pd.date_range("2024-01-01", periods=24, freq="h")  # Match point obs freq
+def dataset_3d() -> xr.Dataset:
+    """Create a 3D dataset dataset (time, z, lat, lon)."""
+    times = pd.date_range("2024-01-01", periods=24, freq="h")  # Match point geometry freq
     z_levels = np.array([0, 100, 500, 1000, 2000, 5000])
     lats = np.linspace(30, 50, 10)
     lons = np.linspace(-120, -80, 20)
@@ -79,8 +79,8 @@ def model_3d() -> xr.Dataset:
 
 
 @pytest.fixture
-def point_obs() -> xr.Dataset:
-    """Create point observations (surface stations)."""
+def point_geometry() -> xr.Dataset:
+    """Create point datasets (surface stations)."""
     times = pd.date_range("2024-01-01", periods=24, freq="h")
     n_sites = 5
 
@@ -102,8 +102,8 @@ def point_obs() -> xr.Dataset:
 
 
 @pytest.fixture
-def track_obs() -> xr.Dataset:
-    """Create track observations (aircraft trajectory)."""
+def track_geometry() -> xr.Dataset:
+    """Create track datasets (aircraft trajectory)."""
     times = pd.date_range("2024-01-01 06:00", periods=100, freq="2min")
 
     # Create a flight path
@@ -132,8 +132,8 @@ def track_obs() -> xr.Dataset:
 
 
 @pytest.fixture
-def profile_obs() -> xr.Dataset:
-    """Create profile observations (sonde)."""
+def profile_geometry() -> xr.Dataset:
+    """Create profile datasets (sonde)."""
     levels = np.array([1000, 925, 850, 700, 500, 300, 200, 100])
     times = pd.date_range("2024-01-01 12:00", periods=1, freq="h")
 
@@ -158,8 +158,8 @@ def profile_obs() -> xr.Dataset:
 
 
 @pytest.fixture
-def swath_obs() -> xr.Dataset:
-    """Create swath observations (satellite L2)."""
+def swath_geometry() -> xr.Dataset:
+    """Create swath datasets (satellite L2)."""
     n_scanlines = 50
     n_pixels = 30
 
@@ -184,8 +184,8 @@ def swath_obs() -> xr.Dataset:
 
 
 @pytest.fixture
-def gridded_obs() -> xr.Dataset:
-    """Create gridded observations (L3 product or reanalysis)."""
+def gridded_geometry() -> xr.Dataset:
+    """Create gridded datasets (L3 product or reanalysis)."""
     times = pd.date_range("2024-01-01", periods=4, freq="6h")
     lats = np.linspace(32, 48, 15)
     lons = np.linspace(-118, -82, 30)
@@ -258,28 +258,28 @@ class TestPairingEngine:
         engine.register_strategy(strategy)
         assert engine.get_strategy(DataGeometry.POINT) is strategy
 
-    def test_detect_geometry_point(self, point_obs: xr.Dataset) -> None:
-        """Test geometry detection for point observations."""
+    def test_detect_geometry_point(self, point_geometry: xr.Dataset) -> None:
+        """Test geometry detection for point datasets."""
         engine = PairingEngine()
-        geometry = engine._detect_geometry(point_obs)
+        geometry = engine._detect_geometry(point_geometry)
         assert geometry == DataGeometry.POINT
 
-    def test_detect_geometry_track(self, track_obs: xr.Dataset) -> None:
-        """Test geometry detection for track observations."""
+    def test_detect_geometry_track(self, track_geometry: xr.Dataset) -> None:
+        """Test geometry detection for track datasets."""
         engine = PairingEngine()
-        geometry = engine._detect_geometry(track_obs)
+        geometry = engine._detect_geometry(track_geometry)
         assert geometry == DataGeometry.TRACK
 
-    def test_detect_geometry_swath(self, swath_obs: xr.Dataset) -> None:
-        """Test geometry detection for swath observations."""
+    def test_detect_geometry_swath(self, swath_geometry: xr.Dataset) -> None:
+        """Test geometry detection for swath datasets."""
         engine = PairingEngine()
-        geometry = engine._detect_geometry(swath_obs)
+        geometry = engine._detect_geometry(swath_geometry)
         assert geometry == DataGeometry.SWATH
 
-    def test_detect_geometry_grid(self, gridded_obs: xr.Dataset) -> None:
-        """Test geometry detection for gridded observations."""
+    def test_detect_geometry_grid(self, gridded_geometry: xr.Dataset) -> None:
+        """Test geometry detection for gridded datasets."""
         engine = PairingEngine()
-        geometry = engine._detect_geometry(gridded_obs)
+        geometry = engine._detect_geometry(gridded_geometry)
         assert geometry == DataGeometry.GRID
 
 
@@ -303,36 +303,38 @@ class TestBasePairingStrategy:
         dist = strategy._haversine_distance(0.0, 0.0, np.array([0.0]), np.array([1.0]))
         assert dist[0] == pytest.approx(111195, rel=0.01)
 
-    def test_find_nearest_indices(self, model_2d: xr.Dataset) -> None:
+    def test_find_nearest_indices(self, dataset_2d: xr.Dataset) -> None:
         """Test finding nearest grid indices."""
         strategy = PointStrategy()
-        model_lat = model_2d["lat"]
-        model_lon = model_2d["lon"]
+        dataset_lat = dataset_2d["lat"]
+        dataset_lon = dataset_2d["lon"]
 
-        obs_lat = xr.DataArray([40.0])
-        obs_lon = xr.DataArray([-100.0])
-
-        lat_idx, lon_idx = strategy._find_nearest_indices(model_lat, model_lon, obs_lat, obs_lon)
-
-        # Check that indices are valid
-        assert 0 <= lat_idx.values[0] < len(model_lat)
-        assert 0 <= lon_idx.values[0] < len(model_lon)
-
-    def test_find_nearest_with_radius_filter(self, model_2d: xr.Dataset) -> None:
-        """Test that radius of influence filters distant points."""
-        strategy = PointStrategy()
-        model_lat = model_2d["lat"]
-        model_lon = model_2d["lon"]
-
-        # Point far outside the grid
-        obs_lat = xr.DataArray([0.0])  # Very far south
-        obs_lon = xr.DataArray([0.0])  # Very far east
+        geometry_lat = xr.DataArray([40.0])
+        geometry_lon = xr.DataArray([-100.0])
 
         lat_idx, lon_idx = strategy._find_nearest_indices(
-            model_lat,
-            model_lon,
-            obs_lat,
-            obs_lon,
+            dataset_lat, dataset_lon, geometry_lat, geometry_lon
+        )
+
+        # Check that indices are valid
+        assert 0 <= lat_idx.values[0] < len(dataset_lat)
+        assert 0 <= lon_idx.values[0] < len(dataset_lon)
+
+    def test_find_nearest_with_radius_filter(self, dataset_2d: xr.Dataset) -> None:
+        """Test that radius of influence filters distant points."""
+        strategy = PointStrategy()
+        dataset_lat = dataset_2d["lat"]
+        dataset_lon = dataset_2d["lon"]
+
+        # Point far outside the grid
+        geometry_lat = xr.DataArray([0.0])  # Very far south
+        geometry_lon = xr.DataArray([0.0])  # Very far east
+
+        lat_idx, lon_idx = strategy._find_nearest_indices(
+            dataset_lat,
+            dataset_lon,
+            geometry_lat,
+            geometry_lon,
             radius_of_influence=100000.0,  # 100 km - too small
         )
 
@@ -340,10 +342,10 @@ class TestBasePairingStrategy:
         assert lat_idx.values[0] == -1
         assert lon_idx.values[0] == -1
 
-    def test_extract_surface(self, model_3d: xr.Dataset) -> None:
-        """Test surface extraction from 3D model."""
+    def test_extract_surface(self, dataset_3d: xr.Dataset) -> None:
+        """Test surface extraction from 3D dataset."""
         strategy = PointStrategy()
-        surface = strategy._extract_surface(model_3d)
+        surface = strategy._extract_surface(dataset_3d)
 
         assert "z" not in surface.dims
         assert "temperature" in surface.data_vars
@@ -352,25 +354,27 @@ class TestBasePairingStrategy:
         """time_tolerance gates nearest-time matching instead of being ignored.
 
         Regression test: the tolerance flowed config -> engine -> strategy but
-        never reached the point/track/profile ``sel`` call, so observations
-        arbitrarily far in time from any model time were paired silently. With a
+        never reached the point/track/profile ``sel`` call, so datasets
+        arbitrarily far in time from any dataset time were paired silently. With a
         tolerance set, out-of-tolerance targets must become NaN; with None they
-        snap to the nearest model time as before.
+        snap to the nearest dataset time as before.
         """
         strategy = PointStrategy()
-        model_times = pd.date_range("2024-01-01", periods=5, freq="h")
-        model = xr.Dataset(
+        dataset_times = pd.date_range("2024-01-01", periods=5, freq="h")
+        dataset = xr.Dataset(
             {"o3": ("time", np.arange(1.0, 6.0))},
-            coords={"time": model_times},
+            coords={"time": dataset_times},
         )
-        # Target a day after the model window: nearest model time is ~20h away.
+        # Target a day after the dataset window: nearest dataset time is ~20h away.
         targets = xr.DataArray(pd.to_datetime(["2024-01-02 00:00"]), dims=["time"])
 
-        gated = strategy._interpolate_time(model, targets, method="nearest", time_tolerance="1h")
+        gated = strategy._interpolate_time(dataset, targets, method="nearest", time_tolerance="1h")
         assert bool(np.isnan(gated["o3"].values).all())
 
-        ungated = strategy._interpolate_time(model, targets, method="nearest", time_tolerance=None)
-        assert ungated["o3"].values[0] == 5.0  # snaps to last model time
+        ungated = strategy._interpolate_time(
+            dataset, targets, method="nearest", time_tolerance=None
+        )
+        assert ungated["o3"].values[0] == 5.0  # snaps to last dataset time
 
     def test_extract_surface_cesm_pressure_ordering(self) -> None:
         """Surface extraction selects the LAST level for CESM-ordered pressure.
@@ -393,12 +397,12 @@ class TestBasePairingStrategy:
         # Index 0 = TOA (stratospheric O3), last index = surface (~40 ppb).
         o3_profile = np.linspace(5000.0, 40.0, z.size)
         ozone = np.broadcast_to(o3_profile[:, None, None], (z.size, lats.size, lons.size))
-        model = xr.Dataset(
+        dataset = xr.Dataset(
             {"ozone": (["z", "lat", "lon"], ozone.copy())},
             coords={"z": ("z", z.values), "lat": lats, "lon": lons},
         )
 
-        surface = PointStrategy()._extract_surface(model)
+        surface = PointStrategy()._extract_surface(dataset)
 
         assert "z" not in surface.dims
         np.testing.assert_allclose(surface["ozone"].values, 40.0)
@@ -415,12 +419,12 @@ class TestBasePairingStrategy:
         # Index 0 = surface (~40 ppb), last index = TOA (stratospheric O3).
         o3_profile = np.linspace(40.0, 5000.0, z.size)
         ozone = np.broadcast_to(o3_profile[:, None, None], (z.size, lats.size, lons.size))
-        model = xr.Dataset(
+        dataset = xr.Dataset(
             {"ozone": (["z", "lat", "lon"], ozone.copy())},
             coords={"z": ("z", z.values), "lat": lats, "lon": lons},
         )
 
-        surface = PointStrategy()._extract_surface(model)
+        surface = PointStrategy()._extract_surface(dataset)
 
         np.testing.assert_allclose(surface["ozone"].values, 40.0)
 
@@ -438,62 +442,70 @@ class TestPointStrategy:
         strategy = PointStrategy()
         assert strategy.geometry == DataGeometry.POINT
 
-    def test_pair_basic(self, model_2d: xr.Dataset, point_obs: xr.Dataset) -> None:
+    def test_pair_basic(self, dataset_2d: xr.Dataset, point_geometry: xr.Dataset) -> None:
         """Test basic point pairing."""
         strategy = PointStrategy()
-        paired = strategy.pair(model_2d, point_obs, radius_of_influence=100000.0)
+        paired = strategy.pair_sources(
+            geometry_data=point_geometry,
+            dataset_data=dataset_2d,
+            radius_of_influence=100000.0,
+        )
 
-        # Should have both obs and model variables (model vars are prefixed on collision)
-        assert "temperature" in paired.data_vars  # Obs var
-        assert "model_temperature" in paired.data_vars
-        assert "humidity" in paired.data_vars  # Obs var
-        assert "model_humidity" in paired.data_vars
+        # Should have both geometry and dataset variables (dataset vars are prefixed on collision)
+        assert "temperature" in paired.data_vars  # Geometry var
+        assert "dataset_temperature" in paired.data_vars
+        assert "humidity" in paired.data_vars  # Geometry var
+        assert "dataset_humidity" in paired.data_vars
 
         # Should have site dimension
         assert "site" in paired.dims
 
-    def test_pair_with_3d_model(self, model_3d: xr.Dataset, point_obs: xr.Dataset) -> None:
-        """Test pairing with 3D model (extracts surface)."""
+    def test_pair_with_3d_dataset(self, dataset_3d: xr.Dataset, point_geometry: xr.Dataset) -> None:
+        """Test pairing with 3D dataset (extracts surface)."""
         strategy = PointStrategy()
-        paired = strategy.pair(model_3d, point_obs, radius_of_influence=200000.0)
+        paired = strategy.pair_sources(
+            geometry_data=point_geometry,
+            dataset_data=dataset_3d,
+            radius_of_influence=200000.0,
+        )
 
-        # Model variables keep original names (prefixing done by engine)
+        # Dataset variables keep original names (prefixing done by engine)
         assert "temperature" in paired.data_vars
         # Surface extraction removes z dimension
         assert "z" not in paired.dims
 
     def test_pair_time_method_linear_interpolates_between_sparse_snapshots(self) -> None:
-        """time_method='linear' must interpolate model values between sparse
+        """time_method='linear' must interpolate dataset values between sparse
         snapshots, not hold them constant within nearest-neighbor bins.
 
-        Background: when paired with hourly obs, a model with 6-hourly output
+        Background: when paired with hourly geometry, a dataset with 6-hourly output
         (e.g. WRF-Chem AQ_WATCH) under the default 'nearest' time method
         produces a step function with discontinuities at the bin midpoints
         (03, 09, 15, 21 UTC). 'linear' smooths through the snapshots.
         """
-        # 2 model timesteps 12 hours apart, with values 10.0 and 20.0
-        # 13 obs timesteps spanning the same window (hourly)
-        model_times = pd.date_range("2024-01-01 00:00", periods=2, freq="12h")
-        obs_times = pd.date_range("2024-01-01 00:00", periods=13, freq="h")
+        # 2 dataset timesteps 12 hours apart, with values 10.0 and 20.0
+        # 13 geometry timesteps spanning the same window (hourly)
+        dataset_times = pd.date_range("2024-01-01 00:00", periods=2, freq="12h")
+        geometry_times = pd.date_range("2024-01-01 00:00", periods=13, freq="h")
 
-        # Build a tiny rectangular-grid model around a single site
+        # Build a tiny rectangular-grid dataset around a single site
         lats = np.linspace(34, 36, 5)
         lons = np.linspace(-101, -99, 5)
         # Make the field vary in time but uniform in space, so site extraction
         # gives the temporal pattern cleanly.
         tvals = np.array([10.0, 20.0])[:, None, None]
         field = np.broadcast_to(tvals, (2, 5, 5)).copy()
-        model = xr.Dataset(
+        dataset = xr.Dataset(
             {"pm25": (["time", "lat", "lon"], field)},
-            coords={"time": model_times, "lat": lats, "lon": lons},
+            coords={"time": dataset_times, "lat": lats, "lon": lons},
         )
 
-        # One obs site at the center of the model grid; obs values are 0
-        # (irrelevant — we're checking the model interpolation, not stats)
-        obs = xr.Dataset(
+        # One geometry site at the center of the dataset grid; geometry values are 0
+        # (irrelevant — we're checking the dataset interpolation, not stats)
+        geometry_ds = xr.Dataset(
             {"pm25": (["time", "site"], np.zeros((13, 1)))},
             coords={
-                "time": obs_times,
+                "time": geometry_times,
                 "site": np.arange(1),
                 "latitude": ("site", np.array([35.0])),
                 "longitude": ("site", np.array([-100.0])),
@@ -501,9 +513,14 @@ class TestPointStrategy:
         )
 
         strategy = PointStrategy()
-        paired = strategy.pair(model, obs, radius_of_influence=200000.0, time_method="linear")
+        paired = strategy.pair_sources(
+            geometry_data=geometry_ds,
+            dataset_data=dataset,
+            radius_of_influence=200000.0,
+            time_method="linear",
+        )
 
-        m = paired["model_pm25"].values.squeeze()  # shape (13,)
+        m = paired["dataset_pm25"].values.squeeze()  # shape (13,)
         # Endpoints exact
         assert abs(m[0] - 10.0) < 1e-6
         assert abs(m[12] - 20.0) < 1e-6
@@ -519,54 +536,58 @@ class TestPointStrategy:
     def test_pair_time_method_nearest_still_steps(self) -> None:
         """Default time_method='nearest' must still produce step function.
         Regression guard so we don't accidentally flip the default."""
-        model_times = pd.date_range("2024-01-01 00:00", periods=2, freq="12h")
-        obs_times = pd.date_range("2024-01-01 00:00", periods=13, freq="h")
+        dataset_times = pd.date_range("2024-01-01 00:00", periods=2, freq="12h")
+        geometry_times = pd.date_range("2024-01-01 00:00", periods=13, freq="h")
 
         lats = np.linspace(34, 36, 5)
         lons = np.linspace(-101, -99, 5)
         tvals = np.array([10.0, 20.0])[:, None, None]
         field = np.broadcast_to(tvals, (2, 5, 5)).copy()
-        model = xr.Dataset(
+        dataset = xr.Dataset(
             {"pm25": (["time", "lat", "lon"], field)},
-            coords={"time": model_times, "lat": lats, "lon": lons},
+            coords={"time": dataset_times, "lat": lats, "lon": lons},
         )
-        obs = xr.Dataset(
+        geometry = xr.Dataset(
             {"pm25": (["time", "site"], np.zeros((13, 1)))},
             coords={
-                "time": obs_times,
+                "time": geometry_times,
                 "site": np.arange(1),
                 "latitude": ("site", np.array([35.0])),
                 "longitude": ("site", np.array([-100.0])),
             },
         )
 
-        paired = PointStrategy().pair(model, obs, radius_of_influence=200000.0)
-        m = paired["model_pm25"].values.squeeze()
+        paired = PointStrategy().pair_sources(
+            geometry_data=geometry,
+            dataset_data=dataset,
+            radius_of_influence=200000.0,
+        )
+        m = paired["dataset_pm25"].values.squeeze()
 
-        # First 6 hours nearest to model[0]=10, last 7 nearest to model[1]=20.
+        # First 6 hours nearest to dataset[0]=10, last 7 nearest to dataset[1]=20.
         # (Ties at the midpoint resolve toward the later snapshot.)
         assert (m[:6] == 10.0).all()
         assert (m[7:] == 20.0).all()
 
-    def test_pair_drops_sites_outside_radius(self, model_2d: xr.Dataset) -> None:
+    def test_pair_drops_sites_outside_radius(self, dataset_2d: xr.Dataset) -> None:
         """Sites beyond radius_of_influence must be removed from the paired output.
 
         Regression test for the WRF-Chem-vs-AirNow PM2.5 zig-zag: AirNow-International
-        sites in Delhi/Chennai were thousands of km from the CONUS model grid, so the
-        nearest-index lookup masked their model values to NaN — but the obs side kept
+        sites in Delhi/Chennai were thousands of km from the CONUS dataset grid, so the
+        nearest-index lookup masked their dataset values to NaN — but the geometry side kept
         the original values. Cross-site aggregates (e.g. timeseries domain-mean) were
-        then polluted by sites with no model match.
+        then polluted by sites with no dataset match.
 
         The paired dataset must contain only sites where *both* sides are valid.
         """
-        # model_2d covers lat 30-50, lon -120 to -80. Build obs with 3 in-domain
+        # dataset_2d covers lat 30-50, lon -120 to -80. Build geometry with 3 in-domain
         # sites and 2 far-out sites (analogous to Delhi/Chennai).
         times = pd.date_range("2024-01-01", periods=24, freq="h")
         site_lats = np.array([35.0, 40.0, 45.0, 28.6, 13.1])  # last two: Delhi, Chennai
         site_lons = np.array([-100.0, -105.0, -95.0, 77.2, 80.3])
-        # Make the out-of-domain obs values dramatically different so any leak shows up
+        # Make the out-of-domain geometry values dramatically different so any leak shows up
         temp = np.array([[285.0, 285.0, 285.0, 1000.0, 1000.0]] * 24)
-        obs = xr.Dataset(
+        geometry = xr.Dataset(
             {"temperature": (["time", "site"], temp)},
             coords={
                 "time": times,
@@ -577,9 +598,13 @@ class TestPointStrategy:
         )
 
         strategy = PointStrategy()
-        # 200 km radius matches model_2d's ~100 km grid spacing; Delhi/Chennai
+        # 200 km radius matches dataset_2d's ~100 km grid spacing; Delhi/Chennai
         # are still ~10,000 km from any in-domain cell so they're dropped.
-        paired = strategy.pair(model_2d, obs, radius_of_influence=200000.0)
+        paired = strategy.pair_sources(
+            geometry_data=geometry,
+            dataset_data=dataset_2d,
+            radius_of_influence=200000.0,
+        )
 
         # Only the 3 in-domain sites should survive
         assert paired.sizes["site"] == 3, (
@@ -587,15 +612,15 @@ class TestPointStrategy:
             "Sites outside radius_of_influence must be dropped from the paired output."
         )
 
-        # No NaN on the model side — every retained site has a valid model match
+        # No NaN on the dataset side — every retained site has a valid dataset match
         assert not np.isnan(
-            paired["model_temperature"].values
-        ).any(), "Model values must be finite at all paired sites."
+            paired["dataset_temperature"].values
+        ).any(), "Dataset values must be finite at all paired sites."
 
         # No leak of the 1000.0 sentinel values from the dropped Delhi/Chennai sites
         assert (
             paired["temperature"].values < 999.0
-        ).all(), "Obs values from out-of-domain sites leaked into the paired dataset."
+        ).all(), "Geometry values from out-of-domain sites leaked into the paired dataset."
 
         # Retained sites must be exactly the in-domain ones
         np.testing.assert_array_equal(
@@ -616,27 +641,31 @@ class TestTrackStrategy:
         strategy = TrackStrategy()
         assert strategy.geometry == DataGeometry.TRACK
 
-    def test_pair_basic(self, model_3d: xr.Dataset, track_obs: xr.Dataset) -> None:
+    def test_pair_basic(self, dataset_3d: xr.Dataset, track_geometry: xr.Dataset) -> None:
         """Test basic track pairing."""
         strategy = TrackStrategy()
-        paired = strategy.pair(model_3d, track_obs, radius_of_influence=200000.0)
+        paired = strategy.pair_sources(
+            geometry_data=track_geometry,
+            dataset_data=dataset_3d,
+            radius_of_influence=200000.0,
+        )
 
-        # Should have both obs and model variables
+        # Should have both geometry and dataset variables
         assert "ozone" in paired.data_vars
-        assert "model_ozone" in paired.data_vars
+        assert "dataset_ozone" in paired.data_vars
 
         # Should have time dimension
         assert "time" in paired.dims
 
-    def test_pair_drops_track_points_outside_radius(self, model_3d: xr.Dataset) -> None:
+    def test_pair_drops_track_points_outside_radius(self, dataset_3d: xr.Dataset) -> None:
         """Track points beyond radius_of_influence must be removed from the paired output.
 
         Companion to test_pair_drops_sites_outside_radius. Same half-paired bug
-        pattern: the model side was NaN-masked outside the radius, but the obs
+        pattern: the dataset side was NaN-masked outside the radius, but the geometry
         side along the track was retained, polluting any cross-time aggregate
-        that includes obs-only points.
+        that includes geometry-only points.
         """
-        # model_3d covers lat 30-50, lon -120 to -80. Build a 10-point track
+        # dataset_3d covers lat 30-50, lon -120 to -80. Build a 10-point track
         # with 6 points inside the domain and 4 points far out over the Atlantic.
         times = pd.date_range("2024-01-01 06:00", periods=10, freq="h")
         in_lats = [35.0, 38.0, 42.0, 45.0, 40.0, 38.0]
@@ -646,10 +675,10 @@ class TestTrackStrategy:
         lats = np.array(in_lats + out_lats)
         lons = np.array(in_lons + out_lons)
         alts = np.full(10, 500.0)
-        # Sentinel obs values for the out-of-domain points
+        # Sentinel geometry values for the out-of-domain points
         ozone = np.array([50.0] * 6 + [9999.0] * 4)
 
-        obs = xr.Dataset(
+        geometry = xr.Dataset(
             {"ozone": ("time", ozone)},
             coords={
                 "time": times,
@@ -660,7 +689,11 @@ class TestTrackStrategy:
         )
 
         strategy = TrackStrategy()
-        paired = strategy.pair(model_3d, obs, radius_of_influence=200000.0)
+        paired = strategy.pair_sources(
+            geometry_data=geometry,
+            dataset_data=dataset_3d,
+            radius_of_influence=200000.0,
+        )
 
         # Only the 6 in-domain track points should survive
         assert paired.sizes["time"] == 6, (
@@ -668,15 +701,15 @@ class TestTrackStrategy:
             "Track points outside radius_of_influence must be dropped."
         )
 
-        # No NaN on the model side at retained points
+        # No NaN on the dataset side at retained points
         assert not np.isnan(
-            paired["model_ozone"].values
-        ).any(), "Model values must be finite at all paired track points."
+            paired["dataset_ozone"].values
+        ).any(), "Dataset values must be finite at all paired track points."
 
         # No leak of sentinel values from dropped points
         assert (
             paired["ozone"].values < 9000.0
-        ).all(), "Obs values from out-of-domain track points leaked into the paired dataset."
+        ).all(), "Geometry values from out-of-domain track points leaked into the paired dataset."
 
         # Retained lat/lon coords match the in-domain track segment
         np.testing.assert_array_equal(paired["latitude"].values, np.array(in_lats))
@@ -685,10 +718,10 @@ class TestTrackStrategy:
     def test_vertical_interpolation(self) -> None:
         """Test vertical interpolation to aircraft altitude.
 
-        Creates a model with pressure levels and known O3 profile,
+        Creates a dataset with pressure levels and known O3 profile,
         then verifies that track pairing interpolates to correct altitude.
         """
-        # Create model with pressure levels (CESM-style, hPa)
+        # Create dataset with pressure levels (CESM-style, hPa)
         # Surface (~sea level) is at highest pressure (~1000 hPa)
         times = pd.date_range("2024-01-01", periods=4, freq="6h")
         lev_levels = np.array([100, 300, 500, 700, 850, 925, 1000])  # hPa
@@ -701,7 +734,7 @@ class TestTrackStrategy:
         o3_profile = 40 + 60 * (1 - lev_3d / 1000)  # Higher O3 at lower pressure
         o3_data = np.broadcast_to(o3_profile, (4, 7, 10, 20)).copy()
 
-        model = xr.Dataset(
+        dataset = xr.Dataset(
             {"O3": (["time", "lev", "lat", "lon"], o3_data)},
             coords={
                 "time": times,
@@ -711,7 +744,7 @@ class TestTrackStrategy:
             },
         )
 
-        # Create track observations at different altitudes
+        # Create track datasets at different altitudes
         track_times = pd.date_range("2024-01-01 03:00", periods=10, freq="30min")
         track_lats = np.linspace(35, 45, 10)
         track_lons = np.linspace(-100, -95, 10)
@@ -719,7 +752,7 @@ class TestTrackStrategy:
         track_alts = np.array([0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000])
 
         track = xr.Dataset(
-            {"obs_o3": ("time", np.full(10, 50.0))},
+            {"geometry_o3": ("time", np.full(10, 50.0))},
             coords={
                 "time": track_times,
                 "latitude": ("time", track_lats),
@@ -730,19 +763,23 @@ class TestTrackStrategy:
 
         # Pair with vertical interpolation
         strategy = TrackStrategy()
-        paired = strategy.pair(model, track, radius_of_influence=500000.0)
+        paired = strategy.pair_sources(
+            geometry_data=track,
+            dataset_data=dataset,
+            radius_of_influence=500000.0,
+        )
 
-        # Verify model O3 values show altitude dependence
-        model_o3 = paired["O3"].values
+        # Verify dataset O3 values show altitude dependence
+        dataset_o3 = paired["O3"].values
 
         # Surface (0m, ~1000 hPa) should have O3 near 40 ppb
-        assert model_o3[0] < 50, f"Surface O3 should be ~40 ppb, got {model_o3[0]:.1f}"
+        assert dataset_o3[0] < 50, f"Surface O3 should be ~40 ppb, got {dataset_o3[0]:.1f}"
 
         # High altitude (9000m, ~300 hPa) should have higher O3 near 80 ppb
-        assert model_o3[-1] > 60, f"High altitude O3 should be >60 ppb, got {model_o3[-1]:.1f}"
+        assert dataset_o3[-1] > 60, f"High altitude O3 should be >60 ppb, got {dataset_o3[-1]:.1f}"
 
         # O3 should generally increase with altitude
-        assert model_o3[-1] > model_o3[0], "O3 should increase with altitude"
+        assert dataset_o3[-1] > dataset_o3[0], "O3 should increase with altitude"
 
 
 # =============================================================================
@@ -758,20 +795,20 @@ class TestProfileStrategy:
         strategy = ProfileStrategy()
         assert strategy.geometry == DataGeometry.PROFILE
 
-    def test_pair_basic(self, model_3d: xr.Dataset, profile_obs: xr.Dataset) -> None:
+    def test_pair_basic(self, dataset_3d: xr.Dataset, profile_geometry: xr.Dataset) -> None:
         """Test basic profile pairing."""
         strategy = ProfileStrategy()
 
-        # Need to add a z coordinate that matches model
-        model_with_pressure = model_3d.assign_coords(z=model_3d["z"])
+        # Need to add a z coordinate that matches dataset
+        dataset_with_pressure = dataset_3d.assign_coords(z=dataset_3d["z"])
 
-        paired = strategy.pair(
-            model_with_pressure,
-            profile_obs,
+        paired = strategy.pair_sources(
+            geometry_data=profile_geometry,
+            dataset_data=dataset_with_pressure,
             radius_of_influence=200000.0,
         )
 
-        # Should have observation variables
+        # Should have dataset variables
         assert "temperature" in paired.data_vars
 
 
@@ -788,24 +825,28 @@ class TestSwathStrategy:
         strategy = SwathStrategy()
         assert strategy.geometry == DataGeometry.SWATH
 
-    def test_pair_basic(self, model_2d: xr.Dataset, swath_obs: xr.Dataset) -> None:
+    def test_pair_basic(self, dataset_2d: xr.Dataset, swath_geometry: xr.Dataset) -> None:
         """Test basic swath pairing."""
         strategy = SwathStrategy()
-        paired = strategy.pair(model_2d, swath_obs, radius_of_influence=200000.0)
+        paired = strategy.pair_sources(
+            geometry_data=swath_geometry,
+            dataset_data=dataset_2d,
+            radius_of_influence=200000.0,
+        )
 
-        # Should have observation variable
+        # Should have dataset variable
         assert "column_ozone" in paired.data_vars
 
-    def test_pair_masks_pixels_outside_radius(self, model_2d: xr.Dataset) -> None:
-        """Swath pixels beyond radius_of_influence must be NaN on the obs side too.
+    def test_pair_masks_pixels_outside_radius(self, dataset_2d: xr.Dataset) -> None:
+        """Swath pixels beyond radius_of_influence must be NaN on the geometry side too.
 
         Companion to test_pair_drops_sites_outside_radius (Point) and
         test_pair_drops_track_points_outside_radius (Track). Swath data is
         inherently 2D (scanline x pixel), so we mask rather than drop —
         but the contract is the same: out-of-domain pixels must not contribute
-        valid obs values to cross-pixel aggregates.
+        valid geometry values to cross-pixel aggregates.
         """
-        # model_2d covers lat 30-50, lon -120 to -80. Build a 4 x 6 swath where
+        # dataset_2d covers lat 30-50, lon -120 to -80. Build a 4 x 6 swath where
         # the left half is over CONUS and the right half is over Asia.
         n_scanlines, n_pixels = 4, 6
         lats = np.broadcast_to(
@@ -815,12 +856,12 @@ class TestSwathStrategy:
         lons_row = np.array([-110.0, -100.0, -90.0, 60.0, 80.0, 100.0])
         lons = np.broadcast_to(lons_row[None, :], (n_scanlines, n_pixels)).copy()
 
-        # Sentinel obs values at the out-of-domain pixels. Use "temperature"
-        # so it pairs with model_2d's temperature variable.
+        # Sentinel geometry values at the out-of-domain pixels. Use "temperature"
+        # so it pairs with dataset_2d's temperature variable.
         column = np.full((n_scanlines, n_pixels), 300.0)
         column[:, 3:] = 9999.0
 
-        obs = xr.Dataset(
+        geometry = xr.Dataset(
             {"temperature": (["scanline", "pixel"], column)},
             coords={
                 "scanline": np.arange(n_scanlines),
@@ -832,27 +873,33 @@ class TestSwathStrategy:
         )
 
         strategy = SwathStrategy()
-        paired = strategy.pair(model_2d, obs, radius_of_influence=200000.0)
+        paired = strategy.pair_sources(
+            geometry_data=geometry,
+            dataset_data=dataset_2d,
+            radius_of_influence=200000.0,
+        )
 
         # Swath dims preserved
         assert paired.sizes["scanline"] == n_scanlines
         assert paired.sizes["pixel"] == n_pixels
 
-        # Out-of-domain pixels: obs must be NaN, model must be NaN
-        out_obs = paired["temperature"].values[:, 3:]
-        out_model = paired["model_temperature"].values[:, 3:]
-        assert np.isnan(out_obs).all(), (
-            "Obs values at out-of-radius swath pixels must be NaN; " f"got {out_obs}"
+        # Out-of-domain pixels: geometry must be NaN, dataset must be NaN
+        out_geometry = paired["temperature"].values[:, 3:]
+        out_dataset = paired["dataset_temperature"].values[:, 3:]
+        assert np.isnan(out_geometry).all(), (
+            "Geometry values at out-of-radius swath pixels must be NaN; " f"got {out_geometry}"
         )
-        assert np.isnan(out_model).all(), "Model values at out-of-radius swath pixels must be NaN."
+        assert np.isnan(
+            out_dataset
+        ).all(), "Dataset values at out-of-radius swath pixels must be NaN."
 
-        # In-domain pixels: obs must retain its 300.0 value, model must be finite
-        in_obs = paired["temperature"].values[:, :3]
-        in_model = paired["model_temperature"].values[:, :3]
-        np.testing.assert_array_equal(in_obs, np.full_like(in_obs, 300.0))
+        # In-domain pixels: geometry must retain its 300.0 value, dataset must be finite
+        in_geometry = paired["temperature"].values[:, :3]
+        in_dataset = paired["dataset_temperature"].values[:, :3]
+        np.testing.assert_array_equal(in_geometry, np.full_like(in_geometry, 300.0))
         assert not np.isnan(
-            in_model
-        ).any(), "Model values must be finite at in-domain swath pixels."
+            in_dataset
+        ).any(), "Dataset values must be finite at in-domain swath pixels."
 
 
 # =============================================================================
@@ -868,39 +915,43 @@ class TestGridStrategy:
         strategy = GridStrategy()
         assert strategy.geometry == DataGeometry.GRID
 
-    def test_pair_regrid_to_obs(self, model_2d: xr.Dataset, gridded_obs: xr.Dataset) -> None:
-        """Test regridding model to observation grid."""
+    def test_pair_regrid_to_geometry(
+        self, dataset_2d: xr.Dataset, gridded_geometry: xr.Dataset
+    ) -> None:
+        """Test regridding dataset to dataset grid."""
         strategy = GridStrategy()
-        paired = strategy.pair(
-            model_2d,
-            gridded_obs,
-            regrid_to="obs",
+        paired = strategy.pair_sources(
+            geometry_data=gridded_geometry,
+            dataset_data=dataset_2d,
+            regrid_to="geometry",
         )
 
         # Should have both variables
         assert "temperature" in paired.data_vars
-        assert "model_temperature" in paired.data_vars
+        assert "dataset_temperature" in paired.data_vars
 
-        # Should be on observation grid
-        assert len(paired["lat"]) == len(gridded_obs["lat"])
-        assert len(paired["lon"]) == len(gridded_obs["lon"])
+        # Should be on dataset grid
+        assert len(paired["lat"]) == len(gridded_geometry["lat"])
+        assert len(paired["lon"]) == len(gridded_geometry["lon"])
 
-    def test_pair_regrid_to_model(self, model_2d: xr.Dataset, gridded_obs: xr.Dataset) -> None:
-        """Test regridding observations to model grid."""
+    def test_pair_regrid_to_dataset(
+        self, dataset_2d: xr.Dataset, gridded_geometry: xr.Dataset
+    ) -> None:
+        """Test regridding datasets to dataset grid."""
         strategy = GridStrategy()
-        paired = strategy.pair(
-            model_2d,
-            gridded_obs,
-            regrid_to="model",
+        paired = strategy.pair_sources(
+            geometry_data=gridded_geometry,
+            dataset_data=dataset_2d,
+            regrid_to="dataset",
         )
 
         # Should have both variables
         assert "temperature" in paired.data_vars
-        assert "model_temperature" in paired.data_vars
+        assert "dataset_temperature" in paired.data_vars
 
-        # Should be on model grid
-        assert len(paired["lat"]) == len(model_2d["lat"])
-        assert len(paired["lon"]) == len(model_2d["lon"])
+        # Should be on dataset grid
+        assert len(paired["lat"]) == len(dataset_2d["lat"])
+        assert len(paired["lon"]) == len(dataset_2d["lon"])
 
 
 # =============================================================================
@@ -911,48 +962,52 @@ class TestGridStrategy:
 class TestPairingWorkflow:
     """Full pairing workflow tests (calls internal APIs directly, not PipelineRunner)."""
 
-    def test_engine_pair_grid_emits_source_label_variables_only(self) -> None:
-        """Unified pair output names variables by source label, not model/obs roles."""
+    def test_engine_pair_grid_emits_dataset_label_variables_only(self) -> None:
+        """Unified pair output names variables by source label, not pair axis."""
         times = pd.date_range("2024-01-01", periods=1, freq="D")
         lat = np.array([0.0, 1.0])
         lon = np.array([10.0, 11.0])
-        reference = xr.Dataset(
-            {"REF": (("time", "lat", "lon"), np.ones((1, 2, 2)))},
+        geometry = xr.Dataset(
+            {"GEOMETRY_AOD": (("time", "lat", "lon"), np.ones((1, 2, 2)))},
             coords={"time": times, "lat": lat, "lon": lon},
             attrs={"geometry": "grid"},
         )
-        comparand = xr.Dataset(
-            {"CMP": (("time", "lat", "lon"), np.full((1, 2, 2), 2.0))},
+        dataset = xr.Dataset(
+            {"DATASET_AOD": (("time", "lat", "lon"), np.full((1, 2, 2), 2.0))},
             coords={"time": times, "lat": lat, "lon": lon},
             attrs={"geometry": "grid"},
         )
 
         paired = PairingEngine().pair_sources(
-            reference=reference,
-            comparand=comparand,
-            reference_vars=["REF"],
-            comparand_vars=["CMP"],
-            reference_geometry=DataGeometry.GRID,
-            comparand_geometry=DataGeometry.GRID,
-            reference_label="sensor",
-            comparand_label="reanalysis",
+            geometry_data=geometry,
+            dataset_data=dataset,
+            geometry_vars=["GEOMETRY_AOD"],
+            dataset_vars=["DATASET_AOD"],
+            output_geometry=DataGeometry.GRID,
+            dataset_geometry=DataGeometry.GRID,
+            geometry_label="sensor",
+            dataset_label="reanalysis",
             config=PairingConfig(time_tolerance=timedelta(hours=1)),
         )
 
-        assert set(paired.data.data_vars) == {"sensor_REF", "reanalysis_CMP"}
-        assert all(not str(name).startswith(("obs_", "model_")) for name in paired.data.data_vars)
-        assert paired.data["sensor_REF"].attrs["pair_role"] == "reference"
-        assert paired.data["sensor_REF"].attrs["source_label"] == "sensor"
-        assert paired.data["reanalysis_CMP"].attrs["pair_role"] == "comparand"
-        assert paired.data["reanalysis_CMP"].attrs["source_label"] == "reanalysis"
-        assert iter_paired_variable_pairs(paired.data) == [("sensor_REF", "reanalysis_CMP", "REF")]
+        assert set(paired.data.data_vars) == {"sensor_GEOMETRY_AOD", "reanalysis_DATASET_AOD"}
+        assert all(
+            not str(name).startswith(("geometry_", "dataset_")) for name in paired.data.data_vars
+        )
+        assert paired.data["sensor_GEOMETRY_AOD"].attrs["pair_axis"] == "geometry"
+        assert paired.data["sensor_GEOMETRY_AOD"].attrs["dataset_label"] == "sensor"
+        assert paired.data["reanalysis_DATASET_AOD"].attrs["pair_axis"] == "dataset"
+        assert paired.data["reanalysis_DATASET_AOD"].attrs["dataset_label"] == "reanalysis"
+        assert iter_paired_variable_pairs(paired.data) == [
+            ("sensor_GEOMETRY_AOD", "reanalysis_DATASET_AOD", "GEOMETRY_AOD")
+        ]
 
-    def test_engine_pair_swath_uses_requested_source_variables(self) -> None:
-        """A multi-variable swath pair uses reference/comparand vars from the pair spec."""
+    def test_engine_pair_swath_uses_requested_dataset_variables(self) -> None:
+        """A multi-variable swath pair uses geometry/dataset vars from the pair spec."""
         times = pd.date_range("2024-01-01", periods=1, freq="D")
         lat = np.array([0.0, 1.0])
         lon = np.array([10.0, 11.0])
-        comparand = xr.Dataset(
+        dataset = xr.Dataset(
             {
                 "M1": (("time", "lat", "lon"), np.ones((1, 2, 2))),
                 "M2": (("time", "lat", "lon"), np.full((1, 2, 2), 2.0)),
@@ -960,7 +1015,7 @@ class TestPairingWorkflow:
             coords={"time": times, "lat": lat, "lon": lon},
             attrs={"geometry": "grid"},
         )
-        reference = xr.Dataset(
+        geometry = xr.Dataset(
             {
                 "A": ("time", np.array([10.0])),
                 "B": ("time", np.array([20.0])),
@@ -974,14 +1029,14 @@ class TestPairingWorkflow:
         )
 
         paired = PairingEngine().pair_sources(
-            reference=reference,
-            comparand=comparand,
-            reference_vars=["B"],
-            comparand_vars=["M2"],
-            reference_geometry=DataGeometry.SWATH,
-            comparand_geometry=DataGeometry.GRID,
-            reference_label="ceres",
-            comparand_label="merra2",
+            geometry_data=geometry,
+            dataset_data=dataset,
+            geometry_vars=["B"],
+            dataset_vars=["M2"],
+            output_geometry=DataGeometry.SWATH,
+            dataset_geometry=DataGeometry.GRID,
+            geometry_label="ceres",
+            dataset_label="merra2",
             config=PairingConfig(time_tolerance=timedelta(hours=1)),
         )
 
@@ -991,62 +1046,56 @@ class TestPairingWorkflow:
         assert float(paired.data["ceres_B"].max(skipna=True)) == pytest.approx(20.0)
         assert float(paired.data["merra2_M2"].max(skipna=True)) == pytest.approx(2.0)
 
-    def test_engine_pair_point(self, model_2d: xr.Dataset, point_obs: xr.Dataset) -> None:
+    def test_engine_pair_point(self, dataset_2d: xr.Dataset, point_geometry: xr.Dataset) -> None:
         """Test full pairing workflow through engine for point data."""
         engine = PairingEngine()
         config = PairingConfig(radius_of_influence=200000.0)
 
         paired = engine.pair_sources(
-            reference=point_obs,
-            comparand=model_2d,
-            reference_vars=["temperature"],
-            comparand_vars=["temperature"],
+            geometry_data=point_geometry,
+            dataset_data=dataset_2d,
+            geometry_vars=["temperature"],
+            dataset_vars=["temperature"],
             config=config,
         )
 
         assert paired is not None
-        assert "reference_temperature" in paired.data.data_vars
-        assert "comparand_temperature" in paired.data.data_vars
-        assert "obs_temperature" not in paired.data.data_vars
-        assert "model_temperature" not in paired.data.data_vars
+        assert "geometry_temperature" in paired.data.data_vars
+        assert "dataset_temperature" in paired.data.data_vars
 
-    def test_engine_pair_track(self, model_3d: xr.Dataset, track_obs: xr.Dataset) -> None:
+    def test_engine_pair_track(self, dataset_3d: xr.Dataset, track_geometry: xr.Dataset) -> None:
         """Test full pairing workflow through engine for track data."""
         engine = PairingEngine()
         config = PairingConfig(radius_of_influence=200000.0)
 
         paired = engine.pair_sources(
-            reference=track_obs,
-            comparand=model_3d,
-            reference_vars=["ozone"],
-            comparand_vars=["ozone"],
+            geometry_data=track_geometry,
+            dataset_data=dataset_3d,
+            geometry_vars=["ozone"],
+            dataset_vars=["ozone"],
             config=config,
         )
 
         assert paired is not None
-        assert "reference_ozone" in paired.data.data_vars
-        assert "comparand_ozone" in paired.data.data_vars
-        assert "obs_ozone" not in paired.data.data_vars
-        assert "model_ozone" not in paired.data.data_vars
+        assert "geometry_ozone" in paired.data.data_vars
+        assert "dataset_ozone" in paired.data.data_vars
 
-    def test_engine_pair_grid(self, model_2d: xr.Dataset, gridded_obs: xr.Dataset) -> None:
+    def test_engine_pair_grid(self, dataset_2d: xr.Dataset, gridded_geometry: xr.Dataset) -> None:
         """Test full pairing workflow through engine for gridded data."""
         engine = PairingEngine()
         config = PairingConfig()
 
         paired = engine.pair_sources(
-            reference=gridded_obs,
-            comparand=model_2d,
-            reference_vars=["temperature"],
-            comparand_vars=["temperature"],
+            geometry_data=gridded_geometry,
+            dataset_data=dataset_2d,
+            geometry_vars=["temperature"],
+            dataset_vars=["temperature"],
             config=config,
         )
 
         assert paired is not None
-        assert "reference_temperature" in paired.data.data_vars
-        assert "comparand_temperature" in paired.data.data_vars
-        assert "obs_temperature" not in paired.data.data_vars
-        assert "model_temperature" not in paired.data.data_vars
+        assert "geometry_temperature" in paired.data.data_vars
+        assert "dataset_temperature" in paired.data.data_vars
 
 
 # =============================================================================
@@ -1076,40 +1125,41 @@ def _grid_ds_offset(varname: str, hour: int, minute: int, seed: int) -> xr.Datas
     return ds
 
 
-def test_grid_pairing_preserves_model_when_times_offset() -> None:
-    """Regression: nearest-matched model must NOT become all-NaN.
+def test_grid_pairing_preserves_dataset_when_times_offset() -> None:
+    """Regression: nearest-matched dataset must NOT become all-NaN.
 
-    Root cause: ``GridStrategy._align_times`` used ``model.sel(time=obs_times,
-    method="nearest")`` which keeps the *model's* original time labels.
-    ``_create_paired_output`` then reindexes the model onto the obs time
-    coordinate, zeroing all model values when model/obs timestamps differ by
+    Root cause: ``GridStrategy._align_times`` used ``dataset.sel(time=geometry_times,
+    method="nearest")`` which keeps the *dataset's* original time labels.
+    ``_create_paired_output`` then reindexes the dataset onto the geometry time
+    coordinate, zeroing all dataset values when dataset/geometry timestamps differ by
     any amount (e.g. MERRA2 monthly 00:30 vs MODIS L3 00:00).
 
-    Fix: relabel the matched model's time coordinate to obs_times immediately
+    Fix: relabel the matched dataset's time coordinate to geometry_times immediately
     after the nearest-sel so the two datasets share identical time labels.
     """
-    # Model stamped at 00:30, obs at 00:00 (MERRA2 vs MODIS pattern).
-    model = _grid_ds_offset("TOTEXTTAU", hour=0, minute=30, seed=1)
-    obs = _grid_ds_offset("aod_550nm", hour=0, minute=0, seed=2)
+    # Dataset stamped at 00:30, geometry at 00:00 (MERRA2 vs MODIS pattern).
+    dataset = _grid_ds_offset("TOTEXTTAU", hour=0, minute=30, seed=1)
+    geometry = _grid_ds_offset("aod_550nm", hour=0, minute=0, seed=2)
 
     paired = (
         PairingEngine()
         .pair_sources(
-            reference=obs,
-            comparand=model,
-            reference_vars=["aod_550nm"],
-            comparand_vars=["TOTEXTTAU"],
+            geometry_data=geometry,
+            dataset_data=dataset,
+            geometry_vars=["aod_550nm"],
+            dataset_vars=["TOTEXTTAU"],
             config=PairingConfig(time_tolerance=timedelta(hours=1), time_method="nearest"),
         )
         .data
     )
 
     ref_var, comp_var, _canonical = iter_paired_variable_pairs(paired)[0]
-    model_finite = int(np.isfinite(paired[comp_var]).sum())
+    dataset_finite = int(np.isfinite(paired[comp_var]).sum())
     covalid = int((np.isfinite(paired[comp_var]) & np.isfinite(paired[ref_var])).sum())
-    assert model_finite > 0, (
-        f"regridded model is all-NaN (time-label reindex bug); " f"model_finite={model_finite}"
+    assert dataset_finite > 0, (
+        f"regridded dataset is all-NaN (time-label reindex bug); "
+        f"dataset_finite={dataset_finite}"
     )
     assert covalid > 0, (
-        f"no co-valid model/obs cells -> stats would be all-NaN; " f"covalid={covalid}"
+        f"no co-valid dataset/geometry cells -> stats would be all-NaN; " f"covalid={covalid}"
     )

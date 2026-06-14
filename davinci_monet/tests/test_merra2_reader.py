@@ -10,7 +10,7 @@ import xarray as xr
 
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.models.merra2 import MERRA2Reader
+from davinci_monet.datasets.merra2 import MERRA2Reader
 from davinci_monet.plots.renderers.spatial.base import surface_level_index
 
 
@@ -92,7 +92,7 @@ def test_surface_index_np_is_first(tmp_path: Path) -> None:
 
 
 def test_surface_index_nv_is_last(tmp_path: Path) -> None:
-    # Model level index increasing -> surface is last index.
+    # Dataset level index increasing -> surface is last index.
     f = tmp_path / "MERRA2_400.inst3_3d_aer_Nv.20260401.nc4"
     _make_3d(np.array([1.0, 2.0, 3.0, 71.0, 72.0])).to_netcdf(f)
     ds = MERRA2Reader().open([f])

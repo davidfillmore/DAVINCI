@@ -63,7 +63,7 @@ END_DATE = "2024-02-03"
 def download_openaq_monetio():
     """Download OpenAQ data using monetio openaq_v3."""
     try:
-        from monetio.obs import openaq_v3 as openaq
+        from monetio.geometry import openaq_v3 as openaq
     except ImportError:
         print("ERROR: monetio not installed. Install with: pip install monetio")
         return None
@@ -169,9 +169,9 @@ def dataframe_to_dataset(df: pd.DataFrame) -> xr.Dataset:
             "lat": "latitude",
             "lon": "longitude",
         }
-        for old, new in renames.items():
-            if old in df.columns and new not in df.columns:
-                df = df.rename(columns={old: new})
+        for source_name, target_name in renames.items():
+            if source_name in df.columns and target_name not in df.columns:
+                df = df.rename(columns={source_name: target_name})
 
     # Check again
     missing = [c for c in required if c not in df.columns]

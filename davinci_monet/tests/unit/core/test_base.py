@@ -24,10 +24,10 @@ class TestPairedData:
         sites = np.arange(5)
         return xr.Dataset(
             {
-                "obs_ozone": (["time", "site"], np.random.randn(10, 5) + 40),
-                "model_ozone": (["time", "site"], np.random.randn(10, 5) + 42),
-                "obs_pm25": (["time", "site"], np.random.randn(10, 5) + 10),
-                "model_pm25": (["time", "site"], np.random.randn(10, 5) + 12),
+                "geometry_ozone": (["time", "site"], np.random.randn(10, 5) + 40),
+                "dataset_ozone": (["time", "site"], np.random.randn(10, 5) + 42),
+                "geometry_pm25": (["time", "site"], np.random.randn(10, 5) + 10),
+                "dataset_pm25": (["time", "site"], np.random.randn(10, 5) + 12),
             },
             coords={
                 "time": times,
@@ -41,112 +41,112 @@ class TestPairedData:
         """Test pair label generation."""
         paired = PairedData(
             data=paired_dataset,
-            model_label="cmaq",
-            obs_label="airnow",
+            dataset_label="cmaq",
+            geometry_label="airnow",
             geometry=DataGeometry.POINT,
         )
         assert paired.pair_label == "airnow_cmaq"
 
-    def test_from_sources_sets_reference_and_comparand_labels(
+    def test_from_sources_sets_geometry_and_dataset_labels(
         self, paired_dataset: xr.Dataset
     ) -> None:
-        """Role-neutral construction is the preferred paired-data API."""
+        """construction is the preferred paired-data API."""
         paired = PairedData.from_sources(
             data=paired_dataset,
-            reference_label="airnow",
-            comparand_label="cam",
+            geometry_label="airnow",
+            dataset_label="cam",
             geometry=DataGeometry.POINT,
             pairing_info={"strategy": "PointStrategy"},
         )
 
-        assert paired.reference_label == "airnow"
-        assert paired.comparand_label == "cam"
-        assert paired.obs_label == "airnow"
-        assert paired.model_label == "cam"
+        assert paired.geometry_label == "airnow"
+        assert paired.dataset_label == "cam"
+        assert paired.geometry_label == "airnow"
+        assert paired.dataset_label == "cam"
         assert paired.pairing_info["strategy"] == "PointStrategy"
 
-    def test_comparand_variables(self, paired_dataset: xr.Dataset) -> None:
-        """Test listing comparand variables."""
+    def test_dataset_variables(self, paired_dataset: xr.Dataset) -> None:
+        """Test listing dataset variables."""
         paired = PairedData(
             data=paired_dataset,
-            model_label="cmaq",
-            obs_label="airnow",
+            dataset_label="cmaq",
+            geometry_label="airnow",
             geometry=DataGeometry.POINT,
         )
-        assert "model_ozone" in paired.comparand_variables
-        assert "model_pm25" in paired.comparand_variables
+        assert "dataset_ozone" in paired.dataset_variables
+        assert "dataset_pm25" in paired.dataset_variables
 
-    def test_reference_variables(self, paired_dataset: xr.Dataset) -> None:
-        """Test listing reference variables."""
+    def test_geometry_variables(self, paired_dataset: xr.Dataset) -> None:
+        """Test listing geometry variables."""
         paired = PairedData(
             data=paired_dataset,
-            model_label="cmaq",
-            obs_label="airnow",
+            dataset_label="cmaq",
+            geometry_label="airnow",
             geometry=DataGeometry.POINT,
         )
-        assert "obs_ozone" in paired.reference_variables
-        assert "obs_pm25" in paired.reference_variables
+        assert "geometry_ozone" in paired.geometry_variables
+        assert "geometry_pm25" in paired.geometry_variables
 
     def test_paired_variable_names(self, paired_dataset: xr.Dataset) -> None:
         """Test getting paired variable names."""
         paired = PairedData(
             data=paired_dataset,
-            model_label="cmaq",
-            obs_label="airnow",
+            dataset_label="cmaq",
+            geometry_label="airnow",
             geometry=DataGeometry.POINT,
         )
         pairs = paired.paired_variable_names
-        assert ("obs_ozone", "model_ozone") in pairs
-        assert ("obs_pm25", "model_pm25") in pairs
+        assert ("geometry_ozone", "dataset_ozone") in pairs
+        assert ("geometry_pm25", "dataset_pm25") in pairs
 
-    def test_get_reference(self, paired_dataset: xr.Dataset) -> None:
-        """Test getting reference variable."""
+    def test_get_geometry(self, paired_dataset: xr.Dataset) -> None:
+        """Test getting geometry variable."""
         paired = PairedData(
             data=paired_dataset,
-            model_label="cmaq",
-            obs_label="airnow",
+            dataset_label="cmaq",
+            geometry_label="airnow",
             geometry=DataGeometry.POINT,
         )
         # With prefix
-        obs = paired.get_reference("obs_ozone")
-        assert obs is not None
+        geometry = paired.get_geometry("geometry_ozone")
+        assert geometry is not None
         # Without prefix
-        obs = paired.get_reference("ozone")
-        assert obs is not None
+        geometry = paired.get_geometry("ozone")
+        assert geometry is not None
 
-    def test_get_comparand(self, paired_dataset: xr.Dataset) -> None:
-        """Test getting comparand variable."""
+    def test_get_dataset(self, paired_dataset: xr.Dataset) -> None:
+        """Test getting dataset variable."""
         paired = PairedData(
             data=paired_dataset,
-            model_label="cmaq",
-            obs_label="airnow",
+            dataset_label="cmaq",
+            geometry_label="airnow",
             geometry=DataGeometry.POINT,
         )
         # With prefix
-        model = paired.get_comparand("model_ozone")
-        assert model is not None
+        dataset = paired.get_dataset("dataset_ozone")
+        assert dataset is not None
         # Without prefix
-        model = paired.get_comparand("ozone")
-        assert model is not None
+        dataset = paired.get_dataset("ozone")
+        assert dataset is not None
 
     def test_get_pair(self, paired_dataset: xr.Dataset) -> None:
         """Test getting paired arrays."""
         paired = PairedData(
             data=paired_dataset,
-            model_label="cmaq",
-            obs_label="airnow",
+            dataset_label="cmaq",
+            geometry_label="airnow",
             geometry=DataGeometry.POINT,
         )
-        obs, model = paired.get_pair("ozone")
-        assert obs is not None
-        assert model is not None
+        geometry, dataset = paired.get_pair("ozone")
+        assert geometry is not None
+        assert dataset is not None
 
     def test_n_points(self, paired_dataset: xr.Dataset) -> None:
         """Test counting data points."""
         paired = PairedData(
             data=paired_dataset,
-            model_label="cmaq",
-            obs_label="airnow",
+            dataset_label="cmaq",
+            geometry_label="airnow",
             geometry=DataGeometry.POINT,
         )
         assert paired.n_points == 50  # 10 times * 5 sites
@@ -155,21 +155,21 @@ class TestPairedData:
         """Test conversion to DataFrame."""
         paired = PairedData(
             data=paired_dataset,
-            model_label="cmaq",
-            obs_label="airnow",
+            dataset_label="cmaq",
+            geometry_label="airnow",
             geometry=DataGeometry.POINT,
         )
         df = paired.to_dataframe()
         assert len(df) == 50
-        assert "obs_ozone" in df.columns
-        assert "model_ozone" in df.columns
+        assert "geometry_ozone" in df.columns
+        assert "dataset_ozone" in df.columns
 
     def test_subset_time(self, paired_dataset: xr.Dataset) -> None:
         """Test subsetting paired data by time."""
         paired = PairedData(
             data=paired_dataset,
-            model_label="cmaq",
-            obs_label="airnow",
+            dataset_label="cmaq",
+            geometry_label="airnow",
             geometry=DataGeometry.POINT,
         )
         subset = paired.subset_time(start=2, end=5)  # type: ignore[arg-type]

@@ -69,7 +69,6 @@ def test_load_subsets_to_configured_variables_preserving_coords(register_probe) 
             "sources": {
                 "dc8": {
                     "type": "raw_columns_probe",
-                    "role": "obs",
                     "filename": "ignored.nc",
                     "variables": {
                         "O3": {"source_name": "O3_RAW"},
@@ -94,11 +93,7 @@ def test_load_subsets_to_configured_variables_preserving_coords(register_probe) 
 def test_load_without_variable_config_keeps_all(register_probe) -> None:
     """A source that configures no variables loads every column (no subset)."""
     ctx = PipelineContext(
-        config={
-            "sources": {
-                "dc8": {"type": "raw_columns_probe", "role": "obs", "filename": "ignored.nc"}
-            }
-        }
+        config={"sources": {"dc8": {"type": "raw_columns_probe", "filename": "ignored.nc"}}}
     )
 
     result = LoadSourcesStage().execute(ctx)

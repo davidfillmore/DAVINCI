@@ -29,7 +29,7 @@ class DataGeometry(Enum):
     """Enumeration of supported data geometry types.
 
     The geometry type determines which pairing strategy will be used
-    to match observations with model output.
+    to match datasets with dataset output.
     """
 
     POINT = auto()
@@ -45,7 +45,7 @@ class DataGeometry(Enum):
     """2D satellite swath (time, scanline, pixel) - L2 products."""
 
     GRID = auto()
-    """Regular grid (time, lat, lon) - L3 products, reanalysis, model output."""
+    """Regular grid (time, lat, lon) - L3 products, reanalysis, dataset output."""
 
 
 # =============================================================================
@@ -53,19 +53,19 @@ class DataGeometry(Enum):
 # =============================================================================
 #
 # A data source is just data of a given geometry (point, track, profile,
-# swath, grid). Models and observations are both data sources; the only thing
-# that distinguishes them is topology, not origin. A model/obs "role" may
+# swath, grid). Datasets and datasets are both data sources; the only thing
+# that distinguishes them is topology, not origin. A dataset/geometry metadata may
 # travel as metadata for labeling and styling, but it never appears in these
 # contracts.
 
 
 @runtime_checkable
 class SourceReader(Protocol):
-    """Protocol for data source readers (models and observations alike).
+    """Protocol for data source readers (datasets and datasets alike).
 
     Every source reader declares the geometry it produces and loads files into
     a standardized xarray Dataset whose ``attrs['geometry']`` is set. This is
-    the unified replacement for ``ModelReader`` and ``ObservationReader``.
+    the unified reader interface for all source geometries.
     """
 
     @property
@@ -114,7 +114,7 @@ class SourceReader(Protocol):
 class SourceProcessor(Protocol):
     """Protocol for data source post-processing operations.
 
-    Unifies ``ModelProcessor`` and ``ObservationProcessor``. Processors handle
+    Processors handle
     unit conversion, vertical-coordinate handling, resampling, QA/QC,
     subsetting, and aggregation, composed into one chain regardless of origin.
     """
@@ -134,8 +134,8 @@ class SourceProcessor(Protocol):
 class PairingStrategy(Protocol):
     """Protocol for source-pairing strategies.
 
-    ``pair_sources`` is the canonical role-neutral API. Concrete strategy
-    classes may keep an internal ``pair(model, obs, ...)`` method that
+    ``pair_sources`` is the canonical  API. Concrete strategy
+    classes may keep an internal ``pair(dataset, geometry, ...)`` method that
     ``pair_sources`` delegates to, but it is not part of this public contract.
     """
 
@@ -148,13 +148,13 @@ class PairingStrategy(Protocol):
     @abstractmethod
     def pair_sources(
         self,
-        reference: xr.Dataset,
-        comparand: xr.Dataset,
+        geometry_data: xr.Dataset,
+        dataset_data: xr.Dataset,
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Pair two role-neutral sources.
+        """Pair two  sources.
 
-        The comparand is sampled onto the reference geometry.
+        The dataset is sampled onto the geometry geometry.
         """
         ...
 
@@ -164,7 +164,7 @@ class PairingEngine(Protocol):
     """Protocol for the main pairing orchestrator.
 
     The pairing engine selects the appropriate strategy based on
-    reference geometry and coordinates the pairing process.
+    geometry geometry and coordinates the pairing process.
     """
 
     @abstractmethod
@@ -175,13 +175,13 @@ class PairingEngine(Protocol):
     @abstractmethod
     def pair_sources(
         self,
-        reference: xr.Dataset,
-        comparand: xr.Dataset,
+        geometry_data: xr.Dataset,
+        dataset_data: xr.Dataset,
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Pair two role-neutral sources using the appropriate strategy.
+        """Pair two  sources using the appropriate strategy.
 
-        The strategy is selected based on the reference Dataset's geometry.
+        The strategy is selected based on the geometry Dataset's geometry.
         """
         ...
 
@@ -209,8 +209,8 @@ class Plotter(Protocol):
     def plot(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Generate a plot from paired data.
@@ -218,11 +218,11 @@ class Plotter(Protocol):
         Parameters
         ----------
         paired_data
-            Paired Dataset containing model and observation variables.
-        obs_var
-            Name of the observation variable to plot.
-        model_var
-            Name of the model variable to plot.
+            Paired Dataset containing dataset and dataset variables.
+        geometry_var
+            Name of the dataset variable to plot.
+        dataset_var
+            Name of the dataset variable to plot.
         **kwargs
             Plot-specific options (colors, labels, domains, etc.).
 
@@ -276,8 +276,8 @@ class SpatialPlotter(Protocol):
     def plot(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         domain: tuple[float, float, float, float] | None = None,
         projection: Any | None = None,
         **kwargs: Any,
@@ -288,10 +288,10 @@ class SpatialPlotter(Protocol):
         ----------
         paired_data
             Paired Dataset.
-        obs_var
-            Compatibility name for reference variable.
-        model_var
-            Compatibility name for comparand variable.
+        geometry_var
+            Compatibility name for geometry variable.
+        dataset_var
+            Compatibility name for dataset variable.
         domain
             Geographic extent (lon_min, lon_max, lat_min, lat_max).
         projection
@@ -334,18 +334,18 @@ class StatisticMetric(Protocol):
     @abstractmethod
     def compute(
         self,
-        obs: xr.DataArray,
-        model: xr.DataArray,
+        geometry: xr.DataArray,
+        dataset: xr.DataArray,
         **kwargs: Any,
     ) -> float:
         """Compute the statistic.
 
         Parameters
         ----------
-        obs
-            Reference values.
-        model
-            Comparand values (aligned with reference).
+        geometry
+            Geometry values.
+        dataset
+            Dataset values (aligned with geometry).
         **kwargs
             Metric-specific options.
 
@@ -365,8 +365,8 @@ class StatisticsCalculator(Protocol):
     def compute(
         self,
         paired_data: xr.Dataset,
-        reference_var: str,
-        comparand_var: str,
+        geometry_var: str,
+        dataset_var: str,
         metrics: Sequence[str] | None = None,
         groupby: str | Sequence[str] | None = None,
         **kwargs: Any,
@@ -377,10 +377,10 @@ class StatisticsCalculator(Protocol):
         ----------
         paired_data
             Paired Dataset.
-        reference_var
-            Reference variable name.
-        comparand_var
-            Comparand variable name.
+        geometry_var
+            Geometry variable name.
+        dataset_var
+            Dataset variable name.
         metrics
             List of metric names to compute. If None, compute all.
         groupby

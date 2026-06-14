@@ -28,13 +28,13 @@ done
 | 01_malformed_yaml.yaml | Unclosed quote | YAML parse error |
 | 02_bad_indentation.yaml | Bad indentation | YAML parse error |
 | 03_missing_analysis.yaml | Missing required section | Validation error |
-| 04_missing_model_files.yaml | Files don't exist | DataNotFoundError |
-| 05_invalid_model_type.yaml | Unknown mod_type | Registry/validation error |
-| 06_invalid_obs_type.yaml | Unknown obs_type | Registry/validation error |
+| 04_missing_dataset_files.yaml | Files don't exist | DataNotFoundError |
+| 05_invalid_dataset_type.yaml | Unknown type | Registry/validation error |
+| 06_invalid_geometry_type.yaml | Unknown type | Registry/validation error |
 | 07_invalid_dates.yaml | Unparseable dates | Validation error |
 | 08_end_before_start.yaml | End < start date | Validation error |
 | 09_type_mismatch.yaml | String where number expected | Validation error |
-| 10_invalid_pair_ref.yaml | Reference to undefined model/obs | Validation error |
+| 10_invalid_pair_ref.yaml | Geometry to undefined dataset/geometry | Validation error |
 | 11_invalid_plot_type.yaml | Unknown plot type | Registry/validation error |
 | 12_empty_file.yaml | Empty config | Validation error |
 | 13_corrupt_env_var.yaml | Undefined env var | Expansion error or file not found |

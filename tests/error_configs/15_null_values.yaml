@@ -6,7 +6,7 @@ analysis:
   end_time: "2024-02-03"
   output_dir: ~
 
-model:
+sources:
   cesm:
-    mod_type: ~
+    type: ~
     files: ~

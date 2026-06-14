@@ -11,7 +11,7 @@ import xarray as xr
 from davinci_monet.core.exceptions import DataFormatError
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.satellite.ceres_l3 import CERESEBAFReader
+from davinci_monet.datasets.satellite.ceres_l3 import CERESEBAFReader
 
 
 def _ebaf_like(nt: int = 3) -> xr.Dataset:
@@ -136,7 +136,7 @@ def test_drop_unused_dims_handles_dim_without_data_vars(tmp_path: Path) -> None:
 # SYN1deg (Phase 2)
 # ---------------------------------------------------------------------------
 
-from davinci_monet.observations.satellite.ceres_l3 import CERESSYN1degReader  # noqa: E402
+from davinci_monet.datasets.satellite.ceres_l3 import CERESSYN1degReader  # noqa: E402
 
 _SYN_FILL = 3.4028234663852886e38
 
@@ -147,7 +147,7 @@ def _pyhdf_sd():
 
 def _write_syn_hdf4(
     path: Path,
-    varname: str = "obs_all_toa_lw_reg",
+    varname: str = "geometry_all_toa_lw_reg",
     nlat: int = 4,
     nlon: int = 4,
     hourly: bool = False,
@@ -160,8 +160,8 @@ def _write_syn_hdf4(
     and ``longitude`` (ascending +-180) SDS plus 2-D (lat, lon) or 3-D
     (gmt_hr_index, lat, lon) data SDS with fill attrs. ``extra_sds`` adds a
     non-regional SDS like real files carry: ``"zonal"`` adds a 1-D
-    ``obs_all_toa_lw_zon`` on ("latitude",); ``"layered"`` adds a 3-D
-    ``obs_cld_amount_reg`` on ("cloud_layer", "latitude", "longitude").
+    ``geometry_all_toa_lw_zon`` on ("latitude",); ``"layered"`` adds a 3-D
+    ``geometry_cld_amount_reg`` on ("cloud_layer", "latitude", "longitude").
     """
     pyhdf_SD = _pyhdf_sd()
     SD, SDC = pyhdf_SD.SD, pyhdf_SD.SDC
@@ -200,12 +200,12 @@ def _write_syn_hdf4(
     s.endaccess()
 
     if extra_sds == "zonal":
-        s = f.create("obs_all_toa_lw_zon", SDC.FLOAT32, nlat)
+        s = f.create("geometry_all_toa_lw_zon", SDC.FLOAT32, nlat)
         s.dim(0).setname("latitude")
         s[:] = np.linspace(150.0, 300.0, nlat).astype(np.float32)
         s.endaccess()
     elif extra_sds == "layered":
-        s = f.create("obs_cld_amount_reg", SDC.FLOAT32, (5, nlat, nlon))
+        s = f.create("geometry_cld_amount_reg", SDC.FLOAT32, (5, nlat, nlon))
         s.dim(0).setname("cloud_layer")
         s.dim(1).setname("latitude")
         s.dim(2).setname("longitude")
@@ -226,11 +226,11 @@ def test_syn_reader_registered_and_grid_geometry() -> None:
 def test_syn_month_file_time_from_filename(tmp_path: Path) -> None:
     p = _write_syn_hdf4(tmp_path / "CER_SYN1deg-Month_Terra-Aqua-NOAA20_Edition4B_415412.202512")
 
-    ds = CERESSYN1degReader().open([p], variables=["obs_all_toa_lw_reg"])
+    ds = CERESSYN1degReader().open([p], variables=["geometry_all_toa_lw_reg"])
 
     assert ds.sizes["time"] == 1
     assert np.datetime64("2025-12-01") == ds["time"].values[0]
-    assert set(ds["obs_all_toa_lw_reg"].dims) == {"time", "lat", "lon"}
+    assert set(ds["geometry_all_toa_lw_reg"].dims) == {"time", "lat", "lon"}
     assert ds.attrs["geometry"] == "grid"
 
 
@@ -240,7 +240,7 @@ def test_syn_day_files_concat_and_sort(tmp_path: Path) -> None:
     _write_syn_hdf4(tmp_path / "CER_SYN1deg-Day_Terra-Aqua-NOAA20_Edition4B_415412.20251201")
 
     ds = CERESSYN1degReader().open(
-        sorted(tmp_path.glob("*.2025120*")), variables=["obs_all_toa_lw_reg"]
+        sorted(tmp_path.glob("*.2025120*")), variables=["geometry_all_toa_lw_reg"]
     )
 
     assert ds.sizes["time"] == 2
@@ -255,7 +255,7 @@ def test_syn_rejects_mixed_cadences(tmp_path: Path) -> None:
     day = _write_syn_hdf4(tmp_path / "CER_SYN1deg-Day_Terra-Aqua-NOAA20_Edition4B_415412.20251202")
 
     with pytest.raises(ValueError, match="mixed SYN1deg cadences"):
-        CERESSYN1degReader().open([month, day], variables=["obs_all_toa_lw_reg"])
+        CERESSYN1degReader().open([month, day], variables=["geometry_all_toa_lw_reg"])
 
 
 def test_syn_hourly_file_expands_24_steps(tmp_path: Path) -> None:
@@ -264,7 +264,7 @@ def test_syn_hourly_file_expands_24_steps(tmp_path: Path) -> None:
         hourly=True,
     )
 
-    ds = CERESSYN1degReader().open([p], variables=["obs_all_toa_lw_reg"])
+    ds = CERESSYN1degReader().open([p], variables=["geometry_all_toa_lw_reg"])
 
     assert ds.sizes["time"] == 24
     assert ds["time"].values[0] == np.datetime64("2025-12-29T00:00")
@@ -277,14 +277,14 @@ def test_syn_latitude_flipped_ascending_with_data(tmp_path: Path) -> None:
     pyhdf_SD = _pyhdf_sd()
     SD, SDC = pyhdf_SD.SD, pyhdf_SD.SDC
     f = SD(str(p), SDC.READ)
-    north_row = np.array(f.select("obs_all_toa_lw_reg").get()[0, :], dtype=np.float64)
+    north_row = np.array(f.select("geometry_all_toa_lw_reg").get()[0, :], dtype=np.float64)
     f.end()
 
-    ds = CERESSYN1degReader().open([p], variables=["obs_all_toa_lw_reg"])
+    ds = CERESSYN1degReader().open([p], variables=["geometry_all_toa_lw_reg"])
 
     lat = ds["lat"].values
     assert np.all(np.diff(lat) > 0)  # ascending after standardization
-    got = ds["obs_all_toa_lw_reg"].sel(lat=89.5).isel(time=0).values
+    got = ds["geometry_all_toa_lw_reg"].sel(lat=89.5).isel(time=0).values
     np.testing.assert_allclose(got, north_row)  # data moved with its coord
 
 
@@ -294,9 +294,9 @@ def test_syn_fill_value_masked(tmp_path: Path) -> None:
         fill_first_cell=True,
     )
 
-    ds = CERESSYN1degReader().open([p], variables=["obs_all_toa_lw_reg"])
+    ds = CERESSYN1degReader().open([p], variables=["geometry_all_toa_lw_reg"])
 
-    da = ds["obs_all_toa_lw_reg"].isel(time=0)
+    da = ds["geometry_all_toa_lw_reg"].isel(time=0)
     assert bool(np.isnan(da.sel(lat=89.5, lon=-179.5)))  # filled cell -> NaN
     assert int(np.isnan(da).sum()) == 1
 
@@ -305,7 +305,7 @@ def test_syn_unparseable_filename_raises(tmp_path: Path) -> None:
     p = _write_syn_hdf4(tmp_path / "not_a_ceres_name.hdf")
 
     with pytest.raises(ValueError, match="filename"):
-        CERESSYN1degReader().open([p], variables=["obs_all_toa_lw_reg"])
+        CERESSYN1degReader().open([p], variables=["geometry_all_toa_lw_reg"])
 
 
 def test_syn_scan_skips_non_regional_sds(tmp_path: Path) -> None:
@@ -316,8 +316,8 @@ def test_syn_scan_skips_non_regional_sds(tmp_path: Path) -> None:
 
     ds = CERESSYN1degReader().open([p])  # variables=None scan
 
-    assert "obs_all_toa_lw_reg" in ds.data_vars
-    assert "obs_all_toa_lw_zon" not in ds.data_vars  # 1-D zonal skipped
+    assert "geometry_all_toa_lw_reg" in ds.data_vars
+    assert "geometry_all_toa_lw_zon" not in ds.data_vars  # 1-D zonal skipped
 
 
 def test_syn_explicit_request_for_layered_var_raises(tmp_path: Path) -> None:
@@ -327,7 +327,7 @@ def test_syn_explicit_request_for_layered_var_raises(tmp_path: Path) -> None:
     )
 
     with pytest.raises(ValueError, match="unsupported dims"):
-        CERESSYN1degReader().open([p], variables=["obs_cld_amount_reg"])
+        CERESSYN1degReader().open([p], variables=["geometry_cld_amount_reg"])
 
 
 def test_syn_missing_requested_variable_raises(tmp_path: Path) -> None:

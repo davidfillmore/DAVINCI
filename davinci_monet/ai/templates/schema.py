@@ -1,7 +1,7 @@
 """Pydantic schema for AI summary comparison templates.
 
 A template is an ordered list of sections; each section declares a fixed
-``format`` and a soft word ``budget`` that become an instruction to the model.
+``format`` and a soft word ``budget`` that become an instruction to the dataset.
 Mirrors the satellite-catalog schema style (``extra='forbid'``).
 """
 
@@ -34,7 +34,7 @@ class TemplateSection(BaseModel):
     instruction: str | None = None
 
     def format_instruction(self) -> str:
-        """Render the model-facing instruction for this section."""
+        """Render the dataset-facing instruction for this section."""
         phrase = _FORMAT_PHRASES[self.format].format(words=self.words)
         if self.instruction:
             return f"{phrase}. {self.instruction}"
@@ -42,7 +42,7 @@ class TemplateSection(BaseModel):
 
 
 class SummaryTemplate(BaseModel):
-    """A named comparison template selected by the comparand variable."""
+    """A named comparison template selected by the dataset variable."""
 
     model_config = ConfigDict(extra="forbid")
 

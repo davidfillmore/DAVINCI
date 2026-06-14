@@ -315,30 +315,30 @@ class GeometryMismatchError(PairingError):
     ----------
     message
         Description of the geometry mismatch.
-    model_geometry
-        Geometry type of model data.
-    obs_geometry
-        Geometry type of observation data.
+    dataset_geometry
+        Geometry type of dataset data.
+    geometry_geometry
+        Geometry type of dataset data.
     """
 
     def __init__(
         self,
         message: str,
-        model_geometry: str | None = None,
-        obs_geometry: str | None = None,
+        dataset_geometry: str | None = None,
+        geometry_geometry: str | None = None,
     ) -> None:
         details: dict[str, Any] = {}
-        if model_geometry is not None:
-            details["model_geometry"] = model_geometry
-        if obs_geometry is not None:
-            details["obs_geometry"] = obs_geometry
+        if dataset_geometry is not None:
+            details["dataset_geometry"] = dataset_geometry
+        if geometry_geometry is not None:
+            details["geometry_geometry"] = geometry_geometry
         super().__init__(message, details)
-        self.model_geometry = model_geometry
-        self.obs_geometry = obs_geometry
+        self.dataset_geometry = dataset_geometry
+        self.geometry_geometry = geometry_geometry
 
 
 class NoOverlapError(PairingError):
-    """Raised when model and observation data have no spatial/temporal overlap.
+    """Raised when dataset and dataset data have no spatial/temporal overlap.
 
     Parameters
     ----------
@@ -346,30 +346,30 @@ class NoOverlapError(PairingError):
         Description of the overlap issue.
     dimension
         Dimension with no overlap (e.g., 'time', 'space').
-    model_range
-        Range of model data.
-    obs_range
-        Range of observation data.
+    dataset_range
+        Range of dataset data.
+    geometry_range
+        Range of dataset data.
     """
 
     def __init__(
         self,
         message: str,
         dimension: str | None = None,
-        model_range: tuple[Any, Any] | None = None,
-        obs_range: tuple[Any, Any] | None = None,
+        dataset_range: tuple[Any, Any] | None = None,
+        geometry_range: tuple[Any, Any] | None = None,
     ) -> None:
         details: dict[str, Any] = {}
         if dimension is not None:
             details["dimension"] = dimension
-        if model_range is not None:
-            details["model_range"] = model_range
-        if obs_range is not None:
-            details["obs_range"] = obs_range
+        if dataset_range is not None:
+            details["dataset_range"] = dataset_range
+        if geometry_range is not None:
+            details["geometry_range"] = geometry_range
         super().__init__(message, details)
         self.dimension = dimension
-        self.model_range = model_range
-        self.obs_range = obs_range
+        self.dataset_range = dataset_range
+        self.geometry_range = geometry_range
 
 
 class InterpolationError(PairingError):
@@ -638,7 +638,7 @@ def write_error_log(
     >>> try:
     ...     ds = xr.open_dataset("bad_file.nc")
     ... except Exception as e:
-    ...     log_path = write_error_log(e, "Opening model data")
+    ...     log_path = write_error_log(e, "Opening dataset data")
     ...     raise DataFormatError(f"Failed to open file. Details: {log_path}") from e
     """
     import traceback

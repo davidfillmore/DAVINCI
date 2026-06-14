@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from davinci_monet.ai.summarizer import extract_bullets
 
-_SAMPLE = """# DAVINCI Model Evaluation Brief
+_SAMPLE = """# DAVINCI Dataset Evaluation Brief
 
 ## What this run is
-Synthetic O3 vs surface obs.
+Synthetic O3 vs surface geometry.
 
 ## Headline metrics
 - Mean Bias +4.82 ppb
@@ -56,5 +56,5 @@ def test_extract_bullets_strips_markdown_emphasis() -> None:
 
 
 def test_extract_bullets_preserves_identifier_underscores() -> None:
-    md = "- Pair synthetic_surface / model_O3 used PM2_5 mapping\n"
-    assert extract_bullets(md) == ["Pair synthetic_surface / model_O3 used PM2_5 mapping"]
+    md = "- Pair synthetic_surface / dataset_O3 used PM2_5 mapping\n"
+    assert extract_bullets(md) == ["Pair synthetic_surface / dataset_O3 used PM2_5 mapping"]

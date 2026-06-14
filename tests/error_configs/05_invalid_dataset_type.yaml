@@ -1,0 +1,20 @@
+# Test 05: Invalid dataset type
+# Expected error: ValidationError or registry lookup failure
+
+analysis:
+  start_time: "2024-02-01"
+  end_time: "2024-02-03"
+  output_dir: ./output
+
+sources:
+  bad_dataset:
+    type: totally_fake_dataset_type_xyz
+    files: /some/path/*.nc
+    variables:
+      O3:
+        unit_scale: 1.0
+
+
+  surface:
+    type: pt_sfc
+    filename: /some/path/geometry.nc

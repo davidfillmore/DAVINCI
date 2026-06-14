@@ -1,13 +1,8 @@
 """Configuration module for DAVINCI.
 
-This module provides Pydantic-based configuration validation,
-YAML parsing, and migration utilities for MELODIES-MONET configs.
+This module provides Pydantic-based configuration validation and YAML parsing.
 """
 
-from davinci_monet.config.migration import (
-    LegacyConfigWarning,
-    migrate_to_sources,
-)
 from davinci_monet.config.parser import (
     ConfigBuilder,
     config_to_yaml,
@@ -50,7 +45,4 @@ __all__ = [
     "config_to_yaml",
     "merge_configs",
     "ConfigBuilder",
-    # Legacy -> unified conversion
-    "migrate_to_sources",
-    "LegacyConfigWarning",
 ]

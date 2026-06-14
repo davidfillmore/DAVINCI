@@ -21,7 +21,7 @@ from davinci_monet.pipeline.stages import (
     StageResult,
     StageStatus,
     StatisticsStage,
-    create_obs_pipeline,
+    create_geometry_pipeline,
     create_standard_pipeline,
 )
 
@@ -37,7 +37,7 @@ __all__ = [
     "StatisticsStage",
     "PlottingStage",
     "SaveResultsStage",
-    "create_obs_pipeline",
+    "create_geometry_pipeline",
     "create_standard_pipeline",
     # Runner
     "PipelineRunner",

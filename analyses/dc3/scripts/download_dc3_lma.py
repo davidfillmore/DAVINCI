@@ -2,7 +2,7 @@
 """Download DC3 Lightning Mapping Array (LMA) data from NCAR EOL.
 
 OKLMA (Oklahoma Lightning Mapping Array) NetCDF grids must be manually
-ordered from the NCAR Earth Observing Laboratory data archive.
+ordered from the NCAR EOL data archive.
 
 Dataset: NCAR EOL dataset 353.202
 URL: https://data.eol.ucar.edu/dataset/353.202
@@ -127,7 +127,7 @@ def main() -> None:
     print(f"  Primary dataset: {DATA_URL}")
     print()
     print("After downloading, run the analysis with:")
-    print("  davinci-monet run analyses/dc3/configs/dc3-obs-lma-gemini.yaml")
+    print("  davinci-monet run analyses/dc3/configs/dc3-geometry-lma-gemini.yaml")
 
 
 if __name__ == "__main__":

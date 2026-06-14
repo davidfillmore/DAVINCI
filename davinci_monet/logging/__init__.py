@@ -13,7 +13,7 @@ Usage:
     configure_logging(level="INFO", log_file="output.log")
 
     # Use the logger
-    logger.info("Processing started", extra={"model": "CMAQ", "obs": "AQS"})
+    logger.info("Processing started", extra={"dataset": "CMAQ", "geometry": "AQS"})
 """
 
 from davinci_monet.logging.config import LogLevel, configure_logging, get_logger, set_log_level

@@ -2,7 +2,7 @@
 """Run MODIS AOD vs CAM6 evaluation pipeline.
 
 Reads MODIS L2 Terra+Aqua granules, bins onto the CAM6 grid, pairs
-with model AODVIS, and generates statistics.
+with dataset AODVIS, and generates statistics.
 
 Usage:
     python run_evaluation.py

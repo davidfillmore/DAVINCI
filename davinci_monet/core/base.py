@@ -1,11 +1,11 @@
 """Base data classes for DAVINCI.
 
-This module provides the paired-data container and the paired-variable / plot
-series helpers that wrap xarray Datasets with role metadata.
+This module provides the paired-data container and plot-series helpers that
+wrap xarray Datasets with dataset-label metadata.
 
 Key Classes:
     - PairedData: Container for paired source data
-    - PlotSeries: One plottable series with role metadata
+    - PlotSeries: One plottable series with dataset metadata
 """
 
 from __future__ import annotations
@@ -21,93 +21,67 @@ from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.types import TimeRange
 
 
-def paired_variable_role(dataset: xr.Dataset, var_name: str) -> str | None:
-    """Source role of a paired variable (renderer rewire R-5).
-
-    Returns the variable's ``role`` attr (``"obs"``/``"model"``) when present,
-    otherwise infers it from the legacy ``obs_``/``model_`` prefix. Returns
-    ``None`` for variables that are neither (coordinates, unrelated vars).
-    """
-    role = dataset[var_name].attrs.get("role") if var_name in dataset.data_vars else None
-    if role is None:
-        lname = str(var_name).lower()
-        if lname.startswith("obs_"):
-            role = "obs"
-        elif lname.startswith("model_"):
-            role = "model"
-    return role
-
-
-def paired_variable_pair_role(dataset: xr.Dataset, var_name: str) -> str | None:
-    """Reference/comparand role of a paired variable.
-
-    ``pair_role`` is the role-neutral pairing position introduced for unified
-    source pairs. Legacy paired data falls back to source role/prefix:
-    ``obs`` -> reference and ``model`` -> comparand.
-    """
+def paired_variable_pair_axis(dataset: xr.Dataset, var_name: str) -> str | None:
+    """Return whether a paired variable belongs to geometry or dataset data."""
     if var_name in dataset.data_vars:
-        pair_role = dataset[var_name].attrs.get("pair_role")
-        if pair_role in ("reference", "comparand"):
-            return str(pair_role)
-    role = paired_variable_role(dataset, var_name)
-    if role == "obs":
-        return "reference"
-    if role == "model":
-        return "comparand"
+        pair_axis = dataset[var_name].attrs.get("pair_axis")
+        if pair_axis in ("geometry", "dataset"):
+            return str(pair_axis)
+    lname = str(var_name).lower()
+    if lname.startswith("geometry_"):
+        return "geometry"
+    if lname.startswith("dataset_"):
+        return "dataset"
     return None
 
 
 def paired_canonical_name(dataset: xr.Dataset, var_name: str) -> str:
-    """Canonical (unprefixed) name of a paired variable (renderer rewire R-5).
+    """Canonical name of a paired variable.
 
-    Strips the source-label prefix (from the variable's ``source_label`` attr,
-    e.g. ``cam_o3`` -> ``o3``) or the legacy ``obs_``/``model_`` prefix. Names
-    with no recognised prefix are returned unchanged.
+    Strips the source-label prefix (from the variable's ``dataset_label`` attr,
+    e.g. ``cam_o3`` -> ``o3``) or the ``geometry_``/``dataset_`` prefix. Names
+    with no recognized prefix are returned unchanged.
     """
     if var_name in dataset.data_vars:
         canonical = dataset[var_name].attrs.get("canonical_name")
         if canonical:
             return str(canonical)
-        source_label = dataset[var_name].attrs.get("source_label")
-        if source_label and var_name.startswith(f"{source_label}_"):
-            return var_name[len(source_label) + 1 :]
-    # Case-insensitive prefix match, consistent with ``paired_variable_role``.
+        dataset_label = dataset[var_name].attrs.get("dataset_label")
+        if dataset_label and var_name.startswith(f"{dataset_label}_"):
+            return var_name[len(dataset_label) + 1 :]
     lname = str(var_name).lower()
-    for prefix in ("obs_", "model_"):
+    for prefix in ("geometry_", "dataset_"):
         if lname.startswith(prefix):
             return var_name[len(prefix) :]
     return var_name
 
 
 def iter_paired_variable_pairs(dataset: xr.Dataset) -> list[tuple[str, str, str]]:
-    """Pair reference variables with their comparand counterparts.
+    """Pair geometry variables with their dataset counterparts.
     counterparts by canonical name (renderer rewire R-5).
 
-    Returns ``(reference_var, comparand_var, canonical)`` triples. Pair roles
-    come from ``pair_role`` with a fallback to the legacy ``obs``/``model``
-    source role and prefixes, so this works for source-label-named paired output
-    as well as legacy or untagged paired data. One variable per position is used, so
-    dual-named data never double-counts.
+    Returns ``(geometry_var, dataset_var, canonical)`` triples. One variable
+    per axis is used, so dual-named data never double-counts.
     """
-    refs: dict[str, str] = {}
-    comps: dict[str, str] = {}
+    geometries: dict[str, str] = {}
+    datasets: dict[str, str] = {}
     for v in dataset.data_vars:
         name = str(v)
-        role = paired_variable_pair_role(dataset, name)
-        if role not in ("reference", "comparand"):
+        pair_axis = paired_variable_pair_axis(dataset, name)
+        if pair_axis not in ("geometry", "dataset"):
             continue
         canonical = paired_canonical_name(dataset, name)
-        (refs if role == "reference" else comps).setdefault(canonical, name)
-    return [(refs[c], comps[c], c) for c in comps if c in refs]
+        (geometries if pair_axis == "geometry" else datasets).setdefault(canonical, name)
+    return [(geometries[c], datasets[c], c) for c in datasets if c in geometries]
 
 
 @dataclass
 class PlotSeries:
-    """One plottable series — a variable from one data source, with role metadata.
+    """One plottable series from one dataset.
 
     The value object the unified renderer contract (``render(series)``) consumes.
     ``index`` is the series' 0-based position within its canonical group and is
-    the styling hook for palette cycling (``get_color_for_role(role, index)``).
+    the styling hook for palette cycling.
 
     Attributes
     ----------
@@ -117,11 +91,9 @@ class PlotSeries:
         The actual variable name in ``dataset`` (e.g. ``cam_o3``/``airnow_o3``/``o3``).
     canonical
         The unprefixed canonical name (e.g. ``o3``).
-    role
-        Source role (``"obs"``/``"model"``/custom) or ``None`` when untagged.
-    pair_role
-        Pairing position (``"reference"``/``"comparand"``) or ``None`` when unpaired.
-    source_label
+    pair_axis
+        Pairing position (``"geometry"``/``"dataset"``) or ``None`` when unpaired.
+    dataset_label
         The source's identity in a unified pair (e.g. ``airnow``/``cam``) or ``None``.
     index
         Position within the canonical group (0-based).
@@ -130,9 +102,8 @@ class PlotSeries:
     dataset: xr.Dataset
     var_name: str
     canonical: str
-    role: str | None
-    pair_role: str | None
-    source_label: str | None
+    pair_axis: str | None
+    dataset_label: str | None
     index: int
 
 
@@ -140,32 +111,29 @@ def iter_canonical_variable_series(dataset: xr.Dataset) -> dict[str, list[PlotSe
     """Group a dataset's source variables by canonical name into :class:`PlotSeries`.
 
     N-capable sibling of :func:`iter_paired_variable_pairs`: where that returns a
-    single ``(reference, comparand)`` pair per canonical, this returns *every*
+    single ``(geometry, dataset)`` pair per canonical, this returns *every*
     source variable for each canonical as an ordered list (1 → single series,
-    2 → reference + comparand, N → multi-source overlay). Only variables carrying
-    a recognised ``role`` or ``pair_role`` (attr, or the legacy ``obs_``/``model_``
-    prefix) are included; bookkeeping vars without a role (e.g. obs counts) are
-    skipped. Series preserve ``data_vars`` order; ``index`` is the 0-based position
-    within the canonical group.
+    2 → geometry + dataset, N → multi-source overlay). Variables are included
+    when they carry a ``dataset_label`` or a ``pair_axis``. Series preserve
+    ``data_vars`` order; ``index`` is the 0-based position within the canonical
+    group.
     """
     groups: dict[str, list[PlotSeries]] = {}
     for v in dataset.data_vars:
         name = str(v)
-        role = paired_variable_role(dataset, name)
-        pair_role = paired_variable_pair_role(dataset, name)
-        if role is None and pair_role is None:
+        pair_axis = paired_variable_pair_axis(dataset, name)
+        dataset_label = dataset[name].attrs.get("dataset_label")
+        if dataset_label is None and pair_axis is None:
             continue
         canonical = paired_canonical_name(dataset, name)
-        source_label = dataset[name].attrs.get("source_label")
         group = groups.setdefault(canonical, [])
         group.append(
             PlotSeries(
                 dataset=dataset,
                 var_name=name,
                 canonical=canonical,
-                role=role,
-                pair_role=pair_role,
-                source_label=str(source_label) if source_label else None,
+                pair_axis=pair_axis,
+                dataset_label=str(dataset_label) if dataset_label else None,
                 index=len(group),
             )
         )
@@ -176,27 +144,24 @@ def iter_canonical_variable_series(dataset: xr.Dataset) -> dict[str, list[PlotSe
 class PairedData:
     """Container for paired source data.
 
-    Canonically, paired data has a reference source and a comparand source.
-    The historical ``obs_label`` and ``model_label`` fields are retained as
-    compatibility aliases for reference and comparand, respectively.
-
+    Canonically, paired data has a geometry source and a dataset source.
     Attributes
     ----------
     data : xr.Dataset
-        The paired dataset with reference and comparand variables.
-    model_label : str
-        Compatibility alias for the comparand source label.
-    obs_label : str
-        Compatibility alias for the reference source label.
+        The paired dataset with geometry and dataset variables.
+    dataset_label : str
+        Compatibility alias for the dataset source label.
+    geometry_label : str
+        Compatibility alias for the geometry source label.
     geometry : DataGeometry
-        The geometry type of the reference data.
+        The geometry type of the geometry data.
     pairing_info : dict[str, Any]
         Metadata about the pairing process.
     """
 
     data: xr.Dataset
-    model_label: str
-    obs_label: str
+    dataset_label: str
+    geometry_label: str
     geometry: DataGeometry
     pairing_info: dict[str, Any] = field(default_factory=dict)
 
@@ -205,119 +170,102 @@ class PairedData:
         cls,
         *,
         data: xr.Dataset,
-        reference_label: str,
-        comparand_label: str,
+        geometry_label: str,
+        dataset_label: str,
         geometry: DataGeometry,
         pairing_info: dict[str, Any] | None = None,
     ) -> "PairedData":
-        """Construct paired data using role-neutral source labels.
-
-        ``obs_label`` and ``model_label`` remain compatibility fields for old
-        callers, but new construction should name the reference and comparand
-        directly.
-        """
+        """Construct paired data from geometry and dataset labels."""
         info = dict(pairing_info or {})
-        info.setdefault("reference_label", reference_label)
-        info.setdefault("comparand_label", comparand_label)
+        info.setdefault("geometry_label", geometry_label)
+        info.setdefault("dataset_label", dataset_label)
         return cls(
             data=data,
-            model_label=comparand_label,
-            obs_label=reference_label,
+            dataset_label=dataset_label,
+            geometry_label=geometry_label,
             geometry=geometry,
             pairing_info=info,
         )
 
     @property
     def pair_label(self) -> str:
-        """Get combined pair label (reference_comparand format)."""
-        return f"{self.reference_label}_{self.comparand_label}"
+        """Get combined pair label."""
+        return f"{self.geometry_label}_{self.dataset_label}"
 
     @property
-    def reference_label(self) -> str:
-        """Label of the reference source."""
-        return str(self.pairing_info.get("reference_label") or self.obs_label)
-
-    @property
-    def comparand_label(self) -> str:
-        """Label of the comparand source."""
-        return str(self.pairing_info.get("comparand_label") or self.model_label)
-
-    @property
-    def reference_variables(self) -> list[str]:
-        """List of reference-role variables in the paired data."""
+    def geometry_variables(self) -> list[str]:
+        """List of geometry variables in the paired data."""
         return [
             str(v)
             for v in self.data.data_vars
-            if paired_variable_pair_role(self.data, str(v)) == "reference"
+            if paired_variable_pair_axis(self.data, str(v)) == "geometry"
         ]
 
     @property
-    def comparand_variables(self) -> list[str]:
-        """List of comparand-role variables in the paired data."""
+    def dataset_variables(self) -> list[str]:
+        """List of dataset variables in the paired data."""
         return [
             str(v)
             for v in self.data.data_vars
-            if paired_variable_pair_role(self.data, str(v)) == "comparand"
+            if paired_variable_pair_axis(self.data, str(v)) == "dataset"
         ]
 
     @property
     def paired_variable_names(self) -> list[tuple[str, str]]:
-        """List of (obs_var, model_var) pairs, matched by canonical name."""
+        """List of (geometry_var, dataset_var) pairs, matched by canonical name."""
         return [
-            (obs_var, model_var) for obs_var, model_var, _ in iter_paired_variable_pairs(self.data)
+            (geometry_var, dataset_var)
+            for geometry_var, dataset_var, _ in iter_paired_variable_pairs(self.data)
         ]
 
-    def _resolve_role_var(self, variable: str, role: str) -> str | None:
-        """Resolve a paired variable for ``role``.
-
-        ``role`` accepts canonical pair roles (``reference``/``comparand``) and
-        compatibility names (``obs``/``model``). Variable lookup accepts exact,
-        legacy-prefixed, bare canonical, or source-label names.
-        """
-        wanted = "reference" if role in {"obs", "reference"} else "comparand"
+    def _resolve_pair_axis_var(self, variable: str, pair_axis: str) -> str | None:
+        """Resolve a paired variable for ``pair_axis``."""
+        wanted = "geometry" if pair_axis == "geometry" else "dataset"
         if (
             variable in self.data.data_vars
-            and paired_variable_pair_role(self.data, variable) == wanted
+            and paired_variable_pair_axis(self.data, variable) == wanted
         ):
             return variable
-        prefix = "obs_" if wanted == "reference" else "model_"
-        legacy = variable if variable.startswith(prefix) else f"{prefix}{variable}"
-        if legacy in self.data.data_vars and paired_variable_pair_role(self.data, legacy) == wanted:
-            return legacy
+        prefix = "geometry_" if wanted == "geometry" else "dataset_"
+        prefixed = variable if variable.startswith(prefix) else f"{prefix}{variable}"
+        if (
+            prefixed in self.data.data_vars
+            and paired_variable_pair_axis(self.data, prefixed) == wanted
+        ):
+            return prefixed
         target = paired_canonical_name(self.data, variable)
         for v in self.data.data_vars:
             name = str(v)
             if (
-                paired_variable_pair_role(self.data, name) == wanted
+                paired_variable_pair_axis(self.data, name) == wanted
                 and paired_canonical_name(self.data, name) == target
             ):
                 return name
         return None
 
-    def get_reference(self, variable: str) -> xr.DataArray:
-        """Get a reference-role variable."""
-        name = self._resolve_role_var(variable, "reference")
+    def get_geometry(self, variable: str) -> xr.DataArray:
+        """Get a geometry variable."""
+        name = self._resolve_pair_axis_var(variable, "geometry")
         if name is None:
             raise VariableNotFoundError(
-                f"Reference variable '{variable}' not found. "
-                f"Available: {self.reference_variables}"
+                f"Geometry variable '{variable}' not found. "
+                f"Available: {self.geometry_variables}"
             )
         result: xr.DataArray = self.data[name]
         return result
 
-    def get_comparand(self, variable: str) -> xr.DataArray:
-        """Get a comparand-role variable."""
-        name = self._resolve_role_var(variable, "comparand")
+    def get_dataset(self, variable: str) -> xr.DataArray:
+        """Get a dataset variable."""
+        name = self._resolve_pair_axis_var(variable, "dataset")
         if name is None:
             raise VariableNotFoundError(
-                f"Comparand variable '{variable}' not found. "
-                f"Available: {self.comparand_variables}"
+                f"Dataset variable '{variable}' not found. " f"Available: {self.dataset_variables}"
             )
         result: xr.DataArray = self.data[name]
         return result
 
     def get_pair(self, variable: str) -> tuple[xr.DataArray, xr.DataArray]:
-        """Get both reference and comparand arrays for a variable.
+        """Get both geometry and dataset arrays for a variable.
 
         Parameters
         ----------
@@ -327,11 +275,11 @@ class PairedData:
         Returns
         -------
         tuple[xr.DataArray, xr.DataArray]
-            (reference_array, comparand_array) tuple.
+            ``(geometry_array, dataset_array)``.
         """
-        reference = self.get_reference(variable)
-        comparand = self.get_comparand(variable)
-        return (reference, comparand)
+        geometry = self.get_geometry(variable)
+        dataset = self.get_dataset(variable)
+        return (geometry, dataset)
 
     @property
     def time_range(self) -> TimeRange | None:
@@ -349,10 +297,10 @@ class PairedData:
         # Count non-NaN pairs for first paired variable
         if not self.paired_variable_names:
             return 0
-        obs_var, model_var = self.paired_variable_names[0]
-        obs_data = self.data[obs_var]
-        model_data = self.data[model_var]
-        valid = ~obs_data.isnull() & ~model_data.isnull()
+        geometry_var, dataset_var = self.paired_variable_names[0]
+        geometry_data = self.data[geometry_var]
+        dataset_data = self.data[dataset_var]
+        valid = ~geometry_data.isnull() & ~dataset_data.isnull()
         return int(valid.sum().values)
 
     def to_dataframe(self) -> Any:
@@ -398,8 +346,8 @@ class PairedData:
 
         return PairedData(
             data=subset,
-            model_label=self.model_label,
-            obs_label=self.obs_label,
+            dataset_label=self.dataset_label,
+            geometry_label=self.geometry_label,
             geometry=self.geometry,
             pairing_info=self.pairing_info,
         )

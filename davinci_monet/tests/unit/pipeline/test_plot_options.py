@@ -44,3 +44,35 @@ def test_plot_subtitle_uses_date_range_or_snapshot() -> None:
         )
         == "2024-01-02 12:00 UTC"
     )
+
+
+def test_single_source_options_move_trailing_date_to_subtitle() -> None:
+    from davinci_monet.pipeline.stages.plot_options import single_source_plot_kwargs
+
+    kwargs = single_source_plot_kwargs(
+        {
+            "type": "flight_track",
+            "geometry": "dc8",
+            "variable": "O3",
+            "title": "DC-8 Flight Track: O3 (ppbv) \u2014 29 May 2012",
+        },
+        analysis_config={"start_time": "2012-05-29", "end_time": "2012-05-30"},
+    )
+
+    assert kwargs["title"] == "DC-8 Flight Track: O3 (ppbv)"
+    assert kwargs["subtitle"] == "2012-05-29 - 2012-05-30"
+
+
+def test_single_source_flight_date_label_stays_out_of_title() -> None:
+    from davinci_monet.pipeline.stages.plot_options import single_source_flight_plot_kwargs
+
+    kwargs = single_source_flight_plot_kwargs(
+        {
+            "title": "DC-8 O3 Time Series",
+            "subtitle": "2012-05-29 - 2012-05-30",
+        },
+        flight_id="2012-05-29",
+    )
+
+    assert kwargs["title"] == "DC-8 O3 Time Series"
+    assert kwargs["subtitle"] == "2012-05-29"

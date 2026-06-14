@@ -1,11 +1,11 @@
-"""P2 of the renderer unification: collapse the obs/paired stage fork.
+"""P2 of the renderer unification: collapse the geometry/paired stage fork.
 
-The unified PlottingStage / StatisticsStage handle obs-only runs (early-dispatch
-when there are observations but no pairs), the obs stages leave the pipeline
-builds, and obs descriptive stats are written to a separate
+The unified PlottingStage / StatisticsStage handle geometry-only runs (early-dispatch
+when there are datasets but no pairs), the geometry stages leave the pipeline
+builds, and geometry descriptive stats are written to a separate
 ``statistics_descriptive.csv`` (Q3) while the paired ``statistics_summary.csv``
 stays byte-identical. These are unit tests: they call stage ``execute`` directly
-(consistent with the existing obs-stage tests), not through the pipeline.
+(consistent with the existing geometry-stage tests), not through the pipeline.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from davinci_monet.pipeline.stages import (
 )
 
 
-def _obs_ctx(tmp_path: Any) -> PipelineContext:
+def _geometry_ctx(tmp_path: Any) -> PipelineContext:
     n = 100
     rng = np.random.default_rng(0)
     ds = xr.Dataset(
@@ -38,12 +38,11 @@ def _obs_ctx(tmp_path: Any) -> PipelineContext:
         },
         coords={"time": np.datetime64("2024-02-01") + np.arange(n) * np.timedelta64(1, "h")},
     )
-    obs = SourceData(
+    geometry = SourceData(
         data=ds,
         label="airnow",
         source_type="pt_sfc",
         geometry=DataGeometry.POINT,
-        role="obs",
     )
     return PipelineContext(
         config={
@@ -51,23 +50,23 @@ def _obs_ctx(tmp_path: Any) -> PipelineContext:
             "plots": {
                 "o3_hist": {
                     "type": "histogram",
-                    "obs": "airnow",
+                    "geometry": "airnow",
                     "variable": "O3",
                     "title": "O3",
                 }
             },
             "stats": {"metrics": ["N", "mean", "median", "std", "min", "max", "p10", "p90"]},
         },
-        sources={"airnow": obs},
+        sources={"airnow": geometry},
     )
 
 
 class TestUnifiedStatisticsStage:
-    def test_validate_true_for_obs_only(self, tmp_path: Any) -> None:
-        assert StatisticsStage().validate(_obs_ctx(tmp_path)) is True
+    def test_validate_true_for_geometry_only(self, tmp_path: Any) -> None:
+        assert StatisticsStage().validate(_geometry_ctx(tmp_path)) is True
 
-    def test_descriptive_stats_for_obs_only(self, tmp_path: Any) -> None:
-        ctx = _obs_ctx(tmp_path)
+    def test_descriptive_stats_for_geometry_only(self, tmp_path: Any) -> None:
+        ctx = _geometry_ctx(tmp_path)
         res = StatisticsStage().execute(ctx)
         assert res.status == StageStatus.COMPLETED
         assert "airnow" in res.data
@@ -79,11 +78,11 @@ class TestUnifiedStatisticsStage:
 
 
 class TestUnifiedPlottingStage:
-    def test_validate_true_for_obs_only(self, tmp_path: Any) -> None:
-        assert PlottingStage().validate(_obs_ctx(tmp_path)) is True
+    def test_validate_true_for_geometry_only(self, tmp_path: Any) -> None:
+        assert PlottingStage().validate(_geometry_ctx(tmp_path)) is True
 
-    def test_execute_creates_obs_plots(self, tmp_path: Any) -> None:
-        ctx = _obs_ctx(tmp_path)
+    def test_execute_creates_geometry_plots(self, tmp_path: Any) -> None:
+        ctx = _geometry_ctx(tmp_path)
         res = PlottingStage().execute(ctx)
         assert res.status == StageStatus.COMPLETED
         pngs = list((tmp_path / "out").glob("*.png"))
@@ -92,7 +91,7 @@ class TestUnifiedPlottingStage:
 
 class TestSaveResultsDescriptive:
     def test_descriptive_writes_separate_csv_not_summary(self, tmp_path: Any) -> None:
-        ctx = _obs_ctx(tmp_path)
+        ctx = _geometry_ctx(tmp_path)
         ctx.results["statistics"] = StatisticsStage().execute(ctx)
         SaveResultsStage().execute(ctx)
         out = tmp_path / "out"
@@ -105,9 +104,9 @@ class TestSaveResultsDescriptive:
 
 
 class TestUnifiedPipelineComposition:
-    def test_obs_stages_dropped_from_standard_pipeline(self) -> None:
+    def test_geometry_stages_dropped_from_standard_pipeline(self) -> None:
         names = [s.name for s in create_standard_pipeline()]
-        assert "obs_statistics" not in names
-        assert "obs_plotting" not in names
+        assert "geometry_statistics" not in names
+        assert "geometry_plotting" not in names
         assert "statistics" in names
         assert "plotting" in names

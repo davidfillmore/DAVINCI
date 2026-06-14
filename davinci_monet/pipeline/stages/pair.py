@@ -1,7 +1,6 @@
 """Pairing stage.
 
-Builds and executes source-pair jobs (explicit ``pairs:`` and implicit
-auto-pairing) through the role-neutral pairing engine.
+Builds and executes source-pair jobs from explicit ``pairs:`` config.
 """
 
 from __future__ import annotations
@@ -25,15 +24,11 @@ from davinci_monet.pipeline.stages.base import (
 from davinci_monet.pipeline.stages.helpers import (
     _format_duration,
     _format_size,
-    tag_paired_roles,
 )
 
 
 class PairingStage(BaseStage):
-    """Stage for pairing model and observation data.
-
-    Uses the pairing engine to match model output with observations.
-    """
+    """Stage for pairing datasets by geometry."""
 
     def __init__(self) -> None:
         super().__init__("pairing")
@@ -47,17 +42,12 @@ class PairingStage(BaseStage):
             return True
         if pairs_config and len(context.sources) >= 2:
             return True
-        # Implicit auto-pairing needs at least one model-role and one obs-role
-        # source available in the unified view.
-        roles = {self._source_role(obj) for _, obj in context.sources.items()}
-        return "model" in roles and "obs" in roles
+        return False
 
     def execute(self, context: PipelineContext) -> StageResult:
-        """Pair source data through the unified role-neutral engine.
+        """Pair source data through the pairing engine.
 
-        Jobs come from the explicit ``pairs:`` block when present, otherwise
-        from implicit auto-pairing synthesized from role-tagged sources and the
-        model source's ``mapping:``. Either way they run through
+        Jobs come from the explicit ``pairs:`` block and run through
         :meth:`_execute_source_pair_jobs` / ``engine.pair_sources``.
         """
         import time
@@ -78,13 +68,6 @@ class PairingStage(BaseStage):
                 count=0,
             )
         if not source_jobs:
-            # No explicit ``pairs:`` block: synthesize jobs from role-tagged
-            # sources using each model source's ``mapping:`` (implicit auto-
-            # pairing). These flow through the same unified executor as ``pairs:``
-            # jobs, so all pairing goes through ``engine.pair_sources``.
-            source_jobs = self._build_implicit_pair_jobs(context)
-
-        if not source_jobs:
             return self._create_result(
                 StageStatus.COMPLETED,
                 data={"paired_keys": []},
@@ -102,11 +85,9 @@ class PairingStage(BaseStage):
     def _build_source_pair_jobs(
         self, context: PipelineContext
     ) -> tuple[list[SourcePairJob], list[str]]:
-        """Build role-neutral pair jobs from the explicit ``pairs:`` block.
+        """Build pair jobs from the explicit ``pairs:`` block.
 
-        Each pair must be in unified form (``sources: [a, b]``). Implicit
-        auto-pairing (no ``pairs:`` block) is handled separately by
-        :meth:`_build_implicit_pair_jobs`.
+        Each pair must be in unified form (``sources: [a, b]``).
         """
         from davinci_monet.pairing.direction import resolve_pair_direction
 
@@ -133,46 +114,46 @@ class PairingStage(BaseStage):
                         label for label in (a_label, b_label) if label not in context.sources
                     ]
                     errors.append(
-                        f"Pair '{pair_name}' references unknown source(s): " f"{', '.join(missing)}"
+                        f"Pair '{pair_name}' names unknown source(s): " f"{', '.join(missing)}"
                     )
                     continue
                 a_obj = context.sources[a_label]
                 b_obj = context.sources[b_label]
                 a_geom = self._source_geometry(a_obj)
                 b_geom = self._source_geometry(b_obj)
-                explicit_ref = raw_pair.get("reference")
+                explicit_geometry_label = raw_pair.get("geometry")
                 explicit_pos = None
-                if explicit_ref is not None:
-                    if explicit_ref == a_label:
+                if explicit_geometry_label is not None:
+                    if explicit_geometry_label == a_label:
                         explicit_pos = "a"
-                    elif explicit_ref == b_label:
+                    elif explicit_geometry_label == b_label:
                         explicit_pos = "b"
                     else:
                         errors.append(
-                            f"Pair '{pair_name}' references unknown source "
-                            f"'{explicit_ref}'. Expected one of {srcs}."
+                            f"Pair '{pair_name}' names unknown source "
+                            f"'{explicit_geometry_label}'. Expected one of {srcs}."
                         )
                         continue
-                ref_geom, comp_geom = resolve_pair_direction(
-                    a_geom, b_geom, explicit_reference=explicit_pos
+                geometry_choice, dataset_choice = resolve_pair_direction(
+                    a_geom, b_geom, explicit_geometry=explicit_pos
                 )
                 if explicit_pos == "b" or (
-                    explicit_pos is None and ref_geom is b_geom and comp_geom is a_geom
+                    explicit_pos is None and geometry_choice is b_geom and dataset_choice is a_geom
                 ):
-                    reference_label, reference_obj = b_label, b_obj
-                    comparand_label, comparand_obj = a_label, a_obj
+                    geometry_label, geometry_obj = b_label, b_obj
+                    dataset_label, dataset_obj = a_label, a_obj
                 else:
-                    reference_label, reference_obj = a_label, a_obj
-                    comparand_label, comparand_obj = b_label, b_obj
+                    geometry_label, geometry_obj = a_label, a_obj
+                    dataset_label, dataset_obj = b_label, b_obj
                 vmap = raw_pair.get("variables") or {}
-                reference_var = vmap.get(reference_label)
-                comparand_var = vmap.get(comparand_label)
-                if not reference_var or not comparand_var:
+                geometry_var = vmap.get(geometry_label)
+                dataset_var = vmap.get(dataset_label)
+                if not geometry_var or not dataset_var:
                     missing = [
                         label
                         for label, value in (
-                            (reference_label, reference_var),
-                            (comparand_label, comparand_var),
+                            (geometry_label, geometry_var),
+                            (dataset_label, dataset_var),
                         )
                         if not value
                     ]
@@ -186,15 +167,13 @@ class PairingStage(BaseStage):
                     SourcePairJob(
                         index=pair_index,
                         pair_key=str(pair_name),
-                        reference_label=reference_label,
-                        reference_obj=reference_obj,
-                        comparand_label=comparand_label,
-                        comparand_obj=comparand_obj,
-                        reference_var=str(reference_var),
-                        comparand_var=str(comparand_var),
-                        reference_role=self._source_role(reference_obj),
-                        comparand_role=self._source_role(comparand_obj),
-                        radius_of_influence=self._pair_radius(raw_pair, comparand_obj),
+                        geometry_label=geometry_label,
+                        geometry_obj=geometry_obj,
+                        dataset_label=dataset_label,
+                        dataset_obj=dataset_obj,
+                        geometry_var=str(geometry_var),
+                        dataset_var=str(dataset_var),
+                        radius_of_influence=self._pair_radius(raw_pair, dataset_obj),
                         strategy_options=self._strategy_options(
                             pairing_config_dict=context.config.get("pairing", {}),
                             pair_spec=raw_pair,
@@ -202,73 +181,8 @@ class PairingStage(BaseStage):
                     )
                 )
             else:
-                errors.append(
-                    f"Pair '{pair_name}' must declare 'sources: [a, b]'. The legacy "
-                    "'model'/'obs'/'variable' pair shape is no longer accepted; run "
-                    "'davinci-monet migrate-config' to convert the control file."
-                )
+                errors.append(f"Pair '{pair_name}' must declare 'sources: [a, b]' and 'variables'.")
         return jobs, errors
-
-    def _build_implicit_pair_jobs(self, context: PipelineContext) -> list[SourcePairJob]:
-        """Synthesize pair jobs when no explicit ``pairs:`` block is configured.
-
-        Implicit auto-pairing: every model-role source is paired against every
-        obs-role source named in that model's ``mapping:`` (``{obs_label: {obs_var:
-        model_var}}``), reference = obs, comparand = model. The pair key matches
-        the historical ``<model_label>_<obs_label>`` form so existing single-block
-        configs (e.g. ``plots: {data: [cmaq_airnow]}``) keep resolving. Jobs run
-        through the same unified executor (``engine.pair_sources``) as ``pairs:``
-        jobs — there is no separate legacy ``engine.pair`` loop.
-
-        ``mapping:`` is read from each source's loaded config
-        (``SourceData.config``).
-        """
-        jobs: list[SourcePairJob] = []
-        pair_index = 0
-
-        for model_label, model_obj in self._model_role_sources(context):
-            mapping = self._source_mapping(model_obj)
-            if not isinstance(mapping, dict) or not mapping:
-                continue
-
-            for obs_label, var_mapping in mapping.items():
-                if not isinstance(var_mapping, dict) or not var_mapping:
-                    continue
-                obs_obj = self._lookup_source(context, str(obs_label))
-                if obs_obj is None:
-                    continue
-                # mapping is {obs_var: model_var}; one job per variable pair.
-                for obs_var, model_var in var_mapping.items():
-                    pair_index += 1
-                    jobs.append(
-                        SourcePairJob(
-                            index=pair_index,
-                            pair_key=f"{model_label}_{obs_label}",
-                            reference_label=str(obs_label),
-                            reference_obj=obs_obj,
-                            comparand_label=str(model_label),
-                            comparand_obj=model_obj,
-                            reference_var=str(obs_var),
-                            comparand_var=str(model_var),
-                            reference_role=self._source_role(obs_obj) or "obs",
-                            comparand_role=self._source_role(model_obj) or "model",
-                            radius_of_influence=self._pair_radius({}, model_obj),
-                            strategy_options=self._strategy_options(
-                                pairing_config_dict=context.config.get("pairing", {}),
-                                pair_spec={},
-                            ),
-                        )
-                    )
-        return jobs
-
-    @staticmethod
-    def _model_role_sources(context: PipelineContext) -> list[tuple[str, Any]]:
-        """Return (label, obj) for model-role sources from ``context.sources``."""
-        return [
-            (str(label), obj)
-            for label, obj in context.sources.items()
-            if PairingStage._source_role(obj) == "model"
-        ]
 
     @staticmethod
     def _lookup_source(context: PipelineContext, label: str) -> Any:
@@ -276,27 +190,9 @@ class PairingStage(BaseStage):
         return context.sources.get(label)
 
     @staticmethod
-    def _source_mapping(obj: Any) -> dict[str, Any]:
-        """Return a source's ``mapping:`` config, if any."""
-        cfg = getattr(obj, "config", None)
-        if isinstance(cfg, dict):
-            mapping = cfg.get("mapping")
-            if isinstance(mapping, dict):
-                return mapping
-        return {}
-
-    @staticmethod
     def _source_dataset(obj: Any) -> xr.Dataset | None:
         data = obj.data if hasattr(obj, "data") else obj
         return data if isinstance(data, xr.Dataset) else None
-
-    @staticmethod
-    def _source_role(obj: Any) -> str | None:
-        role = getattr(obj, "role", None)
-        if role is None:
-            data = PairingStage._source_dataset(obj)
-            role = data.attrs.get("role") if data is not None else None
-        return str(role) if role else None
 
     @staticmethod
     def _source_geometry(obj: Any) -> DataGeometry:
@@ -317,13 +213,13 @@ class PairingStage(BaseStage):
         return PairingEngine()._detect_geometry(data)
 
     @staticmethod
-    def _pair_radius(pair_spec: dict[str, Any], comparand_obj: Any) -> float:
+    def _pair_radius(pair_spec: dict[str, Any], dataset_obj: Any) -> float:
         if pair_spec.get("radius_of_influence") is not None:
             return float(pair_spec["radius_of_influence"])
-        cfg = getattr(comparand_obj, "config", None)
+        cfg = getattr(dataset_obj, "config", None)
         if isinstance(cfg, dict) and cfg.get("radius_of_influence") is not None:
             return float(cfg["radius_of_influence"])
-        return float(getattr(comparand_obj, "radius_of_influence", 12000.0))
+        return float(getattr(dataset_obj, "radius_of_influence", 12000.0))
 
     @staticmethod
     def _strategy_options(
@@ -334,7 +230,7 @@ class PairingStage(BaseStage):
         """Return strategy-specific options from global and pair config."""
         control_keys = {
             "sources",
-            "reference",
+            "geometry",
             "variables",
             "radius_of_influence",
             "time_tolerance",
@@ -391,21 +287,20 @@ class PairingStage(BaseStage):
     ) -> tuple[SourcePairJob, Any, str | None]:
         """Pair a single job. Thread-safe worker: returns, never mutates context.
 
-        Builds its own :class:`PairingConfig` and a *local* :class:`PairingEngine`
-        (no shared engine across threads), runs ``engine.pair_sources`` and
-        :func:`tag_paired_roles` (which mutates only this job's own paired dataset
-        attrs), and returns ``(job, paired_obj, None)`` on success or
-        ``(job, None, "<pair_key>: <err>")`` on failure. It does **not** touch
+        Builds its own :class:`PairingConfig` and a local :class:`PairingEngine`
+        (no shared engine across threads), runs ``engine.pair_sources``, and
+        returns ``(job, paired_obj, None)`` on success or ``(job, None, err)`` on
+        failure. It does **not** touch
         ``context.paired``/``context.metadata`` and does **not** call
         ``context.log_progress`` — all shared-state mutation and progress logging
         stays on the main thread.
         """
         from davinci_monet.pairing import PairingConfig, PairingEngine
 
-        ref_ds = self._source_dataset(job.reference_obj)
-        comp_ds = self._source_dataset(job.comparand_obj)
-        if ref_ds is None or comp_ds is None:
-            return job, None, f"{job.pair_key}: reference or comparand data is None"
+        geometry_ds = self._source_dataset(job.geometry_obj)
+        dataset_ds = self._source_dataset(job.dataset_obj)
+        if geometry_ds is None or dataset_ds is None:
+            return job, None, f"{job.pair_key}: geometry or dataset data is None"
 
         try:
             pairing_cfg = PairingConfig(
@@ -415,23 +310,16 @@ class PairingStage(BaseStage):
             )
             engine = PairingEngine()
             paired_obj = engine.pair_sources(
-                reference=ref_ds,
-                comparand=comp_ds,
-                reference_vars=[job.reference_var],
-                comparand_vars=[job.comparand_var],
-                reference_geometry=self._source_geometry(job.reference_obj),
-                comparand_geometry=self._source_geometry(job.comparand_obj),
+                geometry_data=geometry_ds,
+                dataset_data=dataset_ds,
+                geometry_vars=[job.geometry_var],
+                dataset_vars=[job.dataset_var],
+                output_geometry=self._source_geometry(job.geometry_obj),
+                dataset_geometry=self._source_geometry(job.dataset_obj),
                 config=pairing_cfg,
-                reference_label=job.reference_label,
-                comparand_label=job.comparand_label,
+                geometry_label=job.geometry_label,
+                dataset_label=job.dataset_label,
                 **job.strategy_options,
-            )
-            tag_paired_roles(
-                paired_obj.data,
-                reference_label=job.reference_label,
-                comparand_label=job.comparand_label,
-                reference_role=job.reference_role,
-                comparand_role=job.comparand_role,
             )
             return job, paired_obj, None
         except Exception as e:
@@ -444,7 +332,7 @@ class PairingStage(BaseStage):
         pairing_config_dict: dict[str, Any],
         start: float,
     ) -> StageResult:
-        """Execute source-pair jobs through the role-neutral engine.
+        """Execute source-pair jobs through the pairing engine.
 
         Cross-pair concurrency is HDF5-safe and bounded. Jobs are partitioned by
         :meth:`_is_dask_backed`:
@@ -484,8 +372,8 @@ class PairingStage(BaseStage):
         eager_jobs: list[SourcePairJob] = []
         dask_jobs: list[SourcePairJob] = []
         for job in jobs:
-            ref_ds = self._source_dataset(job.reference_obj)
-            comp_ds = self._source_dataset(job.comparand_obj)
+            ref_ds = self._source_dataset(job.geometry_obj)
+            comp_ds = self._source_dataset(job.dataset_obj)
             if self._is_dask_backed(ref_ds) or self._is_dask_backed(comp_ds):
                 dask_jobs.append(job)
             else:
@@ -504,7 +392,7 @@ class PairingStage(BaseStage):
             nonlocal paired_count
             if error is not None or paired_obj is None:
                 execution_errors.append(
-                    error or f"{job.pair_key}: reference or comparand data is None"
+                    error or f"{job.pair_key}: geometry or dataset data is None"
                 )
                 context.log_progress(f"    parallel_completed: {job.pair_key} - FAILED")
                 return

@@ -1,11 +1,4 @@
-"""Tests for the role-neutral pairing scaffolding (Phase 4).
-
-Phase 4 is additive: it introduces a precedence-based direction resolver, an
-engine ``(reference_geometry, comparand_geometry)`` dispatch table, and a
-role-neutral ``pair_sources`` entrypoint (plus reference/comparand coord-helper
-aliases) — all alongside the existing ``pair(model, obs)`` API, which is left
-untouched so the suite stays green.
-"""
+"""Tests for dataset/geometry pairing direction and dispatch."""
 
 from __future__ import annotations
 
@@ -37,25 +30,25 @@ class TestResolvePairDirection:
 
     def test_same_geometry_warns_and_defaults_to_first(self) -> None:
         with pytest.warns(PairDirectionWarning):
-            ref, comp = resolve_pair_direction(G.GRID, G.GRID)
-        assert (ref, comp) == (G.GRID, G.GRID)
+            geometry, dataset_geometry = resolve_pair_direction(G.GRID, G.GRID)
+        assert (geometry, dataset_geometry) == (G.GRID, G.GRID)
 
     def test_two_different_irregular_warns_and_defaults_to_first(self) -> None:
         with pytest.warns(PairDirectionWarning):
-            ref, comp = resolve_pair_direction(G.POINT, G.TRACK)
-        assert (ref, comp) == (G.POINT, G.TRACK)
+            geometry, dataset_geometry = resolve_pair_direction(G.POINT, G.TRACK)
+        assert (geometry, dataset_geometry) == (G.POINT, G.TRACK)
 
-    def test_explicit_reference_overrides_precedence(self) -> None:
-        # Force GRID as the reference even though POINT would outrank it.
-        ref, comp = resolve_pair_direction(G.POINT, G.GRID, explicit_reference="b")
-        assert (ref, comp) == (G.GRID, G.POINT)
+    def test_explicit_geometry_overrides_precedence(self) -> None:
+        # Force GRID as the geometry even though POINT would outrank it.
+        geometry, dataset_geometry = resolve_pair_direction(G.POINT, G.GRID, explicit_geometry="b")
+        assert (geometry, dataset_geometry) == (G.GRID, G.POINT)
 
-    def test_explicit_reference_a(self) -> None:
-        ref, comp = resolve_pair_direction(G.GRID, G.POINT, explicit_reference="a")
-        assert (ref, comp) == (G.GRID, G.POINT)
+    def test_explicit_geometry_a(self) -> None:
+        geometry, dataset_geometry = resolve_pair_direction(G.GRID, G.POINT, explicit_geometry="a")
+        assert (geometry, dataset_geometry) == (G.GRID, G.POINT)
 
 
-class TestEngineRefCompDispatch:
+class TestEnginePairDispatch:
     def test_supported_pairing_combinations_are_explicit(self) -> None:
         engine = PairingEngine()
         supported = engine.supported_pairing_combinations()
@@ -67,7 +60,7 @@ class TestEngineRefCompDispatch:
         assert (G.GRID, G.GRID) in supported
         assert (G.POINT, G.TRACK) not in supported
 
-    def test_get_strategy_for_irregular_grid_matches_legacy(self) -> None:
+    def test_get_strategy_for_irregular_grid_matches_geometry(self) -> None:
         engine = PairingEngine()
         for geom in (G.POINT, G.TRACK, G.PROFILE, G.SWATH):
             assert engine.get_strategy_for(geom, G.GRID) is engine.get_strategy(geom)
@@ -78,17 +71,17 @@ class TestEngineRefCompDispatch:
 
     def test_unsupported_combo_raises(self) -> None:
         engine = PairingEngine()
-        # comparand must be GRID in the seeded combinations.
+        # dataset must be GRID in the seeded combinations.
         with pytest.raises(PairingError):
             engine.get_strategy_for(G.POINT, G.TRACK)
 
-    def test_legacy_get_strategy_still_works(self) -> None:
+    def test_get_strategy_returns_registered_strategy(self) -> None:
         engine = PairingEngine()
         assert engine.get_strategy(G.POINT).geometry is G.POINT
 
 
 class _SpyStrategy(BasePairingStrategy):
-    """Minimal concrete strategy that records what pair() received."""
+    """Minimal concrete strategy that records what pair_sources() received."""
 
     def __init__(self) -> None:
         self.captured: dict[str, Any] = {}
@@ -97,10 +90,10 @@ class _SpyStrategy(BasePairingStrategy):
     def geometry(self) -> DataGeometry:
         return DataGeometry.POINT
 
-    def pair(
+    def pair_sources(
         self,
-        model: xr.Dataset,
-        obs: xr.Dataset,
+        geometry_data: xr.Dataset,
+        dataset_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
@@ -115,7 +108,7 @@ class _SpyStrategy(BasePairingStrategy):
                 "horizontal_method": horizontal_method,
             }
         )
-        self.captured = {"model": model, "obs": obs, "kwargs": kwargs}
+        self.captured = {"dataset": dataset_data, "geometry": geometry_data, "kwargs": kwargs}
         return xr.Dataset(attrs={"ok": True})
 
 
@@ -126,24 +119,28 @@ def _coords_ds(lat: float, lon: float) -> xr.Dataset:
     )
 
 
-class TestRoleNeutralWrapper:
-    def test_pair_sources_maps_reference_to_obs_and_comparand_to_model(self) -> None:
+class TestPairSourcesWrapper:
+    def test_pair_sources_maps_geometry_to_geometry_and_dataset_to_dataset(self) -> None:
         strat = _SpyStrategy()
-        reference = _coords_ds(10.0, 20.0)
-        comparand = _coords_ds(30.0, 40.0)
-        out = strat.pair_sources(reference=reference, comparand=comparand, radius_of_influence=1.0)
+        geometry = _coords_ds(10.0, 20.0)
+        dataset = _coords_ds(30.0, 40.0)
+        out = strat.pair_sources(
+            geometry_data=geometry, dataset_data=dataset, radius_of_influence=1.0
+        )
         assert out.attrs["ok"] is True
-        # reference -> obs, comparand -> model (preserving today's model->obs sampling).
-        assert strat.captured["obs"] is reference
-        assert strat.captured["model"] is comparand
+        assert strat.captured["geometry"] is geometry
+        assert strat.captured["dataset"] is dataset
         assert strat.captured["kwargs"]["radius_of_influence"] == 1.0
 
-    def test_coord_helper_aliases(self) -> None:
+    def test_coord_helpers_return_dataset_and_geometry_coordinates(self) -> None:
         strat = _SpyStrategy()
-        ref = _coords_ds(1.0, 2.0)
-        comp = _coords_ds(3.0, 4.0)
-        # reference alias mirrors _get_obs_coords; comparand alias mirrors _get_model_coords.
-        assert strat._get_reference_coords(ref)[0].values == strat._get_obs_coords(ref)[0].values
-        assert (
-            strat._get_comparand_coords(comp)[0].values == strat._get_model_coords(comp)[0].values
-        )
+        geometry = _coords_ds(1.0, 2.0)
+        dataset = _coords_ds(3.0, 4.0)
+
+        geometry_lat, geometry_lon = strat._get_geometry_coords(geometry)
+        dataset_lat, dataset_lon = strat._get_dataset_coords(dataset)
+
+        assert geometry_lat.values == pytest.approx(np.array([1.0]))
+        assert geometry_lon.values == pytest.approx(np.array([2.0]))
+        assert dataset_lat.values == pytest.approx(np.array([3.0]))
+        assert dataset_lon.values == pytest.approx(np.array([4.0]))

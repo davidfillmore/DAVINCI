@@ -1,8 +1,8 @@
 """Integration: MERRA-2 reader through the full pipeline.
 
 Exercises PipelineRunner.run_from_config() with a ``type: merra2`` GRID source
-paired against a synthetic GRID obs source, mirroring MERRA-2 AOD vs a gridded
-AOD reference. This is the pipeline path a user takes with ``davinci-monet run``.
+paired against a synthetic GRID geometry source, mirroring MERRA-2 AOD vs a gridded
+AOD geometry. This is the pipeline path a user takes with ``davinci-monet run``.
 """
 
 from __future__ import annotations
@@ -33,11 +33,11 @@ def _grid(varname: str, seed: int) -> xr.Dataset:
 
 def test_merra2_reader_pipeline(tmp_path: Path) -> None:
     m_dir = tmp_path / "merra2"
-    o_dir = tmp_path / "obs"
+    o_dir = tmp_path / "geometry"
     m_dir.mkdir()
     o_dir.mkdir()
     _grid("TOTEXTTAU", seed=1).to_netcdf(m_dir / "MERRA2_400.tavgM_2d_aer_Nx.202604.nc4")
-    _grid("aod_550nm", seed=2).to_netcdf(o_dir / "obs.nc")
+    _grid("aod_550nm", seed=2).to_netcdf(o_dir / "geometry.nc")
 
     out_dir = tmp_path / "output"
     config = {
@@ -50,33 +50,31 @@ def test_merra2_reader_pipeline(tmp_path: Path) -> None:
         "sources": {
             "merra2": {
                 "type": "merra2",
-                "role": "model",
                 "files": str(m_dir / "*.nc4"),
                 "variables": {"TOTEXTTAU": {"units": "1"}},
             },
-            "ref": {
+            "aod_grid": {
                 "type": "generic",
-                "role": "obs",
                 "files": str(o_dir / "*.nc"),
                 "variables": {"aod_550nm": {"units": "1"}},
             },
         },
         "pairs": {
-            "merra2_vs_ref": {
-                "sources": ["merra2", "ref"],
-                "reference": "ref",
-                "variables": {"merra2": "TOTEXTTAU", "ref": "aod_550nm"},
+            "merra2_aod_grid": {
+                "sources": ["merra2", "aod_grid"],
+                "geometry": "aod_grid",
+                "variables": {"merra2": "TOTEXTTAU", "aod_grid": "aod_550nm"},
             }
         },
         "plots": {
             "bias": {
                 "type": "spatial_bias",
-                "pairs": ["merra2_vs_ref"],
+                "pairs": ["merra2_aod_grid"],
                 "title": "AOD Bias",
             },
             "sc": {
                 "type": "scatter",
-                "pairs": ["merra2_vs_ref"],
+                "pairs": ["merra2_aod_grid"],
                 "title": "AOD Scatter",
             },
         },
@@ -104,7 +102,7 @@ _IO_AER = Path("/Volumes/Io/MERRA2_tavgM/aer_Nx")
 )
 def test_real_merra2_file_opens() -> None:
     """Smoke: open one staged monthly aerosol file via the MERRA-2 reader."""
-    from davinci_monet.models.merra2 import MERRA2Reader
+    from davinci_monet.datasets.merra2 import MERRA2Reader
 
     files = sorted(
         f for f in _IO_AER.glob("MERRA2_*.tavgM_2d_aer_Nx.*.nc4") if not f.name.startswith("._")

@@ -14,7 +14,7 @@ Statistical plots:
 
 Spatial plots:
 - SpatialBiasPlotter: Bias maps
-- SpatialOverlayPlotter: Model/obs overlays
+- SpatialOverlayPlotter: Dataset/geometry overlays
 - SpatialDistributionPlotter: Value distribution maps
 
 Specialized plots:

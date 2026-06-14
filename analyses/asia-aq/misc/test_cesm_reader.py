@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-Test CESM/CAM reader with ASIA-AQ model output.
+Test CESM/CAM reader with ASIA-AQ dataset output.
 
 This script verifies that the DAVINCI-MONET CESM reader correctly
-loads and standardizes the ASIA-AQ model output.
+loads and standardizes the ASIA-AQ dataset output.
 """
 
 from pathlib import Path
@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Import DAVINCI modules
-from davinci_monet.models.cesm import CESMFVReader
+from davinci_monet.datasets.cesm import CESMFVReader
 
 # Data paths
 DATA_DIR = Path.home() / "Data" / "ASIA-AQ"
@@ -45,7 +45,7 @@ def test_cesm_reader() -> None:
 
     print(f"\nDataset loaded:")
     print(f"  Label: cesm_asiaq")
-    print(f"  Model type: cesm_fv")
+    print(f"  Dataset type: cesm_fv")
 
     print(f"\n--- Dataset Structure ---")
     print(f"  Dimensions: {dict(ds.sizes)}")
@@ -70,7 +70,7 @@ def test_cesm_reader() -> None:
     if "z" in ds.dims:
         print(f"  Vertical levels: {len(ds.z)}")
 
-    # Surface values (lowest model level = index 0 for CESM)
+    # Surface values (lowest dataset level = index 0 for CESM)
     # Note: CESM levels go from surface (z=0) to top (z=-1)
     print(f"\n--- Surface Values (level 0) ---")
     for var in ["O3", "NO2", "CO", "PM25"]:

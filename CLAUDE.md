@@ -2,11 +2,11 @@
 
 **Data Analysis and Visual Intelligence for Climate**
 
-A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air quality models against observations, based on MELODIES-MONET.
+A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air quality datasets against datasets, based on MELODIES-MONET.
 
 ---
 
-**Session Reminder**: Agentic AI coding is cognitively intense - you're managing a fast-moving collaborator while maintaining your own mental model. Remember to:
+**Session Reminder**: Agentic AI coding is cognitively intense - you're managing a fast-moving collaborator while maintaining your own mental dataset. Remember to:
 - Take breaks between major tasks (stretch, move around)
 - Step away when stuck - insights often come when you're not at the keyboard
 - You control the pace - slow down when needed
@@ -22,26 +22,26 @@ A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air 
 
 ---
 
-## Cross-Model Handoff Convention
+## Cross-Dataset Handoff Convention
 
-This repo uses **cross-model code reviews and hand-offs** (e.g., Claude Opus writes implementation, Codex reviews, then back). Handoff files follow a consistent structure so any model can pick up context quickly.
+This repo uses **cross-dataset code reviews and hand-offs** (e.g., Claude Opus writes implementation, Codex reviews, then back). Handoff files follow a consistent structure so any dataset can pick up context quickly.
 
 ### Handoff File Format
 
-Use `REVIEW_<MODEL>.md` or `HANDOFF_<TOPIC>.md` in the repo root. Structure:
+Use `REVIEW_<DATASET>.md` or `HANDOFF_<TOPIC>.md` in the repo root. Structure:
 
 ```markdown
 ## Context
 Branch, task description, which files are involved
 
 ## Changes Made
-What was done, with file paths and line references
+What was done, with file paths and line links
 
 ## Decisions & Rationale
-Why choices were made — prevents the next model from undoing or redoing work
+Why choices were made — prevents the next dataset from undoing or redoing work
 
 ## Open Questions / Concerns
-Things the next model should investigate or address
+Things the next dataset should investigate or address
 
 ## Suggested Next Steps
 Specific actionable items
@@ -51,7 +51,7 @@ Specific actionable items
 
 - **One file per task/feature** — scoped context, not a running log
 - **Always include Decisions & Rationale** — this is the highest-value section
-- **Reference file paths and line numbers** — so the next model can verify without searching
+- **Geometry file paths and line numbers** — so the next dataset can verify without searching
 - **Check for handoff files at session start** — look for `REVIEW_*.md` or `HANDOFF_*.md` in repo root
 - **Git diff supplements the handoff** — the file gives intent, `git diff` gives the changes
 - **Do NOT track handoff files in git** — these are ephemeral working artifacts, not permanent records. Delete them once the handoff is complete.
@@ -93,7 +93,7 @@ CESM uses hybrid sigma-pressure coordinates where **pressure increases with leve
 - `lev=0` → **Top of Atmosphere** (stratosphere, ~3 hPa)
 - `lev=-1` (last index) → **Surface** (highest pressure, ~1000 hPa)
 
-**Common symptom**: Model O3 values of 5000-10000 ppb (stratospheric) instead of 30-80 ppb (surface).
+**Common symptom**: Dataset O3 values of 5000-10000 ppb (stratospheric) instead of 30-80 ppb (surface).
 
 **The fix** is single-sourced in `_extract_surface()` in `pairing/strategies/base.py` (the live pairing path). Spatial renderers that slice a vertical level use the matching `surface_level_index()` helper in `plots/renderers/spatial/base.py` so map overlays default to the surface, not the top of atmosphere:
 ```python
@@ -119,7 +119,7 @@ else:
 3. **CLI integration** — Check `cli/app.py` and `pipeline/runner.py` for flags like `--show-plots`. New pipeline stages must work with existing CLI features
 4. **Config naming conventions** — Check `analyses/*/configs/` for naming patterns (e.g., `*-gemini.yaml` for machine-specific configs with absolute paths)
 5. **Pipeline stage contracts** — Check what data keys existing stages return (e.g., `plots_generated`) and ensure new stages follow the same contracts
-6. **Data conventions** — Check observation readers for coordinate aliases, unit conventions, and standardization patterns already in place
+6. **Data conventions** — Check dataset readers for coordinate aliases, unit conventions, and standardization patterns already in place
 
 **The audit is not optional.** Every missed convention costs a debugging + fix cycle that's slower than reading the code upfront.
 
@@ -190,13 +190,13 @@ conda activate davinci
 - **Maintainability**: Small, focused modules (<500 lines each)
 - **Type Safety**: Full type hints, mypy strict mode
 - **Performance**: Parallel processing, lazy loading
-- **Extensibility**: Plugin architecture for models/observations/plotters
+- **Extensibility**: Plugin architecture for datasets/datasets/plotters
 
 ## Key Design Principles
 
 1. **Uniform Pairing Logic**: Strategy based on data geometry (point, track, profile, swath, grid) not data source
 
-2. **xarray-Only Data Model**: All data as `xr.Dataset` throughout pairing/analysis. Pandas only for I/O adapters and stats output tables.
+2. **xarray-Only Data Dataset**: All data as `xr.Dataset` throughout pairing/analysis. Pandas only for I/O adapters and stats output tables.
 
 3. **Synthetic Data for Testing**: Generate test data programmatically - no external dataset dependencies
 
@@ -206,8 +206,8 @@ conda activate davinci
 davinci_monet/
 ├── core/           # Protocols, registry, base classes, exceptions
 ├── config/         # Pydantic schemas, YAML parsing
-├── models/         # Model implementations (CMAQ, WRF-Chem, etc.)
-├── observations/   # Observation handlers (surface, aircraft, satellite)
+├── datasets/         # Dataset implementations (CMAQ, WRF-Chem, etc.)
+├── datasets/   # Dataset handlers (surface, aircraft, satellite)
 ├── pairing/        # Unified pairing engine + strategies
 │   └── strategies/ # point, track, profile, swath, grid
 ├── plots/          # Modular plotting system
@@ -234,12 +234,11 @@ davinci_monet/
 ### Pipeline Stages
 
 The standard pipeline executes these stages in order:
-1. `load_models` - Load model data, apply unit conversions
-2. `load_observations` - Load observation data, apply unit conversions
-3. `pairing` - Pair model with observations using geometry-specific strategies
-4. `statistics` - Calculate evaluation metrics (N, MB, RMSE, R, NMB, NME, IOA)
-5. `plotting` - Generate scatter, spatial bias, time series plots
-6. `save_results` - Write statistics to CSV
+1. `load_sources` - Load source data, apply unit conversions
+2. `pairing` - Pair datasets with geometries using geometry-specific strategies
+3. `statistics` - Calculate evaluation metrics (N, MB, RMSE, R, NMB, NME, IOA)
+4. `plotting` - Generate scatter, spatial bias, time series plots
+5. `save_results` - Write statistics to CSV
 
 ### Running a Pipeline
 
@@ -265,10 +264,10 @@ analysis:
   output_dir: ${MY_ANALYSIS}/output  # Supports env var expansion
   log_dir: ${MY_ANALYSIS}/logs       # Pipeline logs with timestamps
 
-model:
-  my_model:
-    mod_type: cesm_fv  # or cmaq, wrfchem, ufs, generic
-    files: ${MY_DATA}/model/*.nc     # Env vars in paths
+sources:
+  cam:
+    type: cesm_fv  # or cmaq, wrfchem, ufs, generic
+    files: ${MY_DATA}/dataset/*.nc     # Env vars in paths
     radius_of_influence: 15000
     variables:
       PM25:
@@ -276,35 +275,42 @@ model:
       O3:
         unit_scale: 1.0e9  # mol/mol to ppb
 
-obs:
-  my_obs:
-    obs_type: pt_sfc
-    filename: ${MY_ANALYSIS}/data/observations.nc
+  airnow:
+    type: pt_sfc
+    filename: ${MY_ANALYSIS}/data/datasets.nc
     variables:
       pm25:
-        obs_min: 0
-        obs_max: 500
+        geometry_min: 0
+      o3:
+        geometry_min: 0
 
 pairs:
-  model_obs_pm25:
-    model: my_model
-    obs: my_obs
+  cam_airnow:
+    sources: [cam, airnow]
+    geometry: airnow
+    variables: {cam: O3, airnow: o3}
+        geometry_max: 500
+
+pairs:
+  dataset_geometry_pm25:
+    dataset: my_dataset
+    geometry: my_geometry
     variable:
-      model_var: PM25
-      obs_var: pm25
+      dataset_var: PM25
+      geometry_var: pm25
 
 plots:
   pm25_scatter:
     type: scatter
-    pairs: [model_obs_pm25]
-    title: "PM2.5 Model vs Observations"
+    pairs: [dataset_geometry_pm25]
+    title: "PM2.5 Dataset vs Datasets"
 
 stats:
   metrics: [N, MB, RMSE, R, NMB, NME, IOA]
 
 summary:
   enabled: true
-  model: claude-haiku-4-5  # cheapest vision model
+  dataset: claude-haiku-4-5  # cheapest vision dataset
   max_images: 8
 ```
 
@@ -312,7 +318,7 @@ summary:
 
 Tracked configs use `{campaign}-{variant}.example.yaml` with environment variables for portability. Examples:
 - `asia-aq-airnow.example.yaml` — ASIA-AQ AirNow surface evaluation
-- `dc3-obs-dc8.example.yaml` — DC3 obs-only DC-8 analysis
+- `dc3-geometry-dc8.example.yaml` — DC3 geometry-only DC-8 analysis
 - `modis-aod-cam6.example.yaml` — MODIS AOD vs CAM6
 
 Machine-specific configs (`*-gemini.yaml`, `*-derecho.yaml`) are gitignored — keep them local, don't commit.
@@ -328,27 +334,27 @@ export MY_ANALYSIS=/path/to/analysis
 ### Variable Naming Convention
 
 Paired datasets produced by the pipeline use **source-label prefix** format —
-`<source_label>_<var>`, where `<source_label>` is the source's key in the
+`<dataset_label>_<var>`, where `<dataset_label>` is the source's key in the
 `sources:`/`pairs:` config:
-- `cam_pm25` - the `cam` source's values (comparand, `role: model`)
-- `airnow_pm25` - the `airnow` source's values (reference, `role: obs`)
+- `cam_pm25` - the `cam` source's values (dataset, `pair_axis: dataset`)
+- `airnow_pm25` - the `airnow` source's values (geometry, `pair_axis: geometry`)
 
-Each paired variable carries `role` (`model`/`obs`) and `source_label` attrs, so
-consumers select series by role/source rather than by a name prefix. This is the
+Each paired variable carries `pair_axis` (`dataset`/`geometry`) and `dataset_label` attrs, so
+consumers select series by pair_axis/source rather than by a name prefix. This is the
 going-forward naming after the renderer rewire clean break (R-5).
 
 Pipeline and `PairingEngine.pair_sources()` output is source-label named. Direct
 strategy implementations may still use adapter-local variable names internally,
 but those are not the public paired dataset convention.
 
-Either way it is **prefix** format, NOT suffix (`pm25_cam`, `pm25_model`).
+Either way it is **prefix** format, NOT suffix (`pm25_cam`, `pm25_dataset`).
 
 ## Key Design Patterns
 
 1. **Plugin Registry**: Components register via decorators
    ```python
-   @model_registry.register('cmaq')
-   class CMAQModel(BaseModel): ...
+   @source_registry.register('cmaq')
+   class CMAQReader(BaseModel): ...
    ```
 
 2. **Protocol-based Interfaces**: Python Protocols define contracts
@@ -357,65 +363,59 @@ Either way it is **prefix** format, NOT suffix (`pm25_cam`, `pm25_model`).
 
 4. **Pipeline Architecture**: Composable stages replace monolithic methods
 
-## Data Model (xarray-only)
+## Data Dataset (xarray-only)
 
 ```
-Model:   xr.Dataset with dims (time, level, lat, lon)
+Dataset:   xr.Dataset with dims (time, level, lat, lon)
 Point:   xr.Dataset with dims (time, site) + lat/lon coords
 Track:   xr.Dataset with dims (time,) + lat/lon/alt coords
 Profile: xr.Dataset with dims (time, level) + lat/lon coords
 Swath:   xr.Dataset with dims (time, scanline, pixel)
 Grid:    xr.Dataset with dims (time, lat, lon)
-Paired:  xr.Dataset with aligned model + obs variables
+Paired:  xr.Dataset with aligned dataset + geometry variables
 ```
 
 ## External Dependencies
 
 - Continues using monet/monetio libraries for data I/O
-- YAML control files should use the unified `sources:` schema. Legacy
-  `model:`/`obs:` pair shapes are rejected by validation; use
-  `davinci-monet migrate-config` to convert old controls.
+- YAML control files should use the unified `sources:` schema.
+  `dataset:`/`geometry:` pair shapes are rejected by validation.
 
 ## Unified Data-Source Config (`sources:`)
 
-As of the model/obs unification, the going-forward config format is a single
-`sources:` block plus binary `pairs:`. Models and observations are both data
-sources distinguished only by geometry; a `role: model|obs` tag is optional
+As of the dataset/geometry unification, the going-forward config format is a single
+`sources:` block plus binary `pairs:`. Datasets and datasets are both data
+sources distinguished only by geometry; a `pair_axis: dataset|geometry` tag is optional
 metadata for plot styling/legends and never drives pairing.
 
 ```yaml
 sources:
   cam:
     type: cesm_fv
-    role: model            # optional — styling/legend only
+    pair_axis: dataset            # optional — styling/legend only
     files: ${DATA}/cam/*.nc
     variables: { O3: { unit_scale: 1.0e9 } }
   airnow:
     type: pt_sfc
-    role: obs
+    pair_axis: geometry
     filename: ${DATA}/airnow.nc
-    variables: { o3: { obs_min: 0, obs_max: 500 } }
+    variables: { o3: { geometry_min: 0, geometry_max: 500 } }
 
 pairs:
   cam_vs_airnow_o3:
     sources: [cam, airnow]   # order does not imply direction
-    reference: airnow        # optional; default by geometry precedence
+    geometry: airnow        # optional; default by geometry precedence
     variables: { cam: O3, airnow: o3 }
 ```
 
-**Migrate a legacy control file**:
-```bash
-davinci-monet migrate-config old.yaml -o new.yaml
-```
-
 Direction precedence: irregular geometries (point/track/profile/swath) outrank
-GRID as the pairing reference, so a gridded source is sampled onto them. When two
-same-geometry sources are paired with no explicit `reference:`, the first-listed
-source is the reference (with a warning).
+GRID as the pairing geometry, so a gridded source is sampled onto them. When two
+same-geometry sources are paired with no explicit `geometry:`, the first-listed
+source is the geometry (with a warning).
 
 ## Working Example: ASIA-AQ Analysis
 
-Reference implementation in `analyses/asia-aq/`:
+Geometry implementation in `analyses/asia-aq/`:
 
 ```
 analyses/asia-aq/
@@ -424,7 +424,7 @@ analyses/asia-aq/
 ├── scripts/
 │   ├── download_airnow.py          # Data download
 │   └── run_evaluation.py           # Pipeline execution
-├── data/                           # Observation data (gitignored)
+├── data/                           # Dataset data (gitignored)
 ├── output/                         # Plots and statistics (gitignored)
 └── logs/                           # Pipeline logs (gitignored)
 ```
@@ -463,13 +463,13 @@ from davinci_monet.plots import apply_ncar_style, plot_timeseries
 apply_ncar_style()
 
 # Create plots with consistent styling
-fig = plot_timeseries(paired_data, "obs_o3", "model_o3")
+fig = plot_timeseries(paired_data, "geometry_o3", "dataset_o3")
 ```
 
 **Key colors** (`davinci_monet.plots.style`):
-- `NCAR_PRIMARY`: NCAR Blue (#0A5DDA) — brand color, used for **obs-only** plots
-- `OBS_COLOR`: Gray (#58595B) — observations **in model-vs-obs paired** plots (for contrast)
-- `MODEL_COLOR`: NCAR Blue (#0A5DDA) — model data in paired plots
+- `NCAR_PRIMARY`: NCAR Blue (#0A5DDA) — brand color, used for **geometry-only** plots
+- `DATASET_A_COLOR`: Gray (#58595B) — datasets **in dataset-vs-geometry paired** plots (for contrast)
+- `DATASET_B_COLOR`: NCAR Blue (#0A5DDA) — dataset data in paired plots
 - `NCAR_PALETTE`: 8-color palette for multiple datasets / per-flight coloring
 
 **Context presets**:
@@ -481,7 +481,7 @@ fig = plot_timeseries(paired_data, "obs_o3", "model_o3")
 
 ## Common Gotchas
 
-1. **Unit conversions**: Model variables often need `unit_scale` in config:
+1. **Unit conversions**: Dataset variables often need `unit_scale` in config:
    - CESM mixing ratios (mol/mol) → ppb: `unit_scale: 1.0e9`
    - CESM PM mass (kg/kg) → µg/m³: `unit_scale: 1.2e9`
 
@@ -489,19 +489,19 @@ fig = plot_timeseries(paired_data, "obs_o3", "model_o3")
 
 3. **CESM vertical levels**: Surface is `lev=-1` (last index), NOT `lev=0`. See CRITICAL warning above. This has caused bugs 4+ times.
 
-4. **Observation coordinates**: Must have `latitude`, `longitude` as coordinates or variables
+4. **Dataset coordinates**: Must have `latitude`, `longitude` as coordinates or variables
 
-5. **Time alignment**: Pipeline uses nearest-neighbor interpolation for model→obs times
+5. **Time alignment**: Pipeline uses nearest-neighbor interpolation for dataset→geometry times
 
-6. **High-frequency observations**: Use `resample` to average sub-hourly data to match model resolution:
+6. **High-frequency datasets**: Use `resample` to average sub-hourly data to match dataset resolution:
    ```yaml
-   obs:
+   geometry:
      pandora:
-       obs_type: pt_sfc
+       type: pt_sfc
        filename: /data/pandora/*.nc
        resample: "h"           # Average to hourly
-       min_obs_count: 3        # Require ≥3 obs per hour (reject sparse hours)
-       track_obs_count: true   # Add obs_count variable for diagnostics
+       min_geometry_count: 3        # Require ≥3 geometry per hour (reject sparse hours)
+       track_geometry_count: true   # Add geometry_count variable for diagnostics
    ```
 
 7. **Scatter plot density**: For busy scatter plots with many points, enable density coloring:
@@ -524,7 +524,7 @@ fig = plot_timeseries(paired_data, "obs_o3", "model_o3")
 9. **AI summary stage**: The `summary:` block enables an opt-in final stage that
    sends stats + plot images to the Claude API (`pip install -e ".[ai]"`,
    `ANTHROPIC_API_KEY`). It is always non-fatal — missing key/network just skips
-   it. Default model `claude-haiku-4-5`. Vision images are downscaled to ≤1568px.
+   it. Default dataset `claude-haiku-4-5`. Vision images are downscaled to ≤1568px.
    The provider can be `anthropic` (default, `ANTHROPIC_API_KEY`) or `openrouter`
    (`provider: openrouter`, key via `api_key_file:` or `OPENROUTER_API_KEY`,
-   default model `anthropic/claude-haiku-4.5`).
+   default dataset `anthropic/claude-haiku-4.5`).

@@ -15,16 +15,16 @@ Rules for all AI agents working in this repository. **Read `CLAUDE.md` for full 
 - **NEVER merge to main**: Only the user decides when to merge
 - **After merge, return to develop**: Always switch back to `develop` branch
 
-## Cross-Model Handoff Convention
+## Cross-Dataset Handoff Convention
 
-This repo uses cross-model code reviews and hand-offs. Check for `REVIEW_*.md` or `HANDOFF_*.md` in the repo root at session start.
+This repo uses cross-dataset code reviews and hand-offs. Check for `REVIEW_*.md` or `HANDOFF_*.md` in the repo root at session start.
 
-When writing handoff files, use `REVIEW_<MODEL>.md` or `HANDOFF_<TOPIC>.md` with these sections:
+When writing handoff files, use `REVIEW_<DATASET>.md` or `HANDOFF_<TOPIC>.md` with these sections:
 
 - **Context** — Branch, task, files involved
-- **Changes Made** — What was done, with file paths and line references
+- **Changes Made** — What was done, with file paths and line links
 - **Decisions & Rationale** — Why choices were made (highest-value section)
-- **Open Questions / Concerns** — What the next model should investigate
+- **Open Questions / Concerns** — What the next dataset should investigate
 - **Suggested Next Steps** — Specific actionable items
 
 Do NOT track handoff files in git — they are ephemeral working artifacts. Delete once the handoff is complete.

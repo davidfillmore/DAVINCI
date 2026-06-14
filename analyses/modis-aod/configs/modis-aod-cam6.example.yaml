@@ -2,7 +2,7 @@
 # Dec 21-23, 2019
 #
 # Terra and Aqua MODIS L2 AOD binned onto the CAM6 grid, compared against
-# two CAM6 model variants (base and new dust emissions).
+# two CAM6 dataset variants (base and new dust emissions).
 #
 # Required environment variables:
 #   MODIS_DATA     — Root directory containing MODIS L2 HDF files
@@ -25,12 +25,11 @@ analysis:
     theme: ncar
     context: default
 
-# MODIS L2 swath obs are binned onto the gridded model source named by
-# `grid_source`. The gridded model source must be loaded before the swath
+# MODIS L2 swath geometry are binned onto the gridded dataset source named by
+# `grid_source`. The gridded dataset source must be loaded before the swath
 # source, so list it first.
 sources:
   cam6_base:
-    role: model
     type: generic
     files: ${CAM6_DATA}/FCnudged_f09.mam.BaseMar27.2019_2021.001_AODVIS.nc
     variables:
@@ -41,14 +40,7 @@ sources:
         vmin_plot: 0
         vmax_plot: 1.0
         vdiff_plot: 0.3
-    mapping:
-      terra_modis:
-        AOD_550: AODVIS
-      aqua_modis:
-        AOD_550: AODVIS
-
   cam6_newdust:
-    role: model
     type: generic
     files: ${CAM6_DATA}/FCnudged_f09.mam.newdustMar282025.2019_2021.001_AODVIS.nc
     variables:
@@ -59,14 +51,7 @@ sources:
         vmin_plot: 0
         vmax_plot: 1.0
         vdiff_plot: 0.3
-    mapping:
-      terra_modis:
-        AOD_550: AODVIS
-      aqua_modis:
-        AOD_550: AODVIS
-
   terra_modis:
-    role: obs
     type: modis_l2_aod
     filename: ${MODIS_DATA}/Terra/C61/2019/*/MOD04_L2.*.hdf
     grid_source: cam6_base
@@ -78,12 +63,11 @@ sources:
       AOD_550_Dark_Target_Deep_Blue_Combined:
         source_name: AOD_550_Dark_Target_Deep_Blue_Combined
         rename: AOD_550
-        obs_min: 0.0
-        obs_max: 10.0
+        geometry_min: 0.0
+        geometry_max: 10.0
         unit_scale: 0.001
 
   aqua_modis:
-    role: obs
     type: modis_l2_aod
     filename: ${MODIS_DATA}/Aqua/C61/2019/*/MYD04_L2.*.hdf
     grid_source: cam6_base
@@ -95,35 +79,35 @@ sources:
       AOD_550_Dark_Target_Deep_Blue_Combined:
         source_name: AOD_550_Dark_Target_Deep_Blue_Combined
         rename: AOD_550
-        obs_min: 0.0
-        obs_max: 10.0
+        geometry_min: 0.0
+        geometry_max: 10.0
         unit_scale: 0.001
 
 pairs:
   base_terra:
     sources: [cam6_base, terra_modis]
-    reference: terra_modis
+    geometry: terra_modis
     variables:
       cam6_base: AODVIS
       terra_modis: AOD_550
 
   base_aqua:
     sources: [cam6_base, aqua_modis]
-    reference: aqua_modis
+    geometry: aqua_modis
     variables:
       cam6_base: AODVIS
       aqua_modis: AOD_550
 
   newdust_terra:
     sources: [cam6_newdust, terra_modis]
-    reference: terra_modis
+    geometry: terra_modis
     variables:
       cam6_newdust: AODVIS
       terra_modis: AOD_550
 
   newdust_aqua:
     sources: [cam6_newdust, aqua_modis]
-    reference: aqua_modis
+    geometry: aqua_modis
     variables:
       cam6_newdust: AODVIS
       aqua_modis: AOD_550
@@ -141,11 +125,11 @@ plots:
     title: "AOD Scatter — CAM6 New Dust vs MODIS Terra"
     show_density: true
 
-  aod_obs_terra:
+  aod_geometry_terra:
     type: spatial_distribution
     pairs: [base_terra]
     title: "MODIS Terra AOD (550 nm)"
-    show_var: obs
+    show_var: geometry
     plot_type: pcolormesh
     cmap: turbo
 
@@ -162,4 +146,4 @@ plots:
     plot_type: pcolormesh
 
 stats:
-  metrics: [N, MO, MP, MB, RMSE, R, NMB, NME]
+  metrics: [N, MG, MD, MB, RMSE, R, NMB, NME]

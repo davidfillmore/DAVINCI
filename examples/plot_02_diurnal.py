@@ -2,9 +2,9 @@
 """Diurnal Cycle Plot Example.
 
 Demonstrates the diurnal plotter for comparing mean diurnal patterns
-between model and observations.
+between dataset and datasets.
 
-Data: Surface point observations (O3)
+Data: Surface point datasets (O3)
 """
 
 import matplotlib.pyplot as plt
@@ -24,9 +24,9 @@ def main():
     # Create plot using davinci_monet.plots
     fig = plot_diurnal(
         paired,
-        obs_var="obs_o3",
-        model_var="model_o3",
-        title="Diurnal Cycle: O3 Model vs Observations",
+        geometry_var="geometry_o3",
+        dataset_var="dataset_o3",
+        title="Diurnal Cycle: O3 Dataset vs Datasets",
     )
 
     save_figure(fig, "02_diurnal")

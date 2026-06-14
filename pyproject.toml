@@ -15,8 +15,8 @@ authors = [
 keywords = [
     "atmospheric chemistry",
     "air quality",
-    "model evaluation",
-    "observations",
+    "dataset evaluation",
+    "datasets",
     "meteorology"
 ]
 classifiers = [
@@ -83,7 +83,7 @@ where = ["."]
 include = ["davinci_monet*"]
 
 [tool.setuptools.package-data]
-davinci_monet = ["py.typed", "observations/satellite/catalog/data/*.yaml", "ai/templates/data/*.yaml"]
+davinci_monet = ["py.typed", "datasets/satellite/catalog/data/*.yaml", "ai/templates/data/*.yaml"]
 
 [tool.black]
 line-length = 100

@@ -58,7 +58,7 @@ def filter_paired_by_domain(
         - ``domain_type`` is ``None`` or ``"all"``
         - the (domain_type, domain_name) pair is not in the named-domain table
         - the dataset has no lat/lon coords to filter on
-        - lat/lon are 2-D (gridded obs) — extent filtering on regular grids
+        - lat/lon are 2-D (gridded geometry) — extent filtering on regular grids
           is currently not supported by this helper
     """
     dt = _coerce_str(domain_type)
@@ -80,8 +80,8 @@ def filter_paired_by_domain(
     if lats is None or lons is None:
         return paired_data
 
-    # 2-D lat/lon (e.g. gridded obs, swath) — not handled here. The caller
-    # should rely on the model grid for that case.
+    # 2-D lat/lon (e.g. gridded geometry, swath) — not handled here. The caller
+    # should rely on the dataset grid for that case.
     if lats.ndim != 1 or lons.ndim != 1:
         return paired_data
 

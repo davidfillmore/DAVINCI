@@ -1,12 +1,4 @@
-"""Vertical profile renderer (unified obs/paired).
-
-Promoted from the obs-only ``obs_vertical_profile`` renderer (renderer unification
-P3) to a canonical renderer on :class:`BasePlotter` speaking ``render(series)``:
-1 series → one profile (raw scatter or altitude-binned mean ± std), N series →
-overlay colored by source. Flight splitting is handled upstream by the plotting
-stage, so each ``render`` call sees a single flight. ``obs_vertical_profile`` is
-kept as a deprecated alias.
-"""
+"""Vertical profile renderer for one or more source series."""
 
 from __future__ import annotations
 
@@ -17,11 +9,10 @@ import numpy as np
 from davinci_monet.plots.base import (
     BasePlotter,
     build_series,
-    format_plot_title,
     get_variable_label,
     series_colors,
 )
-from davinci_monet.plots.registry import register_alias, register_plotter
+from davinci_monet.plots.registry import register_plotter
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -40,13 +31,13 @@ class VerticalProfilePlotter(BasePlotter):
 
     def plot(  # type: ignore[override]
         self,
-        obs_data: xr.Dataset,
+        geometry_data: xr.Dataset,
         variable: str,
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Single-source convenience wrapper; ``render`` is the unified entry."""
-        return self.render(build_series(obs_data, variable), ax=ax, **kwargs)
+        return self.render(build_series(geometry_data, variable), ax=ax, **kwargs)
 
     def render(
         self,
@@ -68,7 +59,7 @@ class VerticalProfilePlotter(BasePlotter):
         colors = series_colors(series)
         multi = len(series) > 1
         for s, color in zip(series, colors):
-            label = s.source_label or get_variable_label(
+            label = s.dataset_label or get_variable_label(
                 s.dataset, s.var_name, include_prefix=False
             )
             if mode == "binned":
@@ -91,10 +82,7 @@ class VerticalProfilePlotter(BasePlotter):
             f"Altitude ({alt_units})" if alt_units else "Altitude",
             fontsize=self.config.text.fontsize,
         )
-        ax.set_title(
-            format_plot_title(title) if title else f"{var_label} Vertical Profile",
-            fontsize=self.config.text.title_fontsize,
-        )
+        self.set_title(ax, title if title else f"{var_label} Vertical Profile")
         ax.grid(True, alpha=0.3)
         if multi:
             ax.legend(fontsize=self.config.text.legend)
@@ -132,7 +120,3 @@ class VerticalProfilePlotter(BasePlotter):
         ax.fill_betweenx(
             bin_centers[vb], (means - stds)[vb], (means + stds)[vb], color=color, alpha=0.2
         )
-
-
-# ``obs_vertical_profile`` is a deprecated alias of the unified renderer.
-register_alias("obs_vertical_profile", "vertical_profile")

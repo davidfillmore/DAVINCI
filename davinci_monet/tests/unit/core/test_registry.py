@@ -159,13 +159,13 @@ class TestRegistry:
         """Test items() yields (name, component) pairs."""
         registry: Registry[type] = Registry("test")
 
-        @registry.register("comp")
-        class Comp:
+        @registry.register("component")
+        class Component:
             pass
 
         items = list(registry.items())
         assert len(items) == 1
-        assert items[0] == ("comp", Comp)
+        assert items[0] == ("component", Component)
 
     def test_contains(self) -> None:
         """Test the 'in' operator."""

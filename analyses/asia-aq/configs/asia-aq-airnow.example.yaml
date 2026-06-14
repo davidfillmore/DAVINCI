@@ -4,7 +4,7 @@
 # against CESM/CAM-chem output over East and Southeast Asia.
 #
 # Required environment variables:
-#   ASIA_AQ_DATA     — Root directory containing CAM model files
+#   ASIA_AQ_DATA     — Root directory containing CAM dataset files
 #   ASIA_AQ_ANALYSIS — Analysis directory (parent of output/ and logs/)
 #
 # Usage:
@@ -32,17 +32,9 @@ analysis:
 
 sources:
   cesm_asiaq:
-    role: model
     type: generic
     files: ${ASIA_AQ_DATA}/CAM/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc
     radius_of_influence: 15000
-
-    mapping:
-      airnow:
-        pm25: PM25
-        ozone: O3
-        no2: NO2
-        co: CO
 
     variables:
       O3:
@@ -75,53 +67,52 @@ sources:
         vdiff_plot: 50
 
   airnow:
-    role: obs
     type: pt_sfc
     filename: ${ASIA_AQ_ANALYSIS}/data/airnow_asiaq_2024-02-01_2024-02-29.nc
     variables:
       pm25:
-        obs_min: 0
-        obs_max: 500
+        geometry_min: 0
+        geometry_max: 500
         units: ug/m3
       ozone:
-        obs_min: 0
-        obs_max: 200
+        geometry_min: 0
+        geometry_max: 200
         units: ppb
       no2:
-        obs_min: 0
-        obs_max: 100
+        geometry_min: 0
+        geometry_max: 100
         units: ppb
       co:
         unit_scale: 1000
-        obs_min: 0
-        obs_max: 5000
+        geometry_min: 0
+        geometry_max: 5000
         units: ppb
 
 pairs:
   cesm_airnow_pm25:
     sources: [cesm_asiaq, airnow]
-    reference: airnow
+    geometry: airnow
     variables:
       cesm_asiaq: PM25
       airnow: pm25
 
   cesm_airnow_o3:
     sources: [cesm_asiaq, airnow]
-    reference: airnow
+    geometry: airnow
     variables:
       cesm_asiaq: O3
       airnow: ozone
 
   cesm_airnow_no2:
     sources: [cesm_asiaq, airnow]
-    reference: airnow
+    geometry: airnow
     variables:
       cesm_asiaq: NO2
       airnow: no2
 
   cesm_airnow_co:
     sources: [cesm_asiaq, airnow]
-    reference: airnow
+    geometry: airnow
     variables:
       cesm_asiaq: CO
       airnow: co
@@ -165,4 +156,4 @@ stats:
   output_table: true
   output_table_kwargs:
     precision: 3
-  metrics: [N, MO, MP, MB, RMSE, R, NMB, NME, IOA]
+  metrics: [N, MG, MD, MB, RMSE, R, NMB, NME, IOA]

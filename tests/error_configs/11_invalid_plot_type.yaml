@@ -6,23 +6,23 @@ analysis:
   end_time: "2024-02-03"
   output_dir: ./output
 
-model:
+sources:
   cesm:
-    mod_type: cesm_fv
+    type: cesm_fv
     files: /some/path/*.nc
 
-obs:
+
   surface:
-    obs_type: pt_sfc
-    filename: /some/path/obs.nc
+    type: pt_sfc
+    filename: /some/path/geometry.nc
 
 pairs:
   cesm_surface:
-    model: cesm
-    obs: surface
+    dataset: cesm
+    geometry: surface
     variable:
-      model_var: O3
-      obs_var: ozone
+      dataset_var: O3
+      geometry_var: ozone
 
 plots:
   bad_plot:

@@ -31,16 +31,16 @@ def simple_paired_data() -> xr.Dataset:
     sites = [f"site_{i}" for i in range(n_sites)]
 
     # Create synthetic data
-    obs = np.random.normal(50, 10, (n_times, n_sites))
-    model = obs + np.random.normal(2, 5, (n_times, n_sites))  # Slight bias
+    geometry = np.random.normal(50, 10, (n_times, n_sites))
+    dataset = geometry + np.random.normal(2, 5, (n_times, n_sites))  # Slight bias
 
     lats = np.linspace(35, 45, n_sites)
     lons = np.linspace(-120, -100, n_sites)
 
     ds = xr.Dataset(
         {
-            "obs_o3": (["time", "site"], obs, {"units": "ppbv", "long_name": "Ozone"}),
-            "model_o3": (["time", "site"], model, {"units": "ppbv", "long_name": "Ozone"}),
+            "geometry_o3": (["time", "site"], geometry, {"units": "ppbv", "long_name": "Ozone"}),
+            "dataset_o3": (["time", "site"], dataset, {"units": "ppbv", "long_name": "Ozone"}),
         },
         coords={
             "time": time,
@@ -67,13 +67,13 @@ def track_paired_data() -> xr.Dataset:
     lats = np.linspace(35, 40, n_times)
     lons = np.linspace(-120, -110, n_times)
 
-    obs = 50 + 10 * np.exp(-altitude / 5000) + np.random.normal(0, 5, n_times)
-    model = obs + np.random.normal(3, 3, n_times)
+    geometry = 50 + 10 * np.exp(-altitude / 5000) + np.random.normal(0, 5, n_times)
+    dataset = geometry + np.random.normal(3, 3, n_times)
 
     ds = xr.Dataset(
         {
-            "obs_o3": (["time"], obs, {"units": "ppbv", "long_name": "Ozone"}),
-            "model_o3": (["time"], model, {"units": "ppbv", "long_name": "Ozone"}),
+            "geometry_o3": (["time"], geometry, {"units": "ppbv", "long_name": "Ozone"}),
+            "dataset_o3": (["time"], dataset, {"units": "ppbv", "long_name": "Ozone"}),
         },
         coords={
             "time": time,
@@ -102,15 +102,15 @@ def flight_paired_data() -> xr.Dataset:
         lats = np.linspace(35 + day, 40 + day, n_points_per_flight)
         lons = np.linspace(-120, -110, n_points_per_flight)
 
-        obs = 50 + 10 * np.exp(-altitude / 5000) + np.random.normal(0, 5, n_points_per_flight)
-        model = obs + np.random.normal(3, 3, n_points_per_flight)
+        geometry = 50 + 10 * np.exp(-altitude / 5000) + np.random.normal(0, 5, n_points_per_flight)
+        dataset = geometry + np.random.normal(3, 3, n_points_per_flight)
 
         flight_id = f"2023-01-0{day + 1}"
 
         ds = xr.Dataset(
             {
-                "obs_o3": (["time"], obs, {"units": "ppbv", "long_name": "Ozone"}),
-                "model_o3": (["time"], model, {"units": "ppbv", "long_name": "Ozone"}),
+                "geometry_o3": (["time"], geometry, {"units": "ppbv", "long_name": "Ozone"}),
+                "dataset_o3": (["time"], dataset, {"units": "ppbv", "long_name": "Ozone"}),
             },
             coords={
                 "time": time,
@@ -137,14 +137,24 @@ def gridded_paired_data() -> xr.Dataset:
     lat_grid, lon_grid = np.meshgrid(lats, lons, indexing="ij")
 
     # Create spatial pattern
-    obs = 40 + 20 * np.sin(np.radians(lat_grid)) * np.cos(np.radians(lon_grid + 110))
-    obs = np.stack([obs + np.random.normal(0, 3, obs.shape) for _ in range(len(time))])
-    model = obs + np.random.normal(5, 8, obs.shape)
+    geometry = 40 + 20 * np.sin(np.radians(lat_grid)) * np.cos(np.radians(lon_grid + 110))
+    geometry = np.stack(
+        [geometry + np.random.normal(0, 3, geometry.shape) for _ in range(len(time))]
+    )
+    dataset = geometry + np.random.normal(5, 8, geometry.shape)
 
     ds = xr.Dataset(
         {
-            "obs_o3": (["time", "lat", "lon"], obs, {"units": "ppbv", "long_name": "Ozone"}),
-            "model_o3": (["time", "lat", "lon"], model, {"units": "ppbv", "long_name": "Ozone"}),
+            "geometry_o3": (
+                ["time", "lat", "lon"],
+                geometry,
+                {"units": "ppbv", "long_name": "Ozone"},
+            ),
+            "dataset_o3": (
+                ["time", "lat", "lon"],
+                dataset,
+                {"units": "ppbv", "long_name": "Ozone"},
+            ),
         },
         coords={
             "time": time,
@@ -166,13 +176,13 @@ class TestPlotConfig:
     def test_default_config(self):
         """Test default configuration creation."""
         from davinci_monet.plots.base import PlotConfig
-        from davinci_monet.plots.style import MODEL_COLOR, OBS_COLOR
+        from davinci_monet.plots.style import DATASET_A_COLOR, DATASET_B_COLOR
 
         config = PlotConfig()
         assert config.figure.figsize == (8, 5)  # FigureConfig default
         assert config.text.fontsize == 14.0  # Axis label size
-        assert config.style.obs_color == OBS_COLOR  # NCAR gray
-        assert config.style.model_color == MODEL_COLOR  # NCAR blue
+        assert config.style.geometry_color == DATASET_A_COLOR  # NCAR gray
+        assert config.style.dataset_color == DATASET_B_COLOR  # NCAR blue
         assert config.debug is False
 
     def test_from_dict(self):
@@ -194,14 +204,14 @@ class TestPlotConfig:
         assert config.vmax == 100
         assert config.title == "Test Plot"
 
-    def test_legacy_dict_keys(self):
-        """Test backward compatible dict keys."""
+    def test_alternate_dict_keys(self):
+        """Test alternate dict keys."""
         from davinci_monet.plots.base import PlotConfig
 
         config_dict = {
             "fig_dict": {"figsize": (8, 6)},
             "text_dict": {"fontsize": 11},
-            "plot_dict": {"obs_color": "red"},
+            "plot_dict": {"geometry_color": "red"},
             "domain_type": "conus",
         }
 
@@ -210,25 +220,20 @@ class TestPlotConfig:
         assert config.text.fontsize == 11
         assert config.domain.domain_type == "conus"
 
-    def test_caption_round_trips_from_dict(self):
-        """caption field is extracted by from_dict and defaults to None."""
+    def test_caption_key_is_ignored_from_dict(self):
+        """caption is not a supported PlotConfig option."""
         from davinci_monet.plots.base import PlotConfig
 
-        # Explicit caption
         config = PlotConfig.from_dict({"title": "T", "caption": "C"})
-        assert config.caption == "C"
         assert config.title == "T"
-
-        # Default is None
-        config_no_caption = PlotConfig.from_dict({"title": "T"})
-        assert config_no_caption.caption is None
+        assert not hasattr(config, "caption")
 
 
-class TestBasePlotterCaption:
-    """Tests for BasePlotter caption rendering in save()."""
+class TestBasePlotterNoCaption:
+    """Tests for BasePlotter save behavior with current caption input."""
 
-    def test_caption_drawn_on_save(self, tmp_path):
-        """save() must render config.caption as figure-bottom text before writing."""
+    def test_caption_is_not_drawn_on_save(self, tmp_path):
+        """save() must not render caption text at the figure bottom."""
         import numpy as np
         import pandas as pd
         import xarray as xr
@@ -242,25 +247,62 @@ class TestBasePlotterCaption:
         time = pd.date_range("2025-01-01", periods=n, freq="h")
         ds = xr.Dataset(
             {
-                "obs_o3": (["time"], np.random.normal(50, 10, n)),
-                "model_o3": (["time"], np.random.normal(52, 10, n)),
+                "geometry_o3": (["time"], np.random.normal(50, 10, n)),
+                "dataset_o3": (["time"], np.random.normal(52, 10, n)),
             },
             coords={"time": time},
         )
 
         caption_text = "2025-10-01 - 2025-12-31"
-        config = PlotConfig(caption=caption_text)
+        config = PlotConfig.from_dict({"caption": caption_text})
         plotter = ScatterPlotter(config=config)
 
-        fig = plotter.plot(ds, "obs_o3", "model_o3")
-        # Caption not yet drawn — save() draws it
+        fig = plotter.plot(ds, "geometry_o3", "dataset_o3")
         output_file = tmp_path / "test_caption.png"
         plotter.save(fig, output_file)
 
-        # After save(), the caption text object must exist on the figure
-        assert any(
-            t.get_text() == caption_text for t in fig.texts
-        ), f"Caption '{caption_text}' not found in fig.texts after save()"
+        assert (
+            any(t.get_text() == caption_text for t in fig.texts) is False
+        ), f"Caption '{caption_text}' should not be drawn in fig.texts"
+        plt.close(fig)
+
+
+class TestBasePlotterSubtitle:
+    """Tests for separate title/subtitle rendering."""
+
+    def test_subtitle_drawn_below_title_with_smaller_font(self):
+        """Subtitles must be separate smaller text below the main title."""
+        import numpy as np
+        import pandas as pd
+        import xarray as xr
+
+        from davinci_monet.plots import ScatterPlotter
+        from davinci_monet.plots.base import PlotConfig
+
+        np.random.seed(0)
+        n = 20
+        time = pd.date_range("2025-01-01", periods=n, freq="h")
+        ds = xr.Dataset(
+            {
+                "geometry_o3": (["time"], np.random.normal(50, 10, n)),
+                "dataset_o3": (["time"], np.random.normal(52, 10, n)),
+            },
+            coords={"time": time},
+        )
+
+        config = PlotConfig.from_dict(
+            {"title": "O3: Dataset vs Geometry", "subtitle": "2025-01-01 - 2025-01-02"}
+        )
+        plotter = ScatterPlotter(config=config)
+
+        fig = plotter.plot(ds, "geometry_o3", "dataset_o3")
+        ax = fig.axes[0]
+
+        assert ax.get_title() == r"O$_3$: Dataset vs Geometry"
+        assert "\n" not in ax.get_title()
+        subtitle = next(t for t in ax.texts if t.get_text() == "2025-01-01 - 2025-01-02")
+        assert subtitle.get_fontsize() == config.text.annotation_small
+        assert subtitle.get_position()[1] < 1.1
         plt.close(fig)
 
 
@@ -307,10 +349,10 @@ class TestUtilities:
         """Test variable label extraction."""
         from davinci_monet.plots.base import get_variable_label
 
-        label = get_variable_label(simple_paired_data, "obs_o3")
+        label = get_variable_label(simple_paired_data, "geometry_o3")
         assert label == "Ozone"
 
-        label = get_variable_label(simple_paired_data, "obs_o3", "Custom Label")
+        label = get_variable_label(simple_paired_data, "geometry_o3", "Custom Label")
         assert label == "Custom Label"
 
     def test_format_label_with_units(self):
@@ -397,8 +439,8 @@ class TestTimeSeriesPlotter:
 
         fig = plot_timeseries(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             aggregate_dim="site",
         )
 
@@ -412,8 +454,8 @@ class TestTimeSeriesPlotter:
 
         fig = plot_timeseries(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             aggregate_dim="site",
             resample="6h",
         )
@@ -425,13 +467,13 @@ class TestTimeSeriesPlotter:
         """Test custom labels."""
         from davinci_monet.plots import PlotConfig, TimeSeriesPlotter
 
-        config = PlotConfig(obs_label="Custom Obs", model_label="Custom Model")
+        config = PlotConfig(geometry_label="Custom Geometry", dataset_label="Custom Dataset")
         plotter = TimeSeriesPlotter(config=config)
 
         fig = plotter.plot(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             aggregate_dim="site",
         )
 
@@ -462,22 +504,22 @@ class TestTimeSeriesPlotter:
         # 9 sites at 10, 1 site at 200 → mean = 29. data_max for the plotted
         # mean = 29; data_max for raw = 200. The fix should produce ylim ~32,
         # the bug produces ylim ~220.
-        obs = np.full((n_times, n_sites), 10.0)
-        obs[:, -1] = 200.0
-        model = np.full((n_times, n_sites), 11.0)
-        model[:, -1] = 200.0
+        geometry = np.full((n_times, n_sites), 10.0)
+        geometry[:, -1] = 200.0
+        dataset = np.full((n_times, n_sites), 11.0)
+        dataset[:, -1] = 200.0
 
         paired = xr.Dataset(
             {
-                "obs_pm25": (["time", "site"], obs),
-                "model_pm25": (["time", "site"], model),
+                "geometry_pm25": (["time", "site"], geometry),
+                "dataset_pm25": (["time", "site"], dataset),
             },
             coords={"time": times, "site": np.arange(n_sites)},
         )
 
         plotter = TimeSeriesPlotter()
         # Do not pass aggregate_dim → plot() auto-aggregates over 'site'
-        fig = plotter.plot(paired, "obs_pm25", "model_pm25")
+        fig = plotter.plot(paired, "geometry_pm25", "dataset_pm25")
 
         ax = fig.axes[0]
         _, ymax = ax.get_ylim()
@@ -496,7 +538,7 @@ class TestDiurnalPlotter:
         """Test basic diurnal plot."""
         from davinci_monet.plots import plot_diurnal
 
-        fig = plot_diurnal(simple_paired_data, "obs_o3", "model_o3")
+        fig = plot_diurnal(simple_paired_data, "geometry_o3", "dataset_o3")
 
         assert fig is not None
         plt.close(fig)
@@ -510,8 +552,8 @@ class TestDiurnalPlotter:
         for spread in ["none", "std", "iqr", "range"]:
             fig = plotter.plot(
                 simple_paired_data,
-                "obs_o3",
-                "model_o3",
+                "geometry_o3",
+                "dataset_o3",
                 show_spread=spread,  # type: ignore[arg-type]
             )
             assert fig is not None
@@ -527,8 +569,8 @@ class TestSiteTimeSeriesPlotter:
 
         fig = plot_site_timeseries(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             ncols=2,
         )
 
@@ -544,8 +586,8 @@ class TestSiteTimeSeriesPlotter:
         for ncols in [1, 2, 3]:
             fig = plotter.plot(
                 simple_paired_data,
-                "obs_o3",
-                "model_o3",
+                "geometry_o3",
+                "dataset_o3",
                 ncols=ncols,
             )
             assert fig is not None
@@ -558,8 +600,8 @@ class TestSiteTimeSeriesPlotter:
         plotter = SiteTimeSeriesPlotter()
         fig = plotter.plot(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             min_points=10,
         )
 
@@ -576,8 +618,8 @@ class TestFlightTimeSeriesPlotter:
 
         fig = plot_flight_timeseries(
             flight_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             ncols=2,
         )
 
@@ -594,8 +636,8 @@ class TestFlightTimeSeriesPlotter:
         for ncols in [1, 2, 3]:
             fig = plotter.plot(
                 flight_paired_data,
-                "obs_o3",
-                "model_o3",
+                "geometry_o3",
+                "dataset_o3",
                 ncols=ncols,
             )
             assert fig is not None
@@ -608,8 +650,8 @@ class TestFlightTimeSeriesPlotter:
         plotter = FlightTimeSeriesPlotter()
         fig = plotter.plot(
             flight_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             min_points=50,
         )
 
@@ -625,8 +667,8 @@ class TestFlightTimeSeriesPlotter:
         for show_stats in [True, False]:
             fig = plotter.plot(
                 flight_paired_data,
-                "obs_o3",
-                "model_o3",
+                "geometry_o3",
+                "dataset_o3",
                 show_stats=show_stats,
             )
             assert fig is not None
@@ -641,8 +683,8 @@ class TestFlightTimeSeriesPlotter:
         with pytest.raises(ValueError, match="Flight coordinate"):
             plotter.plot(
                 track_paired_data,
-                "obs_o3",
-                "model_o3",
+                "geometry_o3",
+                "dataset_o3",
             )
 
     def test_plot_per_flight(self, flight_paired_data):
@@ -653,8 +695,8 @@ class TestFlightTimeSeriesPlotter:
         flight_plots = list(
             plotter.plot_per_flight(
                 flight_paired_data,
-                "obs_o3",
-                "model_o3",
+                "geometry_o3",
+                "dataset_o3",
                 min_points=10,
             )
         )
@@ -678,8 +720,8 @@ class TestFlightTimeSeriesPlotter:
         flight_plots = list(
             plotter.plot_per_flight(
                 flight_paired_data,
-                "obs_o3",
-                "model_o3",
+                "geometry_o3",
+                "dataset_o3",
                 min_points=200,  # Each flight has 120 points
             )
         )
@@ -694,8 +736,8 @@ class TestFlightTimeSeriesPlotter:
         plotter = FlightTimeSeriesPlotter()
         fig = plotter.plot(
             flight_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             show_altitude=True,
         )
 
@@ -711,8 +753,8 @@ class TestFlightTimeSeriesPlotter:
         plotter = FlightTimeSeriesPlotter()
         fig = plotter.plot(
             flight_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             show_altitude=False,
         )
 
@@ -728,8 +770,8 @@ class TestFlightTimeSeriesPlotter:
         # Test km (default)
         fig_km = plotter.plot(
             flight_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             altitude_units="km",
         )
         assert fig_km is not None
@@ -738,8 +780,8 @@ class TestFlightTimeSeriesPlotter:
         # Test meters
         fig_m = plotter.plot(
             flight_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             altitude_units="m",
         )
         assert fig_m is not None
@@ -753,8 +795,8 @@ class TestFlightTimeSeriesPlotter:
         flight_plots = list(
             plotter.plot_per_flight(
                 flight_paired_data,
-                "obs_o3",
-                "model_o3",
+                "geometry_o3",
+                "dataset_o3",
                 show_altitude=True,
             )
         )
@@ -772,7 +814,7 @@ class TestScatterPlotter:
         """Test basic scatter plot."""
         from davinci_monet.plots import plot_scatter
 
-        fig = plot_scatter(simple_paired_data, "obs_o3", "model_o3")
+        fig = plot_scatter(simple_paired_data, "geometry_o3", "dataset_o3")
 
         assert fig is not None
         plt.close(fig)
@@ -783,8 +825,8 @@ class TestScatterPlotter:
 
         fig = plot_scatter(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             show_density=True,
         )
 
@@ -798,8 +840,8 @@ class TestScatterPlotter:
         plotter = ScatterPlotter()
         fig = plotter.plot(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             show_regression=True,
             show_stats=True,
             show_one_to_one=True,
@@ -816,8 +858,8 @@ class TestScatterPlotter:
         flight_plots = list(
             plotter.plot_per_flight(
                 flight_paired_data,
-                "obs_o3",
-                "model_o3",
+                "geometry_o3",
+                "dataset_o3",
                 min_points=10,
             )
         )
@@ -841,8 +883,8 @@ class TestScatterPlotter:
         flight_plots = list(
             plotter.plot_per_flight(
                 flight_paired_data,
-                "obs_o3",
-                "model_o3",
+                "geometry_o3",
+                "dataset_o3",
                 min_points=200,  # Each flight has 120 points
             )
         )
@@ -851,20 +893,20 @@ class TestScatterPlotter:
         assert len(flight_plots) == 0
 
     def test_source_named_axis_labels(self, simple_paired_data):
-        """Fix C: obs_label/model_label config produces source-named scatter axes.
+        """Fix C: geometry_label/dataset_label config produces source-named scatter axes.
 
-        When PlotConfig.obs_label and model_label are set, the scatter renderer
-        must use them as axis labels (no 'Observed'/'Modeled' prefix), and the
+        When PlotConfig.geometry_label and dataset_label are set, the scatter renderer
+        must use them as axis labels (no 'Dataset'/'Dataset' prefix), and the
         units suffix must not produce a bare '(1)'.
         """
         from davinci_monet.plots import PlotConfig, ScatterPlotter
 
-        config = PlotConfig(obs_label="MODIS Terra AOD", model_label="MERRA-2 AOD")
+        config = PlotConfig(geometry_label="MODIS Terra AOD", dataset_label="MERRA-2 AOD")
         plotter = ScatterPlotter(config=config)
         fig = plotter.plot(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
         )
 
         ax = fig.axes[0]
@@ -875,17 +917,35 @@ class TestScatterPlotter:
         assert "MODIS Terra AOD" in xlabel, f"Expected 'MODIS Terra AOD' in xlabel, got: {xlabel!r}"
         assert "MERRA-2 AOD" in ylabel, f"Expected 'MERRA-2 AOD' in ylabel, got: {ylabel!r}"
 
-        # Must NOT carry an 'Observed'/'Modeled' prefix
+        # Must NOT carry an 'Dataset'/'Dataset' prefix
         assert not xlabel.startswith(
-            "Observed"
-        ), f"xlabel must not start with 'Observed', got: {xlabel!r}"
+            "Dataset"
+        ), f"xlabel must not start with 'Dataset', got: {xlabel!r}"
         assert not ylabel.startswith(
-            "Modeled"
-        ), f"ylabel must not start with 'Modeled', got: {ylabel!r}"
+            "Dataset"
+        ), f"ylabel must not start with 'Dataset', got: {ylabel!r}"
 
         # Bare dimensionless unit '(1)' is ugly — must not appear
         assert "(1)" not in xlabel, f"Bare '(1)' unit in xlabel: {xlabel!r}"
         assert "(1)" not in ylabel, f"Bare '(1)' unit in ylabel: {ylabel!r}"
+
+        plt.close(fig)
+
+    def test_dataset_label_attrs_qualify_default_axis_labels(self, simple_paired_data):
+        """Scatter axes use source identity without pair_axis-derived words."""
+        from davinci_monet.plots import ScatterPlotter
+
+        data = simple_paired_data.copy()
+        data["geometry_o3"].attrs.update({"pair_axis": "geometry", "dataset_label": "airnow"})
+        data["dataset_o3"].attrs.update({"pair_axis": "dataset", "dataset_label": "cam"})
+
+        fig = ScatterPlotter().plot(data, "geometry_o3", "dataset_o3")
+
+        ax = fig.axes[0]
+        assert ax.get_xlabel() == "AIRNOW Ozone (ppbv)"
+        assert ax.get_ylabel() == "CAM Ozone (ppbv)"
+        assert not ax.get_xlabel().startswith("Dataset")
+        assert not ax.get_ylabel().startswith("Dataset")
 
         plt.close(fig)
 
@@ -897,7 +957,7 @@ class TestTaylorPlotter:
         """Test basic Taylor diagram."""
         from davinci_monet.plots import plot_taylor
 
-        fig = plot_taylor(simple_paired_data, "obs_o3", "model_o3")
+        fig = plot_taylor(simple_paired_data, "geometry_o3", "dataset_o3")
 
         assert fig is not None
         plt.close(fig)
@@ -909,8 +969,8 @@ class TestTaylorPlotter:
         plotter = TaylorPlotter()
         fig = plotter.plot(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             normalize=True,
         )
 
@@ -925,7 +985,7 @@ class TestBoxPlotter:
         """Test basic box plot."""
         from davinci_monet.plots import plot_boxplot
 
-        fig = plot_boxplot(simple_paired_data, "obs_o3", "model_o3")
+        fig = plot_boxplot(simple_paired_data, "geometry_o3", "dataset_o3")
 
         assert fig is not None
         plt.close(fig)
@@ -937,8 +997,8 @@ class TestBoxPlotter:
         plotter = BoxPlotter()
         fig = plotter.plot(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             group_by="site",
         )
 
@@ -951,8 +1011,8 @@ class TestBoxPlotter:
 
         fig = plot_boxplot(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             orientation="horizontal",
         )
 
@@ -969,8 +1029,8 @@ class TestCurtainPlotter:
 
         fig = plot_curtain(
             track_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             alt_var="altitude",
         )
 
@@ -983,11 +1043,11 @@ class TestCurtainPlotter:
 
         plotter = CurtainPlotter()
 
-        for show_var in ["obs", "model", "bias"]:
+        for show_var in ["geometry", "dataset", "bias"]:
             fig = plotter.plot(
                 track_paired_data,
-                "obs_o3",
-                "model_o3",
+                "geometry_o3",
+                "dataset_o3",
                 alt_var="altitude",
                 show_var=show_var,  # type: ignore[arg-type]
             )
@@ -1004,8 +1064,8 @@ class TestTrackMap3DPlotter:
 
         fig = plot_track_map_3d(
             track_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             alt_var="altitude",
         )
 
@@ -1018,11 +1078,11 @@ class TestTrackMap3DPlotter:
 
         plotter = TrackMap3DPlotter()
 
-        for show_var in ["obs", "model", "bias"]:
+        for show_var in ["geometry", "dataset", "bias"]:
             fig = plotter.plot(
                 track_paired_data,
-                "obs_o3",
-                "model_o3",
+                "geometry_o3",
+                "dataset_o3",
                 alt_var="altitude",
                 show_var=show_var,  # type: ignore[arg-type]
             )
@@ -1036,8 +1096,8 @@ class TestTrackMap3DPlotter:
         plotter = TrackMap3DPlotter()
         fig = plotter.plot(
             track_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             alt_var="altitude",
             elev=45,
             azim=-90,
@@ -1053,8 +1113,8 @@ class TestTrackMap3DPlotter:
         plotter = TrackMap3DPlotter()
         fig = plotter.plot(
             track_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             alt_var="altitude",
             show_projection=False,
         )
@@ -1070,8 +1130,8 @@ class TestTrackMap3DPlotter:
         flight_plots = list(
             plotter.plot_per_flight(
                 flight_paired_data,
-                "obs_o3",
-                "model_o3",
+                "geometry_o3",
+                "dataset_o3",
                 min_points=10,
                 show_coastlines=False,  # Faster for testing
             )
@@ -1096,8 +1156,8 @@ class TestTrackMap3DPlotter:
         flight_plots = list(
             plotter.plot_per_flight(
                 flight_paired_data,
-                "obs_o3",
-                "model_o3",
+                "geometry_o3",
+                "dataset_o3",
                 min_points=200,  # Each flight has 120 points
                 show_coastlines=False,
             )
@@ -1114,7 +1174,7 @@ class TestScorecardPlotter:
         """Test basic scorecard plot."""
         from davinci_monet.plots import plot_scorecard
 
-        fig = plot_scorecard(simple_paired_data, "obs_o3", "model_o3")
+        fig = plot_scorecard(simple_paired_data, "geometry_o3", "dataset_o3")
 
         assert fig is not None
         plt.close(fig)
@@ -1125,9 +1185,9 @@ class TestScorecardPlotter:
 
         stats_df = pd.DataFrame(
             {
-                "Model A": [0.9, 2.5, 5.0],
-                "Model B": [0.85, -1.0, 6.5],
-                "Model C": [0.92, 0.5, 4.0],
+                "Dataset A": [0.9, 2.5, 5.0],
+                "Dataset B": [0.85, -1.0, 6.5],
+                "Dataset C": [0.92, 0.5, 4.0],
             },
             index=["R", "MB", "RMSE"],
         )
@@ -1150,7 +1210,7 @@ class TestSpatialPlotters:
         """Test spatial bias plot."""
         from davinci_monet.plots import plot_spatial_bias
 
-        fig = plot_spatial_bias(simple_paired_data, "obs_o3", "model_o3")
+        fig = plot_spatial_bias(simple_paired_data, "geometry_o3", "dataset_o3")
 
         assert fig is not None
         plt.close(fig)
@@ -1161,7 +1221,7 @@ class TestSpatialPlotters:
     )
     def test_spatial_bias_point_data_with_singleton_y_dim(self):
         """Spatial bias must handle point/site data with a residual size-1
-        dim (legacy AirNow stores all sites as `(time, y=1, x=sites)`).
+        dim (current AirNow stores all sites as `(time, y=1, x=sites)`).
         Previously the renderer wrongly took the regular-grid meshgrid
         path, producing a (sites, sites) broadcast that crashed."""
         import numpy as np
@@ -1177,13 +1237,13 @@ class TestSpatialPlotters:
         lats = np.array([30.0, 35.0, 40.0, 45.0, 50.0])
         lons = np.array([-110.0, -100.0, -90.0, -80.0, -70.0])
         rng = np.random.default_rng(0)
-        obs = rng.uniform(20, 60, size=(3, 1, n_sites))
-        mod = obs + rng.uniform(-5, 5, size=(3, 1, n_sites))
+        geometry = rng.uniform(20, 60, size=(3, 1, n_sites))
+        dataset = geometry + rng.uniform(-5, 5, size=(3, 1, n_sites))
 
         ds = xr.Dataset(
             {
-                "obs_o3": (("time", "y", "x"), obs),
-                "model_o3": (("time", "y", "x"), mod),
+                "geometry_o3": (("time", "y", "x"), geometry),
+                "dataset_o3": (("time", "y", "x"), dataset),
             },
             coords={
                 "time": times,
@@ -1192,7 +1252,7 @@ class TestSpatialPlotters:
             },
         )
 
-        fig = plot_spatial_bias(ds, "obs_o3", "model_o3")
+        fig = plot_spatial_bias(ds, "geometry_o3", "dataset_o3")
         assert fig is not None
         plt.close(fig)
 
@@ -1214,13 +1274,13 @@ class TestSpatialPlotters:
         lats = np.linspace(20.0, 50.0, n_sites)
         lons = np.linspace(-110.0, -70.0, n_sites)
         rng = np.random.default_rng(1)
-        obs = rng.uniform(0, 1, size=(2, n_sites))
-        mod = obs + rng.uniform(-0.2, 0.2, size=(2, n_sites))
+        geometry = rng.uniform(0, 1, size=(2, n_sites))
+        dataset = geometry + rng.uniform(-0.2, 0.2, size=(2, n_sites))
 
         ds = xr.Dataset(
             {
-                "obs_aod": (("time", "site"), obs),
-                "model_aod": (("time", "site"), mod),
+                "geometry_aod": (("time", "site"), geometry),
+                "dataset_aod": (("time", "site"), dataset),
             },
             coords={
                 "time": times,
@@ -1229,7 +1289,7 @@ class TestSpatialPlotters:
             },
         )
 
-        fig = plot_spatial_bias(ds, "obs_aod", "model_aod")
+        fig = plot_spatial_bias(ds, "geometry_aod", "dataset_aod")
         assert fig is not None
         plt.close(fig)
 
@@ -1250,19 +1310,19 @@ class TestSpatialPlotters:
         lat = np.linspace(-89.5, 89.5, 10)
         lon = np.linspace(-179.5, 179.5, 12)
         rng = np.random.default_rng(0)
-        obs = xr.DataArray(
+        geometry = xr.DataArray(
             rng.uniform(0, 1, (10, 12)),
             dims=("lat", "lon"),
             coords={"lat": lat, "lon": lon},
         )
-        model = xr.DataArray(
+        dataset = xr.DataArray(
             rng.uniform(0, 1, (10, 12)),
             dims=("lat", "lon"),
             coords={"lat": lat, "lon": lon},
         )
-        ds = xr.Dataset({"obs_aod": obs, "model_aod": model})
+        ds = xr.Dataset({"geometry_aod": geometry, "dataset_aod": dataset})
 
-        fig = plot_spatial_bias(ds, "obs_aod", "model_aod", lat_var="lat", lon_var="lon")
+        fig = plot_spatial_bias(ds, "geometry_aod", "dataset_aod", lat_var="lat", lon_var="lon")
         ax = fig.axes[0]
         assert any(
             isinstance(c, QuadMesh) for c in ax.collections
@@ -1289,14 +1349,14 @@ class TestSpatialPlotters:
         lat = xr.DataArray(np.linspace(20, 50, 8), dims=("site",), coords={"site": site})
         lon = xr.DataArray(np.linspace(100, 140, 8), dims=("site",), coords={"site": site})
         rng = np.random.default_rng(1)
-        obs = xr.DataArray(rng.uniform(0, 1, 8), dims=("site",), coords={"site": site})
-        model = xr.DataArray(rng.uniform(0, 1, 8), dims=("site",), coords={"site": site})
+        geometry = xr.DataArray(rng.uniform(0, 1, 8), dims=("site",), coords={"site": site})
+        dataset = xr.DataArray(rng.uniform(0, 1, 8), dims=("site",), coords={"site": site})
         ds = xr.Dataset(
-            {"obs_v": obs, "model_v": model},
+            {"geometry_v": geometry, "dataset_v": dataset},
             coords={"lat": lat, "lon": lon},
         )
 
-        fig = plot_spatial_bias(ds, "obs_v", "model_v", lat_var="lat", lon_var="lon")
+        fig = plot_spatial_bias(ds, "geometry_v", "dataset_v", lat_var="lat", lon_var="lon")
         ax = fig.axes[0]
         assert any(
             isinstance(c, PathCollection) for c in ax.collections
@@ -1313,9 +1373,9 @@ class TestSpatialPlotters:
 
         fig = plot_spatial_distribution(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
-            show_var="obs",
+            "geometry_o3",
+            "dataset_o3",
+            show_var="geometry",
         )
 
         assert fig is not None
@@ -1337,18 +1397,18 @@ class TestSpatialPlotters:
         lat = np.linspace(30.0, 50.0, 10)
         lon = np.linspace(-120.0, -100.0, 12)
         rng = np.random.default_rng(0)
-        obs_vals = rng.uniform(20, 80, (10, 12))
-        model_vals = rng.uniform(20, 80, (10, 12))
+        geometry_vals = rng.uniform(20, 80, (10, 12))
+        dataset_vals = rng.uniform(20, 80, (10, 12))
         ds = xr.Dataset(
             {
-                "obs_o3": (("lat", "lon"), obs_vals, {"units": "ppbv"}),
-                "model_o3": (("lat", "lon"), model_vals, {"units": "ppbv"}),
+                "geometry_o3": (("lat", "lon"), geometry_vals, {"units": "ppbv"}),
+                "dataset_o3": (("lat", "lon"), dataset_vals, {"units": "ppbv"}),
             },
             coords={"lat": lat, "lon": lon},
         )
 
         fig = plot_spatial_distribution(
-            ds, "obs_o3", "model_o3", show_var="obs", lat_var="lat", lon_var="lon"
+            ds, "geometry_o3", "dataset_o3", show_var="geometry", lat_var="lat", lon_var="lon"
         )
         ax = fig.axes[0]
         assert any(
@@ -1375,12 +1435,12 @@ class TestSpatialPlotters:
         lats = np.linspace(30.0, 50.0, n_sites)
         lons = np.linspace(-120.0, -100.0, n_sites)
         rng = np.random.default_rng(1)
-        obs_vals = rng.uniform(20, 80, n_sites)
-        model_vals = rng.uniform(20, 80, n_sites)
+        geometry_vals = rng.uniform(20, 80, n_sites)
+        dataset_vals = rng.uniform(20, 80, n_sites)
         ds = xr.Dataset(
             {
-                "obs_o3": (("site",), obs_vals, {"units": "ppbv"}),
-                "model_o3": (("site",), model_vals, {"units": "ppbv"}),
+                "geometry_o3": (("site",), geometry_vals, {"units": "ppbv"}),
+                "dataset_o3": (("site",), dataset_vals, {"units": "ppbv"}),
             },
             coords={
                 "site": site,
@@ -1389,7 +1449,7 @@ class TestSpatialPlotters:
             },
         )
 
-        fig = plot_spatial_distribution(ds, "obs_o3", "model_o3", show_var="obs")
+        fig = plot_spatial_distribution(ds, "geometry_o3", "dataset_o3", show_var="geometry")
         ax = fig.axes[0]
         assert any(
             isinstance(c, PathCollection) for c in ax.collections
@@ -1417,12 +1477,12 @@ class TestSpatialPlotters:
         lats = np.linspace(30.0, 50.0, n_sites)
         lons = np.linspace(-120.0, -100.0, n_sites)
         rng = np.random.default_rng(2)
-        obs_vals = rng.uniform(20, 80, (n_times, n_sites))
-        model_vals = rng.uniform(20, 80, (n_times, n_sites))
+        geometry_vals = rng.uniform(20, 80, (n_times, n_sites))
+        dataset_vals = rng.uniform(20, 80, (n_times, n_sites))
         ds = xr.Dataset(
             {
-                "obs_o3": (("time", "site"), obs_vals, {"units": "ppbv"}),
-                "model_o3": (("time", "site"), model_vals, {"units": "ppbv"}),
+                "geometry_o3": (("time", "site"), geometry_vals, {"units": "ppbv"}),
+                "dataset_o3": (("time", "site"), dataset_vals, {"units": "ppbv"}),
             },
             coords={
                 "time": times,
@@ -1434,7 +1494,7 @@ class TestSpatialPlotters:
 
         # time_average=False to keep (time, site) shape reaching _plot_data
         fig = plot_spatial_distribution(
-            ds, "obs_o3", "model_o3", show_var="obs", time_average=False
+            ds, "geometry_o3", "dataset_o3", show_var="geometry", time_average=False
         )
         ax = fig.axes[0]
         assert any(
@@ -1483,7 +1543,7 @@ class TestPlotterEndToEnd:
         from davinci_monet.plots import get_plotter
 
         plotter = get_plotter("scatter")
-        fig = plotter.plot(simple_paired_data, "obs_o3", "model_o3")
+        fig = plotter.plot(simple_paired_data, "geometry_o3", "dataset_o3")
 
         output_path = tmp_path / "test_plot.png"
         saved_path = plotter.save(fig, output_path)
@@ -1492,24 +1552,24 @@ class TestPlotterEndToEnd:
         plt.close(fig)
 
     def test_multiple_plots_same_axes(self, simple_paired_data):
-        """Test plotting multiple models on same axes."""
+        """Test plotting multiple datasets on same axes."""
         from davinci_monet.plots import TimeSeriesPlotter
 
         fig, ax = plt.subplots()
 
         plotter = TimeSeriesPlotter()
 
-        # Plot first "model"
+        # Plot first "dataset"
         plotter.plot(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             ax=ax,
             aggregate_dim="site",
         )
 
-        # Plot on same axes (simulating multiple models)
-        # In real use, would have different model data
+        # Plot on same axes (simulating multiple datasets)
+        # In real use, would have different dataset data
 
         assert fig is not None
         plt.close(fig)
@@ -1524,19 +1584,19 @@ class TestSpatialOverlay:
     """Behavioral tests for SpatialOverlayPlotter."""
 
     def test_overlay_plot(self, simple_paired_data, gridded_paired_data):
-        """Overlay model contours with observation scatter points."""
+        """Overlay dataset contours with dataset scatter points."""
         from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
 
         plotter = SpatialOverlayPlotter()
 
-        # Create a model field (2D lat/lon) for the contour layer
-        model_field = gridded_paired_data["model_o3"].isel(time=0)
+        # Create a dataset field (2D lat/lon) for the contour layer
+        dataset_field = gridded_paired_data["dataset_o3"].isel(time=0)
 
         fig = plotter.plot(
             simple_paired_data,
-            obs_var="obs_o3",
-            model_var="model_o3",
-            model_field=model_field,
+            geometry_var="geometry_o3",
+            dataset_var="dataset_o3",
+            dataset_field=dataset_field,
         )
 
         assert fig is not None
@@ -1544,24 +1604,24 @@ class TestSpatialOverlay:
         assert len(axes) >= 1
         plt.close(fig)
 
-    def test_overlay_without_model_field(self, simple_paired_data):
-        """Overlay should handle missing model_field gracefully."""
+    def test_overlay_without_dataset_field(self, simple_paired_data):
+        """Overlay should handle missing dataset_field gracefully."""
         from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
 
         plotter = SpatialOverlayPlotter()
 
-        # When model_field is None, plotter should fall back to model_var from paired_data
+        # When dataset_field is None, plotter should fall back to dataset_var from paired_data
         # This may not produce contours (1D data), but should not crash
         try:
             fig = plotter.plot(
                 simple_paired_data,
-                obs_var="obs_o3",
-                model_var="model_o3",
+                geometry_var="geometry_o3",
+                dataset_var="dataset_o3",
             )
             assert fig is not None
             plt.close(fig)
         except (ValueError, KeyError, TypeError):
-            # Acceptable: plotter may require a 2D model field
+            # Acceptable: plotter may require a 2D dataset field
             pass
 
 
@@ -1580,14 +1640,14 @@ class TestTimeSeriesAggregate:
         plotter = TimeSeriesPlotter()
         fig = plotter.plot(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             aggregate_dim="site",
         )
 
         assert fig is not None
         ax = fig.get_axes()[0]
-        # Should have at least obs and model lines
+        # Should have at least geometry and dataset lines
         assert len(ax.get_lines()) >= 2
         plt.close(fig)
 
@@ -1598,8 +1658,8 @@ class TestTimeSeriesAggregate:
         plotter = TimeSeriesPlotter()
         fig = plotter.plot(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             # No aggregate_dim — should auto-detect and average 'site'
         )
 
@@ -1613,8 +1673,8 @@ class TestTimeSeriesAggregate:
         plotter = TimeSeriesPlotter()
         fig = plotter.plot(
             simple_paired_data,
-            "obs_o3",
-            "model_o3",
+            "geometry_o3",
+            "dataset_o3",
             aggregate_dim="site",
             resample="6h",
         )
@@ -1641,10 +1701,10 @@ class TestScorecardPlotterMultiVariable:
 
         ds = xr.Dataset(
             {
-                "obs_o3": (["time"], np.random.normal(50, 10, n)),
-                "model_o3": (["time"], np.random.normal(52, 10, n)),
-                "obs_pm25": (["time"], np.random.normal(15, 5, n)),
-                "model_pm25": (["time"], np.random.normal(17, 5, n)),
+                "geometry_o3": (["time"], np.random.normal(50, 10, n)),
+                "dataset_o3": (["time"], np.random.normal(52, 10, n)),
+                "geometry_pm25": (["time"], np.random.normal(15, 5, n)),
+                "dataset_pm25": (["time"], np.random.normal(17, 5, n)),
             },
             coords={"time": pd.date_range("2023-01-01", periods=n, freq="h")},
         )
@@ -1652,8 +1712,8 @@ class TestScorecardPlotterMultiVariable:
         plotter = ScorecardPlotter()
         fig = plotter.plot(
             ds,
-            obs_var="obs_o3",
-            model_var="model_o3",
+            geometry_var="geometry_o3",
+            dataset_var="dataset_o3",
         )
 
         assert fig is not None
@@ -1674,14 +1734,14 @@ class TestEdgeCases:
 
         ds = xr.Dataset(
             {
-                "obs_o3": (["time"], np.array([np.nan, np.nan, np.nan])),
-                "model_o3": (["time"], np.array([np.nan, np.nan, np.nan])),
+                "geometry_o3": (["time"], np.array([np.nan, np.nan, np.nan])),
+                "dataset_o3": (["time"], np.array([np.nan, np.nan, np.nan])),
             },
             coords={"time": pd.date_range("2023-01-01", periods=3, freq="h")},
         )
 
         plotter = ScatterPlotter()
-        fig = plotter.plot(ds, "obs_o3", "model_o3")
+        fig = plotter.plot(ds, "geometry_o3", "dataset_o3")
 
         # Should handle gracefully
         assert fig is not None
@@ -1693,14 +1753,14 @@ class TestEdgeCases:
 
         ds = xr.Dataset(
             {
-                "obs_o3": (["time"], np.array([50.0])),
-                "model_o3": (["time"], np.array([52.0])),
+                "geometry_o3": (["time"], np.array([50.0])),
+                "dataset_o3": (["time"], np.array([52.0])),
             },
             coords={"time": pd.date_range("2023-01-01", periods=1, freq="h")},
         )
 
         plotter = ScatterPlotter()
-        fig = plotter.plot(ds, "obs_o3", "model_o3")
+        fig = plotter.plot(ds, "geometry_o3", "dataset_o3")
 
         assert fig is not None
         plt.close(fig)

@@ -1,8 +1,7 @@
-"""Tests for the unified data-source abstraction (Phase 1).
+"""Tests for the unified data-source abstraction.
 
 These verify the new SourceReader / SourceProcessor protocols and the
-source_registry exist and behave correctly. They are additive: the legacy
-ModelReader / ObservationReader protocols and registries are untouched.
+source_registry exist and behave correctly.
 """
 
 from __future__ import annotations
@@ -37,7 +36,7 @@ class _FullSourceReader:
 
 
 class _NoGeometryReader:
-    """A reader missing the required geometry property (former ModelReader shape)."""
+    """A reader missing the required geometry property."""
 
     @property
     def name(self) -> str:

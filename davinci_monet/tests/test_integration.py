@@ -5,12 +5,12 @@ config dict. This exercises the pipeline core (loading, pairing,
 statistics, plotting, saving) but not the CLI or YAML parsing path.
 For CLI end-to-end tests, see test_cli_e2e.py. Synthetic data is
 written to NetCDF, a config dict is constructed, and the pipeline handles
-loading, pairing (or obs-only detection), statistics, plotting, and saving.
+loading, pairing (or geometry-only detection), statistics, plotting, and saving.
 
 Three test classes cover different workflow types:
   - TestPointPipeline: paired point (surface) — 8 plot types
   - TestTrackPipeline: paired track (aircraft) — curtain, track_map_3d, flight_timeseries
-  - TestObsOnlyPipeline: obs-only (aircraft) — 4 obs plot types
+  - TestGeometryOnlyPipeline: geometry-only (aircraft) — 4 geometry plot types
 
 CI artifacts (plots, stats CSV, pipeline log) are copied to
 CI_ARTIFACTS_DIR when set by GitHub Actions.
@@ -29,7 +29,7 @@ import xarray as xr
 
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
-from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario, sample_obs_from
+from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario, sample_geometry_from
 
 # =============================================================================
 # Helpers
@@ -81,11 +81,11 @@ def _assert_plots(output_dir: Path, min_count: int) -> list[Path]:
 
 @pytest.mark.integration
 class TestPointPipeline:
-    """End-to-end paired pipeline: model + surface obs → 8 plot types."""
+    """End-to-end paired pipeline: dataset + surface geometry → 8 plot types."""
 
     def test_full_pipeline(self, tmp_path: Path) -> None:
         from davinci_monet.pipeline.runner import PipelineRunner
-        from davinci_monet.tests.synthetic.models import create_model_dataset
+        from davinci_monet.tests.synthetic.datasets import create_dataset_dataset
 
         domain = Domain(
             lon_min=-105.0,
@@ -97,42 +97,42 @@ class TestPointPipeline:
         )
         time_cfg = TimeConfig(start="2024-01-15 00:00", end="2024-01-17 00:00", freq="1h")
 
-        # Build model with latitude gradient
-        model_ds = create_model_dataset(
+        # Build dataset with latitude gradient
+        dataset_ds = create_dataset_dataset(
             variables=["O3"], domain=domain, time_config=time_cfg, seed=42
         )
-        lat_vals = model_ds.lat.values
+        lat_vals = dataset_ds.lat.values
         lat_norm = (lat_vals - lat_vals.min()) / (lat_vals.max() - lat_vals.min())
-        model_ds["O3"] = model_ds["O3"] + 20.0 * lat_norm[:, np.newaxis]
+        dataset_ds["O3"] = dataset_ds["O3"] + 20.0 * lat_norm[:, np.newaxis]
 
-        # Sample obs from gradient-enhanced model
+        # Sample geometry from gradient-enhanced dataset
         scenario = PerfectMatchScenario(
             variables=["O3"],
             domain=domain,
             time_config=time_cfg,
             geometry=DataGeometry.POINT,
-            n_obs=10,
+            n_geometry=10,
             noise_level=0.0,
             seed=42,
         )
-        obs_ds = sample_obs_from(model_ds, "point", scenario=scenario)
+        geometry_ds = sample_geometry_from(dataset_ds, "point", scenario=scenario)
 
-        # Add model bias + noise (obs stay clean)
+        # Add dataset bias + noise (geometry stay clean)
         rng = np.random.default_rng(42)
-        lon_vals = model_ds.lon.values
+        lon_vals = dataset_ds.lon.values
         lon_norm = (lon_vals - lon_vals.min()) / (lon_vals.max() - lon_vals.min())
-        model_ds["O3"] = (
-            model_ds["O3"]
+        dataset_ds["O3"] = (
+            dataset_ds["O3"]
             + 5.0
             + 6.0 * lon_norm[np.newaxis, :]
-            + rng.normal(0, 3.0, size=model_ds["O3"].shape)
+            + rng.normal(0, 3.0, size=dataset_ds["O3"].shape)
         )
 
         # Write to NetCDF
-        model_path = tmp_path / "model.nc"
-        obs_path = tmp_path / "obs.nc"
-        model_ds.to_netcdf(model_path)
-        obs_ds.to_netcdf(obs_path)
+        dataset_path = tmp_path / "dataset.nc"
+        geometry_path = tmp_path / "geometry.nc"
+        dataset_ds.to_netcdf(dataset_path)
+        geometry_ds.to_netcdf(geometry_path)
 
         output_dir = tmp_path / "output"
         log_dir = tmp_path / "logs"
@@ -147,10 +147,8 @@ class TestPointPipeline:
             "sources": {
                 "synthetic": {
                     "type": "generic",
-                    "role": "model",
-                    "files": str(model_path),
+                    "files": str(dataset_path),
                     "radius_of_influence": 50000,
-                    "mapping": {"surface": {"O3": "O3"}},
                     "variables": {
                         "O3": {
                             "units": "ppb",
@@ -162,15 +160,14 @@ class TestPointPipeline:
                 },
                 "surface": {
                     "type": "pt_sfc",
-                    "role": "obs",
-                    "filename": str(obs_path),
-                    "variables": {"O3": {"obs_min": 0, "obs_max": 200, "units": "ppb"}},
+                    "filename": str(geometry_path),
+                    "variables": {"O3": {"geometry_min": 0, "geometry_max": 200, "units": "ppb"}},
                 },
             },
             "pairs": {
                 "synthetic_surface": {
                     "sources": ["synthetic", "surface"],
-                    "reference": "surface",
+                    "geometry": "surface",
                     "variables": {"synthetic": "O3", "surface": "O3"},
                 },
             },
@@ -178,7 +175,7 @@ class TestPointPipeline:
                 "scatter_o3": {
                     "type": "scatter",
                     "pairs": ["synthetic_surface"],
-                    "title": "O3: Model vs Observations",
+                    "title": "O3: Dataset vs Datasets",
                 },
                 "taylor_o3": {
                     "type": "taylor",
@@ -209,8 +206,8 @@ class TestPointPipeline:
                 "spatial_dist_o3": {
                     "type": "spatial_distribution",
                     "pairs": ["synthetic_surface"],
-                    "title": "O3 Observed Distribution",
-                    "show_var": "obs",
+                    "title": "O3 Dataset Distribution",
+                    "show_var": "geometry",
                 },
                 "scorecard_o3": {
                     "type": "scorecard",
@@ -245,11 +242,11 @@ class TestPointPipeline:
 
 @pytest.mark.integration
 class TestTrackPipeline:
-    """End-to-end paired pipeline: model + aircraft track → 3 plot types."""
+    """End-to-end paired pipeline: dataset + aircraft track → 3 plot types."""
 
     def test_track_pipeline(self, tmp_path: Path) -> None:
         from davinci_monet.pipeline.runner import PipelineRunner
-        from davinci_monet.tests.synthetic.models import create_model_dataset
+        from davinci_monet.tests.synthetic.datasets import create_dataset_dataset
 
         domain = Domain(
             lon_min=-105.0,
@@ -263,13 +260,13 @@ class TestTrackPipeline:
         rng = np.random.default_rng(42)
         n = 200
 
-        # Build 2D model (surface only — track strategy falls back to surface extraction)
-        model_ds = create_model_dataset(
+        # Build 2D dataset (surface only — track strategy falls back to surface extraction)
+        dataset_ds = create_dataset_dataset(
             variables=["O3"], domain=domain, time_config=time_cfg, seed=42
         )
-        model_ds["O3"] = model_ds["O3"] + rng.normal(0, 2.0, size=model_ds["O3"].shape)
+        dataset_ds["O3"] = dataset_ds["O3"] + rng.normal(0, 2.0, size=dataset_ds["O3"].shape)
 
-        # Build synthetic track obs
+        # Build synthetic track geometry
         t = np.linspace(0, 4 * np.pi, n)
         times = np.datetime64("2024-01-15T14:00") + np.arange(n) * np.timedelta64(30, "s")
         lats = 38.0 + 3.0 * np.sin(t / 2)
@@ -277,7 +274,7 @@ class TestTrackPipeline:
         alts = 1000 + 8000 * (0.5 + 0.5 * np.sin(t / 2))
         flight_ids = np.where(np.arange(n) < 100, "F01", "F02")
 
-        obs_ds = xr.Dataset(
+        geometry_ds = xr.Dataset(
             {"O3": ("time", 30.0 + 5.0 * (alts / 1000) + rng.normal(0, 3, n))},
             coords={
                 "time": times,
@@ -289,10 +286,10 @@ class TestTrackPipeline:
             attrs={"geometry": "track"},
         )
 
-        model_path = tmp_path / "model_track.nc"
-        obs_path = tmp_path / "obs_track.nc"
-        model_ds.to_netcdf(model_path)
-        obs_ds.to_netcdf(obs_path)
+        dataset_path = tmp_path / "dataset_track.nc"
+        geometry_path = tmp_path / "geometry_track.nc"
+        dataset_ds.to_netcdf(dataset_path)
+        geometry_ds.to_netcdf(geometry_path)
 
         output_dir = tmp_path / "output"
         log_dir = tmp_path / "logs"
@@ -307,23 +304,20 @@ class TestTrackPipeline:
             "sources": {
                 "synthetic": {
                     "type": "generic",
-                    "role": "model",
-                    "files": str(model_path),
+                    "files": str(dataset_path),
                     "radius_of_influence": 100000,
-                    "mapping": {"aircraft": {"O3": "O3"}},
                     "variables": {"O3": {"units": "ppb"}},
                 },
                 "aircraft": {
                     "type": "aircraft",
-                    "role": "obs",
-                    "filename": str(obs_path),
+                    "filename": str(geometry_path),
                     "variables": {"O3": {"units": "ppb"}},
                 },
             },
             "pairs": {
                 "synthetic_aircraft": {
                     "sources": ["synthetic", "aircraft"],
-                    "reference": "aircraft",
+                    "geometry": "aircraft",
                     "variables": {"synthetic": "O3", "aircraft": "O3"},
                 },
             },
@@ -337,7 +331,7 @@ class TestTrackPipeline:
                     "type": "track_map_3d",
                     "pairs": ["synthetic_aircraft"],
                     "title": "O3 3D Track",
-                    "show_var": "obs",
+                    "show_var": "geometry",
                     "show_coastlines": False,
                 },
                 "flight_ts_o3": {
@@ -358,21 +352,21 @@ class TestTrackPipeline:
 
 
 # =============================================================================
-# 3. Obs-Only Pipeline (no model)
+# 3. Geometry-Only Pipeline (no dataset)
 # =============================================================================
 
 
 @pytest.mark.integration
-class TestObsOnlyPipeline:
-    """End-to-end obs-only pipeline: aircraft data → 4 obs plot types."""
+class TestGeometryOnlyPipeline:
+    """End-to-end geometry-only pipeline: aircraft data → 4 geometry plot types."""
 
-    def test_obs_only_pipeline(self, tmp_path: Path) -> None:
+    def test_geometry_only_pipeline(self, tmp_path: Path) -> None:
         from davinci_monet.pipeline.runner import PipelineRunner
 
         rng = np.random.default_rng(99)
         n = 300
 
-        # Build synthetic aircraft obs
+        # Build synthetic aircraft geometry
         t = np.linspace(0, 3 * np.pi, n)
         times = np.datetime64("2012-05-29T14:00") + np.arange(n) * np.timedelta64(20, "s")
         lats = 37.0 + 2.0 * np.sin(t)
@@ -380,7 +374,7 @@ class TestObsOnlyPipeline:
         alts = 500 + 10000 * (0.5 + 0.5 * np.sin(t))
         flight_ids = np.where(np.arange(n) < 150, "2012-05-29", "2012-05-30")
 
-        obs_ds = xr.Dataset(
+        geometry_ds = xr.Dataset(
             {
                 "O3": (
                     "time",
@@ -403,13 +397,13 @@ class TestObsOnlyPipeline:
             attrs={"geometry": "track"},
         )
 
-        obs_path = tmp_path / "obs_aircraft.nc"
-        obs_ds.to_netcdf(obs_path)
+        geometry_path = tmp_path / "geometry_aircraft.nc"
+        geometry_ds.to_netcdf(geometry_path)
 
         output_dir = tmp_path / "output"
         log_dir = tmp_path / "logs"
 
-        # A single obs-role source with no pairs triggers the obs-only pipeline.
+        # A single geometry source with no pairs triggers the geometry-only pipeline.
         config = {
             "analysis": {
                 "start_time": "2012-05-29",
@@ -420,8 +414,7 @@ class TestObsOnlyPipeline:
             "sources": {
                 "dc8": {
                     "type": "aircraft",
-                    "role": "obs",
-                    "filename": str(obs_path),
+                    "filename": str(geometry_path),
                     "variables": {
                         "O3": {"units": "ppbv"},
                         "CO": {"units": "ppbv"},
@@ -429,27 +422,27 @@ class TestObsOnlyPipeline:
                 },
             },
             "plots": {
-                "obs_ts_o3": {
+                "geometry_ts_o3": {
                     "type": "timeseries",
-                    "obs": "dc8",
+                    "geometry": "dc8",
                     "variable": "O3",
                     "title": "O3 Time Series",
                 },
-                "obs_hist_o3": {
+                "geometry_hist_o3": {
                     "type": "histogram",
-                    "obs": "dc8",
+                    "geometry": "dc8",
                     "variable": "O3",
                     "title": "O3 Distribution",
                 },
-                "obs_profile_o3": {
+                "geometry_profile_o3": {
                     "type": "vertical_profile",
-                    "obs": "dc8",
+                    "geometry": "dc8",
                     "variable": "O3",
                     "title": "O3 Vertical Profile",
                 },
-                "obs_track_o3": {
+                "geometry_track_o3": {
                     "type": "flight_track",
-                    "obs": "dc8",
+                    "geometry": "dc8",
                     "variable": "O3",
                     "title": "O3 Flight Track",
                 },
@@ -461,4 +454,4 @@ class TestObsOnlyPipeline:
         _assert_pipeline_success(result)
         _assert_plots(output_dir, min_count=4)
         assert list(log_dir.glob("pipeline_*.md")), "No pipeline log"
-        _copy_artifacts(output_dir, log_dir, prefix="obsonly_")
+        _copy_artifacts(output_dir, log_dir, prefix="geometryonly_")

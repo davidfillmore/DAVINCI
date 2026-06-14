@@ -1,7 +1,7 @@
 """Statistics calculator for paired source data.
 
 This module provides the main interface for computing statistics
-on paired reference/comparand datasets, with support for grouping and multiple
+on paired geometry/dataset datasets, with support for grouping and multiple
 metrics.
 """
 
@@ -78,14 +78,14 @@ class StatisticsCalculator:
     Examples
     --------
     >>> calc = StatisticsCalculator()
-    >>> stats = calc.compute(paired_data, "obs_o3", "model_o3")
+    >>> stats = calc.compute(paired_data, "geometry_o3", "dataset_o3")
     >>> print(stats)
-           N     MO     MP      MB    RMSE      R
+           N     MG     MD      MB    RMSE      R
     0  1000  45.2  47.1    1.9    5.3  0.85
 
     >>> # Group by site
     >>> stats = calc.compute(
-    ...     paired_data, "obs_o3", "model_o3",
+    ...     paired_data, "geometry_o3", "dataset_o3",
     ...     groupby="site"
     ... )
     """
@@ -96,13 +96,10 @@ class StatisticsCalculator:
     def compute(
         self,
         paired_data: xr.Dataset,
-        obs_var: str | None = None,
-        model_var: str | None = None,
+        geometry_var: str | None = None,
+        dataset_var: str | None = None,
         metrics: Sequence[str] | None = None,
         groupby: str | Sequence[str] | None = None,
-        *,
-        reference_var: str | None = None,
-        comparand_var: str | None = None,
         **kwargs: Any,
     ) -> pd.DataFrame:
         """Compute statistics for paired data.
@@ -110,19 +107,15 @@ class StatisticsCalculator:
         Parameters
         ----------
         paired_data
-            Paired dataset with reference and comparand variables.
-        obs_var
-            Compatibility name for reference variable.
-        model_var
-            Compatibility name for comparand variable.
+            Paired dataset with geometry and dataset variables.
         metrics
             List of metric names. If None, uses config.metrics.
         groupby
             Optional dimension(s) to group by.
-        reference_var
-            Name of reference variable.
-        comparand_var
-            Name of comparand variable.
+        geometry_var
+            Name of geometry variable.
+        dataset_var
+            Name of dataset variable.
         **kwargs
             Additional options passed to individual metrics.
 
@@ -132,24 +125,22 @@ class StatisticsCalculator:
             Statistics table with metrics as columns.
         """
         metrics = list(metrics) if metrics is not None else self.config.metrics
-        reference_name = reference_var or obs_var
-        comparand_name = comparand_var or model_var
-        if reference_name is None or comparand_name is None:
-            raise ValueError("Both reference_var and comparand_var are required")
+        if geometry_var is None or dataset_var is None:
+            raise ValueError("Both geometry_var and dataset_var are required")
 
         # Get data arrays
-        obs_data = paired_data[reference_name]
-        model_data = paired_data[comparand_name]
+        geometry_data = paired_data[geometry_var]
+        dataset_data = paired_data[dataset_var]
 
         if groupby is not None:
-            return self._compute_grouped(obs_data, model_data, metrics, groupby, **kwargs)
+            return self._compute_grouped(geometry_data, dataset_data, metrics, groupby, **kwargs)
         else:
-            return self._compute_overall(obs_data, model_data, metrics, **kwargs)
+            return self._compute_overall(geometry_data, dataset_data, metrics, **kwargs)
 
     def _compute_overall(
         self,
-        obs_data: xr.DataArray,
-        model_data: xr.DataArray,
+        geometry_data: xr.DataArray,
+        dataset_data: xr.DataArray,
         metrics: list[str],
         **kwargs: Any,
     ) -> pd.DataFrame:
@@ -157,7 +148,7 @@ class StatisticsCalculator:
 
         Parameters
         ----------
-        obs_data, model_data
+        geometry_data, dataset_data
             Data arrays.
         metrics
             List of metric names.
@@ -169,10 +160,10 @@ class StatisticsCalculator:
         pd.DataFrame
             Single-row DataFrame with statistics.
         """
-        obs = obs_data.values.flatten()
-        mod = model_data.values.flatten()
+        geometry = geometry_data.values.flatten()
+        dataset = dataset_data.values.flatten()
 
-        results = self._compute_metrics(obs, mod, metrics, **kwargs)
+        results = self._compute_metrics(geometry, dataset, metrics, **kwargs)
         df = pd.DataFrame([results])
 
         if self.config.round_precision is not None:
@@ -182,8 +173,8 @@ class StatisticsCalculator:
 
     def _compute_grouped(
         self,
-        obs_data: xr.DataArray,
-        model_data: xr.DataArray,
+        geometry_data: xr.DataArray,
+        dataset_data: xr.DataArray,
         metrics: list[str],
         groupby: str | Sequence[str],
         **kwargs: Any,
@@ -192,7 +183,7 @@ class StatisticsCalculator:
 
         Parameters
         ----------
-        obs_data, model_data
+        geometry_data, dataset_data
             Data arrays.
         metrics
             List of metric names.
@@ -217,13 +208,13 @@ class StatisticsCalculator:
                 # Create grouping coordinate
                 if dim == "time":
                     if accessor == "month":
-                        group_coord = obs_data.time.dt.month
+                        group_coord = geometry_data.time.dt.month
                     elif accessor == "hour":
-                        group_coord = obs_data.time.dt.hour
+                        group_coord = geometry_data.time.dt.hour
                     elif accessor == "dayofweek":
-                        group_coord = obs_data.time.dt.dayofweek
+                        group_coord = geometry_data.time.dt.dayofweek
                     elif accessor == "season":
-                        group_coord = obs_data.time.dt.season
+                        group_coord = geometry_data.time.dt.season
                     else:
                         raise ValueError(f"Unknown time accessor: {accessor}")
                     parsed_groupby.append((g, group_coord))
@@ -236,16 +227,18 @@ class StatisticsCalculator:
         if len(parsed_groupby) == 1:
             name, coord = parsed_groupby[0]
             return self._compute_single_groupby(
-                obs_data, model_data, metrics, name, coord, **kwargs
+                geometry_data, dataset_data, metrics, name, coord, **kwargs
             )
 
         # Multi-dimensional groupby
-        return self._compute_multi_groupby(obs_data, model_data, metrics, parsed_groupby, **kwargs)
+        return self._compute_multi_groupby(
+            geometry_data, dataset_data, metrics, parsed_groupby, **kwargs
+        )
 
     def _compute_single_groupby(
         self,
-        obs_data: xr.DataArray,
-        model_data: xr.DataArray,
+        geometry_data: xr.DataArray,
+        dataset_data: xr.DataArray,
         metrics: list[str],
         name: str,
         coord: Any,
@@ -255,7 +248,7 @@ class StatisticsCalculator:
 
         Parameters
         ----------
-        obs_data, model_data
+        geometry_data, dataset_data
             Data arrays.
         metrics
             List of metric names.
@@ -275,19 +268,21 @@ class StatisticsCalculator:
 
         # Group the data
         if isinstance(coord, str):
-            obs_grouped = obs_data.groupby(coord, squeeze=False)
-            model_grouped = model_data.groupby(coord, squeeze=False)
+            geometry_grouped = geometry_data.groupby(coord, squeeze=False)
+            dataset_grouped = dataset_data.groupby(coord, squeeze=False)
         else:
-            obs_grouped = obs_data.groupby(coord, squeeze=False)
-            model_grouped = model_data.groupby(coord, squeeze=False)
+            geometry_grouped = geometry_data.groupby(coord, squeeze=False)
+            dataset_grouped = dataset_data.groupby(coord, squeeze=False)
 
         results = []
-        for (obs_key, obs_group), (_, model_group) in zip(obs_grouped, model_grouped):
-            obs = obs_group.values.flatten()
-            mod = model_group.values.flatten()
+        for (geometry_key, geometry_group), (_, dataset_group) in zip(
+            geometry_grouped, dataset_grouped
+        ):
+            geometry = geometry_group.values.flatten()
+            dataset = dataset_group.values.flatten()
 
-            row = {name: obs_key}
-            row.update(self._compute_metrics(obs, mod, metrics, **kwargs))
+            row = {name: geometry_key}
+            row.update(self._compute_metrics(geometry, dataset, metrics, **kwargs))
             results.append(row)
 
         df = pd.DataFrame(results)
@@ -300,8 +295,8 @@ class StatisticsCalculator:
 
     def _compute_multi_groupby(
         self,
-        obs_data: xr.DataArray,
-        model_data: xr.DataArray,
+        geometry_data: xr.DataArray,
+        dataset_data: xr.DataArray,
         metrics: list[str],
         parsed_groupby: list[tuple[str, Any]],
         **kwargs: Any,
@@ -310,7 +305,7 @@ class StatisticsCalculator:
 
         Parameters
         ----------
-        obs_data, model_data
+        geometry_data, dataset_data
             Data arrays.
         metrics
             List of metric names.
@@ -329,12 +324,14 @@ class StatisticsCalculator:
 
         # This is a simplified implementation - for now, convert to pandas
         # and use pandas groupby
-        obs_df = obs_data.to_dataframe(name="obs").reset_index()
-        model_df = model_data.to_dataframe(name="mod").reset_index()
+        geometry_df = geometry_data.to_dataframe(name="geometry").reset_index()
+        dataset_df = dataset_data.to_dataframe(name="dataset").reset_index()
 
         # Merge on common indices
-        common_cols = list(set(obs_df.columns) & set(model_df.columns) - {"obs", "mod"})
-        df = pd.merge(obs_df, model_df, on=common_cols)
+        common_cols = list(
+            set(geometry_df.columns) & set(dataset_df.columns) - {"geometry", "dataset"}
+        )
+        df = pd.merge(geometry_df, dataset_df, on=common_cols)
 
         # Add groupby columns
         group_cols = []
@@ -373,11 +370,11 @@ class StatisticsCalculator:
             if not isinstance(group_keys, tuple):
                 group_keys = (group_keys,)
 
-            obs = group_df["obs"].values
-            mod = group_df["mod"].values
+            geometry = group_df["geometry"].values
+            dataset = group_df["dataset"].values
 
             row = dict(zip(group_cols, group_keys))
-            row.update(self._compute_metrics(obs, mod, metrics, **kwargs))
+            row.update(self._compute_metrics(geometry, dataset, metrics, **kwargs))
             results.append(row)
 
         result_df = pd.DataFrame(results)
@@ -389,8 +386,8 @@ class StatisticsCalculator:
 
     def _compute_metrics(
         self,
-        obs: np.ndarray,
-        mod: np.ndarray,
+        geometry: np.ndarray,
+        dataset: np.ndarray,
         metrics: list[str],
         **kwargs: Any,
     ) -> dict[str, float]:
@@ -398,8 +395,8 @@ class StatisticsCalculator:
 
         Parameters
         ----------
-        obs, mod
-            Arrays of observation and model values.
+        geometry, dataset
+            Arrays of dataset and dataset values.
         metrics
             List of metric names.
         **kwargs
@@ -412,14 +409,14 @@ class StatisticsCalculator:
         """
         # Remove NaN if configured
         if self.config.remove_nan:
-            mask = np.isfinite(obs) & np.isfinite(mod)
-            obs = obs[mask]
-            mod = mod[mask]
+            mask = np.isfinite(geometry) & np.isfinite(dataset)
+            geometry = geometry[mask]
+            dataset = dataset[mask]
 
         results = {}
 
         # Check minimum samples
-        if len(obs) < self.config.min_samples:
+        if len(geometry) < self.config.min_samples:
             for metric_name in metrics:
                 results[metric_name] = np.nan
             return results
@@ -428,7 +425,7 @@ class StatisticsCalculator:
         for metric_name in metrics:
             try:
                 metric = get_metric(metric_name)
-                results[metric_name] = metric.compute(obs, mod, **kwargs)
+                results[metric_name] = metric.compute(geometry, dataset, **kwargs)
             except Exception as exc:
                 logger.warning(
                     "Metric '%s' raised an exception and will be set to NaN: %s",
@@ -442,12 +439,9 @@ class StatisticsCalculator:
     def compute_summary(
         self,
         paired_data: xr.Dataset,
-        obs_var: str | None = None,
-        model_var: str | None = None,
+        geometry_var: str | None = None,
+        dataset_var: str | None = None,
         metrics: Sequence[str] | None = None,
-        *,
-        reference_var: str | None = None,
-        comparand_var: str | None = None,
         **kwargs: Any,
     ) -> dict[str, float]:
         """Compute summary statistics as a dictionary.
@@ -456,16 +450,12 @@ class StatisticsCalculator:
         ----------
         paired_data
             Paired dataset.
-        obs_var
-            Compatibility name for reference variable.
-        model_var
-            Compatibility name for comparand variable.
         metrics
             List of metric names.
-        reference_var
-            Reference variable name.
-        comparand_var
-            Comparand variable name.
+        geometry_var
+            Geometry variable name.
+        dataset_var
+            Dataset variable name.
         **kwargs
             Additional options.
 
@@ -476,11 +466,9 @@ class StatisticsCalculator:
         """
         df = self.compute(
             paired_data,
-            obs_var,
-            model_var,
+            geometry_var,
+            dataset_var,
             metrics=metrics,
-            reference_var=reference_var,
-            comparand_var=comparand_var,
             **kwargs,
         )
         return df.iloc[0].to_dict()
@@ -493,14 +481,11 @@ class StatisticsCalculator:
 
 def calculate_statistics(
     paired_data: xr.Dataset,
-    obs_var: str | None = None,
-    model_var: str | None = None,
+    geometry_var: str | None = None,
+    dataset_var: str | None = None,
     metrics: Sequence[str] | None = None,
     groupby: str | Sequence[str] | None = None,
     config: StatisticsConfig | dict[str, Any] | None = None,
-    *,
-    reference_var: str | None = None,
-    comparand_var: str | None = None,
     **kwargs: Any,
 ) -> pd.DataFrame:
     """Calculate statistics for paired data.
@@ -510,21 +495,17 @@ def calculate_statistics(
     Parameters
     ----------
     paired_data
-        Paired dataset with reference and comparand variables.
-    obs_var
-        Compatibility name for reference variable.
-    model_var
-        Compatibility name for comparand variable.
+        Paired dataset with geometry and dataset variables.
     metrics
         List of metric names. If None, uses standard set.
     groupby
         Optional dimension(s) to group by.
     config
         Statistics configuration.
-    reference_var
-        Name of reference variable.
-    comparand_var
-        Name of comparand variable.
+    geometry_var
+        Name of geometry variable.
+    dataset_var
+        Name of dataset variable.
     **kwargs
         Additional options.
 
@@ -536,13 +517,13 @@ def calculate_statistics(
     Examples
     --------
     >>> stats = calculate_statistics(
-    ...     paired_data, "obs_o3", "model_o3",
+    ...     paired_data, "geometry_o3", "dataset_o3",
     ...     metrics=["MB", "RMSE", "R"],
     ... )
 
     >>> # Group by site and month
     >>> stats = calculate_statistics(
-    ...     paired_data, "obs_o3", "model_o3",
+    ...     paired_data, "geometry_o3", "dataset_o3",
     ...     groupby=["site", "time.month"],
     ... )
     """
@@ -552,29 +533,27 @@ def calculate_statistics(
     calc = StatisticsCalculator(config=config)
     return calc.compute(
         paired_data,
-        obs_var,
-        model_var,
+        geometry_var,
+        dataset_var,
         metrics=metrics,
         groupby=groupby,
-        reference_var=reference_var,
-        comparand_var=comparand_var,
         **kwargs,
     )
 
 
 def quick_stats(
-    obs: np.ndarray,
-    mod: np.ndarray,
+    geometry: np.ndarray,
+    dataset: np.ndarray,
     metrics: Sequence[str] | None = None,
 ) -> dict[str, float]:
     """Quick statistics calculation from arrays.
 
     Parameters
     ----------
-    obs
-        Observation array.
-    mod
-        Model array.
+    geometry
+        Dataset array.
+    dataset
+        Dataset array.
     metrics
         List of metric names. If None, uses standard set.
 
@@ -585,24 +564,24 @@ def quick_stats(
 
     Examples
     --------
-    >>> stats = quick_stats(obs_array, model_array)
+    >>> stats = quick_stats(geometry_array, dataset_array)
     >>> print(f"RMSE: {stats['RMSE']:.2f}")
     """
     metrics = list(metrics) if metrics is not None else STANDARD_METRICS
 
-    obs = np.asarray(obs).flatten()
-    mod = np.asarray(mod).flatten()
+    geometry = np.asarray(geometry).flatten()
+    dataset = np.asarray(dataset).flatten()
 
     # Remove NaN
-    mask = np.isfinite(obs) & np.isfinite(mod)
-    obs = obs[mask]
-    mod = mod[mask]
+    mask = np.isfinite(geometry) & np.isfinite(dataset)
+    geometry = geometry[mask]
+    dataset = dataset[mask]
 
     results = {}
     for metric_name in metrics:
         try:
             metric = get_metric(metric_name)
-            results[metric_name] = metric.compute(obs, mod)
+            results[metric_name] = metric.compute(geometry, dataset)
         except Exception as exc:
             logger.warning(
                 "Metric '%s' raised an exception and will be set to NaN: %s",

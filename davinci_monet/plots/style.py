@@ -16,7 +16,7 @@ Usage
 >>> apply_ncar_style()
 >>>
 >>> # Then create plots as usual
->>> fig = plot_timeseries(paired_data, "obs_o3", "model_o3")
+>>> fig = plot_timeseries(paired_data, "geometry_o3", "dataset_o3")
 
 The apply_ncar_style() function sets matplotlib rcParams globally, affecting
 all subsequent plots. For individual plots, you can also pass style options
@@ -61,13 +61,13 @@ NCAR_PRIMARY = NCAR_COLORS["ncar_blue"]
 NCAR_SECONDARY = NCAR_COLORS["aqua"]
 NCAR_ACCENT = NCAR_COLORS["orange"]
 
-# Color scheme for model-observation comparisons
-OBS_COLOR = NCAR_COLORS["gray"]  # Observations in neutral gray
-MODEL_COLOR = NCAR_COLORS["ncar_blue"]  # Model in primary blue
-BIAS_POSITIVE_COLOR = NCAR_COLORS["red"]  # Model overpredicts
-BIAS_NEGATIVE_COLOR = NCAR_COLORS["ncar_blue"]  # Model underpredicts
+# Color scheme for geometry-dataset comparisons.
+DATASET_A_COLOR = NCAR_COLORS["gray"]  # Geometry values in neutral gray
+DATASET_B_COLOR = NCAR_COLORS["ncar_blue"]  # Dataset in primary blue
+BIAS_POSITIVE_COLOR = NCAR_COLORS["red"]  # Dataset is higher than geometry
+BIAS_NEGATIVE_COLOR = NCAR_COLORS["ncar_blue"]  # Dataset is lower than geometry
 
-# Sequential color palette for multiple models/datasets
+# Sequential color palette for multiple plotted series.
 NCAR_PALETTE = [
     NCAR_COLORS["ncar_blue"],
     NCAR_COLORS["aqua"],
@@ -271,8 +271,8 @@ def get_color_for_variable(variable: str) -> str:
     ----------
     variable
         Variable name or type. Recognized prefixes:
-        - "obs_*": Returns observation color
-        - "model_*": Returns model color
+        - "geometry_*": Returns geometry color
+        - "dataset_*": Returns dataset color
         - "bias_*": Returns bias color
 
     Returns
@@ -281,42 +281,14 @@ def get_color_for_variable(variable: str) -> str:
         Hex color code.
     """
     var_lower = variable.lower()
-    if var_lower.startswith("obs"):
-        return OBS_COLOR
-    elif var_lower.startswith("model"):
-        return MODEL_COLOR
+    if var_lower.startswith("geometry"):
+        return DATASET_A_COLOR
+    elif var_lower.startswith("dataset"):
+        return DATASET_B_COLOR
     elif var_lower.startswith("bias"):
         return NCAR_COLORS["red"]
     else:
         return NCAR_COLORS["ncar_blue"]
-
-
-def get_color_for_role(role: str | None, index: int = 0) -> str:
-    """Get a plot color for a data source based on its role (Phase 5).
-
-    Role-based styling for the unified data-source model: a source tagged
-    ``role == "obs"`` renders in the neutral observation gray and
-    ``role == "model"`` in NCAR blue, preserving today's model-vs-obs
-    convention. Same-role or role-less sources cycle the NCAR palette by
-    ``index`` (their order in the pair/plot).
-
-    Parameters
-    ----------
-    role
-        Source role: ``"obs"``, ``"model"``, or ``None``/other.
-    index
-        Position used to cycle the palette for role-less/same-role sources.
-
-    Returns
-    -------
-    str
-        Hex color code.
-    """
-    if role == "obs":
-        return OBS_COLOR
-    if role == "model":
-        return MODEL_COLOR
-    return NCAR_PALETTE[index % len(NCAR_PALETTE)]
 
 
 def get_palette(n_colors: int | None = None) -> list[str]:
@@ -351,8 +323,8 @@ def get_bias_cmap() -> str:
     """Get the recommended colormap for bias plots.
 
     Returns a diverging colormap centered on zero, with blue for
-    negative bias (model underpredicts) and red for positive bias
-    (model overpredicts).
+    negative bias (dataset lower than geometry) and red for positive bias
+    (dataset higher than geometry).
 
     Returns
     -------

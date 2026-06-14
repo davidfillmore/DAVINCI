@@ -13,9 +13,9 @@ import pytest
 
 import davinci_monet.ai.openrouter as orouter
 from davinci_monet.core.protocols import DataGeometry
+from davinci_monet.tests.synthetic.datasets import create_dataset_dataset
 from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
-from davinci_monet.tests.synthetic.models import create_model_dataset
-from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario, sample_obs_from
+from davinci_monet.tests.synthetic.scenarios import PerfectMatchScenario, sample_geometry_from
 
 pytestmark = pytest.mark.integration
 
@@ -24,25 +24,27 @@ def _build_config(tmp_path: Path) -> dict:
     domain = Domain(lon_min=-105.0, lon_max=-95.0, lat_min=35.0, lat_max=45.0, n_lon=12, n_lat=12)
     time_cfg = TimeConfig(start="2024-01-15 00:00", end="2024-01-17 00:00", freq="1h")
 
-    model_ds = create_model_dataset(variables=["O3"], domain=domain, time_config=time_cfg, seed=42)
+    dataset_ds = create_dataset_dataset(
+        variables=["O3"], domain=domain, time_config=time_cfg, seed=42
+    )
     scenario = PerfectMatchScenario(
         variables=["O3"],
         domain=domain,
         time_config=time_cfg,
         geometry=DataGeometry.POINT,
-        n_obs=10,
+        n_geometry=10,
         noise_level=0.0,
         seed=42,
     )
-    obs_ds = sample_obs_from(model_ds, "point", scenario=scenario)
+    geometry_ds = sample_geometry_from(dataset_ds, "point", scenario=scenario)
 
     rng = np.random.default_rng(42)
-    model_ds["O3"] = model_ds["O3"] + 5.0 + rng.normal(0, 3.0, size=model_ds["O3"].shape)
+    dataset_ds["O3"] = dataset_ds["O3"] + 5.0 + rng.normal(0, 3.0, size=dataset_ds["O3"].shape)
 
-    model_path = tmp_path / "model.nc"
-    obs_path = tmp_path / "obs.nc"
-    model_ds.to_netcdf(model_path)
-    obs_ds.to_netcdf(obs_path)
+    dataset_path = tmp_path / "dataset.nc"
+    geometry_path = tmp_path / "geometry.nc"
+    dataset_ds.to_netcdf(dataset_path)
+    geometry_ds.to_netcdf(geometry_path)
 
     return {
         "analysis": {
@@ -54,23 +56,20 @@ def _build_config(tmp_path: Path) -> dict:
         "sources": {
             "synthetic": {
                 "type": "generic",
-                "role": "model",
-                "files": str(model_path),
+                "files": str(dataset_path),
                 "radius_of_influence": 50000,
-                "mapping": {"surface": {"O3": "O3"}},
                 "variables": {"O3": {"units": "ppb"}},
             },
             "surface": {
                 "type": "pt_sfc",
-                "role": "obs",
-                "filename": str(obs_path),
-                "variables": {"O3": {"obs_min": 0, "obs_max": 200, "units": "ppb"}},
+                "filename": str(geometry_path),
+                "variables": {"O3": {"geometry_min": 0, "geometry_max": 200, "units": "ppb"}},
             },
         },
         "pairs": {
             "synthetic_surface": {
                 "sources": ["synthetic", "surface"],
-                "reference": "surface",
+                "geometry": "surface",
                 "variables": {"synthetic": "O3", "surface": "O3"},
             },
         },
@@ -78,7 +77,7 @@ def _build_config(tmp_path: Path) -> dict:
             "scatter_o3": {
                 "type": "scatter",
                 "pairs": ["synthetic_surface"],
-                "title": "O3: Model vs Observations",
+                "title": "O3: Dataset vs Datasets",
             },
         },
         "stats": {"metrics": ["N", "MB", "RMSE", "R", "NMB", "NME", "IOA"]},
@@ -147,7 +146,7 @@ def test_openrouter_summary_skips_without_key(monkeypatch, tmp_path: Path) -> No
 
 
 def test_openrouter_summary_displays_tokens_and_credits(monkeypatch, tmp_path: Path) -> None:
-    import davinci_monet.pipeline.runner as runner_mod
+    import davinci_monet.pipeline.runner as runner_module
     from davinci_monet.pipeline.runner import PipelineRunner
 
     def _fake_send(cfg, key, body):
@@ -162,7 +161,7 @@ def test_openrouter_summary_displays_tokens_and_credits(monkeypatch, tmp_path: P
 
     captured: list[dict] = []
     monkeypatch.setattr(
-        runner_mod.ProgressFormatter,
+        runner_module.ProgressFormatter,
         "print_summary",
         lambda self, items, summary_file=None, usage=None, credits_remaining=None: captured.append(
             {"items": items, "usage": usage, "credits_remaining": credits_remaining}

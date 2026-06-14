@@ -37,7 +37,7 @@ def test_no_attrs_is_identity_in_float64() -> None:
 
 
 def test_modis_viirs_staticmethod_delegates() -> None:
-    from davinci_monet.observations.satellite.modis_viirs import MODISVIIRSReader
+    from davinci_monet.datasets.satellite.modis_viirs import MODISVIIRSReader
 
     raw = np.array([10], dtype=np.int16)
     out = MODISVIIRSReader._apply_hdf4_scale(raw, {"scale_factor": 2.0})

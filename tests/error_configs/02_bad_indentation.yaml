@@ -6,7 +6,7 @@ analysis:
   end_time: "2024-02-03"
 output_dir: ./output  # Should be indented under analysis
 
-model:
-  test_model:
-  mod_type: cesm_fv  # Should be indented under test_model
+sources:
+  test_dataset:
+  type: cesm_fv  # Should be indented under test_dataset
     files: /nonexistent/path/*.nc

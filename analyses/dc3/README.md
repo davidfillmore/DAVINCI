@@ -1,12 +1,12 @@
 # DC3 Analysis
 
-Observation-only analysis for the NASA/NSF **Deep Convective Clouds and Chemistry (DC3)** field campaign (May-June 2012).
+Dataset-only analysis for the NASA/NSF **Deep Convective Clouds and Chemistry (DC3)** field campaign (May-June 2012).
 
 ## Campaign Overview
 
 DC3 studied the impact of deep midlatitude continental convective clouds on upper tropospheric composition and chemistry. Three research aircraft (NASA DC-8, NSF/NCAR GV, DLR Falcon) sampled thunderstorms from inflow to outflow across three U.S. regions: NE Colorado, N. Alabama, and Oklahoma/W. Texas.
 
-**Reference:** Barth et al. (2015), *Bull. Amer. Meteor. Soc.*, 96, 1281-1309. [doi:10.1175/BAMS-D-13-00290.1](https://doi.org/10.1175/BAMS-D-13-00290.1)
+**Geometry:** Barth et al. (2015), *Bull. Amer. Meteor. Soc.*, 96, 1281-1309. [doi:10.1175/BAMS-D-13-00290.1](https://doi.org/10.1175/BAMS-D-13-00290.1)
 
 ## Quick Start
 
@@ -23,14 +23,14 @@ Downloads ICARTT merge files to `~/Data/DC3/aircraft/merge/`.
 ### 2. Run Analysis
 
 ```bash
-# DC-8 obs-only analysis (default)
-python scripts/run_obs_analysis.py dc3-obs-dc8
+# DC-8 geometry-only analysis (default)
+python scripts/run_geometry_analysis.py dc3-geometry-dc8
 
-# GV obs-only analysis
-python scripts/run_obs_analysis.py dc3-obs-gv
+# GV geometry-only analysis
+python scripts/run_geometry_analysis.py dc3-geometry-gv
 
 # Combined DC-8 + GV
-python scripts/run_obs_analysis.py dc3-obs-all-aircraft
+python scripts/run_geometry_analysis.py dc3-geometry-all-aircraft
 ```
 
 ## Directory Structure
@@ -38,13 +38,13 @@ python scripts/run_obs_analysis.py dc3-obs-all-aircraft
 ```
 dc3/
 ├── configs/
-│   ├── dc3-obs-dc8.yaml            # DC-8 obs-only
-│   ├── dc3-obs-gv.yaml             # GV obs-only
-│   └── dc3-obs-all-aircraft.yaml   # Combined DC-8 + GV
+│   ├── dc3-geometry-dc8.yaml            # DC-8 geometry-only
+│   ├── dc3-geometry-gv.yaml             # GV geometry-only
+│   └── dc3-geometry-all-aircraft.yaml   # Combined DC-8 + GV
 ├── scripts/
 │   ├── download_dc3_aircraft.py    # Download ICARTT from NASA ASDC
-│   └── run_obs_analysis.py         # Run obs-only pipeline
-├── data/                            # Downloaded observations
+│   └── run_geometry_analysis.py         # Run geometry-only pipeline
+├── data/                            # Downloaded datasets
 ├── output/                          # Plots and statistics
 └── logs/                            # Pipeline logs
 ```
@@ -68,11 +68,11 @@ dc3/
 
 ## Plot Types
 
-The obs-only pipeline produces:
+The geometry-only pipeline produces:
 - **Flight track maps** -- 2D Cartopy maps with flight paths colored by variable value
 - **Vertical profiles** -- Altitude vs. concentration (scatter or binned)
 - **Time series** -- Variable along flight time, with optional altitude shading
-- **Histograms** -- Distribution of observed values with summary statistics
+- **Histograms** -- Distribution of dataset values with summary statistics
 
 ## Data Source
 

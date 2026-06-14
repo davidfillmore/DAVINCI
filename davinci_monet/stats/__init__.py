@@ -1,23 +1,23 @@
 """Statistics module for DAVINCI.
 
 This module provides comprehensive statistical analysis capabilities
-for evaluating model performance against observations.
+for paired geometry and dataset values.
 
 Quick Start
 -----------
 >>> from davinci_monet.stats import calculate_statistics, quick_stats
 >>>
 >>> # Calculate statistics from paired data
->>> stats = calculate_statistics(paired_data, "obs_o3", "model_o3")
+>>> stats = calculate_statistics(paired_data, "geometry_o3", "dataset_o3")
 >>>
 >>> # Quick stats from arrays
->>> stats = quick_stats(obs_array, model_array)
+>>> stats = quick_stats(geometry_array, dataset_array)
 >>> print(f"RMSE: {stats['RMSE']:.2f}")
 
 Available Metrics
 -----------------
 Basic:
-    N, MO, MP, STDO, STDP, MdnO, MdnP
+    N, MG, MD, STDG, STDD, MdnG, MdnD
 
 Bias:
     MB, MdnB, NMB, NMdnB, FB, MNB

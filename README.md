@@ -2,18 +2,18 @@
 
 **Data Analysis and Visual Intelligence for Climate**
 
-A modern, type-safe Python toolkit for evaluating climate and atmospheric composition models against observations.
+A modern, type-safe Python toolkit for comparing climate and atmospheric composition datasets.
 
 ## Features
 
 - **Unified Pairing Engine** - Single pairing system based on data geometry (point, track, profile, swath, grid)
-- **Multiple Model Support** - CMAQ, WRF-Chem, UFS, CESM, and generic NetCDF
+- **Multiple Dataset Support** - CMAQ, WRF-Chem, UFS, CESM, and generic NetCDF
 - **27 Statistical Metrics** - Bias, error, correlation, and agreement metrics with groupby support
 - **Multiple Plot Types** - Time series, scatter, Taylor diagrams, spatial maps, 3D track, curtain, and more
-- **Type-Safe Configuration** - Pydantic-validated YAML configs with backward compatibility
+- **Type-Safe Configuration** - Pydantic-validated YAML configs
 - **Full Test Coverage** - 1000+ tests with synthetic data generation
 
-### Supported Observations
+### Supported Datasets
 
 | Type | Reader | Description | Variables |
 |------|--------|-------------|-----------|
@@ -38,7 +38,7 @@ A modern, type-safe Python toolkit for evaluating climate and atmospheric compos
 | | GOES | GOES-R/S AOD | Untested |
 
 <details>
-<summary><strong>Observation Acronyms</strong></summary>
+<summary><strong>Dataset Acronyms</strong></summary>
 
 | Acronym | Full Name |
 |---------|-----------|
@@ -59,15 +59,15 @@ A modern, type-safe Python toolkit for evaluating climate and atmospheric compos
 </details>
 
 <details>
-<summary><strong>Model Acronyms</strong></summary>
+<summary><strong>Dataset Acronyms</strong></summary>
 
 | Acronym | Full Name |
 |---------|-----------|
-| CESM | Community Earth System Model |
-| CAM-chem | Community Atmosphere Model with Chemistry |
-| WRF-Chem | Weather Research and Forecasting model with Chemistry |
-| CMAQ | Community Multiscale Air Quality model |
-| UFS-AQM | Unified Forecast System - Air Quality Model |
+| CESM | Community Earth System Dataset |
+| CAM-chem | Community Atmosphere Dataset with Chemistry |
+| WRF-Chem | Weather Research and Forecasting dataset with Chemistry |
+| CMAQ | Community Multiscale Air Quality dataset |
+| UFS-AQM | Unified Forecast System - Air Quality Dataset |
 
 </details>
 
@@ -115,7 +115,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ```yaml
 summary:
   enabled: true
-  model: claude-haiku-4-5          # cheapest vision model; bump to claude-sonnet-4-6
+  dataset: claude-haiku-4-5          # cheapest vision dataset; bump to claude-sonnet-4-6
   plots: [scatter_o3, spatial_bias_o3]   # optional; omit to send up to max_images
   max_images: 8
   instructions: "Focus on coastal sites."   # optional steering
@@ -129,7 +129,7 @@ summary:
   enabled: true
   provider: openrouter
   api_key_file: OpenRouter.api          # gitignored; falls back to api_key_env
-  model: anthropic/claude-haiku-4.5     # OpenRouter model id (default for this provider)
+  dataset: anthropic/claude-haiku-4.5     # OpenRouter dataset id (default for this provider)
 ```
 
 The stage is always non-fatal: with no key or no network it logs a warning and
@@ -166,9 +166,9 @@ Output is saved to `examples/output/plots/` as both PNG (300 DPI) and PDF.
 
 ## Analyses
 
-The `analyses/` directory contains real-world model evaluation studies:
+The `analyses/` directory contains real-world dataset evaluation studies:
 
-| Analysis | Model | Observations | Period | Description |
+| Analysis | Dataset | Datasets | Period | Description |
 |----------|-------|--------------|--------|-------------|
 | [`ASIA-AQ`](analyses/asia-aq/) | CESM/CAM-chem | AirNow, AERONET, Pandora | Feb 2024 | NASA ASIA-AQ campaign evaluation |
 
@@ -180,8 +180,8 @@ See the [Wiki](../../wiki) for full documentation:
 
 - [Installation](../../wiki/Installation) - Setup and dependencies
 - [Configuration](../../wiki/Configuration) - YAML configuration guide
-- [CLI Reference](../../wiki/CLI-Reference) - Command-line interface
-- [API Reference](../../wiki/API-Reference) - Python API documentation
+- [CLI Geometry](../../wiki/CLI-Geometry) - Command-line interface
+- [API Geometry](../../wiki/API-Geometry) - Python API documentation
 - [Examples](../../wiki/Examples) - Detailed example walkthroughs
 
 ## Architecture
@@ -189,8 +189,8 @@ See the [Wiki](../../wiki) for full documentation:
 ```
 davinci_monet/
 ├── config/       # Pydantic schemas, YAML parsing
-├── models/       # Model readers (CMAQ, WRF-Chem, UFS, CESM)
-├── observations/ # Observation handlers by type
+├── datasets/       # Dataset readers (CMAQ, WRF-Chem, UFS, CESM)
+├── datasets/ # Dataset handlers by type
 ├── pairing/      # Unified pairing engine + strategies
 ├── plots/        # Plotting system with registry
 ├── stats/        # Statistics calculation
@@ -202,9 +202,9 @@ davinci_monet/
 ## Data Flow
 
 ```
-Model Files ──► Model Reader ──► xr.Dataset ──┐
+Dataset Files ──► Dataset Reader ──► xr.Dataset ──┐
                                               ├──► Pairing Engine ──► Paired Dataset
-Obs Files ────► Obs Reader ───► xr.Dataset ──┘         │
+Geometry Files ────► Geometry Reader ───► xr.Dataset ──┘         │
                                                        ▼
                                               Statistics + Plots
 ```
@@ -223,4 +223,4 @@ Apache 2.0
 
 ---
 
-> *Leonardo da Vinci and Claude Monet were both extraordinary observers of the natural world, and their artistic legacies resonate with the scientific mission of atmospheric model evaluation. Da Vinci, the Renaissance polymath, meticulously documented natural phenomena in his notebooks—from the mechanics of water flow to the blue haze of distant mountains, recognizing what we now call atmospheric perspective. His sfumato technique—from the Italian "to evaporate like smoke"—used subtle blending without harsh outlines to capture how the atmosphere softens and scatters light between observer and subject. Monet, the Impressionist master, devoted his career to capturing the ephemeral interplay of light and atmosphere. His serial paintings of haystacks, Rouen Cathedral, and the Thames recorded the same scenes under varying atmospheric conditions—fog, sunrise, midday sun—essentially conducting visual experiments on how the atmosphere transforms what we see. Both artists understood that the atmosphere is not empty space but an active medium that shapes our perception of the world. DAVINCI inherits this spirit of careful observation: just as da Vinci and Monet compared their perceptions against nature itself, this toolkit compares numerical model predictions against real-world observations, bringing visual intelligence to our mathematical representations of the climate system and testing them against the truth that only measurement can provide.*
+> *Leonardo da Vinci and Claude Monet both studied the natural world with unusual care, and that attention resonates with atmospheric dataset evaluation. Da Vinci documented natural phenomena in his notebooks, from water flow to the blue haze of distant mountains, recognizing what we now call atmospheric perspective. Monet devoted his career to the changing interplay of light and atmosphere. His serial paintings of haystacks, Rouen Cathedral, and the Thames recorded the same scenes under varying atmospheric conditions: fog, sunrise, midday sun. DAVINCI inherits this spirit of careful comparison: the toolkit places numerical datasets beside measurement datasets, bringing visual intelligence to climate-system analysis.*

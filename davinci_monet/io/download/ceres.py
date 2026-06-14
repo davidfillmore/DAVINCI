@@ -2,7 +2,7 @@
 
 Covers L2 SSF swath granules (per instrument) and L3 EBAF / SYN1deg gridded
 products from the NASA Langley ASDC. Network access goes through the shared
-:mod:`davinci_monet.io.download.earthdata` core, whose ``_login``/``_search``/
+module `davinci_monet.io.download.earthdata` core, which contains ``_login``/``_search``/
 ``_download`` functions tests monkeypatch directly; ``earthaccess`` is an
 optional dependency (``pip install -e ".[reanalysis]"``) imported lazily.
 

@@ -1,7 +1,7 @@
 """Loading and resolution of AI summary comparison templates.
 
 Built-in templates are YAML files under ``data/``; resolution picks a template
-for a comparand variable by matching the templates' ``matches`` patterns, with
+for a dataset variable by matching the templates' ``matches`` patterns, with
 ``generic_eval`` as the fallback. Mirrors the satellite-catalog registry.
 """
 

@@ -1,4 +1,4 @@
-"""3D flight track map renderer for observation-only data.
+"""3D flight track map renderer for dataset-only data.
 
 Renders a 3D plot showing an aircraft flight path with longitude, latitude,
 and altitude axes, colored by a variable value (e.g., O3 concentration).
@@ -20,7 +20,7 @@ from davinci_monet.plots.base import (
     get_variable_label,
     get_variable_units,
 )
-from davinci_monet.plots.registry import register_alias, register_plotter
+from davinci_monet.plots.registry import register_plotter
 from davinci_monet.plots.renderers._track3d import draw_track_3d
 from davinci_monet.plots.style import get_sequential_cmap
 
@@ -45,7 +45,7 @@ class FlightTrackPlotter(BasePlotter):
     Examples
     --------
     >>> plotter = FlightTrackPlotter()
-    >>> fig = plotter.plot(obs_data, "O3", title="DC3 Flight O3")
+    >>> fig = plotter.plot(geometry_data, "O3", title="DC3 Flight O3")
     """
 
     name: str = "flight_track"
@@ -63,7 +63,7 @@ class FlightTrackPlotter(BasePlotter):
 
     def plot(  # type: ignore[override]
         self,
-        obs_data: xr.Dataset,
+        geometry_data: xr.Dataset,
         variable: str,
         ax: matplotlib.axes.Axes | None = None,
         title: str | None = None,
@@ -99,8 +99,8 @@ class FlightTrackPlotter(BasePlotter):
 
         Parameters
         ----------
-        obs_data
-            Observation dataset with lat/lon/alt coordinates and the variable.
+        geometry_data
+            Dataset dataset with lat/lon/alt coordinates and the variable.
         variable
             Name of the variable to color by.
         ax
@@ -164,19 +164,19 @@ class FlightTrackPlotter(BasePlotter):
             The generated figure.
         """
         # Extract coordinates
-        lats = obs_data[lat_coord].values
-        lons = obs_data[lon_coord].values
-        values = obs_data[variable].values
+        lats = geometry_data[lat_coord].values
+        lons = geometry_data[lon_coord].values
+        values = geometry_data[variable].values
 
         # Get altitude
-        if alt_coord in obs_data.coords:
-            alts = obs_data[alt_coord].values * alt_scale
-        elif alt_coord in obs_data.data_vars:
-            alts = obs_data[alt_coord].values * alt_scale
+        if alt_coord in geometry_data.coords:
+            alts = geometry_data[alt_coord].values * alt_scale
+        elif alt_coord in geometry_data.data_vars:
+            alts = geometry_data[alt_coord].values * alt_scale
         else:
             raise ValueError(
                 f"Altitude coordinate '{alt_coord}' not found. "
-                f"Available: {list(obs_data.coords) + list(obs_data.data_vars)}"
+                f"Available: {list(geometry_data.coords) + list(geometry_data.data_vars)}"
             )
 
         # Filter valid data
@@ -206,14 +206,14 @@ class FlightTrackPlotter(BasePlotter):
         cmap = cmap or get_sequential_cmap()
 
         # Colorbar label
-        var_label = get_variable_label(obs_data, variable, include_prefix=False)
-        units = get_variable_units(obs_data, variable)
+        var_label = get_variable_label(geometry_data, variable, include_prefix=False)
+        units = get_variable_units(geometry_data, variable)
         cbar_label = format_label_with_units(var_label, units)
         cbar_label = format_plot_title(cbar_label)
 
         # Draw the shared 3D track body (scatter, projection, surface-plane map
         # features, axis setup, labels, colorbar). ``use_maxnlocator`` matches
-        # the obs-only flight-track convention of capping x/y tick counts.
+        # the geometry-only flight-track convention of capping x/y tick counts.
         draw_track_3d(
             fig,
             ax3d,
@@ -251,13 +251,7 @@ class FlightTrackPlotter(BasePlotter):
         # Title
         if title is None:
             title = f"{var_label} Flight Track"
-        else:
-            title = format_plot_title(title)
-        fig.suptitle(title, fontsize=text_cfg.title_fontsize, y=0.85)
+        self.set_figure_title(fig, title, y=0.85)
 
         plt.tight_layout(rect=(0, 0, 1, 0.95))
         return fig
-
-
-# ``obs_flight_track`` is a deprecated alias of the unified renderer.
-register_alias("obs_flight_track", "flight_track")

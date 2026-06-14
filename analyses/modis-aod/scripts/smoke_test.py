@@ -97,10 +97,10 @@ def read_modis_granules(day_of_year: int) -> OrderedDict:
 
 
 # ---------------------------------------------------------------------------
-# 2. Read CAM6 models
+# 2. Read CAM6 datasets
 # ---------------------------------------------------------------------------
 
-def read_cam6_models(dates: list[str]) -> tuple[xr.Dataset, xr.Dataset]:
+def read_cam6_datasets(dates: list[str]) -> tuple[xr.Dataset, xr.Dataset]:
     """Read both CAM6 runs and subset to the target dates."""
     print(f"\nReading CAM6 base: {CAM6_BASE_FILE.name}")
     ds_base = xr.open_dataset(str(CAM6_BASE_FILE))
@@ -119,7 +119,7 @@ def read_cam6_models(dates: list[str]) -> tuple[xr.Dataset, xr.Dataset]:
 
 
 # ---------------------------------------------------------------------------
-# 3. Grid MODIS onto model grid for one day
+# 3. Grid MODIS onto dataset grid for one day
 # ---------------------------------------------------------------------------
 
 def grid_modis_day(
@@ -152,7 +152,7 @@ def grid_modis_day(
     for i, (key, granule) in enumerate(granules.items()):
         # Keys are "Platform_YYYYjjjHHMM" — strip platform prefix
         datetime_str = key.split("_", 1)[1] if "_" in key else key
-        obs_timestamp = pd.to_datetime(datetime_str, format='%Y%j%H%M').timestamp()
+        geometry_timestamp = pd.to_datetime(datetime_str, format='%Y%j%H%M').timestamp()
 
         aod = granule[MODIS_VAR].values
         lat = granule["lat"].values
@@ -165,7 +165,7 @@ def grid_modis_day(
         fill_mask = (lat_flat < -900) | (lon_flat < -900)
         aod_flat[fill_mask] = np.nan
 
-        # Shift lon from -180..180 to 0..360 to match model grid
+        # Shift lon from -180..180 to 0..360 to match dataset grid
         lon_flat = np.where(lon_flat < 0, lon_flat + 360.0, lon_flat)
         # Wrap pixels past last lon edge back into first bin
         lon_flat = np.where(lon_flat >= lon_edges[-1], lon_flat - 360.0, lon_flat)
@@ -173,8 +173,8 @@ def grid_modis_day(
         n_valid = np.isfinite(aod_flat).sum()
         n_valid_total += n_valid
 
-        n_obs = len(aod_flat)
-        time_flat = np.full(n_obs, obs_timestamp, dtype=np.float64)
+        n_geometry = len(aod_flat)
+        time_flat = np.full(n_geometry, geometry_timestamp, dtype=np.float64)
 
         bin_swath_to_grid(
             time_edges, lon_edges, lat_edges,
@@ -219,7 +219,7 @@ def make_plots(
     date_str: str,
     lon_centers: np.ndarray,
     lat_centers: np.ndarray,
-    obs_data: np.ndarray,
+    geometry_data: np.ndarray,
     count_data: np.ndarray,
     base_data: np.ndarray,
     newdust_data: np.ndarray,
@@ -229,8 +229,8 @@ def make_plots(
     import cartopy.feature as cfeature
 
     # Shift lon for display
-    lon, obs_d, base_d, newdust_d, count_d = shift_lon_to_180(
-        lon_centers, obs_data, base_data, newdust_data, count_data.astype(np.float64),
+    lon, geometry_d, base_d, newdust_d, count_d = shift_lon_to_180(
+        lon_centers, geometry_data, base_data, newdust_data, count_data.astype(np.float64),
     )
     lat = lat_centers
 
@@ -258,7 +258,7 @@ def make_plots(
     ])
     lon_mesh, lat_mesh = np.meshgrid(lon, lat)
     aod_panels = [
-        (axes[0, 0], obs_d, "(a) MODIS Terra+Aqua AOD"),
+        (axes[0, 0], geometry_d, "(a) MODIS Terra+Aqua AOD"),
         (axes[0, 1], base_d, "(b) CAM6 Base AODVIS"),
         (axes[0, 2], newdust_d, "(c) CAM6 New Dust AODVIS"),
     ]
@@ -278,14 +278,14 @@ def make_plots(
         ax.set_title(title)
 
     # Bottom row: bias via contourf
-    bias_base = base_d - obs_d
-    bias_newdust = newdust_d - obs_d
-    bias_model_diff = newdust_d - base_d
+    bias_base = base_d - geometry_d
+    bias_newdust = newdust_d - geometry_d
+    bias_dataset_diff = newdust_d - base_d
     bias_levels = np.arange(-0.30, 0.35, 0.05)
     bias_panels = [
         (axes[1, 0], bias_base, "(d) Base − MODIS"),
         (axes[1, 1], bias_newdust, "(e) New Dust − MODIS"),
-        (axes[1, 2], bias_model_diff, "(f) New Dust − Base"),
+        (axes[1, 2], bias_dataset_diff, "(f) New Dust − Base"),
     ]
     for ax, data, title in bias_panels:
         add_map_features(ax)
@@ -357,7 +357,7 @@ if __name__ == "__main__":
     dates = [d for _, d in DAYS]
 
     # Load both CAM6 runs (all 3 days at once)
-    ds_base, ds_newdust = read_cam6_models(dates)
+    ds_base, ds_newdust = read_cam6_datasets(dates)
 
     lat_centers = ds_base["lat"].values
     lon_centers = ds_base["lon"].values
@@ -369,7 +369,7 @@ if __name__ == "__main__":
 
         # Read and bin MODIS for this day
         granules = read_modis_granules(day_of_year)
-        obs_data, count_data = grid_modis_day(
+        geometry_data, count_data = grid_modis_day(
             granules, lat_centers, lon_centers, date_str,
         )
 
@@ -377,15 +377,15 @@ if __name__ == "__main__":
         base_aod = ds_base[CAM6_VAR].sel(time=date_str, method="nearest").values.T
         newdust_aod = ds_newdust[CAM6_VAR].sel(time=date_str, method="nearest").values.T
 
-        valid = np.isfinite(obs_data)
-        print(f"  Grid cells with obs: {valid.sum():,}")
+        valid = np.isfinite(geometry_data)
+        print(f"  Grid cells with geometry: {valid.sum():,}")
         if valid.any():
-            print(f"  Obs AOD range: [{obs_data[valid].min():.4f}, {obs_data[valid].max():.4f}]")
+            print(f"  Geometry AOD range: [{geometry_data[valid].min():.4f}, {geometry_data[valid].max():.4f}]")
         print(f"  Max pixel count: {count_data.max()}")
 
         make_plots(
             date_str, lon_centers, lat_centers,
-            obs_data, count_data, base_aod, newdust_aod,
+            geometry_data, count_data, base_aod, newdust_aod,
         )
 
     print(f"\nSmoke test complete! {len(DAYS) * 2} figures in {OUTPUT_DIR}")

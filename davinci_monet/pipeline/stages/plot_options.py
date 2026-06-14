@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from davinci_monet.plots.titles import is_date_label, strip_trailing_date_title
+
 SINGLE_SOURCE_SCHEMA_KEYS = {
     "type",
-    "obs",
+    "geometry",
     "source",
     "variable",
     "fig_kwargs",
@@ -33,8 +35,8 @@ FORWARDED_COMPARISON_OPTION_KEYS = {
     "density_cmap",
     "alpha",
     "marker_size",
-    "obs_edgecolor",
-    "obs_linewidth",
+    "geometry_edgecolor",
+    "geometry_linewidth",
     "plot_type",
     "cmap",
     "show_surface_map",
@@ -51,9 +53,37 @@ FORWARDED_COMPARISON_OPTION_KEYS = {
 }
 
 
-def single_source_plot_kwargs(plot_spec: dict[str, Any]) -> dict[str, Any]:
+def single_source_plot_kwargs(
+    plot_spec: dict[str, Any],
+    *,
+    analysis_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Return renderer kwargs for a single-source plot spec."""
-    return {k: v for k, v in plot_spec.items() if k not in SINGLE_SOURCE_SCHEMA_KEYS}
+    kwargs = {k: v for k, v in plot_spec.items() if k not in SINGLE_SOURCE_SCHEMA_KEYS}
+
+    subtitle = build_plot_subtitle(analysis_config or {})
+    if subtitle and not kwargs.get("subtitle"):
+        kwargs["subtitle"] = subtitle
+
+    title = kwargs.get("title")
+    if isinstance(title, str):
+        kwargs["title"] = strip_trailing_date_title(title)
+
+    return kwargs
+
+
+def single_source_flight_plot_kwargs(
+    plot_kwargs: dict[str, Any],
+    *,
+    flight_id: Any,
+) -> dict[str, Any]:
+    """Return per-flight kwargs without putting date labels in titles."""
+    base_title = plot_kwargs.get("title")
+    if is_date_label(flight_id):
+        return {**plot_kwargs, "subtitle": str(flight_id)}
+    if base_title:
+        return {**plot_kwargs, "title": f"{base_title} \u2014 {flight_id}"}
+    return {**plot_kwargs, "title": str(flight_id)}
 
 
 def build_comparison_plot_options(
@@ -84,7 +114,7 @@ def build_plot_subtitle(
     *,
     snapshot_timestamp: str | None = None,
 ) -> str:
-    """Return the subtitle line for a plot."""
+    """Return the date/timestamp subtitle line for a plot."""
     if snapshot_timestamp:
         return snapshot_timestamp
 

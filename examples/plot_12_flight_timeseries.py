@@ -2,9 +2,9 @@
 """Flight Time Series Plot Example.
 
 Demonstrates the flight_timeseries plotter for multi-panel plots showing
-model vs observation time series for individual aircraft flights.
+dataset vs dataset time series for individual aircraft flights.
 
-Data: Aircraft track observations (O3)
+Data: Aircraft track datasets (O3)
 """
 
 import matplotlib.pyplot as plt
@@ -24,8 +24,8 @@ def main():
     # Create plot using davinci_monet.plots
     fig = plot_flight_timeseries(
         paired,
-        obs_var="obs_o3",
-        model_var="model_o3",
+        geometry_var="geometry_o3",
+        dataset_var="dataset_o3",
         title="Flight Time Series: O3 Along Aircraft Tracks",
         ncols=3,
         min_points=20,

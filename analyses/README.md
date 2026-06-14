@@ -1,6 +1,6 @@
 # DAVINCI Analyses
 
-Real-data model evaluation analyses using DAVINCI.
+Real-data dataset evaluation analyses using DAVINCI.
 
 ## Directory Structure
 
@@ -16,7 +16,7 @@ analyses/
 
 ## Analyses
 
-| Analysis | Campaign | Model | Period | Status |
+| Analysis | Campaign | Dataset | Period | Status |
 |----------|----------|-------|--------|--------|
 | [asia-aq](asia-aq/) | NASA ASIA-AQ | CESM/CAM-chem | Feb 2024 | In Progress |
 
@@ -26,7 +26,7 @@ analyses/
 2. Add a README.md with campaign/project overview
 3. Create subdirectories: `configs/`, `scripts/`, `output/`
 4. Add exploration scripts to understand the data
-5. Create YAML configs for model-observation pairing
+5. Create YAML configs for dataset-dataset pairing
 6. Run analyses using CLI or Python scripts
 
 ## Running Analyses
@@ -35,19 +35,19 @@ analyses/
 # Activate environment
 conda activate davinci
 
-# Explore model data
-python analyses/asia-aq/scripts/explore_model.py
+# Explore dataset data
+python analyses/asia-aq/scripts/explore_dataset.py
 
 # Test CESM reader
 python analyses/asia-aq/scripts/test_cesm_reader.py
 
-# Run full analysis (when observation data available)
+# Run full analysis (when dataset data available)
 davinci-monet run analyses/asia-aq/configs/cesm_surface.yaml
 ```
 
 ## Data Locations
 
-Model data is typically stored externally and referenced by path in configs:
+Dataset data is typically stored externally and named by path in configs:
 - ASIA-AQ CESM: `~/Data/ASIA-AQ/`
 
-Observation data should be downloaded to `analyses/<name>/data/` or referenced externally.
+Dataset data should be downloaded to `analyses/<name>/data/` or kept at an external path.

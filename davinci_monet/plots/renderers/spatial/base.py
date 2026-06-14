@@ -34,13 +34,13 @@ def detect_spatial_geometry(
 
     - ``"point"``: lat and lon are both 1-D, share the **same single
       dimension**, and that dimension appears in the field.  This is the
-      geometry of station/site observations (AirNow, AERONET, aircraft
+      geometry of station/site datasets (AirNow, AERONET, aircraft
       tracks) where each element is an independent location.
 
     - ``"regular_grid"``: lat and lon are both 1-D but do **not** share a
       single site dimension (i.e. they are independent axis arrays), and
       the field has at least two dimensions.  This is the geometry of
-      structured rectilinear model output where lat and lon define a
+      structured rectilinear dataset output where lat and lon define a
       Cartesian product.
 
     - ``"curvilinear_grid"``: lat and/or lon are 2-D arrays whose values
@@ -54,7 +54,7 @@ def detect_spatial_geometry(
     lon_da:
         DataArray for longitude coordinate (from ``paired_data[resolved_lon]``).
     field_da:
-        DataArray for the field being classified (bias, obs_data, etc.).
+        DataArray for the field being classified (bias, geometry_data, etc.).
 
     Returns
     -------
@@ -351,8 +351,8 @@ class BaseSpatialPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:

@@ -66,12 +66,12 @@ class OutputConfig:
 #: Mapping of metric abbreviations to full names
 METRIC_FULL_NAMES = {
     "N": "Sample Size",
-    "MO": "Mean Reference",
-    "MP": "Mean Comparand",
-    "STDO": "Reference Standard Deviation",
-    "STDP": "Comparand Standard Deviation",
-    "MdnO": "Median Reference",
-    "MdnP": "Median Comparand",
+    "MG": "Mean Geometry",
+    "MD": "Mean Dataset",
+    "STDG": "Geometry Standard Deviation",
+    "STDD": "Dataset Standard Deviation",
+    "MdnG": "Median Geometry",
+    "MdnD": "Median Dataset",
     "MB": "Mean Bias",
     "MdnB": "Median Bias",
     "NMB": "Normalized Mean Bias",
@@ -464,14 +464,14 @@ def create_comparison_table(
     Parameters
     ----------
     stats_dfs
-        Dictionary mapping model/run names to statistics DataFrames.
+        Dictionary mapping dataset/run names to statistics DataFrames.
     metrics
         List of metrics to include. If None, uses all common metrics.
 
     Returns
     -------
     pd.DataFrame
-        Comparison table with metrics as rows and models as columns.
+        Comparison table with metrics as rows and datasets as columns.
     """
     if not stats_dfs:
         return pd.DataFrame()

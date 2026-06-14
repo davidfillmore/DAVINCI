@@ -10,85 +10,25 @@ import xarray as xr
 
 from davinci_monet.core.base import PairedData, iter_paired_variable_pairs
 from davinci_monet.core.protocols import DataGeometry
-from davinci_monet.pipeline.stages import tag_paired_roles
-
-
-def _paired() -> xr.Dataset:
-    rng = np.random.default_rng(0)
-    n = 8
-    return xr.Dataset(
-        {
-            "model_o3": ("time", rng.uniform(10, 60, n)),
-            "obs_o3": ("time", rng.uniform(10, 60, n)),
-        },
-        coords={"time": np.arange(n)},
-    )
-
-
-class TestSourceLabelRename:
-    """Unit tests of ``tag_paired_roles`` source-label renaming (R-5)."""
-
-    def test_renames_to_source_labels(self) -> None:
-        ds = _paired()
-        tag_paired_roles(ds, reference_label="airnow", comparand_label="cam")
-        # Renamed to source-label names (model -> comparand, obs -> reference).
-        assert "cam_o3" in ds.data_vars
-        assert "airnow_o3" in ds.data_vars
-        # Legacy prefixes are dropped.
-        assert "model_o3" not in ds.data_vars
-        assert "obs_o3" not in ds.data_vars
-        assert set(ds.data_vars) == {"cam_o3", "airnow_o3"}
-
-    def test_renamed_vars_preserve_values(self) -> None:
-        ds = _paired()
-        model_before = ds["model_o3"].values.copy()
-        obs_before = ds["obs_o3"].values.copy()
-        tag_paired_roles(ds, reference_label="airnow", comparand_label="cam")
-        np.testing.assert_array_equal(ds["cam_o3"].values, model_before)
-        np.testing.assert_array_equal(ds["airnow_o3"].values, obs_before)
-
-    def test_role_and_source_label_attrs(self) -> None:
-        ds = _paired()
-        tag_paired_roles(ds, reference_label="airnow", comparand_label="cam")
-        assert ds["cam_o3"].attrs["role"] == "model"
-        assert ds["cam_o3"].attrs["source_label"] == "cam"
-        assert ds["airnow_o3"].attrs["role"] == "obs"
-        assert ds["airnow_o3"].attrs["source_label"] == "airnow"
-
-    def test_no_labels_use_neutral_source_labels(self) -> None:
-        ds = _paired()
-        tag_paired_roles(ds)
-        assert set(ds.data_vars) == {"comparand_o3", "reference_o3"}
-        assert ds["comparand_o3"].attrs["role"] == "model"
-        assert ds["reference_o3"].attrs["role"] == "obs"
-        assert ds["comparand_o3"].attrs["source_label"] == "comparand"
-        assert ds["reference_o3"].attrs["source_label"] == "reference"
-
-    def test_source_labels_are_not_reserved(self) -> None:
-        ds = _paired()
-        tag_paired_roles(ds, reference_label="obs_feed", comparand_label="model_run")
-        assert set(ds.data_vars) == {"model_run_o3", "obs_feed_o3"}
-        assert ds["model_run_o3"].attrs["source_label"] == "model_run"
-        assert ds["obs_feed_o3"].attrs["source_label"] == "obs_feed"
 
 
 @pytest.mark.integration
 class TestPairedSourceLabelPipeline:
     """Integration test: the pipeline emits source-label paired names only.
 
-    Runs the real user path (``PipelineRunner.run_from_config``) with a model
-    labelled ``cam`` and obs labelled ``airnow`` plus a ``stats`` block, proving
-    the statistics stage works with role-based selection (no model_/obs_ prefix).
+    Runs the real user path (``PipelineRunner.run_from_config``) with a dataset
+    labelled ``cam`` and geometry labelled ``airnow`` plus a ``stats`` block, proving
+    the statistics stage works with pair-axis selection (no dataset_/geometry_ prefix).
     """
 
-    def test_pipeline_emits_source_label_names(self, tmp_path: Path) -> None:
+    def test_pipeline_emits_dataset_label_names(self, tmp_path: Path) -> None:
         from davinci_monet.core.protocols import DataGeometry
         from davinci_monet.pipeline.runner import PipelineRunner
+        from davinci_monet.tests.synthetic.datasets import create_dataset_dataset
         from davinci_monet.tests.synthetic.generators import Domain, TimeConfig
-        from davinci_monet.tests.synthetic.models import create_model_dataset
         from davinci_monet.tests.synthetic.scenarios import (
             PerfectMatchScenario,
-            sample_obs_from,
+            sample_geometry_from,
         )
 
         domain = Domain(
@@ -101,7 +41,7 @@ class TestPairedSourceLabelPipeline:
         )
         time_cfg = TimeConfig(start="2024-01-15 00:00", end="2024-01-15 06:00", freq="1h")
 
-        model_ds = create_model_dataset(
+        dataset_ds = create_dataset_dataset(
             variables=["O3"], domain=domain, time_config=time_cfg, seed=42
         )
         scenario = PerfectMatchScenario(
@@ -109,16 +49,16 @@ class TestPairedSourceLabelPipeline:
             domain=domain,
             time_config=time_cfg,
             geometry=DataGeometry.POINT,
-            n_obs=6,
+            n_geometry=6,
             noise_level=0.0,
             seed=42,
         )
-        obs_ds = sample_obs_from(model_ds, "point", scenario=scenario)
+        geometry_ds = sample_geometry_from(dataset_ds, "point", scenario=scenario)
 
-        model_path = tmp_path / "model.nc"
-        obs_path = tmp_path / "obs.nc"
-        model_ds.to_netcdf(model_path)
-        obs_ds.to_netcdf(obs_path)
+        dataset_path = tmp_path / "dataset.nc"
+        geometry_path = tmp_path / "geometry.nc"
+        dataset_ds.to_netcdf(dataset_path)
+        geometry_ds.to_netcdf(geometry_path)
 
         config = {
             "analysis": {
@@ -129,24 +69,21 @@ class TestPairedSourceLabelPipeline:
             },
             "sources": {
                 "cam": {
-                    "role": "model",
                     "type": "generic",
-                    "files": str(model_path),
+                    "files": str(dataset_path),
                     "radius_of_influence": 50000,
-                    "mapping": {"airnow": {"O3": "O3"}},
                     "variables": {"O3": {"units": "ppb"}},
                 },
                 "airnow": {
-                    "role": "obs",
                     "type": "pt_sfc",
-                    "filename": str(obs_path),
-                    "variables": {"O3": {"obs_min": 0, "obs_max": 200, "units": "ppb"}},
+                    "filename": str(geometry_path),
+                    "variables": {"O3": {"valid_min": 0, "valid_max": 200, "units": "ppb"}},
                 },
             },
             "pairs": {
                 "cam_airnow": {
                     "sources": ["cam", "airnow"],
-                    "reference": "airnow",
+                    "geometry": "airnow",
                     "variables": {"cam": "O3", "airnow": "O3"},
                 },
             },
@@ -167,83 +104,81 @@ class TestPairedSourceLabelPipeline:
         paired_obj = next(iter(paired.values()))
         ds = paired_obj.data if hasattr(paired_obj, "data") else paired_obj
 
-        # Source-label names only — the legacy prefixes are gone.
+        # Source-label names only.
         assert "cam_O3" in ds.data_vars
         assert "airnow_O3" in ds.data_vars
-        assert "model_O3" not in ds.data_vars
-        assert "obs_O3" not in ds.data_vars
+        assert "dataset_O3" not in ds.data_vars
+        assert "geometry_O3" not in ds.data_vars
 
-        # Vars self-describe role and source label.
-        assert ds["cam_O3"].attrs["role"] == "model"
-        assert ds["cam_O3"].attrs["source_label"] == "cam"
-        assert ds["airnow_O3"].attrs["role"] == "obs"
-        assert ds["airnow_O3"].attrs["source_label"] == "airnow"
+        # Vars self-describe pair_axis and source label.
+        assert ds["cam_O3"].attrs["pair_axis"] == "dataset"
+        assert ds["cam_O3"].attrs["dataset_label"] == "cam"
+        assert ds["airnow_O3"].attrs["pair_axis"] == "geometry"
+        assert ds["airnow_O3"].attrs["dataset_label"] == "airnow"
 
-        # Statistics still computed for the canonical variable (role-based).
+        # Statistics still computed for the canonical variable (pair-axis).
         stats_files = list((tmp_path / "output").rglob("*.csv"))
         assert stats_files, "no statistics CSV produced"
 
 
 class TestPairedHelperRobustness:
-    """Hardening from the R-5 review: role/canonical helpers must be internally
-    consistent and respect roles."""
+    """Pair-axis and canonical helpers stay internally consistent."""
 
     def test_iter_pairs_handles_mixed_case_prefixes(self) -> None:
-        # paired_variable_role matches prefixes case-insensitively; the canonical
-        # helper must too, so mixed-case legacy names still pair.
+        # Prefix matching and canonical-name handling are both case-insensitive.
         ds = xr.Dataset(
-            {"Model_O3": ("time", np.zeros(3)), "obs_O3": ("time", np.ones(3))},
+            {"Dataset_O3": ("time", np.zeros(3)), "geometry_O3": ("time", np.ones(3))},
             coords={"time": np.arange(3)},
         )
-        ds["Model_O3"].attrs["role"] = "model"
-        ds["obs_O3"].attrs["role"] = "obs"
-        assert iter_paired_variable_pairs(ds) == [("obs_O3", "Model_O3", "O3")]
+        ds["Dataset_O3"].attrs["pair_axis"] = "dataset"
+        ds["geometry_O3"].attrs["pair_axis"] = "geometry"
+        assert iter_paired_variable_pairs(ds) == [("geometry_O3", "Dataset_O3", "O3")]
 
-    def test_reference_comparand_resolve_canonical(self) -> None:
+    def test_geometry_dataset_resolve_canonical(self) -> None:
         ds = xr.Dataset(
             {"airnow_o3": ("time", np.ones(3)), "cam_o3": ("time", np.zeros(3))},
             coords={"time": np.arange(3)},
         )
-        ds["airnow_o3"].attrs.update({"role": "obs", "source_label": "airnow"})
-        ds["cam_o3"].attrs.update({"role": "model", "source_label": "cam"})
-        pd = PairedData(data=ds, model_label="cam", obs_label="airnow", geometry=DataGeometry.POINT)
-        np.testing.assert_array_equal(pd.get_reference("o3").values, np.ones(3))
-        np.testing.assert_array_equal(pd.get_comparand("o3").values, np.zeros(3))
+        ds["airnow_o3"].attrs.update({"pair_axis": "geometry", "dataset_label": "airnow"})
+        ds["cam_o3"].attrs.update({"pair_axis": "dataset", "dataset_label": "cam"})
+        pd = PairedData(
+            data=ds, dataset_label="cam", geometry_label="airnow", geometry=DataGeometry.POINT
+        )
+        np.testing.assert_array_equal(pd.get_geometry("o3").values, np.ones(3))
+        np.testing.assert_array_equal(pd.get_dataset("o3").values, np.zeros(3))
 
-    def test_reference_comparand_accessors_are_canonical(self) -> None:
+    def test_geometry_dataset_accessors_are_canonical(self) -> None:
         ds = xr.Dataset(
             {"airnow_o3": ("time", np.ones(3)), "cam_o3": ("time", np.zeros(3))},
             coords={"time": np.arange(3)},
         )
-        ds["airnow_o3"].attrs.update(
-            {"role": "obs", "pair_role": "reference", "source_label": "airnow"}
-        )
-        ds["cam_o3"].attrs.update(
-            {"role": "model", "pair_role": "comparand", "source_label": "cam"}
-        )
+        ds["airnow_o3"].attrs.update({"pair_axis": "geometry", "dataset_label": "airnow"})
+        ds["cam_o3"].attrs.update({"pair_axis": "dataset", "dataset_label": "cam"})
         pd = PairedData(
             data=ds,
-            model_label="cam",
-            obs_label="airnow",
+            dataset_label="cam",
+            geometry_label="airnow",
             geometry=DataGeometry.POINT,
-            pairing_info={"reference_label": "airnow", "comparand_label": "cam"},
+            pairing_info={"geometry_label": "airnow", "dataset_label": "cam"},
         )
 
-        assert pd.reference_label == "airnow"
-        assert pd.comparand_label == "cam"
-        assert pd.reference_variables == ["airnow_o3"]
-        assert pd.comparand_variables == ["cam_o3"]
-        np.testing.assert_array_equal(pd.get_reference("o3").values, np.ones(3))
-        np.testing.assert_array_equal(pd.get_comparand("o3").values, np.zeros(3))
+        assert pd.geometry_label == "airnow"
+        assert pd.dataset_label == "cam"
+        assert pd.geometry_variables == ["airnow_o3"]
+        assert pd.dataset_variables == ["cam_o3"]
+        np.testing.assert_array_equal(pd.get_geometry("o3").values, np.ones(3))
+        np.testing.assert_array_equal(pd.get_dataset("o3").values, np.zeros(3))
 
-    def test_legacy_fallback_respects_role(self) -> None:
-        # get_comparand must not return a legacy-named var whose role attr is 'obs'.
+    def test_prefix_fallback_respects_pair_axis(self) -> None:
+        # get_dataset must not return a prefixed var whose pair_axis attr is 'geometry'.
         ds = xr.Dataset(
-            {"model_o3": ("time", np.zeros(3)), "obs_o3": ("time", np.ones(3))},
+            {"dataset_o3": ("time", np.zeros(3)), "geometry_o3": ("time", np.ones(3))},
             coords={"time": np.arange(3)},
         )
-        ds["model_o3"].attrs["role"] = "model"
-        ds["obs_o3"].attrs["role"] = "obs"
-        pd = PairedData(data=ds, model_label="cam", obs_label="airnow", geometry=DataGeometry.POINT)
-        np.testing.assert_array_equal(pd.get_comparand("o3").values, np.zeros(3))
-        np.testing.assert_array_equal(pd.get_reference("o3").values, np.ones(3))
+        ds["dataset_o3"].attrs["pair_axis"] = "dataset"
+        ds["geometry_o3"].attrs["pair_axis"] = "geometry"
+        pd = PairedData(
+            data=ds, dataset_label="cam", geometry_label="airnow", geometry=DataGeometry.POINT
+        )
+        np.testing.assert_array_equal(pd.get_dataset("o3").values, np.zeros(3))
+        np.testing.assert_array_equal(pd.get_geometry("o3").values, np.ones(3))

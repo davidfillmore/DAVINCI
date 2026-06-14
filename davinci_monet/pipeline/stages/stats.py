@@ -33,7 +33,7 @@ class StatisticsStage(BaseStage):
     def _execute_descriptive(
         self,
         context: PipelineContext,
-        sources: list[tuple[str, Any, xr.Dataset, str | None]] | None = None,
+        sources: list[tuple[str, Any, xr.Dataset]] | None = None,
     ) -> StageResult:
         """Descriptive stats for unpaired sources."""
         import time
@@ -44,7 +44,7 @@ class StatisticsStage(BaseStage):
         start = time.time()
         all_stats: dict[str, dict[str, dict[str, float]]] = {}
         source_items = sources if sources is not None else iter_single_source_datasets(context)
-        for source_label, _source_obj, ds, _role in source_items:
+        for dataset_label, _source_obj, ds in source_items:
             source_stats: dict[str, dict[str, float]] = {}
             for var_name in ds.data_vars:
                 var_key = str(var_name)
@@ -64,7 +64,7 @@ class StatisticsStage(BaseStage):
                     "p75": float(np.percentile(values, 75)),
                     "p90": float(np.percentile(values, 90)),
                 }
-            all_stats[source_label] = source_stats
+            all_stats[dataset_label] = source_stats
         return self._create_result(
             StageStatus.COMPLETED,
             data=all_stats,
@@ -151,13 +151,12 @@ class StatisticsStage(BaseStage):
         )
         calculator = StatisticsCalculator(calc_config)
 
-        # Pair (obs, model) variables by role/source-label, matched on canonical
-        # name; stats are keyed by the canonical name (R-5).
-        for obs_var, model_var, base_name in iter_paired_variable_pairs(paired_data):
+        # Pair geometry and dataset variables by canonical name.
+        for geometry_var, dataset_var, base_name in iter_paired_variable_pairs(paired_data):
             df = calculator.compute(
                 paired_data,
-                reference_var=obs_var,
-                comparand_var=model_var,
+                geometry_var=geometry_var,
+                dataset_var=dataset_var,
                 metrics=list(metrics) if metrics else None,
             )
 
@@ -170,18 +169,17 @@ class StatisticsStage(BaseStage):
                 if isinstance(value, (np.floating, np.integer)):
                     row[key] = float(value)
 
-            # Add legacy keys for backward compatibility
-            legacy_map = {
+            alias_map = {
                 "n": "N",
                 "mean_bias": "MB",
                 "rmse": "RMSE",
                 "correlation": "R",
-                "model_mean": "MP",
-                "obs_mean": "MO",
+                "dataset_mean": "MD",
+                "geometry_mean": "MG",
             }
-            for legacy_key, metric_key in legacy_map.items():
-                if metric_key in row and legacy_key not in row:
-                    row[legacy_key] = row[metric_key]
+            for alias_key, metric_key in alias_map.items():
+                if metric_key in row and alias_key not in row:
+                    row[alias_key] = row[metric_key]
 
             stats[base_name] = row
 
@@ -198,7 +196,7 @@ class StatisticsStage(BaseStage):
         Parameters
         ----------
         paired_data : xr.Dataset
-            Paired dataset with role-tagged source-label variables and a flight coordinate.
+            Paired dataset with source-label variables and a flight coordinate.
 
         Returns
         -------
@@ -216,35 +214,35 @@ class StatisticsStage(BaseStage):
             mask = paired_data["flight"].values == flight
             flight_data = paired_data.isel(time=mask)
 
-            for obs_var, model_var, base_name in var_pairs:
-                if obs_var not in flight_data or model_var not in flight_data:
+            for geometry_var, dataset_var, base_name in var_pairs:
+                if geometry_var not in flight_data or dataset_var not in flight_data:
                     continue
 
-                model_vals = flight_data[model_var].values.flatten()
-                obs_vals = flight_data[obs_var].values.flatten()
+                dataset_vals = flight_data[dataset_var].values.flatten()
+                geometry_vals = flight_data[geometry_var].values.flatten()
 
                 # Remove NaNs
-                valid = ~(np.isnan(model_vals) | np.isnan(obs_vals))
+                valid = ~(np.isnan(dataset_vals) | np.isnan(geometry_vals))
                 if valid.sum() < 3:
                     continue
 
-                m, o = model_vals[valid], obs_vals[valid]
+                m, o = dataset_vals[valid], geometry_vals[valid]
                 diff = m - o
 
                 row: dict[str, Any] = {
                     "flight": str(flight),
                     "variable": base_name,
                     "N": len(m),
-                    "MO": float(np.mean(o)),
-                    "MP": float(np.mean(m)),
+                    "MG": float(np.mean(o)),
+                    "MD": float(np.mean(m)),
                     "MB": float(np.mean(diff)),
                     "RMSE": float(np.sqrt(np.mean(diff**2))),
                     "R": float(np.corrcoef(o, m)[0, 1]) if len(m) > 1 else np.nan,
                 }
                 # NMB/NME
-                if row["MO"] != 0:
-                    row["NMB_%"] = (row["MB"] / row["MO"]) * 100
-                    row["NME_%"] = (float(np.mean(np.abs(diff))) / row["MO"]) * 100
+                if row["MG"] != 0:
+                    row["NMB_%"] = (row["MB"] / row["MG"]) * 100
+                    row["NME_%"] = (float(np.mean(np.abs(diff))) / row["MG"]) * 100
                 else:
                     row["NMB_%"] = np.nan
                     row["NME_%"] = np.nan

@@ -6,7 +6,7 @@ for creating plotters by name.
 Example usage:
     # Get a plotter by name
     plotter = get_plotter("timeseries")
-    fig = plotter.plot(paired_data, "obs_o3", "model_o3")
+    fig = plotter.plot(paired_data, "geometry_o3", "dataset_o3")
 
     # List available plotters
     print(list_plotters())
@@ -50,32 +50,19 @@ def register_plotter(name: str, *, replace: bool = False) -> Callable[[type[T]],
     >>> @register_plotter("my_plot")
     ... class MyPlotter(BasePlotter):
     ...     name = "my_plot"
-    ...     def plot(self, paired_data, obs_var, model_var, **kwargs):
+    ...     def plot(self, paired_data, geometry_var, dataset_var, **kwargs):
     ...         ...
     """
     return plotter_registry.register(name, replace=replace)
 
 
-_warned_aliases: set[str] = set()
-
-
-def register_alias(alias: str, target: str) -> None:
-    """Register a deprecated plot-type ``alias`` that resolves to ``target``.
-
-    Lets old ``type:`` strings (e.g. ``obs_timeseries``) keep working after a
-    renderer is merged/renamed. Resolution emits a one-time ``LegacyConfigWarning``
-    (see :func:`get_plotter_class`).
-    """
-    plotter_registry.register_alias(alias, target)
-
-
 def get_plotter_class(name: str) -> type[BasePlotter]:
-    """Get a plotter class by name (resolving deprecated aliases).
+    """Get a plotter class by name.
 
     Parameters
     ----------
     name
-        Plotter name (or a registered deprecated alias).
+        Plotter name.
 
     Returns
     -------
@@ -87,18 +74,6 @@ def get_plotter_class(name: str) -> type[BasePlotter]:
     ComponentNotFoundError
         If plotter is not registered.
     """
-    if plotter_registry.is_alias(name) and name not in _warned_aliases:
-        _warned_aliases.add(name)
-        import warnings
-
-        from davinci_monet.config.migration import LegacyConfigWarning
-
-        target = plotter_registry.resolve(name)
-        warnings.warn(
-            f"Plot type '{name}' is deprecated; use '{target}'.",
-            LegacyConfigWarning,
-            stacklevel=2,
-        )
     return plotter_registry.get(name)
 
 
@@ -126,7 +101,7 @@ def get_plotter(
     Examples
     --------
     >>> plotter = get_plotter("timeseries", config={"vmin": 0, "vmax": 100})
-    >>> fig = plotter.plot(data, "obs_o3", "model_o3")
+    >>> fig = plotter.plot(data, "geometry_o3", "dataset_o3")
     """
     from davinci_monet.plots.base import PlotConfig
 
@@ -170,7 +145,7 @@ def has_plotter(name: str) -> bool:
 # Plot Type Categories
 # =============================================================================
 
-# These are the standard plot type categories for reference
+# These are the standard plot type categories for geometry
 TEMPORAL_PLOTS = frozenset(
     {"timeseries", "diurnal", "per_site_timeseries", "site_timeseries", "flight_timeseries"}
 )
@@ -211,7 +186,6 @@ def get_plot_category(name: str) -> str | None:
 __all__ = [
     "plotter_registry",
     "register_plotter",
-    "register_alias",
     "get_plotter",
     "get_plotter_class",
     "list_plotters",

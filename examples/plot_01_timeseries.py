@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """Time Series Plot Example.
 
-Demonstrates the timeseries plotter for comparing model and observation
+Demonstrates the timeseries plotter for comparing dataset and dataset
 time series with uncertainty bands.
 
-Data: Surface point observations (O3)
+Data: Surface point datasets (O3)
 """
 
 import matplotlib.pyplot as plt
@@ -24,9 +24,9 @@ def main():
     # Create plot using davinci_monet.plots
     fig = plot_timeseries(
         paired,
-        obs_var="obs_o3",
-        model_var="model_o3",
-        title="Time Series: O3 Model vs Observations",
+        geometry_var="geometry_o3",
+        dataset_var="dataset_o3",
+        title="Time Series: O3 Dataset vs Datasets",
     )
 
     save_figure(fig, "01_timeseries")

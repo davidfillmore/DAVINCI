@@ -13,6 +13,11 @@ from davinci_monet.plots.base import (
     get_variable_label,
     get_variable_units,
 )
+from davinci_monet.plots.titles import (
+    is_date_label,
+    strip_trailing_date_title,
+    title_for_labeled_subset,
+)
 
 
 class TestVariableDisplayNames:
@@ -48,14 +53,12 @@ class TestFormatPlotTitle:
 
     def test_pm25_formatting(self):
         """PM2.5 should be formatted with LaTeX subscripts."""
-        assert (
-            format_plot_title("PM2.5 Model vs Observations") == r"PM$_{2.5}$ Model vs Observations"
-        )
+        assert format_plot_title("PM2.5 Dataset vs Datasets") == r"PM$_{2.5}$ Dataset vs Datasets"
         assert format_plot_title("PM25 Time Series") == r"PM$_{2.5}$ Time Series"
 
     def test_no2_formatting(self):
         """NO2 should be formatted with LaTeX subscript."""
-        assert format_plot_title("NO2 Model vs Observations") == r"NO$_2$ Model vs Observations"
+        assert format_plot_title("NO2 Dataset vs Datasets") == r"NO$_2$ Dataset vs Datasets"
         assert format_plot_title("NO2 Spatial Bias") == r"NO$_2$ Spatial Bias"
 
     def test_o3_formatting(self):
@@ -87,6 +90,40 @@ class TestFormatPlotTitle:
         assert format_plot_title(title) == expected
 
 
+class TestDateSubtitleTitleHelpers:
+    """Tests for keeping date context out of main plot titles."""
+
+    def test_strip_trailing_date_title(self):
+        title = "DC-8 O3 Time Series \u2014 29 May 2012"
+
+        assert strip_trailing_date_title(title) == "DC-8 O3 Time Series"
+
+    def test_title_for_date_labeled_subset_uses_subtitle(self):
+        title, subtitle = title_for_labeled_subset(
+            "DC-8 O3 Time Series",
+            "2012-05-29",
+            label_prefix="Flight",
+        )
+
+        assert title == "DC-8 O3 Time Series"
+        assert subtitle == "2012-05-29"
+
+    def test_title_for_non_date_labeled_subset_keeps_label_in_title(self):
+        title, subtitle = title_for_labeled_subset(
+            "DC-8 O3 Time Series",
+            "rf03",
+            label_prefix="Flight",
+        )
+
+        assert title == "DC-8 O3 Time Series - Flight rf03"
+        assert subtitle is None
+
+    def test_is_date_label(self):
+        assert is_date_label("2012-05-29")
+        assert is_date_label("29 May 2012")
+        assert not is_date_label("rf03")
+
+
 class TestFormatVariableDisplayName:
     """Tests for format_variable_display_name function."""
 
@@ -98,8 +135,8 @@ class TestFormatVariableDisplayName:
 
     def test_acronyms_survive_title_casing(self):
         """TOA/LW/SW-style acronyms stay uppercase in auto-formatted names."""
-        assert format_variable_display_name("obs_toa_lw_up") == "Observed TOA LW Up"
-        assert format_variable_display_name("model_toa_lw_up") == "Modeled TOA LW Up"
+        assert format_variable_display_name("geometry_toa_lw_up") == "TOA LW Up"
+        assert format_variable_display_name("dataset_toa_lw_up") == "TOA LW Up"
         assert format_variable_display_name("sfc_sw_down") == "SFC SW Down"
 
     def test_case_insensitive_lookup(self):
@@ -108,29 +145,25 @@ class TestFormatVariableDisplayName:
         assert format_variable_display_name("O3") == r"O$_3$"
         assert format_variable_display_name("NO2") == r"NO$_2$"
 
-    def test_obs_prefix_with_include_prefix_true(self):
-        """obs_ prefix should add 'Observed ' when include_prefix=True."""
-        assert (
-            format_variable_display_name("obs_pm25", include_prefix=True) == r"Observed PM$_{2.5}$"
-        )
-        assert format_variable_display_name("obs_o3", include_prefix=True) == r"Observed O$_3$"
+    def test_geometry_prefix_is_not_displayed(self):
+        """geometry_ prefix is internal metadata and should not appear in labels."""
+        assert format_variable_display_name("geometry_pm25", include_prefix=True) == r"PM$_{2.5}$"
+        assert format_variable_display_name("geometry_o3", include_prefix=True) == r"O$_3$"
 
-    def test_model_prefix_with_include_prefix_true(self):
-        """model_ prefix should add 'Modeled ' when include_prefix=True."""
-        assert (
-            format_variable_display_name("model_pm25", include_prefix=True) == r"Modeled PM$_{2.5}$"
-        )
-        assert format_variable_display_name("model_o3", include_prefix=True) == r"Modeled O$_3$"
+    def test_dataset_prefix_is_not_displayed(self):
+        """dataset_ prefix is internal metadata and should not appear in labels."""
+        assert format_variable_display_name("dataset_pm25", include_prefix=True) == r"PM$_{2.5}$"
+        assert format_variable_display_name("dataset_o3", include_prefix=True) == r"O$_3$"
 
-    def test_obs_prefix_with_include_prefix_false(self):
-        """obs_ prefix should not add 'Observed ' when include_prefix=False."""
-        assert format_variable_display_name("obs_pm25", include_prefix=False) == r"PM$_{2.5}$"
-        assert format_variable_display_name("obs_o3", include_prefix=False) == r"O$_3$"
+    def test_geometry_prefix_with_include_prefix_false(self):
+        """geometry_ prefix is stripped regardless of include_prefix."""
+        assert format_variable_display_name("geometry_pm25", include_prefix=False) == r"PM$_{2.5}$"
+        assert format_variable_display_name("geometry_o3", include_prefix=False) == r"O$_3$"
 
-    def test_model_prefix_with_include_prefix_false(self):
-        """model_ prefix should not add 'Modeled ' when include_prefix=False."""
-        assert format_variable_display_name("model_pm25", include_prefix=False) == r"PM$_{2.5}$"
-        assert format_variable_display_name("model_o3", include_prefix=False) == r"O$_3$"
+    def test_dataset_prefix_with_include_prefix_false(self):
+        """dataset_ prefix is stripped regardless of include_prefix."""
+        assert format_variable_display_name("dataset_pm25", include_prefix=False) == r"PM$_{2.5}$"
+        assert format_variable_display_name("dataset_o3", include_prefix=False) == r"O$_3$"
 
     def test_unknown_variable_formatting(self):
         """Unknown variables should get basic formatting."""
@@ -140,13 +173,8 @@ class TestFormatVariableDisplayName:
 
     def test_unknown_variable_with_prefix(self):
         """Unknown variables with prefix should still format correctly."""
-        assert (
-            format_variable_display_name("obs_some_var", include_prefix=True) == "Observed Some Var"
-        )
-        assert (
-            format_variable_display_name("model_some_var", include_prefix=True)
-            == "Modeled Some Var"
-        )
+        assert format_variable_display_name("geometry_some_var", include_prefix=True) == "Some Var"
+        assert format_variable_display_name("dataset_some_var", include_prefix=True) == "Some Var"
 
 
 class TestFormatLabelWithUnits:
@@ -178,35 +206,37 @@ class TestGetVariableLabel:
         """Create a sample dataset for testing."""
         return xr.Dataset(
             {
-                "obs_pm25": xr.DataArray(
+                "geometry_pm25": xr.DataArray(
                     [1, 2, 3], attrs={"long_name": "PM2.5 Concentration", "units": "μg/m³"}
                 ),
-                "model_pm25": xr.DataArray(
+                "dataset_pm25": xr.DataArray(
                     [1.1, 2.1, 3.1], attrs={"display_name": "Custom PM₂.₅", "units": "μg/m³"}
                 ),
-                "obs_temp": xr.DataArray([20, 21, 22], attrs={"standard_name": "air_temperature"}),
+                "geometry_temp": xr.DataArray(
+                    [20, 21, 22], attrs={"standard_name": "air_temperature"}
+                ),
                 "no_attrs_var": xr.DataArray([1, 2, 3]),
             }
         )
 
     def test_custom_label_takes_precedence(self, sample_dataset):
         """Custom label should override everything."""
-        result = get_variable_label(sample_dataset, "obs_pm25", custom_label="My Label")
+        result = get_variable_label(sample_dataset, "geometry_pm25", custom_label="My Label")
         assert result == "My Label"
 
     def test_display_name_attr_used(self, sample_dataset):
         """display_name attribute should be used if present."""
-        result = get_variable_label(sample_dataset, "model_pm25")
+        result = get_variable_label(sample_dataset, "dataset_pm25")
         assert result == "Custom PM₂.₅"
 
     def test_long_name_attr_used(self, sample_dataset):
         """long_name attribute should be used if display_name not present."""
-        result = get_variable_label(sample_dataset, "obs_pm25")
+        result = get_variable_label(sample_dataset, "geometry_pm25")
         assert result == "PM2.5 Concentration"
 
     def test_standard_name_attr_used(self, sample_dataset):
         """standard_name should be used if long_name not present."""
-        result = get_variable_label(sample_dataset, "obs_temp")
+        result = get_variable_label(sample_dataset, "geometry_temp")
         assert result == "air_temperature"
 
     def test_fallback_to_lookup_table(self, sample_dataset):
@@ -218,25 +248,29 @@ class TestGetVariableLabel:
     def test_variable_not_in_dataset(self):
         """Variables not in dataset should use lookup table."""
         empty_ds = xr.Dataset()
-        result = get_variable_label(empty_ds, "obs_pm25")
-        assert result == r"Observed PM$_{2.5}$"
+        result = get_variable_label(empty_ds, "geometry_pm25")
+        assert result == r"PM$_{2.5}$"
 
     def test_include_prefix_parameter(self):
-        """include_prefix should control prefix for lookup table fallback."""
+        """include_prefix is retained but must not synthesize pair_axis labels."""
         empty_ds = xr.Dataset()
-        with_prefix = get_variable_label(empty_ds, "obs_pm25", include_prefix=True)
-        without_prefix = get_variable_label(empty_ds, "obs_pm25", include_prefix=False)
-        assert with_prefix == r"Observed PM$_{2.5}$"
+        with_prefix = get_variable_label(empty_ds, "geometry_pm25", include_prefix=True)
+        without_prefix = get_variable_label(empty_ds, "geometry_pm25", include_prefix=False)
+        assert with_prefix == r"PM$_{2.5}$"
         assert without_prefix == r"PM$_{2.5}$"
 
     def test_none_display_name_attr_ignored(self):
         """display_name attr set to None should be ignored."""
         ds = xr.Dataset(
-            {"obs_pm25": xr.DataArray([1, 2, 3], attrs={"display_name": None, "units": "μg/m³"})}
+            {
+                "geometry_pm25": xr.DataArray(
+                    [1, 2, 3], attrs={"display_name": None, "units": "μg/m³"}
+                )
+            }
         )
-        result = get_variable_label(ds, "obs_pm25")
+        result = get_variable_label(ds, "geometry_pm25")
         # Should fall back to lookup table, not return "None"
-        assert result == r"Observed PM$_{2.5}$"
+        assert result == r"PM$_{2.5}$"
         assert result != "None"
 
 

@@ -3,7 +3,7 @@
 Compute NO2 tropospheric column from CESM 3D output.
 
 Integrates NO2 mixing ratio vertically using hybrid pressure coordinates
-to produce a 2D NO2 column field comparable to Pandora observations.
+to produce a 2D NO2 column field comparable to Pandora datasets.
 
 Usage:
     python compute_no2_column.py
@@ -18,12 +18,12 @@ import xarray as xr
 # Constants
 G = 9.80665  # gravity [m/s²]
 M_AIR = 0.0289644  # molar mass of dry air [kg/mol]
-P0 = 100000.0  # reference pressure [Pa]
+P0 = 100000.0  # geometry pressure [Pa]
 TROP_P_MIN = 20000.0  # tropopause pressure threshold [Pa] (~200 hPa)
 
 # Input/output paths
-MODEL_DIR = Path("/glade/derecho/scratch/fillmore/ASIA-AQ/model")
-OUTPUT_DIR = Path("/glade/derecho/scratch/fillmore/ASIA-AQ/obs")
+DATASET_B_DIR = Path("/glade/derecho/scratch/fillmore/ASIA-AQ/dataset")
+OUTPUT_DIR = Path("/glade/derecho/scratch/fillmore/ASIA-AQ/geometry")
 
 # Time range
 START_DATE = "2024-02-01"
@@ -119,17 +119,17 @@ def main():
     print("=" * 60)
     print()
 
-    # Find model files
-    pattern = str(MODEL_DIR / "f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc")
+    # Find dataset files
+    pattern = str(DATASET_B_DIR / "f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc")
     files = sorted(glob(pattern))
 
-    print(f"Found {len(files)} model files")
+    print(f"Found {len(files)} dataset files")
     print(f"First: {Path(files[0]).name}")
     print(f"Last:  {Path(files[-1]).name}")
     print()
 
     # Open dataset
-    print("Loading model data...")
+    print("Loading dataset data...")
     ds = xr.open_mfdataset(
         files,
         combine="by_coords",

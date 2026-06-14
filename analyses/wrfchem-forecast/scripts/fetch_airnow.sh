@@ -1,8 +1,8 @@
 #!/bin/bash
-# Fetch the previous UTC day's AirNow surface observations into the standard
+# Fetch the previous UTC day's AirNow surface datasets into the standard
 # AirNow archive used by the daily WRF-Chem forecast evaluation.
 #
-# Replicates the legacy melodies-scripts/get_airnow.sh: writes one file per
+# Replicates the current melodies-scripts/get_airnow.sh: writes one file per
 # day, named AirNow_YYYYMMDD.nc, where YYYYMMDD is yesterday's date.
 #
 # Usage:

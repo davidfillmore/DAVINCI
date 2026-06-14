@@ -1,6 +1,6 @@
 """Plotting module for DAVINCI.
 
-This module provides a comprehensive plotting system for model-observation
+This module provides a comprehensive plotting system for dataset-dataset
 comparison, including time series, spatial maps, Taylor diagrams, and more.
 
 Quick Start
@@ -8,11 +8,11 @@ Quick Start
 >>> from davinci_monet.plots import get_plotter, plot_timeseries
 >>>
 >>> # Using convenience function
->>> fig = plot_timeseries(paired_data, "obs_o3", "model_o3")
+>>> fig = plot_timeseries(paired_data, "geometry_o3", "dataset_o3")
 >>>
 >>> # Using plotter instance
 >>> plotter = get_plotter("scatter")
->>> fig = plotter.plot(paired_data, "obs_o3", "model_o3")
+>>> fig = plotter.plot(paired_data, "geometry_o3", "dataset_o3")
 
 Available Plot Types
 --------------------
@@ -27,7 +27,7 @@ Statistical:
 
 Spatial:
     spatial_bias : Bias map
-    spatial_overlay : Model contour + obs scatter
+    spatial_overlay : Dataset contour + geometry scatter
     spatial_distribution : Value distribution map
 
 Specialized:
@@ -49,7 +49,7 @@ from davinci_monet.plots.base import (
     get_variable_label,
     get_variable_units,
     merge_config_dicts,
-    resolve_source_variable,
+    resolve_dataset_variable,
 )
 
 # Registry and factory
@@ -110,20 +110,19 @@ from davinci_monet.plots.renderers import (  # Temporal; Statistical; Specialize
 
 # Style configuration (NCAR branding)
 from davinci_monet.plots.style import (
+    DATASET_A_COLOR,
+    DATASET_B_COLOR,
     FONT_SIZES_DEFAULT,
     FONT_SIZES_PRESENTATION,
     FONT_SIZES_PUBLICATION,
-    MODEL_COLOR,
     NCAR_ACCENT,
     NCAR_COLORS,
     NCAR_PALETTE,
     NCAR_PRIMARY,
     NCAR_SECONDARY,
-    OBS_COLOR,
     FontSizes,
     apply_ncar_style,
     get_bias_cmap,
-    get_color_for_role,
     get_color_for_variable,
     get_density_cmap,
     get_palette,
@@ -142,7 +141,7 @@ __all__ = [
     # Utilities
     "merge_config_dicts",
     "get_variable_label",
-    "resolve_source_variable",
+    "resolve_dataset_variable",
     "get_variable_units",
     "format_label_with_units",
     "calculate_symmetric_limits",
@@ -153,11 +152,10 @@ __all__ = [
     "NCAR_PRIMARY",
     "NCAR_SECONDARY",
     "NCAR_ACCENT",
-    "OBS_COLOR",
-    "MODEL_COLOR",
+    "DATASET_A_COLOR",
+    "DATASET_B_COLOR",
     "apply_ncar_style",
     "reset_style",
-    "get_color_for_role",
     "get_color_for_variable",
     "get_palette",
     "get_bias_cmap",

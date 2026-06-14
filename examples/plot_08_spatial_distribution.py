@@ -2,9 +2,9 @@
 """Spatial Distribution Map Example.
 
 Demonstrates the spatial_distribution plotter for showing geographic
-distribution of observed values.
+distribution of dataset values.
 
-Data: Surface point observations (O3)
+Data: Surface point datasets (O3)
 """
 
 import matplotlib.pyplot as plt
@@ -27,8 +27,8 @@ def main():
     # Create plot using davinci_monet.plots
     fig = plot_spatial_distribution(
         paired_mean,
-        obs_var="obs_o3",
-        model_var="model_o3",
+        geometry_var="geometry_o3",
+        dataset_var="dataset_o3",
         title="Spatial Distribution: Surface O3",
     )
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import davinci_monet.ai.summarizer as summarizer_mod
+import davinci_monet.ai.summarizer as summarizer_module
 from davinci_monet.ai.summarizer import SummaryError, SummaryResult
 from davinci_monet.pipeline.stages import (
     PipelineContext,
@@ -54,7 +54,7 @@ def test_summary_stage_writes_file(monkeypatch, tmp_path: Path) -> None:
 
         return _Client()
 
-    monkeypatch.setattr(summarizer_mod, "_build_client", _fake_client)
+    monkeypatch.setattr(summarizer_module, "_build_client", _fake_client)
 
     result = SummaryStage().execute(_ctx(tmp_path))
     assert result.status == StageStatus.COMPLETED
@@ -71,7 +71,7 @@ def test_summary_stage_error_is_nonfatal(monkeypatch, tmp_path: Path) -> None:
     def _boom(cfg):
         raise SummaryError("no key")
 
-    monkeypatch.setattr(summarizer_mod, "_build_client", _boom)
+    monkeypatch.setattr(summarizer_module, "_build_client", _boom)
 
     result = SummaryStage().execute(_ctx(tmp_path))
     assert result.status == StageStatus.SKIPPED
@@ -84,7 +84,7 @@ def test_summary_stage_unexpected_error_is_nonfatal(monkeypatch, tmp_path: Path)
     def _boom(cfg):
         raise RuntimeError("kaboom")
 
-    monkeypatch.setattr(summarizer_mod, "_build_client", _boom)
+    monkeypatch.setattr(summarizer_module, "_build_client", _boom)
 
     result = SummaryStage().execute(_ctx(tmp_path))
     assert result.status == StageStatus.SKIPPED
@@ -131,7 +131,7 @@ def test_summary_stage_includes_bullets_in_data(monkeypatch, tmp_path: Path) -> 
 
         return _Client()
 
-    monkeypatch.setattr(summarizer_mod, "_build_client", _fake_client)
+    monkeypatch.setattr(summarizer_module, "_build_client", _fake_client)
 
     result = SummaryStage().execute(_ctx(tmp_path))
     assert result.status == StageStatus.COMPLETED
@@ -164,7 +164,7 @@ def test_summary_stage_includes_credits_key(monkeypatch, tmp_path: Path) -> None
 
         return _Client()
 
-    monkeypatch.setattr(summarizer_mod, "_build_client", _fake_client)
+    monkeypatch.setattr(summarizer_module, "_build_client", _fake_client)
 
     result = SummaryStage().execute(_ctx(tmp_path))
     # field is wired through; Anthropic path leaves it None

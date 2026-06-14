@@ -6,12 +6,12 @@ analysis:
   end_time: "2024-02-03"
   output_dir: ./output
 
-model:
-  test_model:
-    mod_type: cesm_fv
+sources:
+  test_dataset:
+    type: cesm_fv
     files: /nonexistent/path/*.nc
     # Missing closing quote on next line
     variables:
       O3:
         unit_scale: 1.0e9
-        obs_name: "ozone
+        geometry_name: "ozone

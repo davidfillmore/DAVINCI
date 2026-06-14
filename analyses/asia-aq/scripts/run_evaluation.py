@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 """
-Run CESM model evaluation against AirNow, AERONET, and Pandora observations.
+Run CESM dataset evaluation against AirNow, AERONET, and Pandora datasets.
 
 This script uses the DAVINCI-MONET pipeline to:
-1. Load CESM model data (with derived NO2 column)
-2. Load AirNow, AERONET, and Pandora observations
-3. Pair model with observations
+1. Load CESM dataset data (with derived NO2 column)
+2. Load AirNow, AERONET, and Pandora datasets
+3. Pair dataset with datasets
 4. Generate comparison plots
 5. Calculate statistics
 
@@ -69,20 +69,20 @@ os.environ.setdefault("ASIA_AQ_DATA", str(ASIA_AQ_DATA))
 os.environ.setdefault("ASIA_AQ_ANALYSIS", str(ASIA_AQ_ANALYSIS))
 
 
-def precompute_no2_column(model_files: list[str], output_path: Path) -> None:
-    """Precompute NO2 tropospheric column from CESM model data.
+def precompute_no2_column(dataset_files: list[str], output_path: Path) -> None:
+    """Precompute NO2 tropospheric column from CESM dataset data.
 
     Parameters
     ----------
-    model_files
-        List of CESM model file paths.
+    dataset_files
+        List of CESM dataset file paths.
     output_path
         Path to save the NO2 column dataset.
     """
-    print("Computing NO2 tropospheric column from model data...")
+    print("Computing NO2 tropospheric column from dataset data...")
 
     columns = []
-    for fpath in sorted(model_files):
+    for fpath in sorted(dataset_files):
         ds = xr.open_dataset(fpath)
 
         # Compute NO2 column (mol/m2)
@@ -108,7 +108,7 @@ def precompute_no2_column(model_files: list[str], output_path: Path) -> None:
 
 
 def main():
-    """Run the ASIA-AQ model evaluation pipeline."""
+    """Run the ASIA-AQ dataset evaluation pipeline."""
     # Paths
     base_dir = Path(__file__).parent.parent
     config_path = base_dir / "configs" / "asia-aq.yaml"
@@ -120,18 +120,18 @@ def main():
         return 1
 
     print("=" * 70)
-    print("CESM/CAM-chem ASIA-AQ Model Evaluation")
+    print("CESM/CAM-chem ASIA-AQ Dataset Evaluation")
     print("=" * 70)
     print(f"\nUsing config: {config_path}")
     print()
 
     # Precompute NO2 column if needed
     if not no2_column_path.exists():
-        model_files = glob(str(ASIA_AQ_DATA / "CAM" / "f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc"))
-        if model_files:
-            precompute_no2_column(model_files, no2_column_path)
+        dataset_files = glob(str(ASIA_AQ_DATA / "CAM" / "f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc"))
+        if dataset_files:
+            precompute_no2_column(dataset_files, no2_column_path)
         else:
-            print("WARNING: No model files found for NO2 column computation")
+            print("WARNING: No dataset files found for NO2 column computation")
     else:
         print(f"Using existing NO2 column file: {no2_column_path}")
 

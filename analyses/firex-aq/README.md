@@ -1,6 +1,6 @@
 # FIREX-AQ Analysis
 
-Observation and model evaluation analysis for the NOAA/NASA **Fire Influence on Regional to Global Environments and Air Quality (FIREX-AQ)** field campaign (July--September 2019).
+Dataset and dataset evaluation analysis for the NOAA/NASA **Fire Influence on Regional to Global Environments and Air Quality (FIREX-AQ)** field campaign (July--September 2019).
 
 ## Campaign Overview
 
@@ -11,7 +11,7 @@ quality impacts. DC-8 operations comprised 23 science flights (15 from Boise, ID
 targeting western wildfires; 8 from Salina, KS targeting southeastern
 agricultural/prescribed fires) between 22 July and 5 September 2019.
 
-**Reference:** Warneke, C. et al. (2023), *J. Geophys. Res. Atmos.*, 128, e2022JD037758. [doi:10.1029/2022JD037758](https://doi.org/10.1029/2022JD037758)
+**Geometry:** Warneke, C. et al. (2023), *J. Geophys. Res. Atmos.*, 128, e2022JD037758. [doi:10.1029/2022JD037758](https://doi.org/10.1029/2022JD037758)
 
 ## Quick Start
 
@@ -28,11 +28,11 @@ Downloads DC-8 ICARTT merge files to `~/Data/FIREX-AQ/aircraft/merge/`.
 ### 2. Run Analysis
 
 ```bash
-# DC-8 obs-only analysis (default)
-python scripts/run_obs_analysis.py firex-aq-obs-dc8
+# DC-8 geometry-only analysis (default)
+python scripts/run_geometry_analysis.py firex-aq-geometry-dc8
 
 # Or run directly via CLI
-davinci-monet run analyses/firex-aq/configs/firex-aq-obs-dc8.example.yaml
+davinci-monet run analyses/firex-aq/configs/firex-aq-geometry-dc8.example.yaml
 ```
 
 ## Directory Structure
@@ -40,12 +40,12 @@ davinci-monet run analyses/firex-aq/configs/firex-aq-obs-dc8.example.yaml
 ```
 firex-aq/
 ├── configs/
-│   ├── firex-aq-obs-dc8.example.yaml      # DC-8 obs-only (env-var paths)
-│   └── firex-aq-model-dc8.example.yaml    # Model + DC-8 evaluation template
+│   ├── firex-aq-geometry-dc8.example.yaml      # DC-8 geometry-only (env-var paths)
+│   └── firex-aq-dataset-dc8.example.yaml    # Dataset + DC-8 evaluation template
 ├── scripts/
 │   ├── download_firex_aircraft.py          # Download ICARTT from NASA ASDC
-│   └── run_obs_analysis.py                # Run obs-only pipeline
-├── data/                                   # Downloaded observations
+│   └── run_geometry_analysis.py                # Run geometry-only pipeline
+├── data/                                   # Downloaded datasets
 ├── output/                                 # Plots and statistics
 └── logs/                                   # Pipeline logs
 ```
@@ -79,11 +79,11 @@ Core trace gas species from the DC-8 ICARTT merge files:
 
 ## Plot Types
 
-The obs-only pipeline produces:
+The geometry-only pipeline produces:
 - **Flight track maps** -- 2D Cartopy maps with flight paths colored by variable value
 - **Vertical profiles** -- Altitude vs. concentration (scatter or binned)
 - **Time series** -- Variable along flight time, with optional altitude shading
-- **Histograms** -- Distribution of observed values with summary statistics
+- **Histograms** -- Distribution of dataset values with summary statistics
 
 ## Data Source
 

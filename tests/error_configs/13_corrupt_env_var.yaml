@@ -6,7 +6,7 @@ analysis:
   end_time: "2024-02-03"
   output_dir: ${UNDEFINED_ENV_VAR_XYZ_123}/output
 
-model:
+sources:
   cesm:
-    mod_type: cesm_fv
-    files: ${ANOTHER_UNDEFINED_VAR}/model_*.nc
+    type: cesm_fv
+    files: ${ANOTHER_UNDEFINED_VAR}/dataset_*.nc

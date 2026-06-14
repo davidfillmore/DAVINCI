@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from davinci_monet.plots.style import MODEL_COLOR, OBS_COLOR
+from davinci_monet.plots.style import DATASET_A_COLOR, DATASET_B_COLOR
 
 # =============================================================================
 # Configuration Dataclasses
@@ -85,18 +85,18 @@ class StyleConfig:
 
     Attributes
     ----------
-    obs_color : str
-        Color for observation data (default: NCAR gray #58595B).
-    model_color : str
-        Color for model data (default: NCAR blue #0A5DDA).
-    obs_marker : str
-        Marker style for observations.
-    model_marker : str
-        Marker style for model.
-    obs_linestyle : str
-        Line style for observations.
-    model_linestyle : str
-        Line style for model.
+    geometry_color : str
+        Color for dataset data (default: NCAR gray #58595B).
+    dataset_color : str
+        Color for dataset data (default: NCAR blue #0A5DDA).
+    geometry_marker : str
+        Marker style for datasets.
+    dataset_marker : str
+        Marker style for dataset.
+    geometry_linestyle : str
+        Line style for datasets.
+    dataset_linestyle : str
+        Line style for dataset.
     linewidth : float
         Line width.
     markersize : float
@@ -105,12 +105,12 @@ class StyleConfig:
         Transparency (0-1).
     """
 
-    obs_color: str = OBS_COLOR  # NCAR gray
-    model_color: str = MODEL_COLOR  # NCAR blue
-    obs_marker: str = "o"
-    model_marker: str = "s"
-    obs_linestyle: str = "-"
-    model_linestyle: str = "--"
+    geometry_color: str = DATASET_A_COLOR  # NCAR gray
+    dataset_color: str = DATASET_B_COLOR  # NCAR blue
+    geometry_marker: str = "o"
+    dataset_marker: str = "s"
+    geometry_linestyle: str = "-"
+    dataset_linestyle: str = "--"
     linewidth: float = 1.5
     markersize: float = 6.0
     alpha: float = 1.0
@@ -148,10 +148,10 @@ class PlotConfig:
     domain: DomainConfig = field(default_factory=DomainConfig)
 
     # Variable configuration
-    obs_var: str | None = None
-    model_var: str | None = None
-    obs_label: str | None = None
-    model_label: str | None = None
+    geometry_var: str | None = None
+    dataset_var: str | None = None
+    geometry_label: str | None = None
+    dataset_label: str | None = None
 
     # Value limits
     vmin: float | None = None
@@ -161,7 +161,7 @@ class PlotConfig:
     xlabel: str | None = None
     ylabel: str | None = None
     title: str | None = None
-    caption: str | None = None
+    subtitle: str | None = None
 
     # Output
     output_dir: Path | None = None
@@ -190,7 +190,7 @@ class PlotConfig:
         style_dict = config_dict.get("style", config_dict.get("plot_dict", {}))
         domain_dict = config_dict.get("domain", {})
 
-        # Handle legacy domain_type/domain_name at top level
+        # Handle domain_type/domain_name at top level
         if "domain_type" in config_dict:
             domain_dict.setdefault("domain_type", config_dict["domain_type"])
         if "domain_name" in config_dict:
@@ -211,16 +211,16 @@ class PlotConfig:
 
         # Extract top-level fields
         top_level_fields = {
-            "obs_var",
-            "model_var",
-            "obs_label",
-            "model_label",
+            "geometry_var",
+            "dataset_var",
+            "geometry_label",
+            "dataset_label",
             "vmin",
             "vmax",
             "xlabel",
             "ylabel",
             "title",
-            "caption",
+            "subtitle",
             "output_dir",
             "output_format",
             "debug",

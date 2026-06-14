@@ -1,10 +1,4 @@
-"""Pydantic models for DAVINCI configuration validation.
-
-This module provides type-safe validation for the unified ``sources:``/``pairs:``
-YAML configuration schema. The legacy MELODIES-MONET ``model:``/``obs:`` blocks
-are no longer accepted; convert old control files with
-``davinci-monet migrate-config``.
-"""
+"""Pydantic schemas for DAVINCI configuration validation."""
 
 from __future__ import annotations
 
@@ -12,31 +6,29 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # =============================================================================
 # Base Configuration
 # =============================================================================
 
 
-class StrictModel(BaseModel):
-    """Base model with strict validation settings."""
+class StrictSchema(
+    BaseModel,
+    extra="forbid",
+    validate_default=True,
+    str_strip_whitespace=True,
+):
+    """Base dataset with strict validation settings."""
 
-    model_config = ConfigDict(
-        extra="forbid",
-        validate_default=True,
-        str_strip_whitespace=True,
-    )
 
-
-class FlexibleModel(BaseModel):
-    """Base model that allows extra fields for backward compatibility."""
-
-    model_config = ConfigDict(
-        extra="allow",
-        validate_default=True,
-        str_strip_whitespace=True,
-    )
+class FlexibleSchema(
+    BaseModel,
+    extra="allow",
+    validate_default=True,
+    str_strip_whitespace=True,
+):
+    """Base schema that allows reader-specific extra fields."""
 
 
 # =============================================================================
@@ -44,7 +36,7 @@ class FlexibleModel(BaseModel):
 # =============================================================================
 
 
-class PlotStyleConfig(FlexibleModel):
+class PlotStyleConfig(FlexibleSchema):
     """Configuration for plot styling.
 
     Parameters
@@ -78,7 +70,7 @@ class PlotStyleConfig(FlexibleModel):
 # =============================================================================
 
 
-class AnalysisConfig(FlexibleModel):
+class AnalysisConfig(FlexibleSchema):
     """Configuration for the analysis section.
 
     Parameters
@@ -153,7 +145,7 @@ class AnalysisConfig(FlexibleModel):
 # =============================================================================
 
 
-class VariableConfig(FlexibleModel):
+class VariableConfig(FlexibleSchema):
     """Configuration for a single variable.
 
     Parameters
@@ -163,16 +155,9 @@ class VariableConfig(FlexibleModel):
     unit_scale_method
         Method for scaling: '*', '+', '-', '/'.
     valid_min
-        Minimum valid value (values below set to NaN). Role-neutral: applies to
-        any source, including models. Takes precedence over ``obs_min``.
+        Minimum valid value; values below this threshold are set to NaN.
     valid_max
-        Maximum valid value (values above set to NaN). Role-neutral; takes
-        precedence over ``obs_max``.
-    obs_min
-        Historical (observation-flavored) synonym for ``valid_min``. Still
-        honored for back-compat; prefer ``valid_min`` for new configs.
-    obs_max
-        Historical synonym for ``valid_max``.
+        Maximum valid value; values above this threshold are set to NaN.
     nan_value
         Value to treat as NaN.
     source_name
@@ -210,8 +195,6 @@ class VariableConfig(FlexibleModel):
     unit_scale_method: Literal["*", "+", "-", "/"] = "*"
     valid_min: float | None = None
     valid_max: float | None = None
-    obs_min: float | None = None
-    obs_max: float | None = None
     nan_value: float | None = None
     rename: str | None = None
     units: str | None = None
@@ -232,7 +215,7 @@ class VariableConfig(FlexibleModel):
 # =============================================================================
 
 
-class PlotKwargs(FlexibleModel):
+class PlotKwargs(FlexibleSchema):
     """Matplotlib plot keyword arguments."""
 
     color: str | None = None
@@ -242,7 +225,7 @@ class PlotKwargs(FlexibleModel):
     markersize: float | None = None
 
 
-class FilterConfig(FlexibleModel):
+class FilterConfig(FlexibleSchema):
     """Configuration for data filtering."""
 
     value: Any
@@ -267,31 +250,31 @@ PlotType = Literal[
 ]
 
 
-SourceRole = Literal["model", "obs"]
+class SourceConfig(FlexibleSchema):
+    """Unified configuration for a single data source.
 
-
-class SourceConfig(FlexibleModel):
-    """Unified configuration for a single data source (Phase 6).
-
-    A data source is just data of a given geometry; ``role`` is optional
-    metadata used for plot styling/legends only, never for pairing logic. This
-    is the single supported data-source schema (the former ``model:``/``obs:``
-    blocks were removed; convert old control files with
-    ``davinci-monet migrate-config``). Extra reader-specific keys are accepted
-    (FlexibleModel) and passed through.
+    A data source is data with a declared geometry. Pairing direction is chosen
+    by each pair's ``geometry`` field and by geometry precedence when that field
+    is omitted. Extra reader-specific keys are accepted and passed through.
     """
 
     type: str | None = None
-    role: SourceRole | None = None
     files: str | Path | list[str | Path] | None = None
     filename: str | Path | None = None
     variables: dict[str, VariableConfig] = Field(default_factory=dict)
     radius_of_influence: float = 12000.0
-    mapping: dict[str, dict[str, str]] = Field(default_factory=dict)
     display_name: str | None = None
     resample: str | None = None
-    min_obs_count: int | None = None
-    track_obs_count: bool = False
+    min_geometry_count: int | None = None
+    track_geometry_count: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_source_mapping(cls, data: Any) -> Any:
+        """Pair variables must live in ``pairs:``, not in source metadata."""
+        if isinstance(data, dict) and "mapping" in data:
+            raise ValueError("source-level mapping is not supported; use pairs variables")
+        return data
 
     @field_validator("files", mode="before")
     @classmethod
@@ -320,16 +303,14 @@ class SourceConfig(FlexibleModel):
         return dict(v)
 
 
-class SourcePairConfig(FlexibleModel):
+class SourcePairConfig(FlexibleSchema):
     """Binary pair definition.
 
-    Pairs use ``sources``/``reference``/``variables``. (The legacy
-    ``model``/``obs``/``variable`` pair shape was removed; convert old control
-    files with ``davinci-monet migrate-config``.)
+    Pairs use ``sources``/``geometry``/``variables``.
     """
 
     sources: list[str] = Field(default_factory=list)
-    reference: str | None = None
+    geometry: str | None = None
     variables: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -338,15 +319,15 @@ class SourcePairConfig(FlexibleModel):
             raise ValueError("pair must define 'sources' (exactly two source labels)")
         if len(self.sources) != 2:
             raise ValueError("pair 'sources' must contain exactly two labels")
-        if self.reference is not None and self.reference not in self.sources:
-            raise ValueError("'reference' must be one of the pair sources")
+        if self.geometry is not None and self.geometry not in self.sources:
+            raise ValueError("'geometry' must be one of the pair sources")
         missing = [label for label in self.sources if label not in self.variables]
         if missing:
             raise ValueError("pair 'variables' missing source label(s): " + ", ".join(missing))
         return self
 
 
-class DataProcConfig(FlexibleModel):
+class DataProcConfig(FlexibleSchema):
     """Data processing configuration for plots.
 
     Parameters
@@ -355,10 +336,10 @@ class DataProcConfig(FlexibleModel):
         Dictionary-based filtering.
     filter_string
         Pandas query string for filtering.
-    rem_obs_by_nan_pct
-        Remove observations by NaN percentage.
-    rem_obs_nan
-        Remove NaN observations.
+    rem_geometry_by_nan_pct
+        Remove datasets by NaN percentage.
+    rem_geometry_nan
+        Remove NaN datasets.
     ts_select_time
         Time selection for timeseries: 'time' (UTC) or 'time_local'.
     ts_avg_window
@@ -369,27 +350,27 @@ class DataProcConfig(FlexibleModel):
 
     filter_dict: dict[str, FilterConfig | dict[str, Any]] | None = None
     filter_string: str | None = None
-    rem_obs_by_nan_pct: dict[str, Any] | None = None
-    rem_obs_nan: bool = True
+    rem_geometry_by_nan_pct: dict[str, Any] | None = None
+    rem_geometry_nan: bool = True
     ts_select_time: Literal["time", "time_local"] = "time"
     ts_avg_window: str | None = None
     set_axis: bool = False
 
 
-class FigKwargs(FlexibleModel):
+class FigKwargs(FlexibleSchema):
     """Figure keyword arguments."""
 
     figsize: list[float] | tuple[float, float] | None = None
     states: bool | None = None
 
 
-class TextKwargs(FlexibleModel):
+class TextKwargs(FlexibleSchema):
     """Text styling keyword arguments."""
 
     fontsize: float = 12.0
 
 
-class PlotGroupConfig(FlexibleModel):
+class PlotGroupConfig(FlexibleSchema):
     """Configuration for a plot group.
 
     Parameters
@@ -407,8 +388,7 @@ class PlotGroupConfig(FlexibleModel):
     domain_name
         List of domain names.
     data
-        List of model_obs pair identifiers (model label first).
-        Legacy obs_model identifiers are also supported.
+        List of pair identifiers.
     data_proc
         Data processing configuration.
     """
@@ -446,18 +426,12 @@ StatMetric = Literal[
     "NMdnB",
     "R2",
     "RMSE",
-    "STDO",
-    "STDP",
-    "MdnNB",
-    "MdnNE",
-    "NMdnGE",
-    "NO",
-    "NOP",
-    "NP",
-    "MO",
-    "MP",
-    "MdnO",
-    "MdnP",
+    "STDG",
+    "STDD",
+    "MG",
+    "MD",
+    "MdnG",
+    "MdnD",
     "RM",
     "RMdn",
     "FB",
@@ -473,7 +447,7 @@ StatMetric = Literal[
 ]
 
 
-class OutputTableKwargs(FlexibleModel):
+class OutputTableKwargs(FlexibleSchema):
     """Keyword arguments for statistics output table."""
 
     figsize: list[float] | tuple[float, float] | None = None
@@ -483,7 +457,7 @@ class OutputTableKwargs(FlexibleModel):
     edges: str = "horizontal"
 
 
-class StatsConfig(FlexibleModel):
+class StatsConfig(FlexibleSchema):
     """Configuration for statistics calculation.
 
     Parameters
@@ -501,8 +475,7 @@ class StatsConfig(FlexibleModel):
     domain_name
         List of domain names.
     data
-        List of model_obs pair identifiers (model label first).
-        Legacy obs_model identifiers are also supported.
+        List of pair identifiers.
     data_proc
         Data processing configuration.
     """
@@ -522,11 +495,11 @@ class StatsConfig(FlexibleModel):
 # =============================================================================
 
 
-class SummaryConfig(FlexibleModel):
+class SummaryConfig(FlexibleSchema):
     """Configuration for the optional AI analysis summary stage.
 
     When ``enabled`` is true, a final pipeline stage sends the run's
-    statistics, config metadata, and selected plot images to a Claude model
+    statistics, config metadata, and selected plot images to an AI model
     (via the Anthropic API directly, or via OpenRouter) and writes a markdown
     brief into the analysis output directory.
     """
@@ -564,8 +537,8 @@ class SummaryConfig(FlexibleModel):
 # =============================================================================
 
 
-class MonetConfig(FlexibleModel):
-    """Root configuration model for MELODIES-MONET.
+class MonetConfig(StrictSchema):
+    """Root configuration dataset for MELODIES-MONET.
 
     This is the top-level configuration that contains all sections.
 
@@ -585,11 +558,11 @@ class MonetConfig(FlexibleModel):
     Examples
     --------
     >>> from davinci_monet.config.schema import MonetConfig
-    >>> config = MonetConfig.model_validate({
+    >>> config = MonetConfig(**{
     ...     "analysis": {"start_time": "2024-01-01", "end_time": "2024-01-02"},
     ...     "sources": {
-    ...         "cam": {"type": "cesm_fv", "role": "model"},
-    ...         "airnow": {"type": "pt_sfc", "role": "obs"},
+    ...         "cam": {"type": "cesm_fv"},
+    ...         "airnow": {"type": "pt_sfc"},
     ...     },
     ... })
     >>> config.analysis.start_time
@@ -597,8 +570,7 @@ class MonetConfig(FlexibleModel):
     """
 
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
-    # Unified data-source block — the only supported data-source schema. Legacy
-    # model:/obs: control files are rejected at load (parser._reject_legacy_config).
+    # Data sources keyed by dataset label.
     sources: dict[str, SourceConfig] = Field(default_factory=dict)
     pairs: dict[str, SourcePairConfig] = Field(default_factory=dict)
     plots: dict[str, PlotGroupConfig] = Field(default_factory=dict)
@@ -647,12 +619,12 @@ class MonetConfig(FlexibleModel):
         return result
 
     @model_validator(mode="after")
-    def validate_data_references(self) -> "MonetConfig":
-        """Validate that plot/stats data references resolve to defined pairs.
+    def validate_data_names(self) -> "MonetConfig":
+        """Validate that plot/stats data names resolve to defined pairs.
 
         Plot ``data`` entries normally name a pair (or a single source for
-        single-source plots). References are checked permissively — unknown
-        references are tolerated rather than raised, since plot data refs can
+        single-source plots). Names are checked permissively; unknown names are
+        tolerated rather than raised, since plot data refs can
         legitimately combine labels in flexible ways — but the hook is kept so
         future validation can hang off it.
         """

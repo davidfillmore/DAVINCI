@@ -10,7 +10,7 @@ import xarray as xr
 
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.registry import source_registry
-from davinci_monet.observations.satellite.ceres_ssf import (  # noqa: E402
+from davinci_monet.datasets.satellite.ceres_ssf import (  # noqa: E402
     SSF_CATALOG,
     CERESSSFReader,
 )
@@ -59,7 +59,7 @@ def _write_ssf_hdf4(
         s.attr("valid_range").set(typ, vr)
         s.endaccess()
 
-    _sds("Time of observation", times, SDC.FLOAT64, 1.7976931348623157e308, [2440000.0, 2480000.0])
+    _sds("Time of dataset", times, SDC.FLOAT64, 1.7976931348623157e308, [2440000.0, 2480000.0])
     _sds("Colatitude of CERES FOV at surface", colat, SDC.FLOAT32, _FILL32, [0.0, 180.0])
     _sds("Longitude of CERES FOV at surface", lon, SDC.FLOAT32, _FILL32, [0.0, 360.0])
     _sds(flux_name, flux, SDC.FLOAT32, _FILL32, [0.0, 500.0])
@@ -328,7 +328,7 @@ def _write_ssf_hdf4_grid(
         s.attr("valid_range").set(typ, vr)
         s.endaccess()
 
-    _sds("Time of observation", times, SDC.FLOAT64, 1.7976931348623157e308, [2440000.0, 2480000.0])
+    _sds("Time of dataset", times, SDC.FLOAT64, 1.7976931348623157e308, [2440000.0, 2480000.0])
     _sds(
         "Colatitude of CERES FOV at surface",
         (90.0 - lat).astype(np.float32),

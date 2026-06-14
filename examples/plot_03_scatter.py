@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """Scatter Plot Example.
 
-Demonstrates the scatter plotter for model vs observation comparison
+Demonstrates the scatter plotter for dataset vs dataset comparison
 with regression line and statistics.
 
-Data: Surface point observations (O3) and satellite swath data (NO2)
+Data: Surface point datasets (O3) and satellite swath data (NO2)
 """
 
 import matplotlib.pyplot as plt
@@ -24,8 +24,8 @@ def main():
 
     fig = plot_scatter(
         paired_surface,
-        obs_var="obs_o3",
-        model_var="model_o3",
+        geometry_var="geometry_o3",
+        dataset_var="dataset_o3",
         title="Scatter Plot: Surface O3",
     )
     save_figure(fig, "03a_scatter_surface")
@@ -36,21 +36,21 @@ def main():
     paired_swath = create_paired_swath_data(n_scans=100, n_pixels=60, variables=["NO2"])
 
     # Flatten swath data for scatter
-    obs_flat = paired_swath["obs_no2"].values.flatten()
-    model_flat = paired_swath["model_no2"].values.flatten()
+    geometry_flat = paired_swath["geometry_no2"].values.flatten()
+    dataset_flat = paired_swath["dataset_no2"].values.flatten()
 
     import xarray as xr
     import numpy as np
 
     scatter_ds = xr.Dataset({
-        "obs_no2": (["point"], obs_flat),
-        "model_no2": (["point"], model_flat),
+        "geometry_no2": (["point"], geometry_flat),
+        "dataset_no2": (["point"], dataset_flat),
     })
 
     fig = plot_scatter(
         scatter_ds,
-        obs_var="obs_no2",
-        model_var="model_no2",
+        geometry_var="geometry_no2",
+        dataset_var="dataset_no2",
         title="Scatter Plot: Satellite NO2 (Swath)",
         show_density=True,
     )

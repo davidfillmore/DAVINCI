@@ -44,18 +44,10 @@ def collect_payload(context: "PipelineContext", cfg: "SummaryConfig") -> Summary
     period = {"start": analysis.get("start_time"), "end": analysis.get("end_time")}
 
     sources_summary: list[str] = []
-    source_blocks: tuple[str, ...]
-    if config.get("sources"):
-        source_blocks = ("sources",)
-    else:
-        source_blocks = ("model", "obs")
-    for block in source_blocks:
-        for label, spec in (config.get(block) or {}).items():
-            if isinstance(spec, dict):
-                stype = spec.get("type") or spec.get("mod_type") or spec.get("obs_type") or "?"
-                role = spec.get("role")
-                role_text = f", role={role}" if role else ""
-                sources_summary.append(f"{label} ({stype}{role_text})")
+    for label, spec in (config.get("sources") or {}).items():
+        if isinstance(spec, dict):
+            stype = spec.get("type") or "?"
+            sources_summary.append(f"{label} ({stype})")
 
     pairs_summary = list((config.get("pairs") or {}).keys())
 

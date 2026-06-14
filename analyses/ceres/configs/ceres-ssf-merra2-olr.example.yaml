@@ -16,25 +16,23 @@ analysis:
 sources:
   merra2:
     type: merra2
-    role: model
     files: ${MERRA2_HOURLY_RAD}/MERRA2_400.tavg1_2d_rad_Nx.2026040?.nc4
     variables:
       LWTUP:
         units: W m-2
   ceres:
     type: ceres_ssf
-    role: obs
     files: ${CERES_SSF_DIR}/CER_SSF_NOAA20-FM6-VIIRS_Edition1C_*.nc
     variables:
       toa_lw_up:
         units: W m-2
-        obs_min: 0
-        obs_max: 500
+        geometry_min: 0
+        geometry_max: 500
 
 pairs:
   merra2_vs_ssf_olr:
     sources: [merra2, ceres]
-    reference: ceres
+    geometry: ceres
     variables:
       merra2: LWTUP
       ceres: toa_lw_up

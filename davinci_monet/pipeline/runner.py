@@ -35,10 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Re-exports for backward compatibility
-# Tests and other callers that do `from davinci_monet.pipeline.runner import
-# ProgressFormatter / LogCollector / LogEntry` continue to work because these
-# names are imported above and therefore present as module attributes.
+# Re-export progress helpers for direct imports from this module.
 # ---------------------------------------------------------------------------
 __all__ = [
     "LogCollector",
@@ -294,7 +291,7 @@ class PipelineRunner:
         tries to close stale NetCDF file handles after the pipeline completes.
         Should be called after log data extraction but before preview/exit.
 
-        Note: Does NOT clear the dictionaries, as other code may still reference them.
+        Note: Does NOT clear the dictionaries, as other code may still geometry them.
         """
         self._resource_policy.cleanup_context_datasets(context)
 
@@ -499,12 +496,11 @@ class PipelineRunner:
         if isinstance(config, str):
             config_path = config
             from davinci_monet.config import load_config
+            from davinci_monet.core.schema_utils import dump_schema
 
-            config = load_config(config).model_dump()
+            config = dump_schema(load_config(config))
 
-        # Validate that config has something to process. Legacy model:/obs:
-        # blocks are rejected at config load (parser._reject_legacy_config); the
-        # unified `sources:` schema is the only supported data-source format.
+        # Validate that config has something to process.
         sources_config = config.get("sources") or {}
 
         if not sources_config:
@@ -618,10 +614,10 @@ class PipelineBuilder:
     def add_sources(self) -> PipelineBuilder:
         """Add the unified data-source loading stage.
 
-        Loads both models and observations (native ``sources:`` configs, or
-        auto-converted legacy ``model:``/``obs:`` configs) into
-        ``context.sources``. Replaces the removed ``add_models``/
-        ``add_observations`` per-role loaders.
+        Loads both datasets and datasets (native ``sources:`` configs, or
+        ``sources:`` configs) into
+        ``context.sources``. Replaces the removed ``add_datasets``/
+        registered source readers.
         """
         from davinci_monet.pipeline.stages import LoadSourcesStage
 

@@ -2,9 +2,9 @@
 """Curtain Plot Example.
 
 Demonstrates the curtain plotter for vertical cross-sections showing
-model and observation profiles over time.
+dataset and dataset profiles over time.
 
-Data: Aircraft track observations with altitude (O3)
+Data: Aircraft track datasets with altitude (O3)
 """
 
 import matplotlib.pyplot as plt
@@ -28,8 +28,8 @@ def main():
     # Create plot using davinci_monet.plots
     fig = plot_curtain(
         paired,
-        obs_var="obs_o3",
-        model_var="model_o3",
+        geometry_var="geometry_o3",
+        dataset_var="dataset_o3",
         title="Curtain Plot: Aircraft O3",
         alt_var="altitude",
     )

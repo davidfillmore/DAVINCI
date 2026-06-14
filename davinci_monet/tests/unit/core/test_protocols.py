@@ -61,8 +61,8 @@ class TestPairingStrategyProtocol:
 
             def pair_sources(
                 self,
-                reference: Any,
-                comparand: Any,
+                geometry: Any,
+                dataset: Any,
                 **kwargs: Any,
             ) -> Any:
                 return None
@@ -85,8 +85,8 @@ class TestPlotterProtocol:
             def plot(
                 self,
                 paired_data: Any,
-                obs_var: str,
-                model_var: str,
+                geometry_var: str,
+                dataset_var: str,
                 **kwargs: Any,
             ) -> Any:
                 return None
@@ -120,8 +120,8 @@ class TestStatisticMetricProtocol:
 
             def compute(
                 self,
-                obs: Any,
-                model: Any,
+                geometry: Any,
+                dataset: Any,
                 **kwargs: Any,
             ) -> float:
                 return 0.0
@@ -157,8 +157,8 @@ class TestPairingEngineProtocol:
 
             def pair_sources(
                 self,
-                reference: Any,
-                comparand: Any,
+                geometry: Any,
+                dataset: Any,
                 **kwargs: Any,
             ) -> Any:
                 return None
@@ -177,8 +177,8 @@ class TestStatisticsCalculatorProtocol:
             def compute(
                 self,
                 paired_data: Any,
-                obs_var: str,
-                model_var: str,
+                geometry_var: str,
+                dataset_var: str,
                 metrics: Sequence[str] | None = None,
                 groupby: str | Sequence[str] | None = None,
                 **kwargs: Any,
@@ -203,8 +203,8 @@ class TestSpatialPlotterProtocol:
             def plot(
                 self,
                 paired_data: Any,
-                obs_var: str,
-                model_var: str,
+                geometry_var: str,
+                dataset_var: str,
                 domain: tuple[float, float, float, float] | None = None,
                 projection: Any | None = None,
                 **kwargs: Any,

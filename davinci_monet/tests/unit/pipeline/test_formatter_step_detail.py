@@ -84,7 +84,7 @@ class TestStepDetailClearedBetweenStages:
         fmt.stage_start("pairing")
 
         display_new = fmt._create_stage_display()
-        # Old detail must be gone
+        # Previous detail must be gone
         assert "loading modis_viirs" not in display_new.plain
         assert "pairing" in display_new.plain
 
@@ -113,7 +113,7 @@ class TestCurrentItemTakesPrecedenceOverStepDetail:
         fmt.step("loading modis_viirs [1/47] MOD08.hdf")
 
         # Then an item_start (e.g. sequential loading of a named source)
-        fmt.item_start("obs", "airnow", index=1, total=2)
+        fmt.item_start("geometry", "airnow", index=1, total=2)
 
         display = fmt._create_stage_display()
         # The item name should appear

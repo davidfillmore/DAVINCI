@@ -1,5 +1,5 @@
 # ASIA-AQ CESM/CAM-chem Evaluation Configuration
-# Model: f.e3b06m.FCnudged.t6s.01x01.01 (0.1 deg, 32 levels)
+# Dataset: f.e3b06m.FCnudged.t6s.01x01.01 (0.1 deg, 32 levels)
 # Period: February 1-3, 2024
 
 analysis:
@@ -10,19 +10,10 @@ analysis:
 
 sources:
   cesm_asiaq:
-    role: model
     type: cesm_fv
     files: ~/Data/ASIA-AQ/f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.*.nc
-    # Model output is hourly, 0.1 deg resolution
-    radius_of_influence: 15000  # 15 km for 0.1 deg grid
-    # Variable mapping from obs standard names to CESM variable names
-    mapping:
-      openaq_asia:
-        o3: O3
-        no2: NO2
-        co: CO
-        pm25: PM25
-    # Unit conversions: CESM outputs mol/mol, need ppb for trace gases
+    # Dataset output is hourly, 0.1 deg resolution
+    radius_of_influence: 15000  # 15 km for 0.1 deg grid    # Unit conversions: CESM outputs mol/mol, need ppb for trace gases
     variables:
       O3:
         # mol/mol to ppb: multiply by 1e9
@@ -51,53 +42,52 @@ sources:
         vmax_plot: 100
         vdiff_plot: 50
 
-# Observation data - placeholder for when data is acquired
+# Dataset data - placeholder for when data is acquired
 # Options: OpenAQ (surface), ICARTT (aircraft), TROPOMI (satellite)
   openaq_asia:
-    role: obs
     type: openaq
     # Will need to download OpenAQ data for ASIA-AQ domain
     filename: ../data/openaq_asiaq_202402.nc
     variables:
       o3:
-        obs_min: 0
-        obs_max: 200
+        geometry_min: 0
+        geometry_max: 200
       no2:
-        obs_min: 0
-        obs_max: 100
+        geometry_min: 0
+        geometry_max: 100
       co:
-        obs_min: 0
-        obs_max: 5000
+        geometry_min: 0
+        geometry_max: 5000
       pm25:
-        obs_min: 0
-        obs_max: 500
+        geometry_min: 0
+        geometry_max: 500
 
-# One binary pair per variable. The plots below reference the O3 pair.
+# One binary pair per variable. The plots below geometry the O3 pair.
 pairs:
   cesm_asiaq_openaq_asia:
     sources: [cesm_asiaq, openaq_asia]
-    reference: openaq_asia
+    geometry: openaq_asia
     variables:
       cesm_asiaq: O3
       openaq_asia: o3
 
   cesm_asiaq_openaq_asia_no2:
     sources: [cesm_asiaq, openaq_asia]
-    reference: openaq_asia
+    geometry: openaq_asia
     variables:
       cesm_asiaq: NO2
       openaq_asia: no2
 
   cesm_asiaq_openaq_asia_co:
     sources: [cesm_asiaq, openaq_asia]
-    reference: openaq_asia
+    geometry: openaq_asia
     variables:
       cesm_asiaq: CO
       openaq_asia: co
 
   cesm_asiaq_openaq_asia_pm25:
     sources: [cesm_asiaq, openaq_asia]
-    reference: openaq_asia
+    geometry: openaq_asia
     variables:
       cesm_asiaq: PM25
       openaq_asia: pm25
@@ -135,8 +125,8 @@ stats:
     precision: 3
   metrics:
     - N        # Number of pairs
-    - MO       # Mean observation
-    - MP       # Mean prediction
+    - MG       # Mean geometry
+    - MD       # Mean dataset
     - MB       # Mean bias
     - RMSE     # Root mean square error
     - R        # Correlation coefficient

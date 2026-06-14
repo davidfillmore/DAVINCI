@@ -77,7 +77,7 @@ def test_worker_counts_eager_floor_is_1() -> None:
     assert eager == 1
 
 
-def test_worker_counts_no_eager_jobs_floors_to_1() -> None:
+def test_worker_counts_no_eager_jgeometry_floors_to_1() -> None:
     """Default formula with n_eager=0 still floors to >=1 workers."""
     eager, _ = PairingStage._pair_worker_counts({}, n_eager=0, cpu=8)
     assert eager == 1

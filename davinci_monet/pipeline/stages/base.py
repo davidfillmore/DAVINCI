@@ -117,9 +117,7 @@ class PipelineContext:
     config
         Configuration dictionary from YAML or programmatic setup.
     sources
-        Dictionary of loaded data sources (models and observations alike),
-        keyed by source label. Each entry carries optional ``role`` metadata
-        (``"model"``/``"obs"``) for styling and direction precedence.
+        Dictionary of loaded datasets keyed by source label.
     paired
         Dictionary of paired source data.
     results
@@ -132,8 +130,7 @@ class PipelineContext:
     """
 
     config: dict[str, Any] = field(default_factory=dict)
-    # Unified data-source view. Models and observations both register here
-    # keyed by label, distinguished only by optional ``role`` metadata.
+    # Unified data-source view keyed by dataset label.
     sources: dict[str, Any] = field(default_factory=dict)
     paired: dict[str, Any] = field(default_factory=dict)
     results: dict[str, StageResult] = field(default_factory=dict)
@@ -146,7 +143,7 @@ class PipelineContext:
             self.progress_callback(message)
 
     def get_source(self, label: str) -> Any:
-        """Get a data source (model or observation) by label.
+        """Get a data source (dataset or dataset) by label.
 
         Part of the unified data-source abstraction (Phase 3). Sources are
         populated by :class:`LoadSourcesStage`.
@@ -167,18 +164,6 @@ class PipelineContext:
             raise KeyError(f"Source '{label}' does not contain an xarray Dataset")
         return data
 
-    def get_source_role(self, label: str) -> str | None:
-        """Return optional source role metadata for a source label."""
-        source = self.get_source(label)
-        role = getattr(source, "role", None)
-        if role:
-            return str(role)
-        data = source.data if hasattr(source, "data") else source
-        if isinstance(data, xr.Dataset):
-            raw = data.attrs.get("role")
-            return str(raw) if raw else None
-        return None
-
     def get_paired(self, key: str) -> Any:
         """Get paired data by key."""
         if key not in self.paired:
@@ -194,7 +179,6 @@ class SourceData:
     label: str
     source_type: str
     geometry: DataGeometry
-    role: str | None = None
     variables: dict[str, Any] = field(default_factory=dict)
     config: dict[str, Any] = field(default_factory=dict)
 
@@ -205,14 +189,12 @@ class SourcePairJob:
 
     index: int
     pair_key: str
-    reference_label: str
-    reference_obj: Any
-    comparand_label: str
-    comparand_obj: Any
-    reference_var: str
-    comparand_var: str
-    reference_role: str | None
-    comparand_role: str | None
+    geometry_label: str
+    geometry_obj: Any
+    dataset_label: str
+    dataset_obj: Any
+    geometry_var: str
+    dataset_var: str
     radius_of_influence: float
     strategy_options: dict[str, Any] = field(default_factory=dict)
 

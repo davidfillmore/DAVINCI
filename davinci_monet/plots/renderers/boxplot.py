@@ -1,7 +1,7 @@
 """Box plot renderer for DAVINCI.
 
 This module provides box plot functionality for comparing
-model and observation distributions.
+dataset and dataset distributions.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from davinci_monet.plots.base import (
     PlotConfig,
     build_series,
     format_label_with_units,
-    get_role_color,
+    get_dataset_color,
     get_series_label,
     get_variable_label,
     get_variable_units,
@@ -34,8 +34,8 @@ if TYPE_CHECKING:
 class BoxPlotter(BasePlotter):
     """Plotter for box plot comparisons.
 
-    Creates box plots showing the distribution of model and
-    observation values, optionally grouped by categories.
+    Creates box plots showing the distribution of dataset and
+    dataset values, optionally grouped by categories.
 
     Parameters
     ----------
@@ -47,8 +47,8 @@ class BoxPlotter(BasePlotter):
     >>> plotter = BoxPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     obs_var="obs_o3",
-    ...     model_var="model_o3",
+    ...     geometry_var="geometry_o3",
+    ...     dataset_var="dataset_o3",
     ...     group_by="site",
     ... )
     """
@@ -67,7 +67,7 @@ class BoxPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one reference (obs) and one comparand (model).
+            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
         ax
             Optional axes to plot on. If None, creates new figure.
         **kwargs
@@ -82,19 +82,19 @@ class BoxPlotter(BasePlotter):
             raise NotImplementedError(
                 f"BoxPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        ref = next((s for s in series if s.pair_role == "reference"), series[0])
-        comp = next((s for s in series if s.pair_role == "comparand"), series[1])
-        paired_data = ref.dataset
-        obs_var = ref.var_name
-        model_var = comp.var_name
+        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = geometry_series.dataset
+        geometry_var = geometry_series.var_name
+        dataset_var = dataset_series.var_name
 
         group_by: str | None = kwargs.pop("group_by", None)
         show_means: bool = kwargs.pop("show_means", True)
         show_outliers: bool = kwargs.pop("show_outliers", True)
         notch: bool = kwargs.pop("notch", False)
         orientation: Literal["vertical", "horizontal"] = kwargs.pop("orientation", "vertical")
-        obs_label: str | None = kwargs.pop("obs_label", None)
-        model_label: str | None = kwargs.pop("model_label", None)
+        geometry_label: str | None = kwargs.pop("geometry_label", None)
+        dataset_label: str | None = kwargs.pop("dataset_label", None)
 
         # Create figure if needed
         if ax is None:
@@ -105,10 +105,12 @@ class BoxPlotter(BasePlotter):
         # Get style configuration
         style = self.config.style
 
-        # Series legend labels prefer the source label over Obs/Model (R-3).
-        obs_label = obs_label or get_series_label(paired_data, obs_var, self.config.obs_label)
-        model_label = model_label or get_series_label(
-            paired_data, model_var, self.config.model_label
+        # Series legend labels prefer the source label over Geometry/Dataset (R-3).
+        geometry_label = geometry_label or get_series_label(
+            paired_data, geometry_var, self.config.geometry_label
+        )
+        dataset_label = dataset_label or get_series_label(
+            paired_data, dataset_var, self.config.dataset_label
         )
 
         vert = orientation == "vertical"
@@ -118,11 +120,11 @@ class BoxPlotter(BasePlotter):
             self._plot_grouped(
                 ax,
                 paired_data,
-                obs_var,
-                model_var,
+                geometry_var,
+                dataset_var,
                 group_by,
-                obs_label,
-                model_label,
+                geometry_label,
+                dataset_label,
                 style,
                 show_means,
                 show_outliers,
@@ -134,10 +136,10 @@ class BoxPlotter(BasePlotter):
             self._plot_simple(
                 ax,
                 paired_data,
-                obs_var,
-                model_var,
-                obs_label,
-                model_label,
+                geometry_var,
+                dataset_var,
+                geometry_label,
+                dataset_label,
                 style,
                 show_means,
                 show_outliers,
@@ -149,9 +151,9 @@ class BoxPlotter(BasePlotter):
         self.apply_text_style(ax)
 
         # Set labels
-        units = get_variable_units(paired_data, obs_var)
+        units = get_variable_units(paired_data, geometry_var)
         value_label = format_label_with_units(
-            self.config.ylabel or get_variable_label(paired_data, obs_var) or "Value",
+            self.config.ylabel or get_variable_label(paired_data, geometry_var) or "Value",
             units,
         )
 
@@ -167,16 +169,16 @@ class BoxPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         ax: matplotlib.axes.Axes | None = None,
         group_by: str | None = None,
         show_means: bool = True,
         show_outliers: bool = True,
         notch: bool = False,
         orientation: Literal["vertical", "horizontal"] = "vertical",
-        obs_label: str | None = None,
-        model_label: str | None = None,
+        geometry_label: str | None = None,
+        dataset_label: str | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Generate a box plot.
@@ -184,11 +186,11 @@ class BoxPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with model and observation variables.
-        obs_var
-            Name of observation variable.
-        model_var
-            Name of model variable.
+            Paired dataset with dataset and dataset variables.
+        geometry_var
+            Name of dataset variable.
+        dataset_var
+            Name of dataset variable.
         ax
             Optional axes to plot on. If None, creates new figure.
         group_by
@@ -201,10 +203,10 @@ class BoxPlotter(BasePlotter):
             If True, use notched box style.
         orientation
             Box orientation ('vertical' or 'horizontal').
-        obs_label
-            Custom label for observations.
-        model_label
-            Custom label for model.
+        geometry_label
+            Custom label for datasets.
+        dataset_label
+            Custom label for dataset.
         **kwargs
             Additional plotting arguments.
 
@@ -214,15 +216,15 @@ class BoxPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, obs_var, model_var),
+            build_series(paired_data, geometry_var, dataset_var),
             ax=ax,
             group_by=group_by,
             show_means=show_means,
             show_outliers=show_outliers,
             notch=notch,
             orientation=orientation,
-            obs_label=obs_label,
-            model_label=model_label,
+            geometry_label=geometry_label,
+            dataset_label=dataset_label,
             **kwargs,
         )
 
@@ -230,17 +232,17 @@ class BoxPlotter(BasePlotter):
         self,
         ax: matplotlib.axes.Axes,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
-        obs_label: str,
-        model_label: str,
+        geometry_var: str,
+        dataset_var: str,
+        geometry_label: str,
+        dataset_label: str,
         style: Any,
         show_means: bool,
         show_outliers: bool,
         notch: bool,
         vert: bool,
     ) -> None:
-        """Plot simple obs vs model comparison.
+        """Plot simple geometry vs dataset comparison.
 
         Parameters
         ----------
@@ -248,30 +250,38 @@ class BoxPlotter(BasePlotter):
             Axes to plot on.
         paired_data
             Paired dataset.
-        obs_var, model_var
+        geometry_var, dataset_var
             Variable names.
-        obs_label, model_label
+        geometry_label, dataset_label
             Labels.
         style
             Style configuration.
         show_means, show_outliers, notch, vert
             Plot options.
         """
-        obs_values = paired_data[obs_var].values.flatten()
-        model_values = paired_data[model_var].values.flatten()
+        geometry_values = paired_data[geometry_var].values.flatten()
+        dataset_values = paired_data[dataset_var].values.flatten()
 
         # Remove NaN values
-        obs_values = obs_values[np.isfinite(obs_values)]
-        model_values = model_values[np.isfinite(model_values)]
+        geometry_values = geometry_values[np.isfinite(geometry_values)]
+        dataset_values = dataset_values[np.isfinite(dataset_values)]
 
-        data = [obs_values, model_values]
-        labels = [obs_label, model_label]
+        data = [geometry_values, dataset_values]
+        labels = [geometry_label, dataset_label]
         colors = [
-            get_role_color(
-                paired_data, obs_var, 0, obs_color=style.obs_color, model_color=style.model_color
+            get_dataset_color(
+                paired_data,
+                geometry_var,
+                0,
+                geometry_color=style.geometry_color,
+                dataset_color=style.dataset_color,
             ),
-            get_role_color(
-                paired_data, model_var, 1, obs_color=style.obs_color, model_color=style.model_color
+            get_dataset_color(
+                paired_data,
+                dataset_var,
+                1,
+                geometry_color=style.geometry_color,
+                dataset_color=style.dataset_color,
             ),
         ]
 
@@ -297,11 +307,11 @@ class BoxPlotter(BasePlotter):
         self,
         ax: matplotlib.axes.Axes,
         paired_data: xr.Dataset,
-        obs_var: str,
-        model_var: str,
+        geometry_var: str,
+        dataset_var: str,
         group_by: str,
-        obs_label: str,
-        model_label: str,
+        geometry_label: str,
+        dataset_label: str,
         style: Any,
         show_means: bool,
         show_outliers: bool,
@@ -316,11 +326,11 @@ class BoxPlotter(BasePlotter):
             Axes to plot on.
         paired_data
             Paired dataset.
-        obs_var, model_var
+        geometry_var, dataset_var
             Variable names.
         group_by
             Dimension to group by.
-        obs_label, model_label
+        geometry_label, dataset_label
             Labels.
         style
             Style configuration.
@@ -331,28 +341,28 @@ class BoxPlotter(BasePlotter):
         n_groups = len(groups)
 
         # Collect data for each group
-        obs_data = []
-        model_data = []
+        geometry_data = []
+        dataset_data = []
 
         for i in range(n_groups):
-            obs_vals = paired_data[obs_var].isel({group_by: i}).values.flatten()
-            model_vals = paired_data[model_var].isel({group_by: i}).values.flatten()
+            geometry_vals = paired_data[geometry_var].isel({group_by: i}).values.flatten()
+            dataset_vals = paired_data[dataset_var].isel({group_by: i}).values.flatten()
 
-            obs_vals = obs_vals[np.isfinite(obs_vals)]
-            model_vals = model_vals[np.isfinite(model_vals)]
+            geometry_vals = geometry_vals[np.isfinite(geometry_vals)]
+            dataset_vals = dataset_vals[np.isfinite(dataset_vals)]
 
-            obs_data.append(obs_vals)
-            model_data.append(model_vals)
+            geometry_data.append(geometry_vals)
+            dataset_data.append(dataset_vals)
 
         # Calculate positions
         width = 0.35
-        positions_obs = np.arange(n_groups) - width / 2
-        positions_model = np.arange(n_groups) + width / 2
+        positions_geometry = np.arange(n_groups) - width / 2
+        positions_dataset = np.arange(n_groups) + width / 2
 
-        # Plot observation boxes
-        bp_obs = ax.boxplot(
-            obs_data,
-            positions=positions_obs,
+        # Plot dataset boxes
+        bp_geometry = ax.boxplot(
+            geometry_data,
+            positions=positions_geometry,
             widths=width * 0.8,
             notch=notch,
             vert=vert,
@@ -361,10 +371,10 @@ class BoxPlotter(BasePlotter):
             patch_artist=True,
         )
 
-        # Plot model boxes
-        bp_model = ax.boxplot(
-            model_data,
-            positions=positions_model,
+        # Plot dataset boxes
+        bp_dataset = ax.boxplot(
+            dataset_data,
+            positions=positions_dataset,
             widths=width * 0.8,
             notch=notch,
             vert=vert,
@@ -373,18 +383,26 @@ class BoxPlotter(BasePlotter):
             patch_artist=True,
         )
 
-        # Color the boxes by source role (R-3)
-        obs_color = get_role_color(
-            paired_data, obs_var, 0, obs_color=style.obs_color, model_color=style.model_color
+        # Color the boxes by source axis (R-3)
+        geometry_color = get_dataset_color(
+            paired_data,
+            geometry_var,
+            0,
+            geometry_color=style.geometry_color,
+            dataset_color=style.dataset_color,
         )
-        model_color = get_role_color(
-            paired_data, model_var, 1, obs_color=style.obs_color, model_color=style.model_color
+        dataset_color = get_dataset_color(
+            paired_data,
+            dataset_var,
+            1,
+            geometry_color=style.geometry_color,
+            dataset_color=style.dataset_color,
         )
-        for patch in bp_obs["boxes"]:
-            patch.set_facecolor(obs_color)
+        for patch in bp_geometry["boxes"]:
+            patch.set_facecolor(geometry_color)
             patch.set_alpha(0.5)
-        for patch in bp_model["boxes"]:
-            patch.set_facecolor(model_color)
+        for patch in bp_dataset["boxes"]:
+            patch.set_facecolor(dataset_color)
             patch.set_alpha(0.5)
 
         # Set tick labels
@@ -399,16 +417,16 @@ class BoxPlotter(BasePlotter):
         from matplotlib.patches import Patch
 
         legend_elements = [
-            Patch(facecolor=obs_color, alpha=0.5, label=obs_label),
-            Patch(facecolor=model_color, alpha=0.5, label=model_label),
+            Patch(facecolor=geometry_color, alpha=0.5, label=geometry_label),
+            Patch(facecolor=dataset_color, alpha=0.5, label=dataset_label),
         ]
         ax.legend(handles=legend_elements, loc="best")
 
 
 def plot_boxplot(
     paired_data: xr.Dataset,
-    obs_var: str,
-    model_var: str,
+    geometry_var: str,
+    dataset_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
@@ -417,11 +435,11 @@ def plot_boxplot(
     Parameters
     ----------
     paired_data
-        Paired dataset with model and observation variables.
-    obs_var
-        Name of observation variable.
-    model_var
-        Name of model variable.
+        Paired dataset with dataset and dataset variables.
+    geometry_var
+        Name of dataset variable.
+    dataset_var
+        Name of dataset variable.
     config
         Plot configuration.
     **kwargs
@@ -436,4 +454,4 @@ def plot_boxplot(
         config = PlotConfig.from_dict(config)
 
     plotter = BoxPlotter(config=config)
-    return plotter.plot(paired_data, obs_var, model_var, **kwargs)
+    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)

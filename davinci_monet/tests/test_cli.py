@@ -154,17 +154,20 @@ analysis:
   output_dir: output
 
 sources:
-  test_model:
-    role: model
+  test_dataset:
     type: cmaq
     files: test.nc
-    mapping:
-      test_obs:
-        o3: O3
-  test_obs:
-    role: obs
+  test_geometry:
     type: airnow
-    filename: obs.nc
+    filename: geometry.nc
+
+pairs:
+  test_dataset_test_geometry:
+    sources: [test_dataset, test_geometry]
+    geometry: test_geometry
+    variables:
+      test_dataset: O3
+      test_geometry: o3
 """
         config_file = tmp_path / "config.yaml"
         config_file.write_text(config_content)
@@ -176,7 +179,7 @@ sources:
 
         runner = CliRunner()
 
-        # This will fail when trying to open model files, but should parse config
+        # This will fail when trying to open dataset files, but should parse config
         result = runner.invoke(app, ["run", str(sample_config)])
 
         # Config parses but pipeline fails on missing data files
@@ -210,17 +213,20 @@ analysis:
   end_time: 2024-01-02
 
 sources:
-  test_model:
-    role: model
+  test_dataset:
     type: cmaq
     files: test.nc
-    mapping:
-      test_obs:
-        o3: O3
-  test_obs:
-    role: obs
+  test_geometry:
     type: airnow
-    filename: obs.nc
+    filename: geometry.nc
+
+pairs:
+  test_dataset_test_geometry:
+    sources: [test_dataset, test_geometry]
+    geometry: test_geometry
+    variables:
+      test_dataset: O3
+      test_geometry: o3
 """
         config_file = tmp_path / "valid_config.yaml"
         config_file.write_text(config_content)
@@ -254,8 +260,7 @@ analysis:
   extra_field: should_be_ignored
 
 sources:
-  test_model:
-    role: model
+  test_dataset:
     type: cmaq
     files: test.nc
 """
@@ -330,14 +335,14 @@ class TestGetDataCommands:
         assert result.exit_code == 0
         assert "start-date" in result.stdout or "AirNow" in result.stdout
 
-    def test_airnow_dataframe_to_xarray_produces_legacy_shape(self) -> None:
-        """`_dataframe_to_xarray` must produce the legacy (time, y=1, x) layout
+    def test_airnow_dataframe_to_xarray_produces_current_shape(self) -> None:
+        """`_dataframe_to_xarray` must produce the current (time, y=1, x) layout
         with units attrs and `time_local`, so AirNow files written by
         `davinci-monet get airnow` remain readable by existing pipelines."""
         import numpy as np
         import pandas as pd
 
-        from davinci_monet.observations.surface.airnow import _dataframe_to_xarray
+        from davinci_monet.datasets.surface.airnow import _dataframe_to_xarray
 
         times = pd.date_range("2025-08-01 00:00", periods=3, freq="h")
         rows = []
@@ -426,7 +431,7 @@ class TestGetDataCommands:
                 "2024-01-01",
                 "-e",
                 "2024-01-02",
-                "--no-reference-grade",
+                "--no-geometry-grade",
                 "--no-low-cost",
             ],
         )
@@ -547,29 +552,23 @@ analysis:
   output_dir: output
 
 sources:
-  model1:
-    role: model
+  dataset1:
     type: cmaq
-    files: model.nc
-    mapping:
-      obs1:
-        o3: O3
-        pm25: PM25_TOT
-  obs1:
-    role: obs
+    files: dataset.nc
+  geometry1:
     type: airnow
-    filename: obs.nc
+    filename: geometry.nc
     variables:
       o3: {}
       pm25: {}
 
 pairs:
-  model1_obs1:
-    sources: [model1, obs1]
-    reference: obs1
+  dataset1_geometry1:
+    sources: [dataset1, geometry1]
+    geometry: geometry1
     variables:
-      model1: O3
-      obs1: o3
+      dataset1: O3
+      geometry1: o3
 
 plots:
   timeseries_plot:
@@ -579,7 +578,7 @@ plots:
     domain_name:
       - CONUS
     data:
-      - model1_obs1
+      - dataset1_geometry1
 
 stats:
   output_table: true

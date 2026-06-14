@@ -114,11 +114,11 @@ class TestDataErrors:
     def test_data_not_found_error(self) -> None:
         """Test DataNotFoundError with path and pattern."""
         error = DataNotFoundError(
-            "Model files not found",
-            path="/data/model/",
+            "Dataset files not found",
+            path="/data/dataset/",
             pattern="*.nc",
         )
-        assert error.path == Path("/data/model/")
+        assert error.path == Path("/data/dataset/")
         assert error.pattern == "*.nc"
 
     def test_data_format_error(self) -> None:
@@ -149,11 +149,11 @@ class TestDataErrors:
             "Variable not found",
             variable="O3",
             available=["NO2", "PM25", "CO"],
-            dataset="model_output",
+            dataset="dataset_output",
         )
         assert error.variable == "O3"
         assert error.available == ["NO2", "PM25", "CO"]
-        assert error.dataset == "model_output"
+        assert error.dataset == "dataset_output"
 
 
 class TestPairingErrors:
@@ -167,23 +167,23 @@ class TestPairingErrors:
         """Test GeometryMismatchError."""
         error = GeometryMismatchError(
             "Cannot pair incompatible geometries",
-            model_geometry="grid",
-            obs_geometry="track",
+            dataset_geometry="grid",
+            geometry_geometry="track",
         )
-        assert error.model_geometry == "grid"
-        assert error.obs_geometry == "track"
+        assert error.dataset_geometry == "grid"
+        assert error.geometry_geometry == "track"
 
     def test_no_overlap_error(self) -> None:
         """Test NoOverlapError with dimension ranges."""
         error = NoOverlapError(
             "No temporal overlap",
             dimension="time",
-            model_range=("2024-01-01", "2024-01-31"),
-            obs_range=("2024-02-01", "2024-02-28"),
+            dataset_range=("2024-01-01", "2024-01-31"),
+            geometry_range=("2024-02-01", "2024-02-28"),
         )
         assert error.dimension == "time"
-        assert error.model_range == ("2024-01-01", "2024-01-31")
-        assert error.obs_range == ("2024-02-01", "2024-02-28")
+        assert error.dataset_range == ("2024-01-01", "2024-01-31")
+        assert error.geometry_range == ("2024-02-01", "2024-02-28")
 
     def test_interpolation_error(self) -> None:
         """Test InterpolationError."""
@@ -246,10 +246,10 @@ class TestPipelineErrors:
         original = ValueError("Something went wrong")
         error = StageExecutionError(
             "Stage failed",
-            stage_name="load_model",
+            stage_name="load_dataset",
             original_error=original,
         )
-        assert error.stage_name == "load_model"
+        assert error.stage_name == "load_dataset"
         assert error.original_error is original
         assert "Something went wrong" in str(error)
 
@@ -257,10 +257,10 @@ class TestPipelineErrors:
         """Test PipelineAbortError with stage lists."""
         error = PipelineAbortError(
             "Pipeline aborted due to error",
-            completed_stages=["load_model", "load_obs"],
+            completed_stages=["load_dataset", "load_geometry"],
             pending_stages=["pair", "plot", "stats"],
         )
-        assert error.completed_stages == ["load_model", "load_obs"]
+        assert error.completed_stages == ["load_dataset", "load_geometry"]
         assert error.pending_stages == ["pair", "plot", "stats"]
 
 

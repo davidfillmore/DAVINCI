@@ -34,7 +34,7 @@ brief unchanged.
 
 ## Non-Goals
 
-- No prompt/system-message change; no second model call.
+- No prompt/system-message change; no second dataset call.
 - No change to `AI_summary.md` contents or the OpenRouter/Anthropic paths.
 - No new config options (the cap and fallback are fixed, sensible defaults).
 
@@ -66,7 +66,7 @@ Three small changes, each independently testable:
 
 2. **`SummaryStage`** (`davinci_monet/pipeline/stages.py`): on success, add
    `"bullets": extract_bullets(result.markdown)` to `StageResult.data` (next to
-   the existing `summary_file`, `markdown`, `model`, `usage`, `images_sent`).
+   the existing `summary_file`, `markdown`, `dataset`, `usage`, `images_sent`).
    The `out_path.write_text(result.markdown)` (full brief) is unchanged.
 
 3. **Display** (`davinci_monet/pipeline/runner.py`):
