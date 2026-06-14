@@ -23,7 +23,11 @@ from davinci_monet.pairing.grid_binning import bin_swath_to_grid, edges_from_cen
 from davinci_monet.pairing.strategies.base import BasePairingStrategy
 
 _UNIT_TO_M = {"m": 1.0, "meter": 1.0, "meters": 1.0, "km": 1000.0, "ft": 0.3048, "feet": 0.3048}
-_ALT_NAMES = {"altitude", "alt", "height", "geometric_height"}
+# ``z`` is included because the generic reader standardizes ``altitude`` ->
+# ``z`` (COMMON_COORDINATE_ALIASES); the native-altitude branch still gates on
+# length units, so a ``z`` that is a pressure/sigma level (no length units)
+# falls through to the pressure branch or the no-vertical error.
+_ALT_NAMES = {"altitude", "alt", "height", "geometric_height", "z"}
 _GEOPOT_NAMES = {"z3", "zg", "geopotential_height", "geopotential_height_msl"}
 _PRESSURE_NAMES = {"lev", "level", "plev", "pressure", "p"}
 _PRESSURE_HPA_UNITS = {"hpa", "mb", "millibar", "hectopascal"}

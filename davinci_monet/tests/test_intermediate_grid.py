@@ -306,3 +306,56 @@ def test_symmetric_3d_bins_by_altitude():
     assert low == pytest.approx(20.0)
     # the 6000 m x point sits in a higher alt bin, away from the 500 m bin
     assert int(paired["x_sample_count"].sel(alt=500.0, method="nearest").max().item()) == 2
+
+
+@pytest.mark.integration
+def test_method_grid_3d_runs_through_pipeline(tmp_path):
+    import numpy as np
+    import pandas as pd
+    import xarray as xr
+
+    from davinci_monet.pipeline.runner import PipelineRunner
+
+    # two file-backed sources, each with a native altitude coordinate (m)
+    def alt_ds(seed):
+        rng = np.random.default_rng(seed)
+        n = 20
+        return xr.Dataset(
+            {"O3": (["time"], rng.uniform(20, 80, n))},
+            coords={
+                "time": pd.to_datetime(["2012-05-29"] * n),
+                "latitude": ("time", rng.uniform(34, 36, n)),
+                "longitude": ("time", rng.uniform(-98, -96, n)),
+                "altitude": ("time", rng.uniform(0, 10000, n), {"units": "m"}),
+            },
+        )
+
+    xp, yp = tmp_path / "x.nc", tmp_path / "y.nc"
+    alt_ds(1).to_netcdf(xp)
+    alt_ds(2).to_netcdf(yp)
+    config = {
+        "analysis": {"output_dir": str(tmp_path / "out")},
+        "sources": {
+            "obs": {"type": "generic", "files": str(xp), "variables": {"O3": {"units": "ppb"}}},
+            "mod": {"type": "generic", "files": str(yp), "variables": {"O3": {"units": "ppb"}}},
+        },
+        "pairs": {
+            "obs_vs_mod": {
+                "x": {"source": "obs", "variable": "O3"},
+                "y": {"source": "mod", "variable": "O3"},
+                "method": "grid",
+                "grid": {
+                    "horizontal_res": 1.0,
+                    "time_resolution": "1D",
+                    "vertical": {"res": 1000.0, "units": "m"},
+                },
+            }
+        },
+    }
+    result = PipelineRunner(show_progress=False).run_from_config(config)
+    assert result.success, getattr(result, "error", None)
+    ctx = result.context
+    assert ctx is not None and "obs_vs_mod" in ctx.paired
+    paired = ctx.paired["obs_vs_mod"]
+    data = paired.data if hasattr(paired, "data") else paired
+    assert "alt" in data.coords and list(data["x_O3"].dims) == ["time", "lon", "lat", "alt"]
