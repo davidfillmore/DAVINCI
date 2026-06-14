@@ -9,7 +9,7 @@ loading, pairing (or geometry-only detection), statistics, plotting, and saving.
 
 Three test classes cover different workflow types:
   - TestPointPipeline: paired point (surface) — 8 plot types
-  - TestTrackPipeline: paired track (aircraft) — curtain, track_map_3d, flight_timeseries
+  - TestTrackPipeline: paired track (aircraft) — curtain, track_map_3d
   - TestGeometryOnlyPipeline: geometry-only (aircraft) — 4 geometry plot types
 
 CI artifacts (plots, stats CSV, pipeline log) are copied to
@@ -332,11 +332,6 @@ class TestTrackPipeline:
                     "show_var": "x",
                     "show_coastlines": False,
                 },
-                "flight_ts_o3": {
-                    "type": "flight_timeseries",
-                    "pairs": ["synthetic_aircraft"],
-                    "title": "O3 Flight Time Series",
-                },
             },
             "stats": {"metrics": ["N", "MB", "RMSE", "R"]},
         }
@@ -344,7 +339,7 @@ class TestTrackPipeline:
         runner = PipelineRunner(show_progress=False)
         result = runner.run_from_config(config)
         _assert_pipeline_success(result)
-        _assert_plots(output_dir, min_count=3)
+        _assert_plots(output_dir, min_count=2)
         assert list(log_dir.glob("pipeline_*.md")), "No pipeline log"
         _copy_artifacts(output_dir, log_dir, prefix="track_")
 

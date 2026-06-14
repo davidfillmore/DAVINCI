@@ -1,6 +1,6 @@
 # DAVINCI Plot Examples
 
-This directory contains examples demonstrating all 15 plot types available in DAVINCI, using synthetic data and the `davinci_monet.plots` module.
+This directory contains examples demonstrating the plot types available in DAVINCI, using synthetic data and the `davinci_monet.plots` module.
 
 ## Quick Start
 
@@ -28,8 +28,6 @@ Output is saved to `output/plots/` as PNG (300 DPI) and PDF.
 | 8 | `plot_08_spatial_distribution.py` | `spatial_distribution` | Point | Geographic value distribution |
 | 9 | `plot_09_curtain.py` | `curtain` | Track | Vertical cross-section (time x altitude) |
 | 10 | `plot_10_scorecard.py` | `scorecard` | Point | Multi-metric performance heatmap |
-| 11 | `plot_11_site_timeseries.py` | `site_timeseries` | Point | Multi-panel site-by-site comparison |
-| 12 | `plot_12_flight_timeseries.py` | `flight_timeseries` | Track | Multi-panel flight-by-flight comparison |
 | 13 | `plot_13_track_map_3d.py` | `track_map_3d` | Track | 3D flight trajectory visualization |
 | 14 | `plot_14_satellite_swath.py` | `spatial_bias`, `spatial_distribution` | Swath | Satellite swath (TROPOMI-like) plots |
 | 15 | `plot_15_satellite_gridded.py` | pcolormesh | Grid | L3 gridded satellite data visualization |

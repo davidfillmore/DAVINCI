@@ -161,12 +161,8 @@ davinci-monet run configs/asia-aq.yaml
 - `*_timeseries.png` - Time series with uncertainty bands (mean ± std)
 - `*_spatial_bias.png` - Spatial bias maps with city labels
 
-**Pandora plots:**
-- `no2_column_site_timeseries.png` - Multi-panel site-by-site time series
-
 **DC-8 Aircraft plots:**
 - `dc8_*_scatter.png` - Dataset vs aircraft scatter plots
-- `dc8_*_flight_timeseries.png` - Multi-panel flight-by-flight time series
 - `dc8_*_track_3d.png` - 3D flight track with bias coloring
 
 **Logs:**

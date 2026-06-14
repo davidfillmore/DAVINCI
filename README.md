@@ -151,8 +151,6 @@ The `examples/` directory contains individual plot type examples using `davinci_
 | Spatial Distribution | `plot_08_spatial_distribution.py` | Point |
 | Curtain | `plot_09_curtain.py` | Track |
 | Scorecard | `plot_10_scorecard.py` | Point |
-| Site Time Series | `plot_11_site_timeseries.py` | Point |
-| Flight Time Series | `plot_12_flight_timeseries.py` | Track |
 | 3D Track Map | `plot_13_track_map_3d.py` | Track |
 | Satellite Swath | `plot_14_satellite_swath.py` | Swath |
 | Satellite Gridded | `plot_15_satellite_gridded.py` | Grid |
