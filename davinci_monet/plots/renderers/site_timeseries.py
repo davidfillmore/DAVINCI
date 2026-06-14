@@ -154,10 +154,10 @@ class SiteTimeSeriesPlotter(BasePlotter):
             x_vals = x_da.values * scale_factor
             y_vals = y_da.values * scale_factor
 
-            valid_geometry = ~np.isnan(x_vals)
-            valid_both = valid_geometry & ~np.isnan(y_vals)
+            valid_x = ~np.isnan(x_vals)
+            valid_both = valid_x & ~np.isnan(y_vals)
 
-            # Series colors/labels by source axis (R-3): geometry gray, dataset blue,
+            # Series colors/labels by source axis (R-3): x gray, y blue,
             # else palette; legends use the source label.
             x_color = get_axis_color(
                 site_data,
@@ -179,8 +179,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
             # Plot datasets
             if x_style == "scatter":
                 panel_ax.scatter(
-                    times[valid_geometry],
-                    x_vals[valid_geometry],
+                    times[valid_x],
+                    x_vals[valid_x],
                     s=8,
                     alpha=0.6,
                     color=x_color,
@@ -189,8 +189,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
                 )
             else:
                 panel_ax.plot(
-                    times[valid_geometry],
-                    x_vals[valid_geometry],
+                    times[valid_x],
+                    x_vals[valid_x],
                     "o-",
                     color=x_color,
                     markersize=3,

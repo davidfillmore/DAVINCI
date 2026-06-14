@@ -139,7 +139,7 @@ class DiurnalPlotter(BasePlotter):
         x_label = x_label or get_series_label(paired_data, x_var, self.config.x_label)
         y_label = y_label or get_series_label(paired_data, y_var, self.config.y_label)
 
-        # Series colors by source axis (geometry gray, dataset blue, else palette) (R-3).
+        # Series colors by source axis (x gray, y blue, else palette) (R-3).
         x_color = get_axis_color(
             paired_data,
             x_var,
@@ -248,9 +248,9 @@ class DiurnalPlotter(BasePlotter):
         aggregate_dim
             Optional additional dimension to aggregate (e.g., 'site').
         x_label
-            Custom label for datasets.
+            Custom label for the x series.
         y_label
-            Custom label for dataset.
+            Custom label for the y series.
         utc_offset
             Offset from UTC for local time (hours).
         **kwargs

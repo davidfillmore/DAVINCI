@@ -10,7 +10,7 @@ import numpy as np
 import xarray as xr
 
 from davinci_monet.core.base import PlotSeries, iter_canonical_variable_series
-from davinci_monet.plots.style import DATASET_A_COLOR, DATASET_B_COLOR, NCAR_PALETTE, NCAR_PRIMARY
+from davinci_monet.plots.style import NCAR_PALETTE, NCAR_PRIMARY, X_COLOR, Y_COLOR
 
 
 def _series(axis, label, index):
@@ -74,7 +74,7 @@ class TestSeriesColors:
             _series("x", "airnow", 0),
             _series("y", "cam", 1),
         ]
-        assert series_colors(series) == [DATASET_A_COLOR, DATASET_B_COLOR]
+        assert series_colors(series) == [X_COLOR, Y_COLOR]
 
     def test_n_source_distinct_palette(self) -> None:
         from davinci_monet.plots.base import series_colors

@@ -30,8 +30,8 @@ def main():
     stats = quick_stats(geometry, dataset)
 
     print(f"   Sample size:  {stats['N']:.0f}")
-    print(f"   Mean Geometry:     {stats['MG']:.2f}")
-    print(f"   Mean Dataset:   {stats['MD']:.2f}")
+    print(f"   Mean X:     {stats['MX']:.2f}")
+    print(f"   Mean Y:   {stats['MY']:.2f}")
     print(f"   Mean Bias:    {stats['MB']:.2f}")
     print(f"   RMSE:         {stats['RMSE']:.2f}")
     print(f"   Correlation:  {stats['R']:.3f}")
@@ -179,7 +179,7 @@ def main():
 
     # Configure calculator
     config = StatisticsConfig(
-        metrics=["N", "MG", "MD", "MB", "RMSE", "R", "R2", "NMB", "NME", "IOA", "d1"],
+        metrics=["N", "MX", "MY", "MB", "RMSE", "R", "R2", "NMB", "NME", "IOA", "d1"],
         round_precision=4,
     )
 

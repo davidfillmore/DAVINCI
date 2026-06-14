@@ -61,11 +61,11 @@ NCAR_PRIMARY = NCAR_COLORS["ncar_blue"]
 NCAR_SECONDARY = NCAR_COLORS["aqua"]
 NCAR_ACCENT = NCAR_COLORS["orange"]
 
-# Color scheme for geometry-dataset comparisons.
-DATASET_A_COLOR = NCAR_COLORS["gray"]  # Geometry values in neutral gray
-DATASET_B_COLOR = NCAR_COLORS["ncar_blue"]  # Dataset in primary blue
-BIAS_POSITIVE_COLOR = NCAR_COLORS["red"]  # Dataset is higher than geometry
-BIAS_NEGATIVE_COLOR = NCAR_COLORS["ncar_blue"]  # Dataset is lower than geometry
+# Color scheme for x-y comparisons.
+X_COLOR = NCAR_COLORS["gray"]  # x-axis values in neutral gray
+Y_COLOR = NCAR_COLORS["ncar_blue"]  # y-axis values in primary blue
+BIAS_POSITIVE_COLOR = NCAR_COLORS["red"]  # y is higher than x
+BIAS_NEGATIVE_COLOR = NCAR_COLORS["ncar_blue"]  # y is lower than x
 
 # Sequential color palette for multiple plotted series.
 NCAR_PALETTE = [
@@ -282,9 +282,9 @@ def get_color_for_variable(variable: str) -> str:
     """
     var_lower = variable.lower()
     if var_lower.startswith("x_"):
-        return DATASET_A_COLOR
+        return X_COLOR
     elif var_lower.startswith("y_"):
-        return DATASET_B_COLOR
+        return Y_COLOR
     elif var_lower.startswith("bias"):
         return NCAR_COLORS["red"]
     else:

@@ -11,19 +11,19 @@ import xarray as xr
 
 from davinci_monet.plots.base import resolve_source_variable
 from davinci_monet.plots.style import (
-    DATASET_A_COLOR,
-    DATASET_B_COLOR,
     NCAR_COLORS,
+    X_COLOR,
+    Y_COLOR,
     get_color_for_variable,
 )
 
 
 class TestGetColorForVariable:
     def test_x_variable_is_x_color(self) -> None:
-        assert get_color_for_variable("x_o3") == DATASET_A_COLOR
+        assert get_color_for_variable("x_o3") == X_COLOR
 
     def test_y_variable_is_y_color(self) -> None:
-        assert get_color_for_variable("y_o3") == DATASET_B_COLOR
+        assert get_color_for_variable("y_o3") == Y_COLOR
 
     def test_bias_variable_is_bias_color(self) -> None:
         assert get_color_for_variable("bias_o3") == NCAR_COLORS["red"]

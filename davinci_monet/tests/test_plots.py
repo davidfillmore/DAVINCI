@@ -176,13 +176,13 @@ class TestPlotConfig:
     def test_default_config(self):
         """Test default configuration creation."""
         from davinci_monet.plots.base import PlotConfig
-        from davinci_monet.plots.style import DATASET_A_COLOR, DATASET_B_COLOR
+        from davinci_monet.plots.style import X_COLOR, Y_COLOR
 
         config = PlotConfig()
         assert config.figure.figsize == (8, 5)  # FigureConfig default
         assert config.text.fontsize == 14.0  # Axis label size
-        assert config.style.x_color == DATASET_A_COLOR  # NCAR gray
-        assert config.style.y_color == DATASET_B_COLOR  # NCAR blue
+        assert config.style.x_color == X_COLOR  # NCAR gray
+        assert config.style.y_color == Y_COLOR  # NCAR blue
         assert config.debug is False
 
     def test_from_dict(self):

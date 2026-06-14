@@ -144,4 +144,4 @@ stats:
   output_table: true
   output_table_kwargs:
     precision: 3
-  metrics: [N, MG, MD, MB, RMSE, R, NMB, NME, IOA]
+  metrics: [N, MX, MY, MB, RMSE, R, NMB, NME, IOA]

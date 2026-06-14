@@ -100,9 +100,9 @@ class TimeSeriesPlotter(BasePlotter):
         aggregate_dim
             Optional dimension to aggregate over (e.g., 'site').
         x_label
-            Custom label for datasets.
+            Custom label for the x series.
         y_label
-            Custom label for dataset.
+            Custom label for the y series.
         **kwargs
             Additional plotting arguments.
 
@@ -169,8 +169,8 @@ class TimeSeriesPlotter(BasePlotter):
         x_label = x_label or get_series_label(paired_data, x_var, self.config.x_label)
         y_label = y_label or get_series_label(paired_data, y_var, self.config.y_label)
 
-        # Series colors by source axis (geometry gray, dataset blue, else palette); a
-        # customised StyleConfig still wins for the geometry/dataset axes (R-3).
+        # Series colors by source axis (x gray, y blue, else palette); a
+        # customised StyleConfig still wins for the x/y axes (R-3).
         x_color = get_axis_color(
             paired_data,
             x_var,
@@ -774,9 +774,9 @@ class TimeSeriesPlotter(BasePlotter):
 
         # Check if raw data is non-negative (physical constraint)
         # Use original data before aggregation to check this
-        raw_geometry = paired_data[x_var]
-        raw_dataset = paired_data[y_var]
-        raw_min = float(min(np.nanmin(raw_geometry.values), np.nanmin(raw_dataset.values)))
+        raw_x = paired_data[x_var]
+        raw_y = paired_data[y_var]
+        raw_min = float(min(np.nanmin(raw_x.values), np.nanmin(raw_y.values)))
         is_positive_definite = raw_min >= 0
 
         # Add padding (10% of range)

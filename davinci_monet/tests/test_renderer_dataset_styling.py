@@ -6,7 +6,7 @@ import numpy as np
 import xarray as xr
 
 from davinci_monet.plots.base import get_axis_color, get_series_label
-from davinci_monet.plots.style import DATASET_A_COLOR, DATASET_B_COLOR, NCAR_PALETTE
+from davinci_monet.plots.style import NCAR_PALETTE, X_COLOR, Y_COLOR
 
 
 def _paired_with_aliases() -> xr.Dataset:
@@ -27,11 +27,11 @@ def _paired_with_aliases() -> xr.Dataset:
 class TestGetDatasetColor:
     def test_geometry_axis_is_geometry_color(self) -> None:
         ds = _paired_with_aliases()
-        assert get_axis_color(ds, "airnow_o3", index=0) == DATASET_A_COLOR
+        assert get_axis_color(ds, "airnow_o3", index=0) == X_COLOR
 
     def test_dataset_axis_is_dataset_color(self) -> None:
         ds = _paired_with_aliases()
-        assert get_axis_color(ds, "cam_o3", index=1) == DATASET_B_COLOR
+        assert get_axis_color(ds, "cam_o3", index=1) == Y_COLOR
 
     def test_unpaired_series_cycle_palette_by_index(self) -> None:
         ds = xr.Dataset(
@@ -56,8 +56,8 @@ class TestGetDatasetColor:
             {"x_o3": ("time", np.zeros(3)), "y_o3": ("time", np.zeros(3))},
             coords={"time": np.arange(3)},
         )
-        assert get_axis_color(ds, "x_o3", index=0) == DATASET_A_COLOR
-        assert get_axis_color(ds, "y_o3", index=1) == DATASET_B_COLOR
+        assert get_axis_color(ds, "x_o3", index=0) == X_COLOR
+        assert get_axis_color(ds, "y_o3", index=1) == Y_COLOR
 
     def test_style_overrides_honoured_for_xy_axes(self) -> None:
         # A customised StyleConfig color is used for x/y axes.
@@ -116,8 +116,8 @@ class TestTimeseriesAxisStyling:
 
         fig = TimeSeriesPlotter().plot(_ts_paired(), "airnow_o3", "cam_o3")
         colors = self._line_colors_by_label(fig)
-        assert colors["airnow"] == DATASET_A_COLOR
-        assert colors["cam"] == DATASET_B_COLOR
+        assert colors["airnow"] == X_COLOR
+        assert colors["cam"] == Y_COLOR
 
     def test_legend_uses_dataset_labels(self) -> None:
         from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter

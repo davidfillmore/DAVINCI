@@ -30,10 +30,10 @@ class TestNCARColors:
 
     def test_geometry_dataset_colors_exist(self):
         """Dataset and dataset colors should be defined."""
-        from davinci_monet.plots.style import DATASET_A_COLOR, DATASET_B_COLOR
+        from davinci_monet.plots.style import X_COLOR, Y_COLOR
 
-        assert DATASET_A_COLOR.startswith("#")
-        assert DATASET_B_COLOR.startswith("#")
+        assert X_COLOR.startswith("#")
+        assert Y_COLOR.startswith("#")
 
     def test_ncar_palette_is_list(self):
         """NCAR palette should be a list of colors."""
@@ -158,17 +158,17 @@ class TestColorUtilities:
 
     def test_get_color_for_variable_x(self):
         """get_color_for_variable should return x color for x_ prefix."""
-        from davinci_monet.plots.style import DATASET_A_COLOR, get_color_for_variable
+        from davinci_monet.plots.style import X_COLOR, get_color_for_variable
 
-        assert get_color_for_variable("x_pm25") == DATASET_A_COLOR
-        assert get_color_for_variable("X_O3") == DATASET_A_COLOR
+        assert get_color_for_variable("x_pm25") == X_COLOR
+        assert get_color_for_variable("X_O3") == X_COLOR
 
     def test_get_color_for_variable_y(self):
         """get_color_for_variable should return y color for y_ prefix."""
-        from davinci_monet.plots.style import DATASET_B_COLOR, get_color_for_variable
+        from davinci_monet.plots.style import Y_COLOR, get_color_for_variable
 
-        assert get_color_for_variable("y_pm25") == DATASET_B_COLOR
-        assert get_color_for_variable("Y_O3") == DATASET_B_COLOR
+        assert get_color_for_variable("y_pm25") == Y_COLOR
+        assert get_color_for_variable("Y_O3") == Y_COLOR
 
     def test_get_color_for_variable_bias(self):
         """get_color_for_variable should return red for bias_ prefix."""

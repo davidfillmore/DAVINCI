@@ -18,7 +18,7 @@ from davinci_monet.core.base import (
     paired_variable_axis,
 )
 from davinci_monet.plots.labels import canonical_variable_name, get_variable_label
-from davinci_monet.plots.style import DATASET_A_COLOR, DATASET_B_COLOR, NCAR_PALETTE, NCAR_PRIMARY
+from davinci_monet.plots.style import NCAR_PALETTE, NCAR_PRIMARY, X_COLOR, Y_COLOR
 
 if TYPE_CHECKING:
     import xarray as xr
@@ -77,12 +77,12 @@ def series_colors(
     """Per-series colors under the unified, count-aware rule.
 
     - **1 series** → ``NCAR_PRIMARY``.
-    - **2 series** → geometry in ``x_color`` (gray) and dataset in
+    - **2 series** → x in ``x_color`` (gray) and y in
       ``y_color`` (blue), preserving today's comparison contrast.
     - **N > 2 series** → distinct ``NCAR_PALETTE`` colors cycled by ``index``.
 
     ``x_color``/``y_color`` let a caller pass the active ``StyleConfig``
-    colors; they default to the module ``DATASET_A_COLOR``/``DATASET_B_COLOR``.
+    colors; they default to the module ``X_COLOR``/``Y_COLOR``.
     """
     n = len(series)
     if n == 1:
@@ -90,8 +90,8 @@ def series_colors(
     if n == 2:
         out: list[str] = []
         for s in series:
-            is_dataset = s.axis == "y" or (s.axis is None and s.index == 1)
-            out.append((y_color or DATASET_B_COLOR) if is_dataset else (x_color or DATASET_A_COLOR))
+            is_y = s.axis == "y" or (s.axis is None and s.index == 1)
+            out.append((y_color or Y_COLOR) if is_y else (x_color or X_COLOR))
         return out
     return [NCAR_PALETTE[s.index % len(NCAR_PALETTE)] for s in series]
 
@@ -107,13 +107,13 @@ def get_axis_color(
     """Plot color for a paired series by axis.
 
     ``x_color``/``y_color`` let a caller supply the active ``StyleConfig``
-    colors so a customised style is honoured for the geometry/dataset axes.
+    colors so a customised style is honoured for the x/y axes.
     """
     axis = paired_variable_axis(dataset, var_name)
     if axis == "x":
-        return x_color or DATASET_A_COLOR
+        return x_color or X_COLOR
     if axis == "y":
-        return y_color or DATASET_B_COLOR
+        return y_color or Y_COLOR
     return NCAR_PALETTE[index % len(NCAR_PALETTE)]
 
 

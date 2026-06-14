@@ -200,9 +200,9 @@ class BoxPlotter(BasePlotter):
         orientation
             Box orientation ('vertical' or 'horizontal').
         x_label
-            Custom label for datasets.
+            Custom label for the x series.
         y_label
-            Custom label for dataset.
+            Custom label for the y series.
         **kwargs
             Additional plotting arguments.
 
@@ -238,7 +238,7 @@ class BoxPlotter(BasePlotter):
         notch: bool,
         vert: bool,
     ) -> None:
-        """Plot simple geometry vs dataset comparison.
+        """Plot simple x vs y comparison.
 
         Parameters
         ----------
@@ -352,13 +352,13 @@ class BoxPlotter(BasePlotter):
 
         # Calculate positions
         width = 0.35
-        positions_geometry = np.arange(n_groups) - width / 2
-        positions_dataset = np.arange(n_groups) + width / 2
+        positions_x = np.arange(n_groups) - width / 2
+        positions_y = np.arange(n_groups) + width / 2
 
         # Plot dataset boxes
-        bp_geometry = ax.boxplot(
+        bp_x = ax.boxplot(
             x_data,
-            positions=positions_geometry,
+            positions=positions_x,
             widths=width * 0.8,
             notch=notch,
             vert=vert,
@@ -368,9 +368,9 @@ class BoxPlotter(BasePlotter):
         )
 
         # Plot dataset boxes
-        bp_dataset = ax.boxplot(
+        bp_y = ax.boxplot(
             y_data,
-            positions=positions_dataset,
+            positions=positions_y,
             widths=width * 0.8,
             notch=notch,
             vert=vert,
@@ -394,10 +394,10 @@ class BoxPlotter(BasePlotter):
             x_color=style.x_color,
             y_color=style.y_color,
         )
-        for patch in bp_geometry["boxes"]:
+        for patch in bp_x["boxes"]:
             patch.set_facecolor(x_color)
             patch.set_alpha(0.5)
-        for patch in bp_dataset["boxes"]:
+        for patch in bp_y["boxes"]:
             patch.set_facecolor(y_color)
             patch.set_alpha(0.5)
 

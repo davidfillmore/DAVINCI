@@ -178,11 +178,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
         style = self.config.style
 
-        # Series colors/labels by source axis (R-3): geometry gray, dataset blue, else
+        # Series colors/labels by source axis (R-3): x gray, y blue, else
         # palette; legends use the source label.
-        sc_geometry, sc_dataset = style.x_color, style.y_color
-        x_color = get_axis_color(paired_data, x_var, 0, x_color=sc_geometry, y_color=sc_dataset)
-        y_color = get_axis_color(paired_data, y_var, 1, x_color=sc_geometry, y_color=sc_dataset)
+        sc_x, sc_y = style.x_color, style.y_color
+        x_color = get_axis_color(paired_data, x_var, 0, x_color=sc_x, y_color=sc_y)
+        y_color = get_axis_color(paired_data, y_var, 1, x_color=sc_x, y_color=sc_y)
         x_label = get_series_label(paired_data, x_var)
         y_label = get_series_label(paired_data, y_var)
 
@@ -235,22 +235,22 @@ class FlightTimeSeriesPlotter(BasePlotter):
             x_vals = paired_data[x_var].values[mask] * scale_factor
             y_vals = paired_data[y_var].values[mask] * scale_factor
 
-            valid_geometry = ~np.isnan(x_vals)
-            valid_both = valid_geometry & ~np.isnan(y_vals)
+            valid_x = ~np.isnan(x_vals)
+            valid_both = valid_x & ~np.isnan(y_vals)
 
             # Sort by time for line plots
             sort_idx = np.argsort(times)
             times = times[sort_idx]
             x_vals = x_vals[sort_idx]
             y_vals = y_vals[sort_idx]
-            valid_geometry = valid_geometry[sort_idx]
+            valid_x = valid_x[sort_idx]
             valid_both = valid_both[sort_idx]
 
             # Plot datasets
             if x_style == "scatter":
                 panel_ax.scatter(
-                    times[valid_geometry],
-                    x_vals[valid_geometry],
+                    times[valid_x],
+                    x_vals[valid_x],
                     s=12,
                     alpha=0.7,
                     color=x_color,
@@ -259,8 +259,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 )
             else:
                 panel_ax.plot(
-                    times[valid_geometry],
-                    x_vals[valid_geometry],
+                    times[valid_x],
+                    x_vals[valid_x],
                     "o-",
                     color=x_color,
                     markersize=3,
@@ -528,11 +528,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
         """
         style = self.config.style
 
-        # Series colors/labels by source axis (R-3): geometry gray, dataset blue, else
+        # Series colors/labels by source axis (R-3): x gray, y blue, else
         # palette; legends use the source label.
-        sc_geometry, sc_dataset = style.x_color, style.y_color
-        x_color = get_axis_color(paired_data, x_var, 0, x_color=sc_geometry, y_color=sc_dataset)
-        y_color = get_axis_color(paired_data, y_var, 1, x_color=sc_geometry, y_color=sc_dataset)
+        sc_x, sc_y = style.x_color, style.y_color
+        x_color = get_axis_color(paired_data, x_var, 0, x_color=sc_x, y_color=sc_y)
+        y_color = get_axis_color(paired_data, y_var, 1, x_color=sc_x, y_color=sc_y)
         x_label = get_series_label(paired_data, x_var)
         y_label = get_series_label(paired_data, y_var)
 
@@ -564,8 +564,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
             x_vals = paired_data[x_var].values[mask] * scale_factor
             y_vals = paired_data[y_var].values[mask] * scale_factor
 
-            valid_geometry = ~np.isnan(x_vals)
-            valid_both = valid_geometry & ~np.isnan(y_vals)
+            valid_x = ~np.isnan(x_vals)
+            valid_both = valid_x & ~np.isnan(y_vals)
 
             # Check minimum points
             if valid_both.sum() < min_points:
@@ -576,7 +576,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
             times = times[sort_idx]
             x_vals = x_vals[sort_idx]
             y_vals = y_vals[sort_idx]
-            valid_geometry = valid_geometry[sort_idx]
+            valid_x = valid_x[sort_idx]
             valid_both = valid_both[sort_idx]
 
             # Create single-panel figure
@@ -588,8 +588,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
             # Plot datasets
             if x_style == "scatter":
                 ax.scatter(
-                    times[valid_geometry],
-                    x_vals[valid_geometry],
+                    times[valid_x],
+                    x_vals[valid_x],
                     s=20,
                     alpha=0.7,
                     color=x_color,
@@ -598,8 +598,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 )
             else:
                 ax.plot(
-                    times[valid_geometry],
-                    x_vals[valid_geometry],
+                    times[valid_x],
+                    x_vals[valid_x],
                     "o-",
                     color=x_color,
                     markersize=4,

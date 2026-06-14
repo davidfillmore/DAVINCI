@@ -110,8 +110,6 @@ from davinci_monet.plots.renderers import (  # Temporal; Statistical; Specialize
 
 # Style configuration (NCAR branding)
 from davinci_monet.plots.style import (
-    DATASET_A_COLOR,
-    DATASET_B_COLOR,
     FONT_SIZES_DEFAULT,
     FONT_SIZES_PRESENTATION,
     FONT_SIZES_PUBLICATION,
@@ -120,6 +118,8 @@ from davinci_monet.plots.style import (
     NCAR_PALETTE,
     NCAR_PRIMARY,
     NCAR_SECONDARY,
+    X_COLOR,
+    Y_COLOR,
     FontSizes,
     apply_ncar_style,
     get_bias_cmap,
@@ -152,8 +152,8 @@ __all__ = [
     "NCAR_PRIMARY",
     "NCAR_SECONDARY",
     "NCAR_ACCENT",
-    "DATASET_A_COLOR",
-    "DATASET_B_COLOR",
+    "X_COLOR",
+    "Y_COLOR",
     "apply_ncar_style",
     "reset_style",
     "get_color_for_variable",
