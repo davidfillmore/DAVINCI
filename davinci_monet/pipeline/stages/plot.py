@@ -280,31 +280,31 @@ class PlottingStage(BaseStage):
                     paired_data[fallback_dataset_name].attrs.get("dataset_label", "dataset")
                 )
             source_vars = pair_spec.get("variables") or {}
-            geometry_var = str(
+            x_var = str(
                 source_vars.get(geometry_label)
                 or paired_data[fallback_geometry_name].attrs.get("dataset_variable")
                 or fallback_var
             )
-            dataset_var = str(
+            y_var = str(
                 source_vars.get(dataset_label)
                 or paired_data[fallback_dataset_name].attrs.get("dataset_variable")
                 or fallback_var
             )
             var_spec = {
-                "geometry_var": geometry_var,
-                "dataset_var": dataset_var,
+                "x_var": x_var,
+                "y_var": y_var,
             }
             geometry_var_name = self._resolve_paired_dataset_variable(
                 paired_data,
                 dataset_label=geometry_label,
-                dataset_variable=geometry_var,
+                dataset_variable=x_var,
                 pair_axis="geometry",
                 fallback_name=fallback_geometry_name,
             )
             dataset_var_name = self._resolve_paired_dataset_variable(
                 paired_data,
                 dataset_label=dataset_label,
-                dataset_variable=dataset_var,
+                dataset_variable=y_var,
                 pair_axis="dataset",
                 fallback_name=fallback_dataset_name,
             )
@@ -316,12 +316,12 @@ class PlottingStage(BaseStage):
             pair_vars = iter_paired_variable_pairs(paired_data)
             if not pair_vars:
                 return None
-            geometry_var_name, dataset_var_name, geometry_var = pair_vars[0]
+            geometry_var_name, dataset_var_name, x_var = pair_vars[0]
             geometry_label = str(
                 paired_data[geometry_var_name].attrs.get("dataset_label", "geometry")
             )
             dataset_label = str(paired_data[dataset_var_name].attrs.get("dataset_label", "dataset"))
-            var_spec = {"geometry_var": geometry_var, "dataset_var": geometry_var}
+            var_spec = {"x_var": x_var, "y_var": x_var}
 
         return (
             paired_data,
@@ -371,11 +371,11 @@ class PlottingStage(BaseStage):
         # Get plotter config from source variable settings. The dataset side
         # wins for comparison-specific plot limits; geometry settings are a
         # fallback.
-        dataset_var = var_spec.get("dataset_var", "")
-        geometry_var = var_spec.get("geometry_var", "")
-        var_config = self._source_var_config(context.config, dataset_label, dataset_var)
+        y_var = var_spec.get("y_var", "")
+        x_var = var_spec.get("x_var", "")
+        var_config = self._source_var_config(context.config, dataset_label, y_var)
         if not var_config:
-            var_config = self._source_var_config(context.config, geometry_label, geometry_var)
+            var_config = self._source_var_config(context.config, geometry_label, x_var)
         vmin = var_config.get("vmin_plot")
         vmax = var_config.get("vmax_plot")
         vdiff = var_config.get("vdiff_plot")
@@ -416,7 +416,7 @@ class PlottingStage(BaseStage):
                 if source_obj is not None:
                     source_ds = source_obj.data if hasattr(source_obj, "data") else source_obj
                     source_vars = getattr(source_ds, "data_vars", {})
-                    field_var = dataset_var if dataset_var in source_vars else geometry_var
+                    field_var = y_var if y_var in source_vars else x_var
                     if source_ds is not None and field_var in source_vars:
                         plot_options["dataset_field"] = source_ds[field_var]
             # Dataset readers differ on coord naming

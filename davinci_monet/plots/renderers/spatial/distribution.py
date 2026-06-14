@@ -52,8 +52,8 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
     >>> plotter = SpatialDistributionPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     geometry_var="geometry_o3",
-    ...     dataset_var="dataset_o3",
+    ...     x_var="geometry_o3",
+    ...     y_var="dataset_o3",
     ...     show_var="geometry",
     ... )
     """
@@ -90,11 +90,11 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
                 f"SpatialDistributionPlotter.render requires exactly 2 series;"
                 f" got {len(series)}."
             )
-        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
-        paired_data = geometry_series.dataset
-        geometry_var = geometry_series.var_name
-        dataset_var = dataset_series.var_name
+        x_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        y_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = x_series.dataset
+        x_var = x_series.var_name
+        y_var = y_series.var_name
 
         show_var: str = kwargs.pop("show_var", "geometry")
         lat_var: str = kwargs.pop("lat_var", "latitude")
@@ -127,13 +127,13 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
             ax_geometry = ax_dataset = ax
 
         # Get data
-        geometry_data = paired_data[geometry_var]
-        dataset_data = paired_data[dataset_var]
+        x_data = paired_data[x_var]
+        y_data = paired_data[y_var]
 
         # Time average if requested
-        if time_average and "time" in geometry_data.dims:
-            geometry_data = geometry_data.mean(dim="time")
-            dataset_data = dataset_data.mean(dim="time")
+        if time_average and "time" in x_data.dims:
+            x_data = x_data.mean(dim="time")
+            y_data = y_data.mean(dim="time")
 
         # Get coordinates — resolve common aliases
         lat_candidates = [lat_var, "lat", "latitude", "LAT", "Latitude"]
@@ -160,9 +160,9 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
             sort_idx = np.argsort(lons)
             lons = lons[sort_idx]
             lon_dim = resolved_lon
-            if lon_dim in geometry_data.dims:
-                geometry_data = geometry_data.isel({lon_dim: sort_idx})
-                dataset_data = dataset_data.isel({lon_dim: sort_idx})
+            if lon_dim in x_data.dims:
+                x_data = x_data.isel({lon_dim: sort_idx})
+                y_data = y_data.isel({lon_dim: sort_idx})
         elif lons.ndim > 1 and np.any(lons > 180):
             lons = np.where(lons > 180, lons - 360, lons)
 
@@ -171,8 +171,8 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         # single dim and must not be meshgridded as if they were grid axes.
         lat_da = paired_data[resolved_lat]
         lon_da = paired_data[resolved_lon]
-        # Geometry DataArray for geometry detection — use geometry_data dims.
-        _geometry = detect_spatial_geometry(lat_da, lon_da, geometry_data)
+        # Geometry DataArray for geometry detection — use x_data dims.
+        _geometry = detect_spatial_geometry(lat_da, lon_da, x_data)
 
         # Resolve "auto" to a concrete method based on data geometry: gridded
         # data (1-D lat/lon axes with a 2-D+ field, or 2-D curvilinear coords)
@@ -187,14 +187,14 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         if show_var == "both":
             all_values = np.concatenate(
                 [
-                    geometry_data.values.flatten(),
-                    dataset_data.values.flatten(),
+                    x_data.values.flatten(),
+                    y_data.values.flatten(),
                 ]
             )
         elif show_var == "geometry":
-            all_values = geometry_data.values.flatten()
+            all_values = x_data.values.flatten()
         else:
-            all_values = dataset_data.values.flatten()
+            all_values = y_data.values.flatten()
 
         all_values = all_values[np.isfinite(all_values)]
         vmin, vmax = calculate_data_limits(all_values)
@@ -210,9 +210,9 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         a = alpha if alpha is not None else style.alpha
 
         # Units and label
-        units = get_variable_units(paired_data, geometry_var)
-        var_label = get_variable_label(paired_data, geometry_var)
-        cbar_label = format_label_with_units(var_label or geometry_var, units)
+        units = get_variable_units(paired_data, x_var)
+        var_label = get_variable_label(paired_data, x_var)
+        cbar_label = format_label_with_units(var_label or x_var, units)
 
         # Plot dataset
         if show_var in ("geometry", "both"):
@@ -221,7 +221,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
 
             mappable = self._plot_data(
                 target_ax,  # type: ignore[arg-type]
-                geometry_data.values,
+                x_data.values,
                 lats,
                 lons,
                 effective_plot_type,
@@ -243,7 +243,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
 
             mappable = self._plot_data(
                 target_ax,  # type: ignore[arg-type]
-                dataset_data.values,
+                y_data.values,
                 lats,
                 lons,
                 effective_plot_type,
@@ -265,7 +265,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
                 title = self.config.title
             else:
                 # Use base variable name without prefix for cleaner title
-                base_label = get_variable_label(paired_data, geometry_var, include_prefix=False)
+                base_label = get_variable_label(paired_data, x_var, include_prefix=False)
                 title = f"{base_label} ({'Datasets' if show_var == 'geometry' else 'Dataset'})"
             self.set_title(ax, title)  # type: ignore[arg-type]
 
@@ -275,8 +275,8 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         ax: matplotlib.axes.Axes | None = None,
         show_var: Literal["geometry", "dataset", "both"] = "geometry",
         lat_var: str = "latitude",
@@ -294,9 +294,9 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
         ----------
         paired_data
             Paired dataset with dataset and dataset variables.
-        geometry_var
+        x_var
             Name of dataset variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         ax
             Optional GeoAxes to plot on.
@@ -330,7 +330,7 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, geometry_var, dataset_var),
+            build_series(paired_data, x_var, y_var),
             ax=ax,
             show_var=show_var,
             lat_var=lat_var,
@@ -450,8 +450,8 @@ class SpatialDistributionPlotter(BaseSpatialPlotter):
 
 def plot_spatial_distribution(
     paired_data: xr.Dataset,
-    geometry_var: str,
-    dataset_var: str,
+    x_var: str,
+    y_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     map_config: MapConfig | dict[str, Any] | None = None,
     title: str | None = None,
@@ -463,9 +463,9 @@ def plot_spatial_distribution(
     ----------
     paired_data
         Paired dataset with dataset and dataset variables.
-    geometry_var
+    x_var
         Name of dataset variable.
-    dataset_var
+    y_var
         Name of dataset variable.
     config
         Plot configuration.
@@ -499,4 +499,4 @@ def plot_spatial_distribution(
         )
 
     plotter = SpatialDistributionPlotter(config=config, map_config=map_config)
-    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)
+    return plotter.plot(paired_data, x_var, y_var, **kwargs)

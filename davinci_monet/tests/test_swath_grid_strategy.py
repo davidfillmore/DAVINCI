@@ -227,12 +227,12 @@ class TestSwathGridStrategy:
         geometry = _make_synthetic_swath()
         strategy = SwathGridStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
+            x_data=geometry,
+            y_data=dataset,
             grid_mode="match_dataset",
             time_resolution="1D",
-            geometry_var="AOD_550",
-            dataset_var="AODVIS",
+            x_var="AOD_550",
+            y_var="AODVIS",
         )
         # Check output structure
         assert "geometry_AOD_550" in paired.data_vars
@@ -247,12 +247,12 @@ class TestSwathGridStrategy:
         geometry = _make_synthetic_swath()
         strategy = SwathGridStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
+            x_data=geometry,
+            y_data=dataset,
             grid_mode="match_dataset",
             time_resolution="1D",
-            geometry_var="AOD_550",
-            dataset_var="AODVIS",
+            x_var="AOD_550",
+            y_var="AODVIS",
         )
         # Lon and lat should match dataset grid
         assert paired.dims["lat"] == 10
@@ -263,52 +263,52 @@ class TestSwathGridStrategy:
         geometry = _make_synthetic_swath()
         strategy = SwathGridStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
+            x_data=geometry,
+            y_data=dataset,
             grid_mode="match_dataset",
             time_resolution="1D",
-            geometry_var="AOD_550",
-            dataset_var="AODVIS",
+            x_var="AOD_550",
+            y_var="AODVIS",
         )
         # Where geometry_count > 0, geometry data should be finite
         count = paired["geometry_count"].values
-        geometry_data = paired["geometry_AOD_550"].values
-        assert np.all(np.isfinite(geometry_data[count > 0]))
+        x_data = paired["geometry_AOD_550"].values
+        assert np.all(np.isfinite(x_data[count > 0]))
 
     def test_geometry_nan_where_no_data(self):
         dataset = _make_synthetic_dataset()
         geometry = _make_synthetic_swath()
         strategy = SwathGridStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
+            x_data=geometry,
+            y_data=dataset,
             grid_mode="match_dataset",
             time_resolution="1D",
-            geometry_var="AOD_550",
-            dataset_var="AODVIS",
+            x_var="AOD_550",
+            y_var="AODVIS",
         )
         count = paired["geometry_count"].values
-        geometry_data = paired["geometry_AOD_550"].values
+        x_data = paired["geometry_AOD_550"].values
         # Where count == 0, data should be NaN
-        assert np.all(np.isnan(geometry_data[count == 0]))
+        assert np.all(np.isnan(x_data[count == 0]))
 
     def test_min_geometry_count_filtering(self):
         dataset = _make_synthetic_dataset()
         geometry = _make_synthetic_swath()
         strategy = SwathGridStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
+            x_data=geometry,
+            y_data=dataset,
             grid_mode="match_dataset",
             time_resolution="1D",
-            geometry_var="AOD_550",
-            dataset_var="AODVIS",
+            x_var="AOD_550",
+            y_var="AODVIS",
             min_geometry_count=3,
         )
         count = paired["geometry_count"].values
-        geometry_data = paired["geometry_AOD_550"].values
+        x_data = paired["geometry_AOD_550"].values
         # Cells with count < 3 should be NaN
-        assert np.all(np.isnan(geometry_data[(count > 0) & (count < 3)]))
+        assert np.all(np.isnan(x_data[(count > 0) & (count < 3)]))
 
     def test_longitude_wrapping(self):
         """Geometry with -180..180 lon should pair correctly with 0..360 dataset."""
@@ -317,12 +317,12 @@ class TestSwathGridStrategy:
         geometry = _make_synthetic_swath(lon_range=(-180, 0))
         strategy = SwathGridStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
+            x_data=geometry,
+            y_data=dataset,
             grid_mode="match_dataset",
             time_resolution="1D",
-            geometry_var="AOD_550",
-            dataset_var="AODVIS",
+            x_var="AOD_550",
+            y_var="AODVIS",
         )
         # Should have data in the 180-360 range of the dataset grid
         count = paired["geometry_count"].values
@@ -333,13 +333,13 @@ class TestSwathGridStrategy:
         geometry = _make_synthetic_swath()
         strategy = SwathGridStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
+            x_data=geometry,
+            y_data=dataset,
             grid_mode="resolution",
             resolution=10.0,
             time_resolution="1D",
-            geometry_var="AOD_550",
-            dataset_var="AODVIS",
+            x_var="AOD_550",
+            y_var="AODVIS",
         )
         # 10-degree grid: 18 lat bins, 36 lon bins
         assert paired.dims["lat"] == 18
@@ -350,12 +350,12 @@ class TestSwathGridStrategy:
         geometry = _make_synthetic_swath()
         strategy = SwathGridStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
+            x_data=geometry,
+            y_data=dataset,
             grid_mode="match_dataset",
             time_resolution="1D",
-            geometry_var="AOD_550",
-            dataset_var="AODVIS",
+            x_var="AOD_550",
+            y_var="AODVIS",
         )
         # Check naming convention: geometry_ and dataset_ prefixes
         var_names = list(paired.data_vars)
@@ -368,15 +368,15 @@ class TestSwathGridStrategy:
         geometry = _make_synthetic_swath(aod_range=(0.05, 0.8))
         strategy = SwathGridStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
+            x_data=geometry,
+            y_data=dataset,
             grid_mode="match_dataset",
             time_resolution="1D",
-            geometry_var="AOD_550",
-            dataset_var="AODVIS",
+            x_var="AOD_550",
+            y_var="AODVIS",
         )
-        geometry_data = paired["geometry_AOD_550"].values
-        valid = geometry_data[np.isfinite(geometry_data)]
+        x_data = paired["geometry_AOD_550"].values
+        valid = x_data[np.isfinite(x_data)]
         assert np.all(valid >= 0.05)
         assert np.all(valid <= 0.8)
 
@@ -439,12 +439,12 @@ def test_per_scanline_time_bins_across_multiple_days() -> None:
     # -- pair -----------------------------------------------------------------
     strategy = SwathGridStrategy()
     paired = strategy.pair_sources(
-        geometry_data=geometry,
-        dataset_data=dataset,
+        x_data=geometry,
+        y_data=dataset,
         grid_mode="match_dataset",
         time_resolution="1D",
-        geometry_var="flux",
-        dataset_var="FLUX",
+        x_var="flux",
+        y_var="FLUX",
     )
 
     geometry_binned = paired["geometry_flux"].values  # (time, lon, lat)

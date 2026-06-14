@@ -55,7 +55,7 @@ def _grid_dataset_dataset() -> xr.Dataset:
 
 
 @pytest.fixture
-def dataset_data() -> SourceData:
+def y_data() -> SourceData:
     return SourceData(
         data=_grid_dataset_dataset(),
         label="cam",
@@ -65,7 +65,7 @@ def dataset_data() -> SourceData:
 
 
 @pytest.fixture
-def geometry_data() -> SourceData:
+def x_data() -> SourceData:
     return SourceData(
         data=_point_geometry_dataset(),
         label="airnow",
@@ -79,9 +79,9 @@ class TestPipelineContextSources:
         ctx = PipelineContext()
         assert ctx.sources == {}
 
-    def test_get_source_returns_registered(self, geometry_data: SourceData) -> None:
-        ctx = PipelineContext(sources={"airnow": geometry_data})
-        assert ctx.get_source("airnow") is geometry_data
+    def test_get_source_returns_registered(self, x_data: SourceData) -> None:
+        ctx = PipelineContext(sources={"airnow": x_data})
+        assert ctx.get_source("airnow") is x_data
 
     def test_get_source_missing_raises_keyerror(self) -> None:
         ctx = PipelineContext()
@@ -91,19 +91,19 @@ class TestPipelineContextSources:
 
 class TestLoadSourcesStage:
     def test_unifies_sources_with_dataset_labels_and_geometry(
-        self, dataset_data: SourceData, geometry_data: SourceData
+        self, y_data: SourceData, x_data: SourceData
     ) -> None:
         # Pre-populated sources (no config) are tagged into the unified view.
         ctx = PipelineContext(
-            sources={"cam": dataset_data, "airnow": geometry_data},
+            sources={"cam": y_data, "airnow": x_data},
         )
         result = LoadSourcesStage().execute(ctx)
 
         assert result.status is StageStatus.COMPLETED
         # Both sources exposed via the unified view.
         assert set(ctx.sources) == {"cam", "airnow"}
-        assert ctx.get_source("cam") is dataset_data
-        assert ctx.get_source("airnow") is geometry_data
+        assert ctx.get_source("cam") is y_data
+        assert ctx.get_source("airnow") is x_data
 
         # Datasets tagged with dataset_label / geometry.
         cam_attrs = ctx.sources["cam"].data.attrs
@@ -115,14 +115,14 @@ class TestLoadSourcesStage:
         assert air_attrs["geometry"] == "point"
 
     def test_prepopulated_sources_resolve_via_get_source(
-        self, dataset_data: SourceData, geometry_data: SourceData
+        self, y_data: SourceData, x_data: SourceData
     ) -> None:
         ctx = PipelineContext(
-            sources={"cam": dataset_data, "airnow": geometry_data},
+            sources={"cam": y_data, "airnow": x_data},
         )
         LoadSourcesStage().execute(ctx)
-        assert ctx.get_source("cam") is dataset_data
-        assert ctx.get_source("airnow") is geometry_data
+        assert ctx.get_source("cam") is y_data
+        assert ctx.get_source("airnow") is x_data
 
     def test_unified_source_uses_reader_geometry(self, tmp_path) -> None:
         source_path = tmp_path / "cam.nc"

@@ -196,8 +196,8 @@ class TestRenderDefault:
         class StubPlotter(BasePlotter):
             name = "stub"
 
-            def plot(self, paired_data, geometry_var, dataset_var, ax=None, **kwargs):
-                calls.append((geometry_var, dataset_var))
+            def plot(self, paired_data, x_var, y_var, ax=None, **kwargs):
+                calls.append((x_var, y_var))
                 fig, _ax = self.create_figure()
                 return fig
 
@@ -227,7 +227,7 @@ class TestRenderDefault:
         class StubPlotter(BasePlotter):
             name = "stub_geometry_ds"
 
-            def plot(self, paired_data, geometry_var, dataset_var, ax=None, **kwargs):
+            def plot(self, paired_data, x_var, y_var, ax=None, **kwargs):
                 received_datasets.append(id(paired_data))
                 fig, _ax = self.create_figure()
                 return fig
@@ -238,10 +238,10 @@ class TestRenderDefault:
         )
         # Build series dataset-first so series[0] is NOT the geometry.
         series = build_series(ds, "cam_o3", "airnow_o3")
-        geometry_series = next(s for s in series if s.pair_axis == "geometry")
+        x_series = next(s for s in series if s.pair_axis == "geometry")
         StubPlotter().render(series)
         # plot() must receive the geometry dataset, not series[0].dataset.
-        assert received_datasets == [id(geometry_series.dataset)]
+        assert received_datasets == [id(x_series.dataset)]
         plt.close("all")
 
 
@@ -281,7 +281,7 @@ class TestRegistryAliases:
         class _RealPlot(BasePlotter):
             name = "p0_real_plot"
 
-            def plot(self, paired_data, geometry_var, dataset_var, ax=None, **kwargs):
+            def plot(self, paired_data, x_var, y_var, ax=None, **kwargs):
                 fig, _ = self.create_figure()
                 return fig
 

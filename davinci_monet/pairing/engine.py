@@ -61,8 +61,8 @@ class PairingEngine:
     --------
     >>> engine = PairingEngine()
     >>> paired = engine.pair_sources(
-    ...     geometry=geometry_data,
-    ...     dataset=dataset_data,
+    ...     geometry=x_data,
+    ...     dataset=y_data,
     ...     geometry_vars=["O3"],
     ...     dataset_vars=["OZONE"],
     ... )
@@ -191,8 +191,8 @@ class PairingEngine:
 
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         geometry_vars: Sequence[str],
         dataset_vars: Sequence[str],
         output_geometry: DataGeometry | None = None,
@@ -211,17 +211,17 @@ class PairingEngine:
         if config is None:
             config = PairingConfig()
         if output_geometry is None:
-            output_geometry = self._detect_geometry(geometry_data)
+            output_geometry = self._detect_geometry(x_data)
         if dataset_geometry is None:
-            dataset_geometry = self._detect_geometry(dataset_data)
+            dataset_geometry = self._detect_geometry(y_data)
 
         if config.require_overlap:
-            self._check_temporal_overlap(dataset_data, geometry_data)
+            self._check_temporal_overlap(y_data, x_data)
 
         strategy = self.get_strategy_for(output_geometry, dataset_geometry)
         paired_ds = strategy.pair_sources(
-            geometry_data=geometry_data,
-            dataset_data=dataset_data,
+            x_data=x_data,
+            y_data=y_data,
             radius_of_influence=config.radius_of_influence,
             time_tolerance=config.time_tolerance,
             vertical_method=config.vertical_method,
@@ -229,8 +229,8 @@ class PairingEngine:
             time_method=config.time_method,
             geometry_vars=list(geometry_vars),
             dataset_vars=list(dataset_vars),
-            geometry_var=str(geometry_vars[0]) if geometry_vars else None,
-            dataset_var=str(dataset_vars[0]) if dataset_vars else None,
+            x_var=str(geometry_vars[0]) if geometry_vars else None,
+            y_var=str(dataset_vars[0]) if dataset_vars else None,
             **kwargs,
         )
         result_ds = self._assemble_paired_dataset(
@@ -278,9 +278,9 @@ class PairingEngine:
         data_vars: dict[str, xr.DataArray] = {}
         coords = dict(paired_ds.coords)
 
-        for geometry_var, dataset_var in zip(geometry_vars, dataset_vars):
-            geometry_name = str(geometry_var)
-            dataset_name = str(dataset_var)
+        for x_var, y_var in zip(geometry_vars, dataset_vars):
+            geometry_name = str(x_var)
+            dataset_name = str(y_var)
             geometry_key = self._select_var(
                 paired_ds,
                 [geometry_name, f"geometry_{geometry_name}"],

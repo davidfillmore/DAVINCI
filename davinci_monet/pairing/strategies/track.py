@@ -72,7 +72,7 @@ class TrackStrategy(BasePairingStrategy):
     Examples
     --------
     >>> strategy = TrackStrategy()
-    >>> paired = strategy.pair_sources(dataset_data, aircraft_data,
+    >>> paired = strategy.pair_sources(y_data, aircraft_data,
     ...                        vertical_method='linear')
     """
 
@@ -83,8 +83,8 @@ class TrackStrategy(BasePairingStrategy):
 
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "linear",
@@ -117,8 +117,8 @@ class TrackStrategy(BasePairingStrategy):
         xr.Dataset
             Paired dataset with dataset values along track.
         """
-        dataset = dataset_data
-        geometry = geometry_data
+        dataset = y_data
+        geometry = x_data
 
         pressure_var = kwargs.get("pressure_var", "pressure")
         altitude_var = kwargs.get("altitude_var", "altitude")

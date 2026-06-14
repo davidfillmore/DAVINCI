@@ -146,14 +146,14 @@ class PairingStage(BaseStage):
                     geometry_label, geometry_obj = a_label, a_obj
                     dataset_label, dataset_obj = b_label, b_obj
                 vmap = raw_pair.get("variables") or {}
-                geometry_var = vmap.get(geometry_label)
-                dataset_var = vmap.get(dataset_label)
-                if not geometry_var or not dataset_var:
+                x_var = vmap.get(geometry_label)
+                y_var = vmap.get(dataset_label)
+                if not x_var or not y_var:
                     missing = [
                         label
                         for label, value in (
-                            (geometry_label, geometry_var),
-                            (dataset_label, dataset_var),
+                            (geometry_label, x_var),
+                            (dataset_label, y_var),
                         )
                         if not value
                     ]
@@ -171,8 +171,8 @@ class PairingStage(BaseStage):
                         geometry_obj=geometry_obj,
                         dataset_label=dataset_label,
                         dataset_obj=dataset_obj,
-                        geometry_var=str(geometry_var),
-                        dataset_var=str(dataset_var),
+                        x_var=str(x_var),
+                        y_var=str(y_var),
                         radius_of_influence=self._pair_radius(raw_pair, dataset_obj),
                         strategy_options=self._strategy_options(
                             pairing_config_dict=context.config.get("pairing", {}),
@@ -310,10 +310,10 @@ class PairingStage(BaseStage):
             )
             engine = PairingEngine()
             paired_obj = engine.pair_sources(
-                geometry_data=geometry_ds,
-                dataset_data=dataset_ds,
-                geometry_vars=[job.geometry_var],
-                dataset_vars=[job.dataset_var],
+                x_data=geometry_ds,
+                y_data=dataset_ds,
+                geometry_vars=[job.x_var],
+                dataset_vars=[job.y_var],
                 output_geometry=self._source_geometry(job.geometry_obj),
                 dataset_geometry=self._source_geometry(job.dataset_obj),
                 config=pairing_cfg,

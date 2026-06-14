@@ -193,8 +193,8 @@ class SourcePairJob:
     geometry_obj: Any
     dataset_label: str
     dataset_obj: Any
-    geometry_var: str
-    dataset_var: str
+    x_var: str
+    y_var: str
     radius_of_influence: float
     strategy_options: dict[str, Any] = field(default_factory=dict)
 

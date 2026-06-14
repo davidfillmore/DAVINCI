@@ -4,6 +4,7 @@ This test is the behavior-preservation anchor for the x/y rename. It is written
 against the current geometry/dataset API and will be migrated to x/y in lockstep
 with the rename tasks; its ASSERTIONS (axis assignment + diff sign) must never change.
 """
+
 from __future__ import annotations
 
 import numpy as np

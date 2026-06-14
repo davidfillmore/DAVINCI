@@ -28,19 +28,19 @@ def synthetic_paired_data() -> xr.Dataset:
 
     rng = np.random.default_rng(42)
 
-    geometry_data = np.empty((len(sites), n_times))
-    dataset_data = np.empty((len(sites), n_times))
+    x_data = np.empty((len(sites), n_times))
+    y_data = np.empty((len(sites), n_times))
     lats = [13.75, 37.57, 35.68]
     lons = [100.52, 126.98, 139.69]
 
     for i in range(len(sites)):
-        geometry_data[i, :] = 30 + 10 * rng.random(n_times)
-        dataset_data[i, :] = 28 + 12 * rng.random(n_times)
+        x_data[i, :] = 30 + 10 * rng.random(n_times)
+        y_data[i, :] = 28 + 12 * rng.random(n_times)
 
     ds = xr.Dataset(
         {
-            "geometry_o3": (["site", "time"], geometry_data),
-            "dataset_o3": (["site", "time"], dataset_data),
+            "geometry_o3": (["site", "time"], x_data),
+            "dataset_o3": (["site", "time"], y_data),
         },
         coords={
             "site": sites,
@@ -63,27 +63,27 @@ def sparse_paired_data() -> xr.Dataset:
 
     rng = np.random.default_rng(99)
 
-    geometry_data = np.empty((3, n_times))
-    dataset_data = np.empty((3, n_times))
+    x_data = np.empty((3, n_times))
+    y_data = np.empty((3, n_times))
 
     # Site_A: enough data
-    geometry_data[0, :] = 30 + 10 * rng.random(n_times)
-    dataset_data[0, :] = 28 + 12 * rng.random(n_times)
+    x_data[0, :] = 30 + 10 * rng.random(n_times)
+    y_data[0, :] = 28 + 12 * rng.random(n_times)
 
     # Site_B: enough data
-    geometry_data[1, :] = 40 + 5 * rng.random(n_times)
-    dataset_data[1, :] = 38 + 7 * rng.random(n_times)
+    x_data[1, :] = 40 + 5 * rng.random(n_times)
+    y_data[1, :] = 38 + 7 * rng.random(n_times)
 
     # Site_C: mostly NaN (only 3 valid points)
-    geometry_data[2, :] = np.nan
-    dataset_data[2, :] = np.nan
-    geometry_data[2, :3] = [35, 36, 37]
-    dataset_data[2, :3] = [33, 34, 35]
+    x_data[2, :] = np.nan
+    y_data[2, :] = np.nan
+    x_data[2, :3] = [35, 36, 37]
+    y_data[2, :3] = [33, 34, 35]
 
     ds = xr.Dataset(
         {
-            "geometry_pm25": (["site", "time"], geometry_data),
-            "dataset_pm25": (["site", "time"], dataset_data),
+            "geometry_pm25": (["site", "time"], x_data),
+            "dataset_pm25": (["site", "time"], y_data),
         },
         coords={
             "site": sites,

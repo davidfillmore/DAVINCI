@@ -48,8 +48,8 @@ class DiurnalPlotter(BasePlotter):
     >>> plotter = DiurnalPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     geometry_var="geometry_o3",
-    ...     dataset_var="dataset_o3",
+    ...     x_var="geometry_o3",
+    ...     y_var="dataset_o3",
     ...     show_spread="iqr",
     ... )
     """
@@ -83,11 +83,11 @@ class DiurnalPlotter(BasePlotter):
             raise NotImplementedError(
                 f"DiurnalPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
-        paired_data = geometry_series.dataset
-        geometry_var = geometry_series.var_name
-        dataset_var = dataset_series.var_name
+        x_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        y_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = x_series.dataset
+        x_var = x_series.var_name
+        y_var = y_series.var_name
 
         time_dim: str = kwargs.pop("time_dim", "time")
         show_spread: Literal["none", "std", "iqr", "range"] = kwargs.pop("show_spread", "iqr")
@@ -103,20 +103,20 @@ class DiurnalPlotter(BasePlotter):
             fig = ax.get_figure()  # type: ignore[assignment]
 
         # Get data
-        geometry_data = paired_data[geometry_var]
-        dataset_data = paired_data[dataset_var]
+        x_data = paired_data[x_var]
+        y_data = paired_data[y_var]
 
         # Calculate hour of day
         time_coords = paired_data[time_dim]
         hours = (time_coords.dt.hour + utc_offset) % 24
 
         # Add hour as a coordinate for grouping
-        geometry_data = geometry_data.assign_coords(hour=hours)
-        dataset_data = dataset_data.assign_coords(hour=hours)
+        x_data = x_data.assign_coords(hour=hours)
+        y_data = y_data.assign_coords(hour=hours)
 
         # Group by hour and calculate statistics
-        geometry_hourly = geometry_data.groupby("hour")
-        dataset_hourly = dataset_data.groupby("hour")
+        geometry_hourly = x_data.groupby("hour")
+        dataset_hourly = y_data.groupby("hour")
 
         # Calculate means
         geometry_mean = geometry_hourly.mean()
@@ -141,26 +141,26 @@ class DiurnalPlotter(BasePlotter):
 
         # Series legend labels prefer source identity; axis remains a styling hint.
         geometry_label = geometry_label or get_series_label(
-            paired_data, geometry_var, self.config.geometry_label
+            paired_data, x_var, self.config.geometry_label
         )
         dataset_label = dataset_label or get_series_label(
-            paired_data, dataset_var, self.config.dataset_label
+            paired_data, y_var, self.config.dataset_label
         )
 
         # Series colors by source axis (geometry gray, dataset blue, else palette) (R-3).
-        geometry_color = get_dataset_color(
+        x_color = get_dataset_color(
             paired_data,
-            geometry_var,
+            x_var,
             0,
-            geometry_color=style.geometry_color,
-            dataset_color=style.dataset_color,
+            x_color=style.x_color,
+            y_color=style.y_color,
         )
-        dataset_color = get_dataset_color(
+        y_color = get_dataset_color(
             paired_data,
-            dataset_var,
+            y_var,
             1,
-            geometry_color=style.geometry_color,
-            dataset_color=style.dataset_color,
+            x_color=style.x_color,
+            y_color=style.y_color,
         )
 
         # Plot spread if requested
@@ -171,17 +171,17 @@ class DiurnalPlotter(BasePlotter):
                 dataset_hourly,
                 hours_arr,
                 show_spread,
-                geometry_color,
-                dataset_color,
+                x_color,
+                y_color,
             )
 
         # Plot means
         ax.plot(
             hours_arr,
             geometry_mean_vals,
-            color=geometry_color,
-            linestyle=style.geometry_linestyle,
-            marker=style.geometry_marker,
+            color=x_color,
+            linestyle=style.x_linestyle,
+            marker=style.x_marker,
             linewidth=style.linewidth,
             markersize=style.markersize,
             label=geometry_label,
@@ -190,9 +190,9 @@ class DiurnalPlotter(BasePlotter):
         ax.plot(
             hours_arr,
             dataset_mean_vals,
-            color=dataset_color,
-            linestyle=style.dataset_linestyle,
-            marker=style.dataset_marker,
+            color=y_color,
+            linestyle=style.y_linestyle,
+            marker=style.y_marker,
             linewidth=style.linewidth,
             markersize=style.markersize,
             label=dataset_label,
@@ -202,9 +202,9 @@ class DiurnalPlotter(BasePlotter):
         self.apply_text_style(ax)
 
         # Set labels
-        units = get_variable_units(paired_data, geometry_var)
+        units = get_variable_units(paired_data, x_var)
         ylabel = format_label_with_units(
-            self.config.ylabel or get_variable_label(paired_data, geometry_var),
+            self.config.ylabel or get_variable_label(paired_data, x_var),
             units,
         )
         xlabel = "Hour (Local)" if utc_offset != 0 else "Hour (UTC)"
@@ -226,8 +226,8 @@ class DiurnalPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         ax: matplotlib.axes.Axes | None = None,
         time_dim: str = "time",
         show_spread: Literal["none", "std", "iqr", "range"] = "iqr",
@@ -243,9 +243,9 @@ class DiurnalPlotter(BasePlotter):
         ----------
         paired_data
             Paired dataset with dataset and dataset variables.
-        geometry_var
+        x_var
             Name of dataset variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         ax
             Optional axes to plot on. If None, creates new figure.
@@ -270,7 +270,7 @@ class DiurnalPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, geometry_var, dataset_var),
+            build_series(paired_data, x_var, y_var),
             ax=ax,
             time_dim=time_dim,
             show_spread=show_spread,
@@ -288,8 +288,8 @@ class DiurnalPlotter(BasePlotter):
         dataset_hourly: Any,
         hours: np.ndarray,
         spread_type: str,
-        geometry_color: str,
-        dataset_color: str,
+        x_color: str,
+        y_color: str,
     ) -> None:
         """Add spread bands to the plot.
 
@@ -303,7 +303,7 @@ class DiurnalPlotter(BasePlotter):
             Hour values for x-axis.
         spread_type
             Type of spread ('std', 'iqr', 'range').
-        geometry_color, dataset_color
+        x_color, y_color
             Series colors (pair-axis) so the bands match the plotted lines.
         """
         if spread_type == "std":
@@ -359,22 +359,22 @@ class DiurnalPlotter(BasePlotter):
             hours,
             geometry_lower_vals,
             geometry_upper_vals,
-            color=geometry_color,
+            color=x_color,
             alpha=0.2,
         )
         ax.fill_between(
             hours,
             dataset_lower_vals,
             dataset_upper_vals,
-            color=dataset_color,
+            color=y_color,
             alpha=0.2,
         )
 
 
 def plot_diurnal(
     paired_data: xr.Dataset,
-    geometry_var: str,
-    dataset_var: str,
+    x_var: str,
+    y_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
@@ -384,9 +384,9 @@ def plot_diurnal(
     ----------
     paired_data
         Paired dataset with dataset and dataset variables.
-    geometry_var
+    x_var
         Name of dataset variable.
-    dataset_var
+    y_var
         Name of dataset variable.
     config
         Plot configuration.
@@ -402,4 +402,4 @@ def plot_diurnal(
         config = PlotConfig.from_dict(config)
 
     plotter = DiurnalPlotter(config=config)
-    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)
+    return plotter.plot(paired_data, x_var, y_var, **kwargs)

@@ -55,7 +55,7 @@ class SwathStrategy(BasePairingStrategy):
     Examples
     --------
     >>> strategy = SwathStrategy()
-    >>> paired = strategy.pair_sources(dataset_data, satellite_data,
+    >>> paired = strategy.pair_sources(y_data, satellite_data,
     ...                        apply_averaging_kernel=True)
     """
 
@@ -66,8 +66,8 @@ class SwathStrategy(BasePairingStrategy):
 
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "linear",
@@ -101,8 +101,8 @@ class SwathStrategy(BasePairingStrategy):
         xr.Dataset
             Paired dataset with dataset values at swath pixels.
         """
-        dataset = dataset_data
-        geometry = geometry_data
+        dataset = y_data
+        geometry = x_data
 
         apply_ak = kwargs.get("apply_averaging_kernel", False)
         match_overpass = kwargs.get("match_overpass", False)
@@ -296,7 +296,7 @@ class SwathStrategy(BasePairingStrategy):
 
     def _apply_averaging_kernel(
         self,
-        dataset_data: xr.Dataset,
+        y_data: xr.Dataset,
         geometry: xr.Dataset,
         ak_var: str,
     ) -> xr.Dataset:
@@ -304,7 +304,7 @@ class SwathStrategy(BasePairingStrategy):
 
         Parameters
         ----------
-        dataset_data
+        y_data
             Dataset data at pixel locations.
         geometry
             Dataset dataset containing averaging kernel.
@@ -319,7 +319,7 @@ class SwathStrategy(BasePairingStrategy):
         # This is a placeholder - full AK application requires
         # knowledge of the specific satellite product
         # For now, just return dataset data unchanged
-        return dataset_data
+        return y_data
 
     def _create_paired_output(
         self,

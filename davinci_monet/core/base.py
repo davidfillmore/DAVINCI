@@ -60,7 +60,7 @@ def iter_paired_variable_pairs(dataset: xr.Dataset) -> list[tuple[str, str, str]
     """Pair geometry variables with their dataset counterparts.
     counterparts by canonical name (renderer rewire R-5).
 
-    Returns ``(geometry_var, dataset_var, canonical)`` triples. One variable
+    Returns ``(x_var, y_var, canonical)`` triples. One variable
     per axis is used, so dual-named data never double-counts.
     """
     geometries: dict[str, str] = {}
@@ -212,11 +212,8 @@ class PairedData:
 
     @property
     def paired_variable_names(self) -> list[tuple[str, str]]:
-        """List of (geometry_var, dataset_var) pairs, matched by canonical name."""
-        return [
-            (geometry_var, dataset_var)
-            for geometry_var, dataset_var, _ in iter_paired_variable_pairs(self.data)
-        ]
+        """List of (x_var, y_var) pairs, matched by canonical name."""
+        return [(x_var, y_var) for x_var, y_var, _ in iter_paired_variable_pairs(self.data)]
 
     def _resolve_pair_axis_var(self, variable: str, pair_axis: str) -> str | None:
         """Resolve a paired variable for ``pair_axis``."""
@@ -297,10 +294,10 @@ class PairedData:
         # Count non-NaN pairs for first paired variable
         if not self.paired_variable_names:
             return 0
-        geometry_var, dataset_var = self.paired_variable_names[0]
-        geometry_data = self.data[geometry_var]
-        dataset_data = self.data[dataset_var]
-        valid = ~geometry_data.isnull() & ~dataset_data.isnull()
+        x_var, y_var = self.paired_variable_names[0]
+        x_data = self.data[x_var]
+        y_data = self.data[y_var]
+        valid = ~x_data.isnull() & ~y_data.isnull()
         return int(valid.sum().values)
 
     def to_dataframe(self) -> Any:

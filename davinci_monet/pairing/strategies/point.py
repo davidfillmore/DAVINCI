@@ -38,7 +38,7 @@ class PointStrategy(BasePairingStrategy):
     Examples
     --------
     >>> strategy = PointStrategy()
-    >>> paired = strategy.pair_sources(dataset_data, geometry_data,
+    >>> paired = strategy.pair_sources(y_data, x_data,
     ...                        radius_of_influence=12000)
     """
 
@@ -49,8 +49,8 @@ class PointStrategy(BasePairingStrategy):
 
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
@@ -89,8 +89,8 @@ class PointStrategy(BasePairingStrategy):
         xr.Dataset
             Paired dataset with dataset values at dataset locations.
         """
-        dataset = dataset_data
-        geometry = geometry_data
+        dataset = y_data
+        geometry = x_data
 
         if radius_of_influence is None:
             radius_of_influence = 12000.0
@@ -312,21 +312,21 @@ class PointStrategy(BasePairingStrategy):
         # Add dataset variables - reassign to geometry coordinates to ensure alignment
         # Dataset was extracted at same site/time locations, just with integer indices
         for var in dataset_at_sites.data_vars:
-            dataset_var = dataset_at_sites[var]
+            y_var = dataset_at_sites[var]
             geometry_ref = geometry[list(geometry.data_vars)[0]]
 
             # Handle dimension mismatch (e.g., geometry has extra y=1 dimension)
-            if dataset_var.ndim != geometry_ref.ndim:
+            if y_var.ndim != geometry_ref.ndim:
                 # Find extra dims in geometry that aren't in dataset (usually singleton dims like y=1)
-                extra_dims = [d for d in geometry_ref.dims if d not in dataset_var.dims]
+                extra_dims = [d for d in geometry_ref.dims if d not in y_var.dims]
                 if all(geometry_ref.sizes[d] == 1 for d in extra_dims):
                     # Squeeze geometry to match dataset dims, then expand dataset to match geometry
-                    target_dims = dataset_var.dims
+                    target_dims = y_var.dims
                     target_coords = {
                         d: geometry.coords[d] for d in target_dims if d in geometry.coords
                     }
                     dataset_da = xr.DataArray(
-                        dataset_var.values,
+                        y_var.values,
                         dims=target_dims,
                         coords=target_coords,
                         name=var,
@@ -338,13 +338,13 @@ class PointStrategy(BasePairingStrategy):
                     dataset_da = dataset_da.transpose(*geometry_ref.dims)
                 else:
                     raise PairingError(
-                        f"Dimension mismatch between dataset ({dataset_var.dims}) and geometry ({geometry_ref.dims}). "
+                        f"Dimension mismatch between dataset ({y_var.dims}) and geometry ({geometry_ref.dims}). "
                         f"Extra dimensions {extra_dims} are not singletons."
                     )
             else:
                 # Dimensions match - use original logic
                 dataset_da = xr.DataArray(
-                    dataset_var.values,
+                    y_var.values,
                     dims=geometry_ref.dims,
                     coords={
                         d: geometry.coords[d] for d in geometry_ref.dims if d in geometry.coords

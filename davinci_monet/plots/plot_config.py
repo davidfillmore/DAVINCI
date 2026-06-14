@@ -85,17 +85,17 @@ class StyleConfig:
 
     Attributes
     ----------
-    geometry_color : str
+    x_color : str
         Color for dataset data (default: NCAR gray #58595B).
-    dataset_color : str
+    y_color : str
         Color for dataset data (default: NCAR blue #0A5DDA).
-    geometry_marker : str
+    x_marker : str
         Marker style for datasets.
-    dataset_marker : str
+    y_marker : str
         Marker style for dataset.
-    geometry_linestyle : str
+    x_linestyle : str
         Line style for datasets.
-    dataset_linestyle : str
+    y_linestyle : str
         Line style for dataset.
     linewidth : float
         Line width.
@@ -105,12 +105,12 @@ class StyleConfig:
         Transparency (0-1).
     """
 
-    geometry_color: str = DATASET_A_COLOR  # NCAR gray
-    dataset_color: str = DATASET_B_COLOR  # NCAR blue
-    geometry_marker: str = "o"
-    dataset_marker: str = "s"
-    geometry_linestyle: str = "-"
-    dataset_linestyle: str = "--"
+    x_color: str = DATASET_A_COLOR  # NCAR gray
+    y_color: str = DATASET_B_COLOR  # NCAR blue
+    x_marker: str = "o"
+    y_marker: str = "s"
+    x_linestyle: str = "-"
+    y_linestyle: str = "--"
     linewidth: float = 1.5
     markersize: float = 6.0
     alpha: float = 1.0
@@ -148,8 +148,8 @@ class PlotConfig:
     domain: DomainConfig = field(default_factory=DomainConfig)
 
     # Variable configuration
-    geometry_var: str | None = None
-    dataset_var: str | None = None
+    x_var: str | None = None
+    y_var: str | None = None
     geometry_label: str | None = None
     dataset_label: str | None = None
 
@@ -211,8 +211,8 @@ class PlotConfig:
 
         # Extract top-level fields
         top_level_fields = {
-            "geometry_var",
-            "dataset_var",
+            "x_var",
+            "y_var",
             "geometry_label",
             "dataset_label",
             "vmin",

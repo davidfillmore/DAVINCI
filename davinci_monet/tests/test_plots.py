@@ -181,8 +181,8 @@ class TestPlotConfig:
         config = PlotConfig()
         assert config.figure.figsize == (8, 5)  # FigureConfig default
         assert config.text.fontsize == 14.0  # Axis label size
-        assert config.style.geometry_color == DATASET_A_COLOR  # NCAR gray
-        assert config.style.dataset_color == DATASET_B_COLOR  # NCAR blue
+        assert config.style.x_color == DATASET_A_COLOR  # NCAR gray
+        assert config.style.y_color == DATASET_B_COLOR  # NCAR blue
         assert config.debug is False
 
     def test_from_dict(self):
@@ -211,7 +211,7 @@ class TestPlotConfig:
         config_dict = {
             "fig_dict": {"figsize": (8, 6)},
             "text_dict": {"fontsize": 11},
-            "plot_dict": {"geometry_color": "red"},
+            "plot_dict": {"x_color": "red"},
             "domain_type": "conus",
         }
 
@@ -1594,8 +1594,8 @@ class TestSpatialOverlay:
 
         fig = plotter.plot(
             simple_paired_data,
-            geometry_var="geometry_o3",
-            dataset_var="dataset_o3",
+            x_var="geometry_o3",
+            y_var="dataset_o3",
             dataset_field=dataset_field,
         )
 
@@ -1610,13 +1610,13 @@ class TestSpatialOverlay:
 
         plotter = SpatialOverlayPlotter()
 
-        # When dataset_field is None, plotter should fall back to dataset_var from paired_data
+        # When dataset_field is None, plotter should fall back to y_var from paired_data
         # This may not produce contours (1D data), but should not crash
         try:
             fig = plotter.plot(
                 simple_paired_data,
-                geometry_var="geometry_o3",
-                dataset_var="dataset_o3",
+                x_var="geometry_o3",
+                y_var="dataset_o3",
             )
             assert fig is not None
             plt.close(fig)
@@ -1712,8 +1712,8 @@ class TestScorecardPlotterMultiVariable:
         plotter = ScorecardPlotter()
         fig = plotter.plot(
             ds,
-            geometry_var="geometry_o3",
-            dataset_var="dataset_o3",
+            x_var="geometry_o3",
+            y_var="dataset_o3",
         )
 
         assert fig is not None

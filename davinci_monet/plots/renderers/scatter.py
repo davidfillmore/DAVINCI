@@ -56,8 +56,8 @@ class ScatterPlotter(BasePlotter):
     >>> plotter = ScatterPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     geometry_var="airnow_o3",
-    ...     dataset_var="cam_o3",
+    ...     x_var="airnow_o3",
+    ...     y_var="cam_o3",
     ...     show_density=True,
     ...     show_regression=True,
     ... )
@@ -92,11 +92,11 @@ class ScatterPlotter(BasePlotter):
             raise NotImplementedError(
                 f"ScatterPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
-        paired_data = geometry_series.dataset
-        geometry_var = geometry_series.var_name
-        dataset_var = dataset_series.var_name
+        x_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        y_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = x_series.dataset
+        x_var = x_series.var_name
+        y_var = y_series.var_name
 
         show_density: bool = kwargs.pop("show_density", False)
         density_cmap: str = kwargs.pop("density_cmap", "viridis")
@@ -115,8 +115,8 @@ class ScatterPlotter(BasePlotter):
             fig = ax.get_figure()  # type: ignore[assignment]
 
         # Get data and flatten
-        geometry_values = paired_data[geometry_var].values.flatten()
-        dataset_values = paired_data[dataset_var].values.flatten()
+        geometry_values = paired_data[x_var].values.flatten()
+        dataset_values = paired_data[y_var].values.flatten()
 
         # Remove NaN values
         mask = np.isfinite(geometry_values) & np.isfinite(dataset_values)
@@ -181,7 +181,7 @@ class ScatterPlotter(BasePlotter):
             ax.scatter(
                 geometry_values,
                 dataset_values,
-                c=style.dataset_color,
+                c=style.y_color,
                 s=ms**2,
                 alpha=a,
                 edgecolors="none",
@@ -216,19 +216,19 @@ class ScatterPlotter(BasePlotter):
 
         # Set labels. Explicit labels are complete overrides; otherwise qualify
         # comparison axes by source identity when available.
-        units = get_variable_units(paired_data, geometry_var)
-        geometry_label_text = get_variable_label(paired_data, geometry_var)
-        dataset_label_text = get_variable_label(paired_data, dataset_var)
+        units = get_variable_units(paired_data, x_var)
+        geometry_label_text = get_variable_label(paired_data, x_var)
+        dataset_label_text = get_variable_label(paired_data, y_var)
         if self.config.geometry_label:
             geometry_label_text = self.config.geometry_label
-        elif geometry_var in paired_data:
-            dataset_label = paired_data[geometry_var].attrs.get("dataset_label")
+        elif x_var in paired_data:
+            dataset_label = paired_data[x_var].attrs.get("dataset_label")
             if dataset_label:
                 geometry_label_text = f"{_source_display_name(dataset_label)} {geometry_label_text}"
         if self.config.dataset_label:
             dataset_label_text = self.config.dataset_label
-        elif dataset_var in paired_data:
-            dataset_label = paired_data[dataset_var].attrs.get("dataset_label")
+        elif y_var in paired_data:
+            dataset_label = paired_data[y_var].attrs.get("dataset_label")
             if dataset_label:
                 dataset_label_text = f"{_source_display_name(dataset_label)} {dataset_label_text}"
         geometry_label = format_label_with_units(
@@ -253,8 +253,8 @@ class ScatterPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         ax: matplotlib.axes.Axes | None = None,
         show_density: bool = False,
         density_cmap: str = "viridis",
@@ -273,9 +273,9 @@ class ScatterPlotter(BasePlotter):
         ----------
         paired_data
             Paired dataset with geometry and dataset variables.
-        geometry_var
+        x_var
             Name of geometry variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         ax
             Optional axes to plot on. If None, creates new figure.
@@ -306,7 +306,7 @@ class ScatterPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, geometry_var, dataset_var),
+            build_series(paired_data, x_var, y_var),
             ax=ax,
             show_density=show_density,
             density_cmap=density_cmap,
@@ -323,8 +323,8 @@ class ScatterPlotter(BasePlotter):
     def plot_per_flight(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         flight_coord: str = "flight",
         min_points: int = 10,
         **kwargs: Any,
@@ -337,9 +337,9 @@ class ScatterPlotter(BasePlotter):
         ----------
         paired_data
             Paired dataset with geometry and dataset variables.
-        geometry_var
+        x_var
             Name of geometry variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         flight_coord
             Name of the flight coordinate (default: "flight").
@@ -373,8 +373,8 @@ class ScatterPlotter(BasePlotter):
             flight_data = paired_data.isel(time=mask)
 
             # Check for minimum points
-            geometry_vals = flight_data[geometry_var].values.flatten()
-            dataset_vals = flight_data[dataset_var].values.flatten()
+            geometry_vals = flight_data[x_var].values.flatten()
+            dataset_vals = flight_data[y_var].values.flatten()
             valid = np.isfinite(geometry_vals) & np.isfinite(dataset_vals)
 
             if valid.sum() < min_points:
@@ -392,7 +392,7 @@ class ScatterPlotter(BasePlotter):
                 self.config.subtitle = flight_subtitle
 
             # Generate plot for this flight
-            fig = self.plot(flight_data, geometry_var, dataset_var, **kwargs)
+            fig = self.plot(flight_data, x_var, y_var, **kwargs)
 
             # Restore original title/subtitle for next iteration
             self.config.title = original_title
@@ -519,8 +519,8 @@ class ScatterPlotter(BasePlotter):
 
 def plot_scatter(
     paired_data: xr.Dataset,
-    geometry_var: str,
-    dataset_var: str,
+    x_var: str,
+    y_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
@@ -530,9 +530,9 @@ def plot_scatter(
     ----------
     paired_data
         Paired dataset with geometry and dataset variables.
-    geometry_var
+    x_var
         Name of geometry variable.
-    dataset_var
+    y_var
         Name of dataset variable.
     config
         Plot configuration.
@@ -548,4 +548,4 @@ def plot_scatter(
         config = PlotConfig.from_dict(config)
 
     plotter = ScatterPlotter(config=config)
-    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)
+    return plotter.plot(paired_data, x_var, y_var, **kwargs)

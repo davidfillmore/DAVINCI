@@ -50,7 +50,7 @@ def register_plotter(name: str, *, replace: bool = False) -> Callable[[type[T]],
     >>> @register_plotter("my_plot")
     ... class MyPlotter(BasePlotter):
     ...     name = "my_plot"
-    ...     def plot(self, paired_data, geometry_var, dataset_var, **kwargs):
+    ...     def plot(self, paired_data, x_var, y_var, **kwargs):
     ...         ...
     """
     return plotter_registry.register(name, replace=replace)

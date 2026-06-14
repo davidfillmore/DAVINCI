@@ -72,7 +72,7 @@ def iter_single_source_datasets(
 
 def resolve_paired_var_names(
     paired_data: Any,
-    geometry_var: str,
+    x_var: str,
     geometry_label: str,
     dataset_label: str,
 ) -> tuple[str, str]:
@@ -86,11 +86,7 @@ def resolve_paired_var_names(
     from davinci_monet.plots.base import resolve_dataset_variable
 
     geometry_name = (
-        resolve_dataset_variable(paired_data, geometry_var, geometry_label)
-        or f"geometry_{geometry_var}"
+        resolve_dataset_variable(paired_data, x_var, geometry_label) or f"geometry_{x_var}"
     )
-    dataset_name = (
-        resolve_dataset_variable(paired_data, geometry_var, dataset_label)
-        or f"dataset_{geometry_var}"
-    )
+    dataset_name = resolve_dataset_variable(paired_data, x_var, dataset_label) or f"dataset_{x_var}"
     return geometry_name, dataset_name

@@ -33,15 +33,15 @@ class BasePairingStrategy(ABC):
     @abstractmethod
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
         horizontal_method: str = "nearest",
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Sample ``dataset_data`` onto ``geometry_data``."""
+        """Sample ``y_data`` onto ``x_data``."""
         ...
 
     def _get_dataset_coords(self, dataset: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:

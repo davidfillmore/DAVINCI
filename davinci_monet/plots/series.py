@@ -29,7 +29,7 @@ def build_series(dataset: xr.Dataset, *var_args: Any) -> list[PlotSeries]:
 
     Accepts the three call shapes the unified facade supports:
 
-    - ``build_series(ds, geometry_var, dataset_var)`` → 2 series
+    - ``build_series(ds, x_var, y_var)`` → 2 series
     - ``build_series(ds, variable)`` → 1 series
     - ``build_series(ds, [v1, ..., vN])`` → N series
 
@@ -71,17 +71,17 @@ def build_series(dataset: xr.Dataset, *var_args: Any) -> list[PlotSeries]:
 def series_colors(
     series: list[PlotSeries],
     *,
-    geometry_color: str | None = None,
-    dataset_color: str | None = None,
+    x_color: str | None = None,
+    y_color: str | None = None,
 ) -> list[str]:
     """Per-series colors under the unified, count-aware rule.
 
     - **1 series** → ``NCAR_PRIMARY``.
-    - **2 series** → geometry in ``geometry_color`` (gray) and dataset in
-      ``dataset_color`` (blue), preserving today's comparison contrast.
+    - **2 series** → geometry in ``x_color`` (gray) and dataset in
+      ``y_color`` (blue), preserving today's comparison contrast.
     - **N > 2 series** → distinct ``NCAR_PALETTE`` colors cycled by ``index``.
 
-    ``geometry_color``/``dataset_color`` let a caller pass the active ``StyleConfig``
+    ``x_color``/``y_color`` let a caller pass the active ``StyleConfig``
     colors; they default to the module ``DATASET_A_COLOR``/``DATASET_B_COLOR``.
     """
     n = len(series)
@@ -91,11 +91,7 @@ def series_colors(
         out: list[str] = []
         for s in series:
             is_dataset = s.pair_axis == "dataset" or (s.pair_axis is None and s.index == 1)
-            out.append(
-                (dataset_color or DATASET_B_COLOR)
-                if is_dataset
-                else (geometry_color or DATASET_A_COLOR)
-            )
+            out.append((y_color or DATASET_B_COLOR) if is_dataset else (x_color or DATASET_A_COLOR))
         return out
     return [NCAR_PALETTE[s.index % len(NCAR_PALETTE)] for s in series]
 
@@ -105,19 +101,19 @@ def get_dataset_color(
     var_name: str,
     index: int = 0,
     *,
-    geometry_color: str | None = None,
-    dataset_color: str | None = None,
+    x_color: str | None = None,
+    y_color: str | None = None,
 ) -> str:
     """Plot color for a paired series by pair_axis.
 
-    ``geometry_color``/``dataset_color`` let a caller supply the active ``StyleConfig``
+    ``x_color``/``y_color`` let a caller supply the active ``StyleConfig``
     colors so a customised style is honoured for the geometry/dataset axes.
     """
     pair_axis = paired_variable_pair_axis(dataset, var_name)
     if pair_axis == "geometry":
-        return geometry_color or DATASET_A_COLOR
+        return x_color or DATASET_A_COLOR
     if pair_axis == "dataset":
-        return dataset_color or DATASET_B_COLOR
+        return y_color or DATASET_B_COLOR
     return NCAR_PALETTE[index % len(NCAR_PALETTE)]
 
 

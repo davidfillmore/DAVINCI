@@ -96,9 +96,9 @@ class TestTimeseriesRenderPaired:
             },
             coords={"time": t},
         )
-        geometry_series = PlotSeries(ds, "airnow_o3", "o3", "geometry", "airnow", 0)
-        dataset_series = PlotSeries(ds, "cam_o3", "o3", "dataset", "cam", 1)
-        fig = TimeSeriesPlotter().render([geometry_series, dataset_series])
+        x_series = PlotSeries(ds, "airnow_o3", "o3", "geometry", "airnow", 0)
+        y_series = PlotSeries(ds, "cam_o3", "o3", "dataset", "cam", 1)
+        fig = TimeSeriesPlotter().render([x_series, y_series])
         # Two series (geometry + dataset) on the axes.
         assert len(fig.axes[0].get_lines()) == 2
         plt.close(fig)

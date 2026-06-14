@@ -364,8 +364,8 @@ class TestStatisticsCalculator:
         calc = StatisticsCalculator()
         stats = calc.compute(
             paired_dataset,
-            geometry_var="geometry_o3",
-            dataset_var="dataset_o3",
+            x_var="geometry_o3",
+            y_var="dataset_o3",
             metrics=["N", "MB"],
         )
 
@@ -395,8 +395,8 @@ class TestConvenienceFunctions:
 
         stats = calculate_statistics(
             paired_dataset,
-            geometry_var="geometry_o3",
-            dataset_var="dataset_o3",
+            x_var="geometry_o3",
+            y_var="dataset_o3",
             metrics=["N"],
         )
 

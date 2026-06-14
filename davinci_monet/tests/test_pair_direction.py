@@ -92,8 +92,8 @@ class _SpyStrategy(BasePairingStrategy):
 
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
@@ -108,7 +108,7 @@ class _SpyStrategy(BasePairingStrategy):
                 "horizontal_method": horizontal_method,
             }
         )
-        self.captured = {"dataset": dataset_data, "geometry": geometry_data, "kwargs": kwargs}
+        self.captured = {"dataset": y_data, "geometry": x_data, "kwargs": kwargs}
         return xr.Dataset(attrs={"ok": True})
 
 
@@ -124,9 +124,7 @@ class TestPairSourcesWrapper:
         strat = _SpyStrategy()
         geometry = _coords_ds(10.0, 20.0)
         dataset = _coords_ds(30.0, 40.0)
-        out = strat.pair_sources(
-            geometry_data=geometry, dataset_data=dataset, radius_of_influence=1.0
-        )
+        out = strat.pair_sources(x_data=geometry, y_data=dataset, radius_of_influence=1.0)
         assert out.attrs["ok"] is True
         assert strat.captured["geometry"] is geometry
         assert strat.captured["dataset"] is dataset

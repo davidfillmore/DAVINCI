@@ -37,7 +37,7 @@ class SwathGridStrategy(BasePairingStrategy):
     --------
     >>> strategy = SwathGridStrategy()
     >>> paired = strategy.pair_sources(
-    ...     dataset_data, satellite_data,
+    ...     y_data, satellite_data,
     ...     grid_mode="match_dataset",
     ...     time_resolution="1D",
     ... )
@@ -50,8 +50,8 @@ class SwathGridStrategy(BasePairingStrategy):
 
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
@@ -90,9 +90,9 @@ class SwathGridStrategy(BasePairingStrategy):
             - min_geometry_count : int
                 Minimum pixel count per cell. Cells below this are
                 masked to NaN. Default 1.
-            - geometry_var : str
+            - x_var : str
                 Geometry variable name to bin.
-            - dataset_var : str
+            - y_var : str
                 Dataset variable name to extract.
 
         Returns
@@ -101,14 +101,14 @@ class SwathGridStrategy(BasePairingStrategy):
             Paired dataset on common grid with geometry, dataset, and count
             variables.
         """
-        dataset = dataset_data
-        geometry = geometry_data
+        dataset = y_data
+        geometry = x_data
 
         grid_mode = kwargs.get("grid_mode", "match_dataset")
         time_resolution = kwargs.get("time_resolution", "1D")
         min_geometry_count = kwargs.get("min_geometry_count", 1)
-        geometry_var = kwargs.get("geometry_var") or kwargs.get("geometry_var")
-        dataset_var = kwargs.get("dataset_var") or kwargs.get("dataset_var")
+        x_var = kwargs.get("x_var") or kwargs.get("x_var")
+        y_var = kwargs.get("y_var") or kwargs.get("y_var")
 
         # Extract surface if dataset has vertical dimension
         dataset_proc = dataset
@@ -133,10 +133,10 @@ class SwathGridStrategy(BasePairingStrategy):
             "grid_mode",
             "time_resolution",
             "min_geometry_count",
-            "geometry_var",
-            "dataset_var",
-            "geometry_var",
-            "dataset_var",
+            "x_var",
+            "y_var",
+            "x_var",
+            "y_var",
         }
         grid_kwargs = {k: v for k, v in kwargs.items() if k not in consumed}
         time_edges, lon_edges, lat_edges, time_centers, lon_centers, lat_centers = self._build_grid(
@@ -154,17 +154,17 @@ class SwathGridStrategy(BasePairingStrategy):
         nlat = len(lat_centers)
 
         # Determine which geometry variable to bin
-        if geometry_var is None:
+        if x_var is None:
             data_var_names = list(geometry.data_vars)
             if len(data_var_names) == 0:
                 raise PairingError("No data variables in dataset dataset")
-            geometry_var = data_var_names[0]
+            x_var = data_var_names[0]
 
         # Extract flat arrays from geometry
         geometry_lat, geometry_lon = self._get_geometry_coords(geometry)
         lat_flat = geometry_lat.values.flatten().astype(np.float64)
         lon_flat = geometry_lon.values.flatten().astype(np.float64)
-        data_flat = geometry[geometry_var].values.flatten().astype(np.float64)
+        data_flat = geometry[x_var].values.flatten().astype(np.float64)
 
         # Handle longitude convention: shift -180..180 to 0..360 if needed
         if lon_edges[0] >= 0 and np.any(lon_flat < 0):
@@ -172,7 +172,7 @@ class SwathGridStrategy(BasePairingStrategy):
 
         # Get dataset timestamps as epoch seconds, aligned to the same
         # flattening order as ``data_flat`` (i.e. the binned geometry variable).
-        time_flat = self._get_geometry_timestamps(geometry, len(data_flat), align_var=geometry_var)
+        time_flat = self._get_geometry_timestamps(geometry, len(data_flat), align_var=x_var)
 
         # Allocate accumulation arrays
         count_grid = np.zeros((ntime, nlon, nlat), dtype=np.int32)
@@ -204,7 +204,7 @@ class SwathGridStrategy(BasePairingStrategy):
         # Create gridded geometry dataset
         geometry_gridded = xr.Dataset(
             {
-                f"geometry_{geometry_var}": (["time", "lon", "lat"], data_grid.astype(np.float32)),
+                f"geometry_{x_var}": (["time", "lon", "lat"], data_grid.astype(np.float32)),
                 "geometry_count": (["time", "lon", "lat"], count_grid),
             },
             coords={
@@ -215,15 +215,15 @@ class SwathGridStrategy(BasePairingStrategy):
         )
 
         # Extract dataset variable on same grid
-        if dataset_var is None:
+        if y_var is None:
             dataset_data_vars = list(dataset_proc.data_vars)
             if len(dataset_data_vars) == 0:
                 raise PairingError("No data variables in dataset dataset")
-            dataset_var = str(dataset_data_vars[0])
+            y_var = str(dataset_data_vars[0])
 
         dataset_on_grid = self._align_dataset_to_grid(
             dataset_proc,
-            dataset_var,
+            y_var,
             time_coords,
             lon_centers,
             lat_centers,
@@ -234,7 +234,7 @@ class SwathGridStrategy(BasePairingStrategy):
 
         # Create paired output
         paired = geometry_gridded.copy()
-        paired[f"dataset_{dataset_var}"] = dataset_on_grid
+        paired[f"dataset_{y_var}"] = dataset_on_grid
 
         return paired
 
@@ -364,7 +364,7 @@ class SwathGridStrategy(BasePairingStrategy):
     def _align_dataset_to_grid(
         self,
         dataset: xr.Dataset,
-        dataset_var: str,
+        y_var: str,
         time_coords: pd.DatetimeIndex,
         lon_centers: np.ndarray,
         lat_centers: np.ndarray,
@@ -383,7 +383,7 @@ class SwathGridStrategy(BasePairingStrategy):
         xr.DataArray
             Dataset data on (time, lon, lat) grid.
         """
-        var_data = dataset[dataset_var]
+        var_data = dataset[y_var]
 
         # Select nearest dataset times
         if "time" in var_data.dims:

@@ -55,8 +55,8 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
     >>> plotter = SpatialBiasPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     geometry_var="geometry_o3",
-    ...     dataset_var="dataset_o3",
+    ...     x_var="geometry_o3",
+    ...     y_var="dataset_o3",
     ... )
     """
 
@@ -89,11 +89,11 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
             raise NotImplementedError(
                 f"SpatialBiasPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
-        paired_data = geometry_series.dataset
-        geometry_var = geometry_series.var_name
-        dataset_var = dataset_series.var_name
+        x_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        y_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = x_series.dataset
+        x_var = x_series.var_name
+        y_var = y_series.var_name
 
         lat_var: str = kwargs.pop("lat_var", "latitude")
         lon_var: str = kwargs.pop("lon_var", "longitude")
@@ -121,14 +121,14 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         self.add_map_features(ax)
 
         # Calculate bias
-        geometry_data = paired_data[geometry_var]
-        dataset_data = paired_data[dataset_var]
-        bias = dataset_data - geometry_data
+        x_data = paired_data[x_var]
+        y_data = paired_data[y_var]
+        bias = y_data - x_data
 
         # Time average if requested
         if time_average and "time" in bias.dims:
             bias = bias.mean(dim="time")
-            geometry_data = geometry_data.mean(dim="time")
+            x_data = x_data.mean(dim="time")
 
         # Get coordinates — resolve common aliases
         lat_candidates = [lat_var, "lat", "latitude", "LAT", "Latitude"]
@@ -159,7 +159,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
             lon_dim = resolved_lon
             if lon_dim in bias.dims:
                 bias = bias.isel({lon_dim: sort_idx})
-                geometry_data = geometry_data.isel({lon_dim: sort_idx})
+                x_data = x_data.isel({lon_dim: sort_idx})
         elif lons.ndim > 1 and np.any(lons > 180):
             lons = np.where(lons > 180, lons - 360, lons)
 
@@ -297,7 +297,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
             )
 
         # Add colorbar
-        units = get_variable_units(paired_data, geometry_var)
+        units = get_variable_units(paired_data, x_var)
         label = format_label_with_units("Bias (Dataset - Geometry)", units)
         self.add_colorbar(fig, scatter, ax, label=label)
 
@@ -352,7 +352,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
                 )
 
         # Title
-        var_label = get_variable_label(paired_data, geometry_var)
+        var_label = get_variable_label(paired_data, x_var)
         if self.config.title:
             self.set_title(ax, self.config.title)
         else:
@@ -363,8 +363,8 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         ax: matplotlib.axes.Axes | None = None,
         lat_var: str = "latitude",
         lon_var: str = "longitude",
@@ -387,9 +387,9 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         ----------
         paired_data
             Paired dataset with dataset and dataset variables.
-        geometry_var
+        x_var
             Name of dataset variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         ax
             Optional GeoAxes to plot on. If None, creates new figure.
@@ -423,7 +423,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, geometry_var, dataset_var),
+            build_series(paired_data, x_var, y_var),
             ax=ax,
             lat_var=lat_var,
             lon_var=lon_var,
@@ -444,8 +444,8 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
 
 def plot_spatial_bias(
     paired_data: xr.Dataset,
-    geometry_var: str,
-    dataset_var: str,
+    x_var: str,
+    y_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     map_config: MapConfig | dict[str, Any] | None = None,
     title: str | None = None,
@@ -457,9 +457,9 @@ def plot_spatial_bias(
     ----------
     paired_data
         Paired dataset with dataset and dataset variables.
-    geometry_var
+    x_var
         Name of dataset variable.
-    dataset_var
+    y_var
         Name of dataset variable.
     config
         Plot configuration.
@@ -493,4 +493,4 @@ def plot_spatial_bias(
         )
 
     plotter = SpatialBiasPlotter(config=config, map_config=map_config)
-    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)
+    return plotter.plot(paired_data, x_var, y_var, **kwargs)

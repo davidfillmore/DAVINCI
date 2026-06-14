@@ -39,7 +39,7 @@ class LMADensityPlotter(BasePlotter):
 
     def plot(  # type: ignore[override]
         self,
-        geometry_data: xr.Dataset,
+        x_data: xr.Dataset,
         variable: str,
         ax: matplotlib.axes.Axes | None = None,
         title: str | None = None,
@@ -55,7 +55,7 @@ class LMADensityPlotter(BasePlotter):
 
         Parameters
         ----------
-        geometry_data : xr.Dataset
+        x_data : xr.Dataset
             LMA gridded data with dims (time, latitude, longitude).
         variable : str
             Variable name to plot (e.g. 'flash_extent').
@@ -82,11 +82,11 @@ class LMADensityPlotter(BasePlotter):
         projection = self._get_projection(map_config)
         features = map_config.get("features", ["states"])
 
-        lat = geometry_data["latitude"].values
-        lon = geometry_data["longitude"].values
+        lat = x_data["latitude"].values
+        lon = x_data["longitude"].values
 
         if time_agg == "hourly":
-            hourly_groups = self._aggregate_hourly(geometry_data, variable)
+            hourly_groups = self._aggregate_hourly(x_data, variable)
             if not hourly_groups:
                 fig, _ = self.create_figure()
                 return fig
@@ -118,7 +118,7 @@ class LMADensityPlotter(BasePlotter):
                 results.append((fig, suffix))
             return results
         else:
-            summed = geometry_data[variable].sum(dim="time")
+            summed = x_data[variable].sum(dim="time")
             if "latitude" in summed.dims and "longitude" in summed.dims:
                 summed = summed.transpose("latitude", "longitude")
             data_2d = summed.values

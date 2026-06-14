@@ -32,7 +32,7 @@ class ProfileStrategy(BasePairingStrategy):
     Examples
     --------
     >>> strategy = ProfileStrategy()
-    >>> paired = strategy.pair_sources(dataset_data, sonde_data,
+    >>> paired = strategy.pair_sources(y_data, sonde_data,
     ...                        vertical_method='log')
     """
 
@@ -43,8 +43,8 @@ class ProfileStrategy(BasePairingStrategy):
 
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "linear",
@@ -77,8 +77,8 @@ class ProfileStrategy(BasePairingStrategy):
         xr.Dataset
             Paired dataset with dataset and geometry profiles.
         """
-        dataset = dataset_data
-        geometry = geometry_data
+        dataset = y_data
+        geometry = x_data
 
         level_coord = kwargs.get("level_coord", "level")
         interp_to_geometry_levels = kwargs.get("interp_to_geometry_levels", True)

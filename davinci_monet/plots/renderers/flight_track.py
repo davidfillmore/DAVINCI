@@ -45,7 +45,7 @@ class FlightTrackPlotter(BasePlotter):
     Examples
     --------
     >>> plotter = FlightTrackPlotter()
-    >>> fig = plotter.plot(geometry_data, "O3", title="DC3 Flight O3")
+    >>> fig = plotter.plot(x_data, "O3", title="DC3 Flight O3")
     """
 
     name: str = "flight_track"
@@ -63,7 +63,7 @@ class FlightTrackPlotter(BasePlotter):
 
     def plot(  # type: ignore[override]
         self,
-        geometry_data: xr.Dataset,
+        x_data: xr.Dataset,
         variable: str,
         ax: matplotlib.axes.Axes | None = None,
         title: str | None = None,
@@ -99,7 +99,7 @@ class FlightTrackPlotter(BasePlotter):
 
         Parameters
         ----------
-        geometry_data
+        x_data
             Dataset dataset with lat/lon/alt coordinates and the variable.
         variable
             Name of the variable to color by.
@@ -164,19 +164,19 @@ class FlightTrackPlotter(BasePlotter):
             The generated figure.
         """
         # Extract coordinates
-        lats = geometry_data[lat_coord].values
-        lons = geometry_data[lon_coord].values
-        values = geometry_data[variable].values
+        lats = x_data[lat_coord].values
+        lons = x_data[lon_coord].values
+        values = x_data[variable].values
 
         # Get altitude
-        if alt_coord in geometry_data.coords:
-            alts = geometry_data[alt_coord].values * alt_scale
-        elif alt_coord in geometry_data.data_vars:
-            alts = geometry_data[alt_coord].values * alt_scale
+        if alt_coord in x_data.coords:
+            alts = x_data[alt_coord].values * alt_scale
+        elif alt_coord in x_data.data_vars:
+            alts = x_data[alt_coord].values * alt_scale
         else:
             raise ValueError(
                 f"Altitude coordinate '{alt_coord}' not found. "
-                f"Available: {list(geometry_data.coords) + list(geometry_data.data_vars)}"
+                f"Available: {list(x_data.coords) + list(x_data.data_vars)}"
             )
 
         # Filter valid data
@@ -206,8 +206,8 @@ class FlightTrackPlotter(BasePlotter):
         cmap = cmap or get_sequential_cmap()
 
         # Colorbar label
-        var_label = get_variable_label(geometry_data, variable, include_prefix=False)
-        units = get_variable_units(geometry_data, variable)
+        var_label = get_variable_label(x_data, variable, include_prefix=False)
+        units = get_variable_units(x_data, variable)
         cbar_label = format_label_with_units(var_label, units)
         cbar_label = format_plot_title(cbar_label)
 

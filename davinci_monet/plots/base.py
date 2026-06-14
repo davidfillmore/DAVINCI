@@ -106,8 +106,8 @@ class BasePlotter(ABC):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
@@ -117,9 +117,9 @@ class BasePlotter(ABC):
         ----------
         paired_data
             Paired dataset with dataset and dataset variables.
-        geometry_var
+        x_var
             Name of dataset variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         ax
             Optional axes to plot on. If None, creates new figure.
@@ -144,16 +144,16 @@ class BasePlotter(ABC):
         ``len(series) == 1`` -> single line; ``== 2`` -> geometry-vs-dataset
         (geometry gray / dataset blue); ``>= 2`` -> multi-source overlay. This
         default handles only the 2-series case by delegating to
-        ``plot(paired_data, geometry_var, dataset_var)``. Renderers that support
+        ``plot(paired_data, x_var, y_var)``. Renderers that support
         1 or N series override this method.
         """
         if len(series) == 2:
-            geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-            dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+            x_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+            y_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
             return self.plot(
-                geometry_series.dataset,
-                geometry_series.var_name,
-                dataset_series.var_name,
+                x_series.dataset,
+                x_series.var_name,
+                y_series.var_name,
                 ax=ax,
                 **kwargs,
             )

@@ -54,7 +54,7 @@ def detect_spatial_geometry(
     lon_da:
         DataArray for longitude coordinate (from ``paired_data[resolved_lon]``).
     field_da:
-        DataArray for the field being classified (bias, geometry_data, etc.).
+        DataArray for the field being classified (bias, x_data, etc.).
 
     Returns
     -------
@@ -351,8 +351,8 @@ class BaseSpatialPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:

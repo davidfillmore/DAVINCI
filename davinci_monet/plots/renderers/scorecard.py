@@ -80,15 +80,15 @@ class ScorecardPlotter(BasePlotter):
             raise NotImplementedError(
                 f"ScorecardPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
-        paired_data = geometry_series.dataset
-        geometry_var = geometry_series.var_name
-        dataset_var = dataset_series.var_name
+        x_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        y_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = x_series.dataset
+        x_var = x_series.var_name
+        y_var = y_series.var_name
 
         # Calculate basic statistics (via central metric registry)
-        geometry = paired_data[geometry_var].values.flatten()
-        dataset = paired_data[dataset_var].values.flatten()
+        geometry = paired_data[x_var].values.flatten()
+        dataset = paired_data[y_var].values.flatten()
 
         registry_stats = annotation_metrics(geometry, dataset, ["N", "MG", "MD", "MB", "RMSE", "R"])
         stats = {
@@ -104,15 +104,15 @@ class ScorecardPlotter(BasePlotter):
         import pandas as pd
 
         stats_df = pd.DataFrame([stats])
-        stats_df.index = [canonical_variable_name(paired_data, geometry_var)]
+        stats_df.index = [canonical_variable_name(paired_data, x_var)]
 
         return self.plot_from_dataframe(stats_df, ax=ax, **kwargs)
 
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
@@ -125,9 +125,9 @@ class ScorecardPlotter(BasePlotter):
         ----------
         paired_data
             Paired dataset with geometry and dataset variables.
-        geometry_var
+        x_var
             Compatibility name for geometry variable.
-        dataset_var
+        y_var
             Compatibility name for dataset variable.
         ax
             Optional axes to plot on.
@@ -140,7 +140,7 @@ class ScorecardPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, geometry_var, dataset_var),
+            build_series(paired_data, x_var, y_var),
             ax=ax,
             **kwargs,
         )
@@ -417,8 +417,8 @@ class ScorecardPlotter(BasePlotter):
 
 def plot_scorecard(
     paired_data: xr.Dataset,
-    geometry_var: str,
-    dataset_var: str,
+    x_var: str,
+    y_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
@@ -428,9 +428,9 @@ def plot_scorecard(
     ----------
     paired_data
         Paired dataset with dataset and dataset variables.
-    geometry_var
+    x_var
         Name of dataset variable.
-    dataset_var
+    y_var
         Name of dataset variable.
     config
         Plot configuration.
@@ -446,4 +446,4 @@ def plot_scorecard(
         config = PlotConfig.from_dict(config)
 
     plotter = ScorecardPlotter(config=config)
-    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)
+    return plotter.plot(paired_data, x_var, y_var, **kwargs)

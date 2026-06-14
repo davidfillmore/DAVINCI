@@ -51,8 +51,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
     >>> plotter = SiteTimeSeriesPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     geometry_var="geometry_no2_column",
-    ...     dataset_var="dataset_no2_column",
+    ...     x_var="geometry_no2_column",
+    ...     y_var="dataset_no2_column",
     ...     ncols=3,
     ... )
     """
@@ -90,11 +90,11 @@ class SiteTimeSeriesPlotter(BasePlotter):
             raise NotImplementedError(
                 f"SiteTimeSeriesPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
-        paired_data = geometry_series.dataset
-        geometry_var = geometry_series.var_name
-        dataset_var = dataset_series.var_name
+        x_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        y_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = x_series.dataset
+        x_var = x_series.var_name
+        y_var = y_series.var_name
 
         ncols: int = kwargs.pop("ncols", 3)
         min_points: int = kwargs.pop("min_points", 20)
@@ -116,8 +116,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
 
         for site in sites:
             site_data = paired_data.sel({site_dim: site})
-            geometry_vals = site_data[geometry_var].values
-            dataset_vals = site_data[dataset_var].values
+            geometry_vals = site_data[x_var].values
+            dataset_vals = site_data[y_var].values
             valid = ~np.isnan(geometry_vals) & ~np.isnan(dataset_vals)
             if valid.sum() >= min_points:
                 valid_sites.append(site)
@@ -147,8 +147,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
             site_data = paired_data.sel({site_dim: site})
 
             # Get data
-            geometry_da = site_data[geometry_var]
-            dataset_da = site_data[dataset_var]
+            geometry_da = site_data[x_var]
+            dataset_da = site_data[y_var]
             times = pd.to_datetime(site_data[time_dim].values)
 
             geometry_vals = geometry_da.values * scale_factor
@@ -159,22 +159,22 @@ class SiteTimeSeriesPlotter(BasePlotter):
 
             # Series colors/labels by source axis (R-3): geometry gray, dataset blue,
             # else palette; legends use the source label.
-            geometry_color = get_dataset_color(
+            x_color = get_dataset_color(
                 site_data,
-                geometry_var,
+                x_var,
                 0,
-                geometry_color=style.geometry_color,
-                dataset_color=style.dataset_color,
+                x_color=style.x_color,
+                y_color=style.y_color,
             )
-            dataset_color = get_dataset_color(
+            y_color = get_dataset_color(
                 site_data,
-                dataset_var,
+                y_var,
                 1,
-                geometry_color=style.geometry_color,
-                dataset_color=style.dataset_color,
+                x_color=style.x_color,
+                y_color=style.y_color,
             )
-            geometry_label = get_series_label(site_data, geometry_var)
-            dataset_label = get_series_label(site_data, dataset_var)
+            geometry_label = get_series_label(site_data, x_var)
+            dataset_label = get_series_label(site_data, y_var)
 
             # Plot datasets
             if geometry_style == "scatter":
@@ -183,7 +183,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
                     geometry_vals[valid_geometry],
                     s=8,
                     alpha=0.6,
-                    color=geometry_color,
+                    color=x_color,
                     label=geometry_label,
                     zorder=3,
                 )
@@ -192,7 +192,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
                     times[valid_geometry],
                     geometry_vals[valid_geometry],
                     "o-",
-                    color=geometry_color,
+                    color=x_color,
                     markersize=3,
                     linewidth=0.5,
                     alpha=0.7,
@@ -205,7 +205,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
                 panel_ax.plot(
                     times,
                     dataset_vals,
-                    color=dataset_color,
+                    color=y_color,
                     linewidth=1.5,
                     alpha=0.8,
                     label=dataset_label,
@@ -217,7 +217,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
                     dataset_vals[valid_both],
                     s=8,
                     alpha=0.6,
-                    color=dataset_color,
+                    color=y_color,
                     label=dataset_label,
                     zorder=2,
                 )
@@ -269,8 +269,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
 
             # Y-axis label on left column - use automatic variable display name (no prefix)
             if idx % ncols == 0:
-                units = get_variable_units(paired_data, geometry_var)
-                ylabel = get_variable_label(paired_data, geometry_var, include_prefix=False)
+                units = get_variable_units(paired_data, x_var)
+                ylabel = get_variable_label(paired_data, x_var, include_prefix=False)
                 if scale_factor != 1.0:
                     exp = int(np.log10(1 / scale_factor))
                     ylabel = (
@@ -313,8 +313,8 @@ class SiteTimeSeriesPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         ax: matplotlib.axes.Axes | None = None,
         ncols: int = 3,
         min_points: int = 20,
@@ -334,9 +334,9 @@ class SiteTimeSeriesPlotter(BasePlotter):
         ----------
         paired_data
             Paired dataset with dataset and dataset variables.
-        geometry_var
+        x_var
             Name of dataset variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         ax
             Ignored for this plot type (creates own figure).
@@ -365,7 +365,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, geometry_var, dataset_var),
+            build_series(paired_data, x_var, y_var),
             ax=ax,
             ncols=ncols,
             min_points=min_points,
@@ -399,8 +399,8 @@ def _superscript(n: int) -> str:
 
 def plot_site_timeseries(
     paired_data: xr.Dataset,
-    geometry_var: str,
-    dataset_var: str,
+    x_var: str,
+    y_var: str,
     title: str | None = None,
     ncols: int = 3,
     min_points: int = 20,
@@ -413,9 +413,9 @@ def plot_site_timeseries(
     ----------
     paired_data
         Paired dataset with dataset and dataset variables.
-    geometry_var
+    x_var
         Name of dataset variable.
-    dataset_var
+    y_var
         Name of dataset variable.
     title
         Plot title.
@@ -437,8 +437,8 @@ def plot_site_timeseries(
     plotter = SiteTimeSeriesPlotter(config)
     return plotter.plot(
         paired_data,
-        geometry_var,
-        dataset_var,
+        x_var,
+        y_var,
         ncols=ncols,
         min_points=min_points,
         scale_factor=scale_factor,

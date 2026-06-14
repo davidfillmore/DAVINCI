@@ -32,7 +32,7 @@ class GridStrategy(BasePairingStrategy):
     Examples
     --------
     >>> strategy = GridStrategy()
-    >>> paired = strategy.pair_sources(dataset_data, l3_satellite_data,
+    >>> paired = strategy.pair_sources(y_data, l3_satellite_data,
     ...                        regrid_to='geometry')
     """
 
@@ -43,8 +43,8 @@ class GridStrategy(BasePairingStrategy):
 
     def pair_sources(
         self,
-        geometry_data: xr.Dataset,
-        dataset_data: xr.Dataset,
+        x_data: xr.Dataset,
+        y_data: xr.Dataset,
         radius_of_influence: float | None = None,
         time_tolerance: TimeDelta | None = None,
         vertical_method: str = "nearest",
@@ -77,8 +77,8 @@ class GridStrategy(BasePairingStrategy):
         xr.Dataset
             Paired dataset on common grid.
         """
-        dataset = dataset_data
-        geometry = geometry_data
+        dataset = y_data
+        geometry = x_data
 
         regrid_to = kwargs.get("regrid_to", "geometry")
         extract_surface = kwargs.get("extract_surface", True)

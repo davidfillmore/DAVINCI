@@ -584,7 +584,7 @@ class TestPlottingStage:
             analysis_config={"start_time": "2003-01-01", "end_time": "2003-12-31"},
             title=title,
             paired_data=context_with_paired.paired["test_dataset_test_geometry"],
-            var_spec={"geometry_var": "o3", "dataset_var": "o3"},
+            var_spec={"x_var": "o3", "y_var": "o3"},
             geometry_label="test_geometry",
             dataset_label="test_dataset",
         )

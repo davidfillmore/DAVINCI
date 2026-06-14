@@ -31,13 +31,13 @@ class HistogramPlotter(BasePlotter):
 
     def plot(  # type: ignore[override]
         self,
-        geometry_data: xr.Dataset,
+        x_data: xr.Dataset,
         variable: str,
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Single-source convenience wrapper; ``render`` is the unified entry."""
-        return self.render(build_series(geometry_data, variable), ax=ax, **kwargs)
+        return self.render(build_series(x_data, variable), ax=ax, **kwargs)
 
     def render(
         self,

@@ -122,11 +122,11 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             raise NotImplementedError(
                 f"PerSiteTimeSeriesPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
-        paired_data = geometry_series.dataset
-        geometry_var = geometry_series.var_name
-        dataset_var = dataset_series.var_name
+        x_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        y_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = x_series.dataset
+        x_var = x_series.var_name
+        y_var = y_series.var_name
 
         site: str | None = kwargs.pop("site", None)
         min_points: int = kwargs.pop("min_points", 20)
@@ -149,8 +149,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             chosen_site = None
             for s in sites:
                 sd = paired_data.sel({site_dim: s})
-                geometry_vals = sd[geometry_var].values
-                dataset_vals = sd[dataset_var].values
+                geometry_vals = sd[x_var].values
+                dataset_vals = sd[y_var].values
                 valid = ~np.isnan(geometry_vals) & ~np.isnan(dataset_vals)
                 if valid.sum() >= min_points:
                     chosen_site = s
@@ -167,8 +167,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             site_data,
             paired_data,
             site,
-            geometry_var,
-            dataset_var,
+            x_var,
+            y_var,
             time_dim,
             site_dim,
             scale_factor,
@@ -184,8 +184,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         ax: matplotlib.axes.Axes | None = None,
         site: str | None = None,
         min_points: int = 20,
@@ -205,9 +205,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         ----------
         paired_data
             Paired dataset with dataset and dataset variables.
-        geometry_var
+        x_var
             Name of dataset variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         ax
             Ignored (creates own figure).
@@ -236,7 +236,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, geometry_var, dataset_var),
+            build_series(paired_data, x_var, y_var),
             ax=ax,
             site=site,
             min_points=min_points,
@@ -252,8 +252,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
     def plot_per_site(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         time_dim: str = "time",
         site_dim: str = "site",
         min_points: int = 20,
@@ -272,9 +272,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         ----------
         paired_data
             Paired dataset with dataset and dataset variables.
-        geometry_var
+        x_var
             Name of dataset variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         time_dim
             Name of time dimension.
@@ -309,8 +309,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         for site in sites:
             site_data = paired_data.sel({site_dim: site})
 
-            geometry_vals = site_data[geometry_var].values
-            dataset_vals = site_data[dataset_var].values
+            geometry_vals = site_data[x_var].values
+            dataset_vals = site_data[y_var].values
             valid_both = ~np.isnan(geometry_vals) & ~np.isnan(dataset_vals)
 
             if valid_both.sum() < min_points:
@@ -323,8 +323,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
                 site_data,
                 paired_data,
                 site,
-                geometry_var,
-                dataset_var,
+                x_var,
+                y_var,
                 time_dim,
                 site_dim,
                 scale_factor,
@@ -345,8 +345,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         site_data: xr.Dataset,
         full_data: xr.Dataset,
         site: Any,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         time_dim: str,
         site_dim: str,
         scale_factor: float,
@@ -368,9 +368,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             Full paired dataset (for coordinate lookup).
         site
             Site identifier value.
-        geometry_var
+        x_var
             Dataset variable name.
-        dataset_var
+        y_var
             Dataset variable name.
         time_dim
             Time dimension name.
@@ -391,30 +391,30 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         text_cfg = self.config.text
 
         times = pd.to_datetime(site_data[time_dim].values)
-        geometry_vals = site_data[geometry_var].values * scale_factor
-        dataset_vals = site_data[dataset_var].values * scale_factor
+        geometry_vals = site_data[x_var].values * scale_factor
+        dataset_vals = site_data[y_var].values * scale_factor
 
         valid_geometry = ~np.isnan(geometry_vals)
         valid_both = valid_geometry & ~np.isnan(dataset_vals)
 
         # Series colors/labels by source axis (R-3): geometry gray, dataset blue, else
         # palette; legends use the source label.
-        geometry_color = get_dataset_color(
+        x_color = get_dataset_color(
             site_data,
-            geometry_var,
+            x_var,
             0,
-            geometry_color=style.geometry_color,
-            dataset_color=style.dataset_color,
+            x_color=style.x_color,
+            y_color=style.y_color,
         )
-        dataset_color = get_dataset_color(
+        y_color = get_dataset_color(
             site_data,
-            dataset_var,
+            y_var,
             1,
-            geometry_color=style.geometry_color,
-            dataset_color=style.dataset_color,
+            x_color=style.x_color,
+            y_color=style.y_color,
         )
-        geometry_label = get_series_label(site_data, geometry_var)
-        dataset_label = get_series_label(site_data, dataset_var)
+        geometry_label = get_series_label(site_data, x_var)
+        dataset_label = get_series_label(site_data, y_var)
 
         # Plot datasets
         if geometry_style == "scatter":
@@ -423,7 +423,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
                 geometry_vals[valid_geometry],
                 s=20,
                 alpha=0.7,
-                color=geometry_color,
+                color=x_color,
                 label=geometry_label,
                 zorder=3,
             )
@@ -432,7 +432,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
                 times[valid_geometry],
                 geometry_vals[valid_geometry],
                 "o-",
-                color=geometry_color,
+                color=x_color,
                 markersize=4,
                 linewidth=0.8,
                 alpha=0.7,
@@ -445,7 +445,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             ax.plot(
                 times,
                 dataset_vals,
-                color=dataset_color,
+                color=y_color,
                 linewidth=2,
                 alpha=0.8,
                 label=dataset_label,
@@ -457,7 +457,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
                 dataset_vals[valid_both],
                 s=20,
                 alpha=0.7,
-                color=dataset_color,
+                color=y_color,
                 label=dataset_label,
                 zorder=2,
             )
@@ -514,8 +514,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
 
         # Y-axis
         ax.set_ylim(bottom=0)
-        units = get_variable_units(full_data, geometry_var)
-        ylabel = get_variable_label(full_data, geometry_var, include_prefix=False)
+        units = get_variable_units(full_data, x_var)
+        ylabel = get_variable_label(full_data, x_var, include_prefix=False)
         if scale_factor != 1.0:
             exp = int(np.log10(1 / scale_factor))
             if units and units != "1":
@@ -551,8 +551,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
 
 def plot_per_site_timeseries(
     paired_data: xr.Dataset,
-    geometry_var: str,
-    dataset_var: str,
+    x_var: str,
+    y_var: str,
     title: str | None = None,
     site: str | None = None,
     min_points: int = 20,
@@ -565,9 +565,9 @@ def plot_per_site_timeseries(
     ----------
     paired_data
         Paired dataset with dataset and dataset variables.
-    geometry_var
+    x_var
         Name of dataset variable.
-    dataset_var
+    y_var
         Name of dataset variable.
     title
         Plot title.
@@ -589,8 +589,8 @@ def plot_per_site_timeseries(
     plotter = PerSiteTimeSeriesPlotter(config)
     return plotter.plot(
         paired_data,
-        geometry_var,
-        dataset_var,
+        x_var,
+        y_var,
         site=site,
         min_points=min_points,
         scale_factor=scale_factor,

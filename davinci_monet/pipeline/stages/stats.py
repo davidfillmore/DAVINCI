@@ -152,11 +152,11 @@ class StatisticsStage(BaseStage):
         calculator = StatisticsCalculator(calc_config)
 
         # Pair geometry and dataset variables by canonical name.
-        for geometry_var, dataset_var, base_name in iter_paired_variable_pairs(paired_data):
+        for x_var, y_var, base_name in iter_paired_variable_pairs(paired_data):
             df = calculator.compute(
                 paired_data,
-                geometry_var=geometry_var,
-                dataset_var=dataset_var,
+                x_var=x_var,
+                y_var=y_var,
                 metrics=list(metrics) if metrics else None,
             )
 
@@ -214,12 +214,12 @@ class StatisticsStage(BaseStage):
             mask = paired_data["flight"].values == flight
             flight_data = paired_data.isel(time=mask)
 
-            for geometry_var, dataset_var, base_name in var_pairs:
-                if geometry_var not in flight_data or dataset_var not in flight_data:
+            for x_var, y_var, base_name in var_pairs:
+                if x_var not in flight_data or y_var not in flight_data:
                     continue
 
-                dataset_vals = flight_data[dataset_var].values.flatten()
-                geometry_vals = flight_data[geometry_var].values.flatten()
+                dataset_vals = flight_data[y_var].values.flatten()
+                geometry_vals = flight_data[x_var].values.flatten()
 
                 # Remove NaNs
                 valid = ~(np.isnan(dataset_vals) | np.isnan(geometry_vals))

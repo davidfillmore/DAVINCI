@@ -446,8 +446,8 @@ class TestPointStrategy:
         """Test basic point pairing."""
         strategy = PointStrategy()
         paired = strategy.pair_sources(
-            geometry_data=point_geometry,
-            dataset_data=dataset_2d,
+            x_data=point_geometry,
+            y_data=dataset_2d,
             radius_of_influence=100000.0,
         )
 
@@ -464,8 +464,8 @@ class TestPointStrategy:
         """Test pairing with 3D dataset (extracts surface)."""
         strategy = PointStrategy()
         paired = strategy.pair_sources(
-            geometry_data=point_geometry,
-            dataset_data=dataset_3d,
+            x_data=point_geometry,
+            y_data=dataset_3d,
             radius_of_influence=200000.0,
         )
 
@@ -514,8 +514,8 @@ class TestPointStrategy:
 
         strategy = PointStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry_ds,
-            dataset_data=dataset,
+            x_data=geometry_ds,
+            y_data=dataset,
             radius_of_influence=200000.0,
             time_method="linear",
         )
@@ -558,8 +558,8 @@ class TestPointStrategy:
         )
 
         paired = PointStrategy().pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
+            x_data=geometry,
+            y_data=dataset,
             radius_of_influence=200000.0,
         )
         m = paired["dataset_pm25"].values.squeeze()
@@ -601,8 +601,8 @@ class TestPointStrategy:
         # 200 km radius matches dataset_2d's ~100 km grid spacing; Delhi/Chennai
         # are still ~10,000 km from any in-domain cell so they're dropped.
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset_2d,
+            x_data=geometry,
+            y_data=dataset_2d,
             radius_of_influence=200000.0,
         )
 
@@ -645,8 +645,8 @@ class TestTrackStrategy:
         """Test basic track pairing."""
         strategy = TrackStrategy()
         paired = strategy.pair_sources(
-            geometry_data=track_geometry,
-            dataset_data=dataset_3d,
+            x_data=track_geometry,
+            y_data=dataset_3d,
             radius_of_influence=200000.0,
         )
 
@@ -690,8 +690,8 @@ class TestTrackStrategy:
 
         strategy = TrackStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset_3d,
+            x_data=geometry,
+            y_data=dataset_3d,
             radius_of_influence=200000.0,
         )
 
@@ -764,8 +764,8 @@ class TestTrackStrategy:
         # Pair with vertical interpolation
         strategy = TrackStrategy()
         paired = strategy.pair_sources(
-            geometry_data=track,
-            dataset_data=dataset,
+            x_data=track,
+            y_data=dataset,
             radius_of_influence=500000.0,
         )
 
@@ -803,8 +803,8 @@ class TestProfileStrategy:
         dataset_with_pressure = dataset_3d.assign_coords(z=dataset_3d["z"])
 
         paired = strategy.pair_sources(
-            geometry_data=profile_geometry,
-            dataset_data=dataset_with_pressure,
+            x_data=profile_geometry,
+            y_data=dataset_with_pressure,
             radius_of_influence=200000.0,
         )
 
@@ -829,8 +829,8 @@ class TestSwathStrategy:
         """Test basic swath pairing."""
         strategy = SwathStrategy()
         paired = strategy.pair_sources(
-            geometry_data=swath_geometry,
-            dataset_data=dataset_2d,
+            x_data=swath_geometry,
+            y_data=dataset_2d,
             radius_of_influence=200000.0,
         )
 
@@ -874,8 +874,8 @@ class TestSwathStrategy:
 
         strategy = SwathStrategy()
         paired = strategy.pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset_2d,
+            x_data=geometry,
+            y_data=dataset_2d,
             radius_of_influence=200000.0,
         )
 
@@ -921,8 +921,8 @@ class TestGridStrategy:
         """Test regridding dataset to dataset grid."""
         strategy = GridStrategy()
         paired = strategy.pair_sources(
-            geometry_data=gridded_geometry,
-            dataset_data=dataset_2d,
+            x_data=gridded_geometry,
+            y_data=dataset_2d,
             regrid_to="geometry",
         )
 
@@ -940,8 +940,8 @@ class TestGridStrategy:
         """Test regridding datasets to dataset grid."""
         strategy = GridStrategy()
         paired = strategy.pair_sources(
-            geometry_data=gridded_geometry,
-            dataset_data=dataset_2d,
+            x_data=gridded_geometry,
+            y_data=dataset_2d,
             regrid_to="dataset",
         )
 
@@ -979,8 +979,8 @@ class TestPairingWorkflow:
         )
 
         paired = PairingEngine().pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
+            x_data=geometry,
+            y_data=dataset,
             geometry_vars=["GEOMETRY_AOD"],
             dataset_vars=["DATASET_AOD"],
             output_geometry=DataGeometry.GRID,
@@ -1029,8 +1029,8 @@ class TestPairingWorkflow:
         )
 
         paired = PairingEngine().pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
+            x_data=geometry,
+            y_data=dataset,
             geometry_vars=["B"],
             dataset_vars=["M2"],
             output_geometry=DataGeometry.SWATH,
@@ -1052,8 +1052,8 @@ class TestPairingWorkflow:
         config = PairingConfig(radius_of_influence=200000.0)
 
         paired = engine.pair_sources(
-            geometry_data=point_geometry,
-            dataset_data=dataset_2d,
+            x_data=point_geometry,
+            y_data=dataset_2d,
             geometry_vars=["temperature"],
             dataset_vars=["temperature"],
             config=config,
@@ -1069,8 +1069,8 @@ class TestPairingWorkflow:
         config = PairingConfig(radius_of_influence=200000.0)
 
         paired = engine.pair_sources(
-            geometry_data=track_geometry,
-            dataset_data=dataset_3d,
+            x_data=track_geometry,
+            y_data=dataset_3d,
             geometry_vars=["ozone"],
             dataset_vars=["ozone"],
             config=config,
@@ -1086,8 +1086,8 @@ class TestPairingWorkflow:
         config = PairingConfig()
 
         paired = engine.pair_sources(
-            geometry_data=gridded_geometry,
-            dataset_data=dataset_2d,
+            x_data=gridded_geometry,
+            y_data=dataset_2d,
             geometry_vars=["temperature"],
             dataset_vars=["temperature"],
             config=config,
@@ -1144,8 +1144,8 @@ def test_grid_pairing_preserves_dataset_when_times_offset() -> None:
     paired = (
         PairingEngine()
         .pair_sources(
-            geometry_data=geometry,
-            dataset_data=dataset,
+            x_data=geometry,
+            y_data=dataset,
             geometry_vars=["aod_550nm"],
             dataset_vars=["TOTEXTTAU"],
             config=PairingConfig(time_tolerance=timedelta(hours=1), time_method="nearest"),

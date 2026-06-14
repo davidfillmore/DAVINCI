@@ -47,7 +47,7 @@ def geometry_dataset() -> xr.Dataset:
 
 
 @pytest.fixture
-def geometry_data(geometry_dataset: xr.Dataset) -> SourceData:
+def x_data(geometry_dataset: xr.Dataset) -> SourceData:
     """SourceData wrapper around synthetic data."""
     return SourceData(
         data=geometry_dataset,
@@ -58,7 +58,7 @@ def geometry_data(geometry_dataset: xr.Dataset) -> SourceData:
 
 
 @pytest.fixture
-def geometry_context(geometry_data: SourceData, tmp_path: Any) -> PipelineContext:
+def geometry_context(x_data: SourceData, tmp_path: Any) -> PipelineContext:
     """PipelineContext with dataset data and geometry-only config."""
     return PipelineContext(
         config={
@@ -80,7 +80,7 @@ def geometry_context(geometry_data: SourceData, tmp_path: Any) -> PipelineContex
                 },
             },
         },
-        sources={"dc8": geometry_data},
+        sources={"dc8": x_data},
     )
 
 
@@ -189,9 +189,7 @@ class TestGeometryOnlyPipelineDetection:
         assert stage_names == ["load_sources", "statistics", "plotting", "save_results", "summary"]
 
     @pytest.mark.integration
-    def test_run_from_config_detects_geometry_only(
-        self, geometry_data: SourceData, tmp_path: Any
-    ) -> None:
+    def test_run_from_config_detects_geometry_only(self, x_data: SourceData, tmp_path: Any) -> None:
         """PipelineRunner.run_from_config with geometry-only config uses geometry pipeline."""
         from davinci_monet.pipeline.runner import PipelineRunner
 

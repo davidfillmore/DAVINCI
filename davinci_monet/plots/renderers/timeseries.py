@@ -50,8 +50,8 @@ class TimeSeriesPlotter(BasePlotter):
     >>> plotter = TimeSeriesPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     geometry_var="geometry_o3",
-    ...     dataset_var="dataset_o3",
+    ...     x_var="geometry_o3",
+    ...     y_var="dataset_o3",
     ...     resample="1h",
     ... )
     """
@@ -62,8 +62,8 @@ class TimeSeriesPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         ax: matplotlib.axes.Axes | None = None,
         resample: str | None = None,
         show_uncertainty: bool = False,
@@ -83,9 +83,9 @@ class TimeSeriesPlotter(BasePlotter):
         ----------
         paired_data
             Paired dataset with dataset and dataset variables.
-        geometry_var
+        x_var
             Name of dataset variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         ax
             Optional axes to plot on. If None, creates new figure.
@@ -118,17 +118,17 @@ class TimeSeriesPlotter(BasePlotter):
             fig = ax.get_figure()  # type: ignore[assignment]
 
         # Get data arrays
-        geometry_data = paired_data[geometry_var]
-        dataset_data = paired_data[dataset_var]
+        x_data = paired_data[x_var]
+        y_data = paired_data[y_var]
 
         # Plot individual sites if requested
-        if show_individual_sites and site_dim in geometry_data.dims:
+        if show_individual_sites and site_dim in x_data.dims:
             return self._plot_individual_sites(
                 fig,
                 ax,
                 paired_data,
-                geometry_var,
-                dataset_var,
+                x_var,
+                y_var,
                 time_dim,
                 site_dim,
                 site_label_var,
@@ -137,29 +137,29 @@ class TimeSeriesPlotter(BasePlotter):
             )
 
         # Aggregate over non-time dimensions if specified
-        if aggregate_dim is not None and aggregate_dim in geometry_data.dims:
-            geometry_data = geometry_data.mean(dim=aggregate_dim)
-            dataset_data = dataset_data.mean(dim=aggregate_dim)
-        elif len(geometry_data.sizes) > 1:
+        if aggregate_dim is not None and aggregate_dim in x_data.dims:
+            x_data = x_data.mean(dim=aggregate_dim)
+            y_data = y_data.mean(dim=aggregate_dim)
+        elif len(x_data.sizes) > 1:
             # If multiple dimensions and no aggregate specified, average over all except time
-            other_dims = [d for d in geometry_data.sizes if d != time_dim]
+            other_dims = [d for d in x_data.sizes if d != time_dim]
             if other_dims:
-                geometry_data = geometry_data.mean(dim=other_dims)
-                dataset_data = dataset_data.mean(dim=other_dims)
+                x_data = x_data.mean(dim=other_dims)
+                y_data = y_data.mean(dim=other_dims)
 
         # Get time coordinate
         time = paired_data[time_dim]
 
         # Resample if requested
         if resample:
-            geometry_data = geometry_data.resample({time_dim: resample}).mean()
-            dataset_data = dataset_data.resample({time_dim: resample}).mean()
-            time = geometry_data[time_dim]
+            x_data = x_data.resample({time_dim: resample}).mean()
+            y_data = y_data.resample({time_dim: resample}).mean()
+            time = x_data[time_dim]
 
         # Convert to numpy for plotting
         time_values = pd.to_datetime(time.values)
-        geometry_values = geometry_data.values
-        dataset_values = dataset_data.values
+        geometry_values = x_data.values
+        dataset_values = y_data.values
 
         # Get style configuration
         style = self.config.style
@@ -167,36 +167,36 @@ class TimeSeriesPlotter(BasePlotter):
         # Series legend labels prefer source identity (e.g. airnow/cam); axis
         # remains a styling hint only.
         geometry_label = geometry_label or get_series_label(
-            paired_data, geometry_var, self.config.geometry_label
+            paired_data, x_var, self.config.geometry_label
         )
         dataset_label = dataset_label or get_series_label(
-            paired_data, dataset_var, self.config.dataset_label
+            paired_data, y_var, self.config.dataset_label
         )
 
         # Series colors by source axis (geometry gray, dataset blue, else palette); a
         # customised StyleConfig still wins for the geometry/dataset axes (R-3).
-        geometry_color = get_dataset_color(
+        x_color = get_dataset_color(
             paired_data,
-            geometry_var,
+            x_var,
             0,
-            geometry_color=style.geometry_color,
-            dataset_color=style.dataset_color,
+            x_color=style.x_color,
+            y_color=style.y_color,
         )
-        dataset_color = get_dataset_color(
+        y_color = get_dataset_color(
             paired_data,
-            dataset_var,
+            y_var,
             1,
-            geometry_color=style.geometry_color,
-            dataset_color=style.dataset_color,
+            x_color=style.x_color,
+            y_color=style.y_color,
         )
 
         # Plot datasets
         ax.plot(
             time_values,
             geometry_values,
-            color=geometry_color,
-            linestyle=style.geometry_linestyle,
-            marker=style.geometry_marker if len(time_values) < 50 else None,
+            color=x_color,
+            linestyle=style.x_linestyle,
+            marker=style.x_marker if len(time_values) < 50 else None,
             linewidth=style.linewidth,
             markersize=style.markersize,
             alpha=style.alpha,
@@ -207,9 +207,9 @@ class TimeSeriesPlotter(BasePlotter):
         ax.plot(
             time_values,
             dataset_values,
-            color=dataset_color,
-            linestyle=style.dataset_linestyle,
-            marker=style.dataset_marker if len(time_values) < 50 else None,
+            color=y_color,
+            linestyle=style.y_linestyle,
+            marker=style.y_marker if len(time_values) < 50 else None,
             linewidth=style.linewidth,
             markersize=style.markersize,
             alpha=style.alpha,
@@ -221,8 +221,8 @@ class TimeSeriesPlotter(BasePlotter):
             self._add_uncertainty_bands(
                 ax,
                 paired_data,
-                geometry_var,
-                dataset_var,
+                x_var,
+                y_var,
                 time_dim,
                 aggregate_dim,
                 resample,
@@ -236,10 +236,9 @@ class TimeSeriesPlotter(BasePlotter):
         self.apply_text_style(ax)
 
         # Set labels - use automatic variable display name (no prefix for shared axis)
-        units = get_variable_units(paired_data, geometry_var)
+        units = get_variable_units(paired_data, x_var)
         ylabel = format_label_with_units(
-            self.config.ylabel
-            or get_variable_label(paired_data, geometry_var, include_prefix=False),
+            self.config.ylabel or get_variable_label(paired_data, x_var, include_prefix=False),
             units,
         )
         self.set_labels(ax, xlabel="Time", ylabel=ylabel)
@@ -248,8 +247,8 @@ class TimeSeriesPlotter(BasePlotter):
         self._set_smart_ylim(
             ax,
             paired_data,
-            geometry_var,
-            dataset_var,
+            x_var,
+            y_var,
             aggregate_dim,
             time_dim,
             resample,
@@ -285,12 +284,12 @@ class TimeSeriesPlotter(BasePlotter):
         - ``>2`` series → multi-source overlay, palette-cycled.
         """
         if len(series) == 2:
-            geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-            dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+            x_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+            y_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
             return self.plot(
-                geometry_series.dataset,
-                geometry_series.var_name,
-                dataset_series.var_name,
+                x_series.dataset,
+                x_series.var_name,
+                y_series.var_name,
                 ax=ax,
                 **kwargs,
             )
@@ -446,8 +445,8 @@ class TimeSeriesPlotter(BasePlotter):
         fig: matplotlib.figure.Figure,
         ax: matplotlib.axes.Axes,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         time_dim: str,
         site_dim: str,
         site_label_var: str,
@@ -464,7 +463,7 @@ class TimeSeriesPlotter(BasePlotter):
             Axes to plot on.
         paired_data
             Paired dataset.
-        geometry_var, dataset_var
+        x_var, y_var
             Variable names.
         time_dim
             Time dimension name.
@@ -482,8 +481,8 @@ class TimeSeriesPlotter(BasePlotter):
         """
         import matplotlib.cm as cm
 
-        geometry_data = paired_data[geometry_var]
-        dataset_data = paired_data[dataset_var]
+        x_data = paired_data[x_var]
+        y_data = paired_data[y_var]
         time_values = pd.to_datetime(paired_data[time_dim].values)
 
         # Get site labels
@@ -499,8 +498,8 @@ class TimeSeriesPlotter(BasePlotter):
 
         # Plot each site
         for i in range(n_sites):
-            site_geometry = geometry_data.isel({site_dim: i})
-            site_dataset = dataset_data.isel({site_dim: i})
+            site_geometry = x_data.isel({site_dim: i})
+            site_dataset = y_data.isel({site_dim: i})
 
             # Skip if all NaN
             if site_geometry.isnull().all() and site_dataset.isnull().all():
@@ -539,10 +538,9 @@ class TimeSeriesPlotter(BasePlotter):
         self.apply_text_style(ax)
 
         # Set labels - use automatic variable display name (no prefix for shared axis)
-        units = get_variable_units(paired_data, geometry_var)
+        units = get_variable_units(paired_data, x_var)
         ylabel = format_label_with_units(
-            self.config.ylabel
-            or get_variable_label(paired_data, geometry_var, include_prefix=False),
+            self.config.ylabel or get_variable_label(paired_data, x_var, include_prefix=False),
             units,
         )
         self.set_labels(ax, xlabel="Time", ylabel=ylabel)
@@ -565,8 +563,8 @@ class TimeSeriesPlotter(BasePlotter):
         self,
         ax: matplotlib.axes.Axes,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         time_dim: str,
         aggregate_dim: str,
         resample: str | None,
@@ -580,7 +578,7 @@ class TimeSeriesPlotter(BasePlotter):
             Axes to add bands to.
         paired_data
             Full paired dataset.
-        geometry_var, dataset_var
+        x_var, y_var
             Variable names.
         time_dim
             Time dimension name.
@@ -591,27 +589,27 @@ class TimeSeriesPlotter(BasePlotter):
         uncertainty_type
             Type of uncertainty ('std', 'iqr', 'range').
         """
-        geometry_data = paired_data[geometry_var]
-        dataset_data = paired_data[dataset_var]
+        x_data = paired_data[x_var]
+        y_data = paired_data[y_var]
 
         # Resample first if needed
         if resample:
-            geometry_data = geometry_data.resample({time_dim: resample}).mean()
-            dataset_data = dataset_data.resample({time_dim: resample}).mean()
+            x_data = x_data.resample({time_dim: resample}).mean()
+            y_data = y_data.resample({time_dim: resample}).mean()
 
-        time_values = pd.to_datetime(geometry_data[time_dim].values)
+        time_values = pd.to_datetime(x_data[time_dim].values)
         style = self.config.style
 
         # Calculate uncertainty bounds
         if uncertainty_type == "std":
-            geometry_mean = geometry_data.mean(dim=aggregate_dim)
-            dataset_mean = dataset_data.mean(dim=aggregate_dim)
+            geometry_mean = x_data.mean(dim=aggregate_dim)
+            dataset_mean = y_data.mean(dim=aggregate_dim)
 
             # Suppress warnings for time bins with single datasets (ddof > n)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", "Degrees of freedom", RuntimeWarning)
-                geometry_std = geometry_data.std(dim=aggregate_dim)
-                dataset_std = dataset_data.std(dim=aggregate_dim)
+                geometry_std = x_data.std(dim=aggregate_dim)
+                dataset_std = y_data.std(dim=aggregate_dim)
 
             geometry_lower = geometry_mean - geometry_std
             geometry_upper = geometry_mean + geometry_std
@@ -619,16 +617,16 @@ class TimeSeriesPlotter(BasePlotter):
             dataset_upper = dataset_mean + dataset_std
 
         elif uncertainty_type == "iqr":
-            geometry_lower = geometry_data.quantile(0.25, dim=aggregate_dim)
-            geometry_upper = geometry_data.quantile(0.75, dim=aggregate_dim)
-            dataset_lower = dataset_data.quantile(0.25, dim=aggregate_dim)
-            dataset_upper = dataset_data.quantile(0.75, dim=aggregate_dim)
+            geometry_lower = x_data.quantile(0.25, dim=aggregate_dim)
+            geometry_upper = x_data.quantile(0.75, dim=aggregate_dim)
+            dataset_lower = y_data.quantile(0.25, dim=aggregate_dim)
+            dataset_upper = y_data.quantile(0.75, dim=aggregate_dim)
 
         else:  # range
-            geometry_lower = geometry_data.min(dim=aggregate_dim)
-            geometry_upper = geometry_data.max(dim=aggregate_dim)
-            dataset_lower = dataset_data.min(dim=aggregate_dim)
-            dataset_upper = dataset_data.max(dim=aggregate_dim)
+            geometry_lower = x_data.min(dim=aggregate_dim)
+            geometry_upper = x_data.max(dim=aggregate_dim)
+            dataset_lower = y_data.min(dim=aggregate_dim)
+            dataset_upper = y_data.max(dim=aggregate_dim)
 
         # Plot bands (pair-axis colors, matching the series; R-3)
         ax.fill_between(
@@ -637,10 +635,10 @@ class TimeSeriesPlotter(BasePlotter):
             geometry_upper.values,
             color=get_dataset_color(
                 paired_data,
-                geometry_var,
+                x_var,
                 0,
-                geometry_color=style.geometry_color,
-                dataset_color=style.dataset_color,
+                x_color=style.x_color,
+                y_color=style.y_color,
             ),
             alpha=0.2,
         )
@@ -650,10 +648,10 @@ class TimeSeriesPlotter(BasePlotter):
             dataset_upper.values,
             color=get_dataset_color(
                 paired_data,
-                dataset_var,
+                y_var,
                 1,
-                geometry_color=style.geometry_color,
-                dataset_color=style.dataset_color,
+                x_color=style.x_color,
+                y_color=style.y_color,
             ),
             alpha=0.2,
         )
@@ -662,8 +660,8 @@ class TimeSeriesPlotter(BasePlotter):
         self,
         ax: matplotlib.axes.Axes,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         aggregate_dim: str | None,
         time_dim: str,
         resample: str | None,
@@ -682,7 +680,7 @@ class TimeSeriesPlotter(BasePlotter):
             Axes to configure.
         paired_data
             Full paired dataset.
-        geometry_var, dataset_var
+        x_var, y_var
             Variable names.
         aggregate_dim
             Dimension being aggregated.
@@ -701,26 +699,26 @@ class TimeSeriesPlotter(BasePlotter):
             return
 
         # Get data for computing range
-        geometry_data = paired_data[geometry_var]
-        dataset_data = paired_data[dataset_var]
+        x_data = paired_data[x_var]
+        y_data = paired_data[y_var]
 
         # Resample if needed
         if resample:
-            geometry_data = geometry_data.resample({time_dim: resample}).mean()
-            dataset_data = dataset_data.resample({time_dim: resample}).mean()
+            x_data = x_data.resample({time_dim: resample}).mean()
+            y_data = y_data.resample({time_dim: resample}).mean()
 
         # Compute the data range we need to display
         if show_uncertainty and aggregate_dim is not None:
             # Need to include uncertainty bands in range calculation
             if uncertainty_type == "std":
-                geometry_mean = geometry_data.mean(dim=aggregate_dim)
-                dataset_mean = dataset_data.mean(dim=aggregate_dim)
+                geometry_mean = x_data.mean(dim=aggregate_dim)
+                dataset_mean = y_data.mean(dim=aggregate_dim)
 
                 # Suppress warnings for time bins with single datasets (ddof > n)
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", "Degrees of freedom", RuntimeWarning)
-                    geometry_std = geometry_data.std(dim=aggregate_dim)
-                    dataset_std = dataset_data.std(dim=aggregate_dim)
+                    geometry_std = x_data.std(dim=aggregate_dim)
+                    dataset_std = y_data.std(dim=aggregate_dim)
 
                 data_min = float(
                     min(
@@ -737,27 +735,27 @@ class TimeSeriesPlotter(BasePlotter):
             elif uncertainty_type == "iqr":
                 data_min = float(
                     min(
-                        np.nanmin(geometry_data.quantile(0.25, dim=aggregate_dim).values),
-                        np.nanmin(dataset_data.quantile(0.25, dim=aggregate_dim).values),
+                        np.nanmin(x_data.quantile(0.25, dim=aggregate_dim).values),
+                        np.nanmin(y_data.quantile(0.25, dim=aggregate_dim).values),
                     )
                 )
                 data_max = float(
                     max(
-                        np.nanmax(geometry_data.quantile(0.75, dim=aggregate_dim).values),
-                        np.nanmax(dataset_data.quantile(0.75, dim=aggregate_dim).values),
+                        np.nanmax(x_data.quantile(0.75, dim=aggregate_dim).values),
+                        np.nanmax(y_data.quantile(0.75, dim=aggregate_dim).values),
                     )
                 )
             else:  # range
                 data_min = float(
                     min(
-                        np.nanmin(geometry_data.min(dim=aggregate_dim).values),
-                        np.nanmin(dataset_data.min(dim=aggregate_dim).values),
+                        np.nanmin(x_data.min(dim=aggregate_dim).values),
+                        np.nanmin(y_data.min(dim=aggregate_dim).values),
                     )
                 )
                 data_max = float(
                     max(
-                        np.nanmax(geometry_data.max(dim=aggregate_dim).values),
-                        np.nanmax(dataset_data.max(dim=aggregate_dim).values),
+                        np.nanmax(x_data.max(dim=aggregate_dim).values),
+                        np.nanmax(y_data.max(dim=aggregate_dim).values),
                     )
                 )
         else:
@@ -766,22 +764,22 @@ class TimeSeriesPlotter(BasePlotter):
             # per-site/per-track-point distribution. Without this, a single
             # outlier (e.g. one wildfire-impacted PM2.5 site at 200 µg/m³)
             # drives vmax far above the cross-site mean that's plotted.
-            if aggregate_dim is not None and aggregate_dim in geometry_data.dims:
-                geometry_data = geometry_data.mean(dim=aggregate_dim)
-                dataset_data = dataset_data.mean(dim=aggregate_dim)
+            if aggregate_dim is not None and aggregate_dim in x_data.dims:
+                x_data = x_data.mean(dim=aggregate_dim)
+                y_data = y_data.mean(dim=aggregate_dim)
             else:
-                other_dims = [d for d in geometry_data.sizes if d != time_dim]
+                other_dims = [d for d in x_data.sizes if d != time_dim]
                 if other_dims:
-                    geometry_data = geometry_data.mean(dim=other_dims)
-                    dataset_data = dataset_data.mean(dim=other_dims)
+                    x_data = x_data.mean(dim=other_dims)
+                    y_data = y_data.mean(dim=other_dims)
 
-            data_min = float(min(np.nanmin(geometry_data.values), np.nanmin(dataset_data.values)))
-            data_max = float(max(np.nanmax(geometry_data.values), np.nanmax(dataset_data.values)))
+            data_min = float(min(np.nanmin(x_data.values), np.nanmin(y_data.values)))
+            data_max = float(max(np.nanmax(x_data.values), np.nanmax(y_data.values)))
 
         # Check if raw data is non-negative (physical constraint)
         # Use original data before aggregation to check this
-        raw_geometry = paired_data[geometry_var]
-        raw_dataset = paired_data[dataset_var]
+        raw_geometry = paired_data[x_var]
+        raw_dataset = paired_data[y_var]
         raw_min = float(min(np.nanmin(raw_geometry.values), np.nanmin(raw_dataset.values)))
         is_positive_definite = raw_min >= 0
 
@@ -809,8 +807,8 @@ class TimeSeriesPlotter(BasePlotter):
 
 def plot_timeseries(
     paired_data: xr.Dataset,
-    geometry_var: str,
-    dataset_var: str,
+    x_var: str,
+    y_var: str,
     config: PlotConfig | dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> matplotlib.figure.Figure:
@@ -820,9 +818,9 @@ def plot_timeseries(
     ----------
     paired_data
         Paired dataset with dataset and dataset variables.
-    geometry_var
+    x_var
         Name of dataset variable.
-    dataset_var
+    y_var
         Name of dataset variable.
     config
         Plot configuration.
@@ -838,4 +836,4 @@ def plot_timeseries(
         config = PlotConfig.from_dict(config)
 
     plotter = TimeSeriesPlotter(config=config)
-    return plotter.plot(paired_data, geometry_var, dataset_var, **kwargs)
+    return plotter.plot(paired_data, x_var, y_var, **kwargs)

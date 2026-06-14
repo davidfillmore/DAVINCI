@@ -62,13 +62,10 @@ class TestGetDatasetColor:
     def test_style_overrides_honoured_for_geometry_dataset_axes(self) -> None:
         # A customised StyleConfig color is used for geometry/dataset axes.
         ds = _paired_with_aliases()
-        assert get_dataset_color(ds, "airnow_o3", geometry_color="#111111") == "#111111"
-        assert get_dataset_color(ds, "cam_o3", index=1, dataset_color="#222222") == "#222222"
+        assert get_dataset_color(ds, "airnow_o3", x_color="#111111") == "#111111"
+        assert get_dataset_color(ds, "cam_o3", index=1, y_color="#222222") == "#222222"
         unpaired = xr.Dataset({"x_o3": ("time", np.zeros(2))}, coords={"time": np.arange(2)})
-        assert (
-            get_dataset_color(unpaired, "x_o3", index=1, geometry_color="#111111")
-            == NCAR_PALETTE[1]
-        )
+        assert get_dataset_color(unpaired, "x_o3", index=1, x_color="#111111") == NCAR_PALETTE[1]
 
 
 class TestGetSeriesLabel:

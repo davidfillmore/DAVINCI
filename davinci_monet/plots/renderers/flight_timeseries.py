@@ -117,8 +117,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
     >>> plotter = FlightTimeSeriesPlotter()
     >>> fig = plotter.plot(
     ...     paired_data,
-    ...     geometry_var="geometry_O3_ROZE_STCLAIR",
-    ...     dataset_var="dataset_O3_ROZE_STCLAIR",
+    ...     x_var="geometry_O3_ROZE_STCLAIR",
+    ...     y_var="dataset_O3_ROZE_STCLAIR",
     ...     ncols=3,
     ... )
     """
@@ -158,11 +158,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
             raise NotImplementedError(
                 f"FlightTimeSeriesPlotter.render requires exactly 2 series; got {len(series)}."
             )
-        geometry_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
-        dataset_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
-        paired_data = geometry_series.dataset
-        geometry_var = geometry_series.var_name
-        dataset_var = dataset_series.var_name
+        x_series = next((s for s in series if s.pair_axis == "geometry"), series[0])
+        y_series = next((s for s in series if s.pair_axis == "dataset"), series[1])
+        paired_data = x_series.dataset
+        x_var = x_series.var_name
+        y_var = y_series.var_name
 
         ncols: int = kwargs.pop("ncols", 3)
         min_points: int = kwargs.pop("min_points", 10)
@@ -180,15 +180,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
         # Series colors/labels by source axis (R-3): geometry gray, dataset blue, else
         # palette; legends use the source label.
-        sc_geometry, sc_dataset = style.geometry_color, style.dataset_color
-        geometry_color = get_dataset_color(
-            paired_data, geometry_var, 0, geometry_color=sc_geometry, dataset_color=sc_dataset
-        )
-        dataset_color = get_dataset_color(
-            paired_data, dataset_var, 1, geometry_color=sc_geometry, dataset_color=sc_dataset
-        )
-        geometry_label = get_series_label(paired_data, geometry_var)
-        dataset_label = get_series_label(paired_data, dataset_var)
+        sc_geometry, sc_dataset = style.x_color, style.y_color
+        x_color = get_dataset_color(paired_data, x_var, 0, x_color=sc_geometry, y_color=sc_dataset)
+        y_color = get_dataset_color(paired_data, y_var, 1, x_color=sc_geometry, y_color=sc_dataset)
+        geometry_label = get_series_label(paired_data, x_var)
+        dataset_label = get_series_label(paired_data, y_var)
 
         # Get unique flights and filter by data availability
         if flight_coord not in paired_data.coords:
@@ -199,8 +195,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
         for flight in flights:
             mask = paired_data[flight_coord].values == flight
-            geometry_vals = paired_data[geometry_var].values[mask]
-            dataset_vals = paired_data[dataset_var].values[mask]
+            geometry_vals = paired_data[x_var].values[mask]
+            dataset_vals = paired_data[y_var].values[mask]
             valid = ~np.isnan(geometry_vals) & ~np.isnan(dataset_vals)
             if valid.sum() >= min_points:
                 valid_flights.append(flight)
@@ -236,8 +232,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Get data for this flight
             times = pd.to_datetime(paired_data[time_dim].values[mask])
-            geometry_vals = paired_data[geometry_var].values[mask] * scale_factor
-            dataset_vals = paired_data[dataset_var].values[mask] * scale_factor
+            geometry_vals = paired_data[x_var].values[mask] * scale_factor
+            dataset_vals = paired_data[y_var].values[mask] * scale_factor
 
             valid_geometry = ~np.isnan(geometry_vals)
             valid_both = valid_geometry & ~np.isnan(dataset_vals)
@@ -257,7 +253,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     geometry_vals[valid_geometry],
                     s=12,
                     alpha=0.7,
-                    color=geometry_color,
+                    color=x_color,
                     label=geometry_label,
                     zorder=3,
                 )
@@ -266,7 +262,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     times[valid_geometry],
                     geometry_vals[valid_geometry],
                     "o-",
-                    color=geometry_color,
+                    color=x_color,
                     markersize=3,
                     linewidth=0.5,
                     alpha=0.7,
@@ -279,7 +275,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 panel_ax.plot(
                     times,
                     dataset_vals,
-                    color=dataset_color,
+                    color=y_color,
                     linewidth=1.5,
                     alpha=0.8,
                     label=dataset_label,
@@ -291,7 +287,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     dataset_vals[valid_both],
                     s=12,
                     alpha=0.7,
-                    color=dataset_color,
+                    color=y_color,
                     label=dataset_label,
                     zorder=2,
                 )
@@ -365,8 +361,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Y-axis label on left column
             if idx % ncols == 0:
-                units = get_variable_units(paired_data, geometry_var)
-                ylabel = get_variable_label(paired_data, geometry_var, include_prefix=False)
+                units = get_variable_units(paired_data, x_var)
+                ylabel = get_variable_label(paired_data, x_var, include_prefix=False)
                 ylabel = format_label_with_units(ylabel, units)
                 panel_ax.set_ylabel(ylabel, fontsize=self.config.text.legend_small)
 
@@ -395,8 +391,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
     def plot(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         ax: matplotlib.axes.Axes | None = None,
         ncols: int = 3,
         min_points: int = 10,
@@ -419,9 +415,9 @@ class FlightTimeSeriesPlotter(BasePlotter):
         ----------
         paired_data
             Paired dataset with dataset and dataset variables.
-        geometry_var
+        x_var
             Name of dataset variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         ax
             Ignored for this plot type (creates own figure).
@@ -456,7 +452,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
             The generated figure.
         """
         return self.render(
-            build_series(paired_data, geometry_var, dataset_var),
+            build_series(paired_data, x_var, y_var),
             ax=ax,
             ncols=ncols,
             min_points=min_points,
@@ -475,8 +471,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
     def plot_per_flight(
         self,
         paired_data: xr.Dataset,
-        geometry_var: str,
-        dataset_var: str,
+        x_var: str,
+        y_var: str,
         time_dim: str = "time",
         flight_coord: str = "flight",
         min_points: int = 10,
@@ -498,9 +494,9 @@ class FlightTimeSeriesPlotter(BasePlotter):
         ----------
         paired_data
             Paired dataset with dataset and dataset variables.
-        geometry_var
+        x_var
             Name of dataset variable.
-        dataset_var
+        y_var
             Name of dataset variable.
         time_dim
             Name of time dimension.
@@ -534,15 +530,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
         # Series colors/labels by source axis (R-3): geometry gray, dataset blue, else
         # palette; legends use the source label.
-        sc_geometry, sc_dataset = style.geometry_color, style.dataset_color
-        geometry_color = get_dataset_color(
-            paired_data, geometry_var, 0, geometry_color=sc_geometry, dataset_color=sc_dataset
-        )
-        dataset_color = get_dataset_color(
-            paired_data, dataset_var, 1, geometry_color=sc_geometry, dataset_color=sc_dataset
-        )
-        geometry_label = get_series_label(paired_data, geometry_var)
-        dataset_label = get_series_label(paired_data, dataset_var)
+        sc_geometry, sc_dataset = style.x_color, style.y_color
+        x_color = get_dataset_color(paired_data, x_var, 0, x_color=sc_geometry, y_color=sc_dataset)
+        y_color = get_dataset_color(paired_data, y_var, 1, x_color=sc_geometry, y_color=sc_dataset)
+        geometry_label = get_series_label(paired_data, x_var)
+        dataset_label = get_series_label(paired_data, y_var)
 
         # Check for flight coordinate
         if flight_coord not in paired_data.coords:
@@ -569,8 +561,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
             # Get data for this flight
             times = pd.to_datetime(paired_data[time_dim].values[mask])
-            geometry_vals = paired_data[geometry_var].values[mask] * scale_factor
-            dataset_vals = paired_data[dataset_var].values[mask] * scale_factor
+            geometry_vals = paired_data[x_var].values[mask] * scale_factor
+            dataset_vals = paired_data[y_var].values[mask] * scale_factor
 
             valid_geometry = ~np.isnan(geometry_vals)
             valid_both = valid_geometry & ~np.isnan(dataset_vals)
@@ -600,7 +592,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     geometry_vals[valid_geometry],
                     s=20,
                     alpha=0.7,
-                    color=geometry_color,
+                    color=x_color,
                     label=geometry_label,
                     zorder=3,
                 )
@@ -609,7 +601,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     times[valid_geometry],
                     geometry_vals[valid_geometry],
                     "o-",
-                    color=geometry_color,
+                    color=x_color,
                     markersize=4,
                     linewidth=0.8,
                     alpha=0.7,
@@ -622,7 +614,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                 ax.plot(
                     times,
                     dataset_vals,
-                    color=dataset_color,
+                    color=y_color,
                     linewidth=2,
                     alpha=0.8,
                     label=dataset_label,
@@ -634,7 +626,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     dataset_vals[valid_both],
                     s=20,
                     alpha=0.7,
-                    color=dataset_color,
+                    color=y_color,
                     label=dataset_label,
                     zorder=2,
                 )
@@ -708,8 +700,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
             ax.legend(loc="upper left", fontsize=text_cfg.legend)
 
             # Y-axis label
-            units = get_variable_units(paired_data, geometry_var)
-            ylabel = get_variable_label(paired_data, geometry_var, include_prefix=False)
+            units = get_variable_units(paired_data, x_var)
+            ylabel = get_variable_label(paired_data, x_var, include_prefix=False)
             ylabel = format_label_with_units(ylabel, units)
             ax.set_ylabel(ylabel, fontsize=text_cfg.fontsize)
 
@@ -729,8 +721,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
 
 def plot_flight_timeseries(
     paired_data: xr.Dataset,
-    geometry_var: str,
-    dataset_var: str,
+    x_var: str,
+    y_var: str,
     title: str | None = None,
     ncols: int = 3,
     min_points: int = 10,
@@ -746,9 +738,9 @@ def plot_flight_timeseries(
     ----------
     paired_data
         Paired dataset with dataset and dataset variables.
-    geometry_var
+    x_var
         Name of dataset variable.
-    dataset_var
+    y_var
         Name of dataset variable.
     title
         Plot title.
@@ -776,8 +768,8 @@ def plot_flight_timeseries(
     plotter = FlightTimeSeriesPlotter(config)
     return plotter.plot(
         paired_data,
-        geometry_var,
-        dataset_var,
+        x_var,
+        y_var,
         ncols=ncols,
         min_points=min_points,
         scale_factor=scale_factor,
