@@ -59,7 +59,7 @@ class VerticalProfilePlotter(BasePlotter):
         colors = series_colors(series)
         multi = len(series) > 1
         for s, color in zip(series, colors):
-            label = s.dataset_label or get_variable_label(
+            label = s.source_label or get_variable_label(
                 s.dataset, s.var_name, include_prefix=False
             )
             if mode == "binned":

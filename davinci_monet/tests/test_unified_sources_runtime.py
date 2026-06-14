@@ -124,9 +124,9 @@ def test_sources_config_pairs_from_pair_variables(tmp_path: Path) -> None:
     assert set(result.context.paired) == {"cam_airnow_o3"}
     paired = result.context.paired["cam_airnow_o3"].data
     assert set(paired.data_vars) == {"cam_O3", "airnow_o3"}
-    assert paired["cam_O3"].attrs["dataset_label"] == "cam"
+    assert paired["cam_O3"].attrs["source_label"] == "cam"
     assert paired["cam_O3"].attrs["dataset_variable"] == "O3"
-    assert paired["airnow_o3"].attrs["dataset_label"] == "airnow"
+    assert paired["airnow_o3"].attrs["source_label"] == "airnow"
     assert paired["airnow_o3"].attrs["dataset_variable"] == "o3"
 
 
@@ -215,7 +215,7 @@ def test_plot_data_geometry_without_pair_spec_uses_paired_dataset(
     paired["airnow_o3"].attrs.update(
         {
             "axis": "x",
-            "dataset_label": "airnow",
+            "source_label": "airnow",
             "dataset_variable": "o3",
             "canonical_name": "o3",
         }
@@ -223,7 +223,7 @@ def test_plot_data_geometry_without_pair_spec_uses_paired_dataset(
     paired["cam_O3"].attrs.update(
         {
             "axis": "y",
-            "dataset_label": "cam",
+            "source_label": "cam",
             "dataset_variable": "O3",
             "canonical_name": "o3",
         }
@@ -258,7 +258,7 @@ def test_plot_sources_pair_spec_uses_geometry_and_dataset(
     paired["airnow_o3"].attrs.update(
         {
             "axis": "x",
-            "dataset_label": "airnow",
+            "source_label": "airnow",
             "dataset_variable": "o3",
             "canonical_name": "o3",
         }
@@ -266,7 +266,7 @@ def test_plot_sources_pair_spec_uses_geometry_and_dataset(
     paired["cam_O3"].attrs.update(
         {
             "axis": "y",
-            "dataset_label": "cam",
+            "source_label": "cam",
             "dataset_variable": "O3",
             "canonical_name": "o3",
         }
@@ -305,8 +305,8 @@ def test_plot_pair_spec_uses_configured_pair_name(
         },
         coords={"time": times},
     )
-    paired["airnow_o3"].attrs.update({"axis": "x", "dataset_label": "airnow"})
-    paired["cam_o3"].attrs.update({"axis": "y", "dataset_label": "cam"})
+    paired["airnow_o3"].attrs.update({"axis": "x", "source_label": "airnow"})
+    paired["cam_o3"].attrs.update({"axis": "y", "source_label": "cam"})
     ctx = PipelineContext(
         config={
             "analysis": {"output_dir": str(tmp_path)},

@@ -23,7 +23,7 @@ def _geometry_timeseries_ds(dataset_label: str | None = None) -> xr.Dataset:
         coords={"time": np.arange(n)},
     )
     if dataset_label is not None:
-        ds.attrs["dataset_label"] = dataset_label
+        ds.attrs["source_label"] = dataset_label
     return ds
 
 
@@ -81,7 +81,7 @@ class TestVerticalProfileSourceLabel:
                 "altitude": ("time", rng.uniform(0, 10000, n)),
             },
         )
-        ds.attrs["dataset_label"] = "dc8"
+        ds.attrs["source_label"] = "dc8"
         fig = VerticalProfilePlotter().plot(ds, "O3")  # default scatter mode
         _, labels = fig.axes[0].get_legend_handles_labels()
         assert "dc8" in labels

@@ -24,7 +24,7 @@ def _profile_series(label: str = "dc8", index: int = 0) -> PlotSeries:
         },
     )
     ds["O3"].attrs["axis"] = "x"
-    ds["O3"].attrs["dataset_label"] = label
+    ds["O3"].attrs["source_label"] = label
     return PlotSeries(ds, "O3", "O3", "x", label, index)
 
 

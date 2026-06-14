@@ -107,11 +107,11 @@ class TestLoadSourcesStage:
 
         # Datasets tagged with dataset_label / geometry.
         cam_attrs = ctx.sources["cam"].data.attrs
-        assert cam_attrs["dataset_label"] == "cam"
+        assert cam_attrs["source_label"] == "cam"
         assert cam_attrs["geometry"] == "grid"
 
         air_attrs = ctx.sources["airnow"].data.attrs
-        assert air_attrs["dataset_label"] == "airnow"
+        assert air_attrs["source_label"] == "airnow"
         assert air_attrs["geometry"] == "point"
 
     def test_prepopulated_sources_resolve_via_get_source(

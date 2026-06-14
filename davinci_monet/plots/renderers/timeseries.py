@@ -327,7 +327,7 @@ class TimeSeriesPlotter(BasePlotter):
         ds = s.dataset
         da = ds[s.var_name]
         color = color or series_colors([s])[0]
-        label = s.dataset_label or get_variable_label(ds, s.var_name, include_prefix=False)
+        label = s.source_label or get_variable_label(ds, s.var_name, include_prefix=False)
         time_values = pd.to_datetime(ds[time_dim].values)
         non_time_dims = [d for d in da.dims if d != time_dim]
 
@@ -416,7 +416,7 @@ class TimeSeriesPlotter(BasePlotter):
             da = s.dataset[s.var_name]
             non_time_dims = [d for d in da.dims if d != time_dim]
             mean = da.mean(dim=non_time_dims) if non_time_dims else da
-            label = s.dataset_label or get_variable_label(
+            label = s.source_label or get_variable_label(
                 s.dataset, s.var_name, include_prefix=False
             )
             ax.plot(

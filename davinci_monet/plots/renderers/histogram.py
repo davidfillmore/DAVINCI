@@ -68,7 +68,7 @@ class HistogramPlotter(BasePlotter):
             values = values[np.isfinite(values)]
             if values.size == 0:
                 continue
-            label = s.dataset_label or get_variable_label(
+            label = s.source_label or get_variable_label(
                 s.dataset, s.var_name, include_prefix=False
             )
             ax.hist(

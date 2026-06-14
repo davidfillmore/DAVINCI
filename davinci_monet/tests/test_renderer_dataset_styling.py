@@ -19,8 +19,8 @@ def _paired_with_aliases() -> xr.Dataset:
         },
         coords={"time": np.arange(n)},
     )
-    ds["cam_o3"].attrs.update({"axis": "y", "dataset_label": "cam"})
-    ds["airnow_o3"].attrs.update({"axis": "x", "dataset_label": "airnow"})
+    ds["cam_o3"].attrs.update({"axis": "y", "source_label": "cam"})
+    ds["airnow_o3"].attrs.update({"axis": "x", "source_label": "airnow"})
     return ds
 
 
@@ -97,8 +97,8 @@ def _ts_paired() -> xr.Dataset:
         },
         coords={"time": np.arange(n)},
     )
-    ds["cam_o3"].attrs.update({"axis": "y", "dataset_label": "cam"})
-    ds["airnow_o3"].attrs.update({"axis": "x", "dataset_label": "airnow"})
+    ds["cam_o3"].attrs.update({"axis": "y", "source_label": "cam"})
+    ds["airnow_o3"].attrs.update({"axis": "x", "source_label": "airnow"})
     return ds
 
 
@@ -142,7 +142,7 @@ class TestTimeseriesAxisStyling:
             coords={"time": np.arange(12)},
         )
         for name, label in (("wrf_o3", "wrf"), ("cam_o3", "cam")):
-            ds[name].attrs["dataset_label"] = label  # axis-less (no geometry/dataset)
+            ds[name].attrs["source_label"] = label  # axis-less (no geometry/dataset)
         fig = TimeSeriesPlotter().plot(ds, "wrf_o3", "cam_o3")
         colors = self._line_colors_by_label(fig)
         assert colors["wrf"] == NCAR_PALETTE[0]

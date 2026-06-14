@@ -31,7 +31,7 @@ def _multisite_series(n_t: int = 12, n_s: int = 6, dataset_label: str = "airnow"
         coords={"time": times, "site": np.arange(n_s)},
     )
     ds["o3"].attrs["axis"] = "x"
-    ds["o3"].attrs["dataset_label"] = dataset_label
+    ds["o3"].attrs["source_label"] = dataset_label
     return PlotSeries(ds, "o3", "o3", "x", dataset_label, 0)
 
 
@@ -86,12 +86,12 @@ class TestTimeseriesRenderPaired:
                 "airnow_o3": (
                     "time",
                     rng.uniform(10, 60, 10),
-                    {"axis": "x", "dataset_label": "airnow"},
+                    {"axis": "x", "source_label": "airnow"},
                 ),
                 "cam_o3": (
                     "time",
                     rng.uniform(10, 60, 10),
-                    {"axis": "y", "dataset_label": "cam"},
+                    {"axis": "y", "source_label": "cam"},
                 ),
             },
             coords={"time": t},

@@ -222,13 +222,13 @@ class ScatterPlotter(BasePlotter):
         if self.config.geometry_label:
             geometry_label_text = self.config.geometry_label
         elif x_var in paired_data:
-            dataset_label = paired_data[x_var].attrs.get("dataset_label")
+            dataset_label = paired_data[x_var].attrs.get("source_label")
             if dataset_label:
                 geometry_label_text = f"{_source_display_name(dataset_label)} {geometry_label_text}"
         if self.config.dataset_label:
             dataset_label_text = self.config.dataset_label
         elif y_var in paired_data:
-            dataset_label = paired_data[y_var].attrs.get("dataset_label")
+            dataset_label = paired_data[y_var].attrs.get("source_label")
             if dataset_label:
                 dataset_label_text = f"{_source_display_name(dataset_label)} {dataset_label_text}"
         geometry_label = format_label_with_units(

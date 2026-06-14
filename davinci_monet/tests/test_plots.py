@@ -936,8 +936,8 @@ class TestScatterPlotter:
         from davinci_monet.plots import ScatterPlotter
 
         data = simple_paired_data.copy()
-        data["geometry_o3"].attrs.update({"axis": "x", "dataset_label": "airnow"})
-        data["dataset_o3"].attrs.update({"axis": "y", "dataset_label": "cam"})
+        data["geometry_o3"].attrs.update({"axis": "x", "source_label": "airnow"})
+        data["dataset_o3"].attrs.update({"axis": "y", "source_label": "cam"})
 
         fig = ScatterPlotter().plot(data, "geometry_o3", "dataset_o3")
 

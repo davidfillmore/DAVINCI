@@ -37,7 +37,7 @@ def _paired(*specs: tuple[str, str, str]) -> xr.Dataset:
             attrs={
                 "axis": axis,
                 "canonical_name": canonical_name,
-                "dataset_label": label,
+                "source_label": label,
             },
         )
     return xr.Dataset(data, coords={"time": np.arange(3)})
@@ -56,7 +56,7 @@ class TestIterCanonicalVariableSeries:
         assert len(groups["o3"]) == 1
         s = groups["o3"][0]
         assert isinstance(s, PlotSeries)
-        assert (s.var_name, s.canonical, s.axis, s.dataset_label, s.index) == (
+        assert (s.var_name, s.canonical, s.axis, s.source_label, s.index) == (
             "airnow_o3",
             "o3",
             "x",
@@ -83,7 +83,7 @@ class TestIterCanonicalVariableSeries:
         )
         groups = iter_canonical_variable_series(ds)
         assert list(groups) == ["o3"]
-        assert [s.dataset_label for s in groups["o3"]] == ["airnow", "cam", "cam2"]
+        assert [s.source_label for s in groups["o3"]] == ["airnow", "cam", "cam2"]
         assert [s.index for s in groups["o3"]] == [0, 1, 2]
 
     def test_multiple_canonicals_kept_separate(self) -> None:

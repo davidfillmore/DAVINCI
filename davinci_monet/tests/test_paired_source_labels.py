@@ -112,9 +112,9 @@ class TestPairedSourceLabelPipeline:
 
         # Vars self-describe axis and source label.
         assert ds["cam_O3"].attrs["axis"] == "y"
-        assert ds["cam_O3"].attrs["dataset_label"] == "cam"
+        assert ds["cam_O3"].attrs["source_label"] == "cam"
         assert ds["airnow_O3"].attrs["axis"] == "x"
-        assert ds["airnow_O3"].attrs["dataset_label"] == "airnow"
+        assert ds["airnow_O3"].attrs["source_label"] == "airnow"
 
         # Statistics still computed for the canonical variable (pair-axis).
         stats_files = list((tmp_path / "output").rglob("*.csv"))
@@ -139,11 +139,9 @@ class TestPairedHelperRobustness:
             {"airnow_o3": ("time", np.ones(3)), "cam_o3": ("time", np.zeros(3))},
             coords={"time": np.arange(3)},
         )
-        ds["airnow_o3"].attrs.update({"axis": "x", "dataset_label": "airnow"})
-        ds["cam_o3"].attrs.update({"axis": "y", "dataset_label": "cam"})
-        pd = PairedData(
-            data=ds, dataset_label="cam", geometry_label="airnow", geometry=DataGeometry.POINT
-        )
+        ds["airnow_o3"].attrs.update({"axis": "x", "source_label": "airnow"})
+        ds["cam_o3"].attrs.update({"axis": "y", "source_label": "cam"})
+        pd = PairedData(data=ds, y_source="cam", x_source="airnow", geometry=DataGeometry.POINT)
         np.testing.assert_array_equal(pd.get_geometry("o3").values, np.ones(3))
         np.testing.assert_array_equal(pd.get_dataset("o3").values, np.zeros(3))
 
@@ -152,18 +150,18 @@ class TestPairedHelperRobustness:
             {"airnow_o3": ("time", np.ones(3)), "cam_o3": ("time", np.zeros(3))},
             coords={"time": np.arange(3)},
         )
-        ds["airnow_o3"].attrs.update({"axis": "x", "dataset_label": "airnow"})
-        ds["cam_o3"].attrs.update({"axis": "y", "dataset_label": "cam"})
+        ds["airnow_o3"].attrs.update({"axis": "x", "source_label": "airnow"})
+        ds["cam_o3"].attrs.update({"axis": "y", "source_label": "cam"})
         pd = PairedData(
             data=ds,
-            dataset_label="cam",
-            geometry_label="airnow",
+            y_source="cam",
+            x_source="airnow",
             geometry=DataGeometry.POINT,
-            pairing_info={"geometry_label": "airnow", "dataset_label": "cam"},
+            pairing_info={"geometry_label": "airnow", "source_label": "cam"},
         )
 
-        assert pd.geometry_label == "airnow"
-        assert pd.dataset_label == "cam"
+        assert pd.x_source == "airnow"
+        assert pd.y_source == "cam"
         assert pd.geometry_variables == ["airnow_o3"]
         assert pd.dataset_variables == ["cam_o3"]
         np.testing.assert_array_equal(pd.get_geometry("o3").values, np.ones(3))
@@ -177,8 +175,6 @@ class TestPairedHelperRobustness:
         )
         ds["dataset_o3"].attrs["axis"] = "y"
         ds["geometry_o3"].attrs["axis"] = "x"
-        pd = PairedData(
-            data=ds, dataset_label="cam", geometry_label="airnow", geometry=DataGeometry.POINT
-        )
+        pd = PairedData(data=ds, y_source="cam", x_source="airnow", geometry=DataGeometry.POINT)
         np.testing.assert_array_equal(pd.get_dataset("o3").values, np.zeros(3))
         np.testing.assert_array_equal(pd.get_geometry("o3").values, np.ones(3))

@@ -38,7 +38,7 @@ def paired_variable_axis(dataset: xr.Dataset, var_name: str) -> str | None:
 def paired_canonical_name(dataset: xr.Dataset, var_name: str) -> str:
     """Canonical name of a paired variable.
 
-    Strips the source-label prefix (from the variable's ``dataset_label`` attr,
+    Strips the source-label prefix (from the variable's ``source_label`` attr,
     e.g. ``cam_o3`` -> ``o3``) or the ``geometry_``/``dataset_`` prefix. Names
     with no recognized prefix are returned unchanged.
     """
@@ -46,9 +46,9 @@ def paired_canonical_name(dataset: xr.Dataset, var_name: str) -> str:
         canonical = dataset[var_name].attrs.get("canonical_name")
         if canonical:
             return str(canonical)
-        dataset_label = dataset[var_name].attrs.get("dataset_label")
-        if dataset_label and var_name.startswith(f"{dataset_label}_"):
-            return var_name[len(dataset_label) + 1 :]
+        source_label = dataset[var_name].attrs.get("source_label")
+        if source_label and var_name.startswith(f"{source_label}_"):
+            return var_name[len(source_label) + 1 :]
     lname = str(var_name).lower()
     for prefix in ("geometry_", "dataset_"):
         if lname.startswith(prefix):
@@ -93,7 +93,7 @@ class PlotSeries:
         The unprefixed canonical name (e.g. ``o3``).
     axis
         Pairing position (``"x"``/``"y"``) or ``None`` when unpaired.
-    dataset_label
+    source_label
         The source's identity in a unified pair (e.g. ``airnow``/``cam``) or ``None``.
     index
         Position within the canonical group (0-based).
@@ -103,7 +103,7 @@ class PlotSeries:
     var_name: str
     canonical: str
     axis: str | None
-    dataset_label: str | None
+    source_label: str | None
     index: int
 
 
@@ -114,7 +114,7 @@ def iter_canonical_variable_series(dataset: xr.Dataset) -> dict[str, list[PlotSe
     single ``(geometry, dataset)`` pair per canonical, this returns *every*
     source variable for each canonical as an ordered list (1 → single series,
     2 → geometry + dataset, N → multi-source overlay). Variables are included
-    when they carry a ``dataset_label`` or a ``axis``. Series preserve
+    when they carry a ``source_label`` or a ``axis``. Series preserve
     ``data_vars`` order; ``index`` is the 0-based position within the canonical
     group.
     """
@@ -122,8 +122,8 @@ def iter_canonical_variable_series(dataset: xr.Dataset) -> dict[str, list[PlotSe
     for v in dataset.data_vars:
         name = str(v)
         axis = paired_variable_axis(dataset, name)
-        dataset_label = dataset[name].attrs.get("dataset_label")
-        if dataset_label is None and axis is None:
+        source_label = dataset[name].attrs.get("source_label")
+        if source_label is None and axis is None:
             continue
         canonical = paired_canonical_name(dataset, name)
         group = groups.setdefault(canonical, [])
@@ -133,7 +133,7 @@ def iter_canonical_variable_series(dataset: xr.Dataset) -> dict[str, list[PlotSe
                 var_name=name,
                 canonical=canonical,
                 axis=axis,
-                dataset_label=str(dataset_label) if dataset_label else None,
+                source_label=str(source_label) if source_label else None,
                 index=len(group),
             )
         )
@@ -144,15 +144,15 @@ def iter_canonical_variable_series(dataset: xr.Dataset) -> dict[str, list[PlotSe
 class PairedData:
     """Container for paired source data.
 
-    Canonically, paired data has a geometry source and a dataset source.
+    Canonically, paired data has a geometry source (x) and a dataset source (y).
     Attributes
     ----------
     data : xr.Dataset
         The paired dataset with geometry and dataset variables.
-    dataset_label : str
-        Compatibility alias for the dataset source label.
-    geometry_label : str
-        Compatibility alias for the geometry source label.
+    y_source : str
+        Source label of the dataset (y-axis) source.
+    x_source : str
+        Source label of the geometry (x-axis) source.
     geometry : DataGeometry
         The geometry type of the geometry data.
     pairing_info : dict[str, Any]
@@ -160,8 +160,8 @@ class PairedData:
     """
 
     data: xr.Dataset
-    dataset_label: str
-    geometry_label: str
+    y_source: str
+    x_source: str
     geometry: DataGeometry
     pairing_info: dict[str, Any] = field(default_factory=dict)
 
@@ -170,19 +170,19 @@ class PairedData:
         cls,
         *,
         data: xr.Dataset,
-        geometry_label: str,
-        dataset_label: str,
+        x_source: str,
+        y_source: str,
         geometry: DataGeometry,
         pairing_info: dict[str, Any] | None = None,
     ) -> "PairedData":
-        """Construct paired data from geometry and dataset labels."""
+        """Construct paired data from geometry (x) and dataset (y) source labels."""
         info = dict(pairing_info or {})
-        info.setdefault("geometry_label", geometry_label)
-        info.setdefault("dataset_label", dataset_label)
+        info.setdefault("geometry_label", x_source)
+        info.setdefault("source_label", y_source)
         return cls(
             data=data,
-            dataset_label=dataset_label,
-            geometry_label=geometry_label,
+            y_source=y_source,
+            x_source=x_source,
             geometry=geometry,
             pairing_info=info,
         )
@@ -190,7 +190,7 @@ class PairedData:
     @property
     def pair_label(self) -> str:
         """Get combined pair label."""
-        return f"{self.geometry_label}_{self.dataset_label}"
+        return f"{self.x_source}_{self.y_source}"
 
     @property
     def geometry_variables(self) -> list[str]:
@@ -333,8 +333,8 @@ class PairedData:
 
         return PairedData(
             data=subset,
-            dataset_label=self.dataset_label,
-            geometry_label=self.geometry_label,
+            y_source=self.y_source,
+            x_source=self.x_source,
             geometry=self.geometry,
             pairing_info=self.pairing_info,
         )

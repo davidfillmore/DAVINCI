@@ -20,7 +20,7 @@ def _series(label: str, index: int = 0, axis: str = "x") -> PlotSeries:
         coords={"time": np.arange(20), "site": np.arange(4)},
     )
     ds["o3"].attrs["axis"] = axis
-    ds["o3"].attrs["dataset_label"] = label
+    ds["o3"].attrs["source_label"] = label
     return PlotSeries(ds, "o3", "o3", axis, label, index)
 
 

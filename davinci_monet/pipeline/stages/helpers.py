@@ -40,14 +40,14 @@ def _format_duration(seconds: float) -> str:
 def tag_source_label(
     data: Any,
     *,
-    dataset_label: str,
+    source_label: str,
 ) -> Any:
-    """Attach a dataset label to each variable of a single-source dataset."""
+    """Attach a source label to each variable of a single-source dataset."""
     if data is None or not hasattr(data, "data_vars"):
         return data
     for name in data.data_vars:
         var = data[name]
-        var.attrs.setdefault("dataset_label", dataset_label)
+        var.attrs.setdefault("source_label", source_label)
     return data
 
 

@@ -85,7 +85,7 @@ class PlottingStage(BaseStage):
             attrs = paired_data[name].attrs
             if attrs.get("axis") != axis:
                 continue
-            if attrs.get("dataset_label") != dataset_label:
+            if attrs.get("source_label") != dataset_label:
                 continue
             actual_source_var = str(attrs.get("dataset_variable") or "")
             if actual_source_var and actual_source_var.lower() == requested_lower:
@@ -191,7 +191,7 @@ class PlottingStage(BaseStage):
 
                 try:
                     # Tag the single source so build_series picks up its source label.
-                    tag_source_label(subset, dataset_label=dataset_label)
+                    tag_source_label(subset, source_label=dataset_label)
                     render_kwargs = dict(flight_kwargs)
                     plotter.config.subtitle = render_kwargs.pop("subtitle", None)
                     result = plotter.render(build_series(subset, variable), **render_kwargs)
@@ -273,11 +273,11 @@ class PlottingStage(BaseStage):
             fallback_geometry_name, fallback_dataset_name, fallback_var = pair_vars[0]
             if not geometry_label:
                 geometry_label = str(
-                    paired_data[fallback_geometry_name].attrs.get("dataset_label", "geometry")
+                    paired_data[fallback_geometry_name].attrs.get("source_label", "geometry")
                 )
             if not dataset_label:
                 dataset_label = str(
-                    paired_data[fallback_dataset_name].attrs.get("dataset_label", "dataset")
+                    paired_data[fallback_dataset_name].attrs.get("source_label", "dataset")
                 )
             source_vars = pair_spec.get("variables") or {}
             x_var = str(
@@ -318,9 +318,9 @@ class PlottingStage(BaseStage):
                 return None
             geometry_var_name, dataset_var_name, x_var = pair_vars[0]
             geometry_label = str(
-                paired_data[geometry_var_name].attrs.get("dataset_label", "geometry")
+                paired_data[geometry_var_name].attrs.get("source_label", "geometry")
             )
-            dataset_label = str(paired_data[dataset_var_name].attrs.get("dataset_label", "dataset"))
+            dataset_label = str(paired_data[dataset_var_name].attrs.get("source_label", "dataset"))
             var_spec = {"x_var": x_var, "y_var": x_var}
 
         return (

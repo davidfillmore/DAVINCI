@@ -34,7 +34,7 @@ def build_series(dataset: xr.Dataset, *var_args: Any) -> list[PlotSeries]:
     - ``build_series(ds, [v1, ..., vN])`` → N series
 
     A trailing positional ``matplotlib`` Axes (``plot(ds, var, ax)``) is
-    ignored for series building. ``axis``/``dataset_label``/``canonical``
+    ignored for series building. ``axis``/``source_label``/``canonical``
     are read from the dataset's attrs, with the ``geometry_``/``dataset_``
     prefix fallback.
     """
@@ -50,18 +50,18 @@ def build_series(dataset: xr.Dataset, *var_args: Any) -> list[PlotSeries]:
 
     series: list[PlotSeries] = []
     for i, name in enumerate(names):
-        # Prefer the per-variable dataset_label (paired/tagged data); fall back to
+        # Prefer the per-variable source_label (paired/tagged data); fall back to
         # the dataset-level label that single-source geometry datasets carry.
-        dataset_label = (
-            dataset[name].attrs.get("dataset_label") if name in dataset.data_vars else None
-        ) or dataset.attrs.get("dataset_label")
+        source_label = (
+            dataset[name].attrs.get("source_label") if name in dataset.data_vars else None
+        ) or dataset.attrs.get("source_label")
         series.append(
             PlotSeries(
                 dataset=dataset,
                 var_name=name,
                 canonical=canonical_variable_name(dataset, name),
                 axis=paired_variable_axis(dataset, name),
-                dataset_label=str(dataset_label) if dataset_label else None,
+                source_label=str(source_label) if source_label else None,
                 index=i,
             )
         )
@@ -124,7 +124,7 @@ def source_label(dataset: xr.Dataset, default: str | None = None) -> str | None:
     (set by the loading stage), not per-variable. Returns it so a source plot
     can self-identify its source, or ``default`` when absent.
     """
-    label = dataset.attrs.get("dataset_label")
+    label = dataset.attrs.get("source_label")
     return str(label) if label else default
 
 
@@ -135,7 +135,7 @@ def get_series_label(
 ) -> str:
     """Legend label for a paired series (renderer rewire R-3).
 
-    Prefers an explicit ``custom_label``, then the variable's ``dataset_label``
+    Prefers an explicit ``custom_label``, then the variable's ``source_label``
     attr (the source's identity in a unified pair, e.g. ``airnow`` / ``cam``),
     and finally falls back to the standard variable label. Use this for the
     *series* legend; axis labels that name the variable should keep using
@@ -144,9 +144,9 @@ def get_series_label(
     if custom_label:
         return custom_label
     if var_name in dataset:
-        dataset_label = dataset[var_name].attrs.get("dataset_label")
-        if dataset_label:
-            return str(dataset_label)
+        source_label = dataset[var_name].attrs.get("source_label")
+        if source_label:
+            return str(source_label)
     return get_variable_label(dataset, var_name)
 
 

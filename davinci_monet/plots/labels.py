@@ -203,8 +203,8 @@ def format_variable_display_name(var_name: str, include_prefix: bool = True) -> 
 def canonical_variable_name(dataset: xr.Dataset, var_name: str) -> str:
     """Strip a paired variable's prefix to its canonical (unprefixed) name.
 
-    Handles source-label naming (``<dataset_label>_<canonical>``, e.g.
-    ``cam_o3`` -> ``o3``, derived from the variable's ``dataset_label`` attr) and
+    Handles source-label naming (``<source_label>_<canonical>``, e.g.
+    ``cam_o3`` -> ``o3``, derived from the variable's ``source_label`` attr) and
     the ``geometry_``/``dataset_`` prefixes. Names with no recognized prefix are
     returned unchanged.
     """
@@ -212,9 +212,9 @@ def canonical_variable_name(dataset: xr.Dataset, var_name: str) -> str:
         canonical = dataset[var_name].attrs.get("canonical_name")
         if canonical:
             return str(canonical)
-        dataset_label = dataset[var_name].attrs.get("dataset_label")
-        if dataset_label and var_name.startswith(f"{dataset_label}_"):
-            return var_name[len(dataset_label) + 1 :]
+        source_label = dataset[var_name].attrs.get("source_label")
+        if source_label and var_name.startswith(f"{source_label}_"):
+            return var_name[len(source_label) + 1 :]
     for prefix in ("geometry_", "dataset_"):
         if var_name.startswith(prefix):
             return var_name[len(prefix) :]

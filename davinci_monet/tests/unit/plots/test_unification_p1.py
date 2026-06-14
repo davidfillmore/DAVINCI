@@ -20,7 +20,7 @@ def _series(axis, label, index):
         var_name="o3",
         canonical="o3",
         axis=axis,
-        dataset_label=label,
+        source_label=label,
         index=index,
     )
 
@@ -33,21 +33,21 @@ class TestTagDatasetLabels:
             {"O3": ("time", [1.0, 2.0, 3.0]), "NO2": ("time", [1.0, 2.0, 3.0])},
             coords={"time": np.arange(3)},
         )
-        ds.attrs["dataset_label"] = "airnow"
-        tag_source_label(ds, dataset_label="airnow")
-        assert ds["O3"].attrs["dataset_label"] == "airnow"
+        ds.attrs["source_label"] = "airnow"
+        tag_source_label(ds, source_label="airnow")
+        assert ds["O3"].attrs["source_label"] == "airnow"
         # The N-capable resolver now picks up the (previously invisible) single source.
         groups = iter_canonical_variable_series(ds)
         assert set(groups) == {"O3", "NO2"}
         assert groups["O3"][0].axis is None
-        assert groups["O3"][0].dataset_label == "airnow"
+        assert groups["O3"][0].source_label == "airnow"
 
     def test_does_not_overwrite_existing_axis(self) -> None:
         from davinci_monet.pipeline.stages import tag_source_label
 
         ds = xr.Dataset({"O3": ("time", [1.0])}, coords={"time": [0]})
         ds["O3"].attrs["axis"] = "y"
-        tag_source_label(ds, dataset_label="cam")
+        tag_source_label(ds, source_label="cam")
         assert ds["O3"].attrs["axis"] == "y"  # preserved
 
 

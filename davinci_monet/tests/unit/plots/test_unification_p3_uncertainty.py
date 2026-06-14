@@ -26,7 +26,7 @@ def _series(n_t: int = 10, n_s: int = 8) -> PlotSeries:
         coords={"time": times, "site": np.arange(n_s)},
     )
     ds["o3"].attrs["axis"] = "x"
-    ds["o3"].attrs["dataset_label"] = "airnow"
+    ds["o3"].attrs["source_label"] = "airnow"
     return PlotSeries(ds, "o3", "o3", "x", "airnow", 0)
 
 

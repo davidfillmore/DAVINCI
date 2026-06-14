@@ -205,8 +205,8 @@ class PairingEngine:
         """Pair two sources.
 
         ``dataset`` is sampled onto ``geometry``. The paired output uses
-        ``<dataset_label>_<dataset_variable>`` variable names with ``axis``,
-        ``dataset_label``, and ``dataset_variable`` attrs.
+        ``<source_label>_<dataset_variable>`` variable names with ``axis``,
+        ``source_label``, and ``dataset_variable`` attrs.
         """
         if config is None:
             config = PairingConfig()
@@ -242,12 +242,12 @@ class PairingEngine:
         )
         return PairedData.from_sources(
             data=result_ds,
-            geometry_label=geometry_label,
-            dataset_label=dataset_label,
+            x_source=geometry_label,
+            y_source=dataset_label,
             geometry=output_geometry,
             pairing_info={
                 "geometry_label": geometry_label,
-                "dataset_label": dataset_label,
+                "source_label": dataset_label,
                 "geometry": output_geometry.name,
                 "dataset_geometry": dataset_geometry.name,
                 "radius_of_influence": config.radius_of_influence,
@@ -304,7 +304,7 @@ class PairingEngine:
             geometry_da.attrs.update(
                 {
                     "axis": "x",
-                    "dataset_label": geometry_label,
+                    "source_label": geometry_label,
                     "dataset_variable": geometry_name,
                     "canonical_name": geometry_name,
                 }
@@ -312,7 +312,7 @@ class PairingEngine:
             dataset_da.attrs.update(
                 {
                     "axis": "y",
-                    "dataset_label": dataset_label,
+                    "source_label": dataset_label,
                     "dataset_variable": dataset_name,
                     "canonical_name": geometry_name,
                 }

@@ -23,16 +23,16 @@ def _source_dataset() -> xr.Dataset:
 class TestTagDatasetLabel:
     def test_tags_each_data_variable(self) -> None:
         ds = _source_dataset()
-        tag_source_label(ds, dataset_label="airnow")
-        assert ds["o3"].attrs["dataset_label"] == "airnow"
-        assert ds["pm25"].attrs["dataset_label"] == "airnow"
+        tag_source_label(ds, source_label="airnow")
+        assert ds["o3"].attrs["source_label"] == "airnow"
+        assert ds["pm25"].attrs["source_label"] == "airnow"
 
     def test_does_not_overwrite_existing_label(self) -> None:
         ds = _source_dataset()
-        ds["o3"].attrs["dataset_label"] = "existing"
-        tag_source_label(ds, dataset_label="airnow")
-        assert ds["o3"].attrs["dataset_label"] == "existing"
-        assert ds["pm25"].attrs["dataset_label"] == "airnow"
+        ds["o3"].attrs["source_label"] = "existing"
+        tag_source_label(ds, source_label="airnow")
+        assert ds["o3"].attrs["source_label"] == "existing"
+        assert ds["pm25"].attrs["source_label"] == "airnow"
 
     def test_none_is_safe(self) -> None:
-        tag_source_label(None, dataset_label="airnow")
+        tag_source_label(None, source_label="airnow")
