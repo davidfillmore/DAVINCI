@@ -1,12 +1,12 @@
 """Statistical metrics for paired source comparison.
 
 This module provides individual metric implementations for comparing a
-dataset source against a geometry source.
+``y`` (dataset/model) source against an ``x`` (geometry/reference) source.
 
 All metrics follow the convention:
-- geometry: geometry values
-- dataset: dataset values
-- Positive bias means dataset > geometry
+- x: reference values (geometry source)
+- y: comparison values (dataset source)
+- Positive bias means y > x
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ class BaseMetric(ABC):
     """Abstract base class for statistical metrics.
 
     All metrics must implement the compute method which takes
-    geometry and dataset arrays and returns a single value.
+    x (reference) and y (comparison) arrays and returns a single value.
     """
 
     # Override in subclasses
@@ -64,18 +64,18 @@ class BaseMetric(ABC):
     @abstractmethod
     def compute(
         self,
-        geometry: np.ndarray,
-        dataset: np.ndarray,
+        x: np.ndarray,
+        y: np.ndarray,
         **kwargs: Any,
     ) -> float:
         """Compute the metric.
 
         Parameters
         ----------
-        geometry
-            Geometry values (1D array).
-        dataset
-            Dataset values (1D array, same shape as geometry).
+        x
+            Reference values (1D array).
+        y
+            Comparison values (1D array, same shape as x).
         **kwargs
             Metric-specific options.
 
@@ -88,18 +88,18 @@ class BaseMetric(ABC):
 
     def __call__(
         self,
-        geometry: np.ndarray,
-        dataset: np.ndarray,
+        x: np.ndarray,
+        y: np.ndarray,
         **kwargs: Any,
     ) -> MetricResult:
         """Compute metric and return result object.
 
         Parameters
         ----------
-        geometry
-            Geometry values.
-        dataset
-            Dataset values.
+        x
+            Reference values.
+        y
+            Comparison values.
         **kwargs
             Additional options.
 
@@ -108,7 +108,7 @@ class BaseMetric(ABC):
         MetricResult
             Result container with value and metadata.
         """
-        value = self.compute(geometry, dataset, **kwargs)
+        value = self.compute(x, y, **kwargs)
         return MetricResult(
             name=self.name,
             long_name=self.long_name,
@@ -118,14 +118,14 @@ class BaseMetric(ABC):
 
 
 def _prepare_arrays(
-    geometry: np.ndarray,
-    dataset: np.ndarray,
+    x: np.ndarray,
+    y: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Prepare arrays for computation by removing NaN values.
 
     Parameters
     ----------
-    geometry, dataset
+    x, y
         Input arrays.
 
     Returns
@@ -133,12 +133,12 @@ def _prepare_arrays(
     tuple[np.ndarray, np.ndarray]
         Cleaned arrays with matching valid indices.
     """
-    geometry = np.asarray(geometry).flatten()
-    dataset = np.asarray(dataset).flatten()
+    x = np.asarray(x).flatten()
+    y = np.asarray(y).flatten()
 
     # Remove NaN from both arrays at matching indices
-    mask = np.isfinite(geometry) & np.isfinite(dataset)
-    return geometry[mask], dataset[mask]
+    mask = np.isfinite(x) & np.isfinite(y)
+    return x[mask], y[mask]
 
 
 # =============================================================================
@@ -154,9 +154,9 @@ class CountMetric(BaseMetric):
     long_name = "Sample Size"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        return float(len(geometry))
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        return float(len(x))
 
 
 @statistic_registry.register("MG")
@@ -167,11 +167,11 @@ class MeanGeometryMetric(BaseMetric):
     long_name = "Mean Geometry"
     units = None  # Inherits from data
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, _ = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, _ = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
-        return float(np.mean(geometry))
+        return float(np.mean(x))
 
 
 @statistic_registry.register("MD")
@@ -182,11 +182,11 @@ class MeanDatasetMetric(BaseMetric):
     long_name = "Mean Dataset"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        _, dataset = _prepare_arrays(geometry, dataset)
-        if len(dataset) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        _, y = _prepare_arrays(x, y)
+        if len(y) == 0:
             return np.nan
-        return float(np.mean(dataset))
+        return float(np.mean(y))
 
 
 @statistic_registry.register("STDG")
@@ -197,11 +197,11 @@ class StdGeometryMetric(BaseMetric):
     long_name = "Geometry Standard Deviation"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, _ = _prepare_arrays(geometry, dataset)
-        if len(geometry) < 2:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, _ = _prepare_arrays(x, y)
+        if len(x) < 2:
             return np.nan
-        return float(np.std(geometry, ddof=1))
+        return float(np.std(x, ddof=1))
 
 
 @statistic_registry.register("STDD")
@@ -212,11 +212,11 @@ class StdDatasetMetric(BaseMetric):
     long_name = "Dataset Standard Deviation"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        _, dataset = _prepare_arrays(geometry, dataset)
-        if len(dataset) < 2:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        _, y = _prepare_arrays(x, y)
+        if len(y) < 2:
             return np.nan
-        return float(np.std(dataset, ddof=1))
+        return float(np.std(y, ddof=1))
 
 
 @statistic_registry.register("MdnG")
@@ -227,11 +227,11 @@ class MedianGeometryMetric(BaseMetric):
     long_name = "Median Geometry"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, _ = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, _ = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
-        return float(np.median(geometry))
+        return float(np.median(x))
 
 
 @statistic_registry.register("MdnD")
@@ -242,11 +242,11 @@ class MedianDatasetMetric(BaseMetric):
     long_name = "Median Dataset"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        _, dataset = _prepare_arrays(geometry, dataset)
-        if len(dataset) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        _, y = _prepare_arrays(x, y)
+        if len(y) == 0:
             return np.nan
-        return float(np.median(dataset))
+        return float(np.median(y))
 
 
 # =============================================================================
@@ -267,11 +267,11 @@ class MeanBiasMetric(BaseMetric):
     long_name = "Mean Bias"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
-        return float(np.mean(dataset - geometry))
+        return float(np.mean(y - x))
 
 
 @statistic_registry.register("MdnB")
@@ -282,11 +282,11 @@ class MedianBiasMetric(BaseMetric):
     long_name = "Median Bias"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
-        return float(np.median(dataset - geometry))
+        return float(np.median(y - x))
 
 
 @statistic_registry.register("NMB")
@@ -300,14 +300,14 @@ class NormalizedMeanBiasMetric(BaseMetric):
     long_name = "Normalized Mean Bias"
     units = "%"
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
-        sum_geometry = np.sum(geometry)
+        sum_geometry = np.sum(x)
         if sum_geometry == 0:
             return np.nan
-        return float(100.0 * np.sum(dataset - geometry) / sum_geometry)
+        return float(100.0 * np.sum(y - x) / sum_geometry)
 
 
 @statistic_registry.register("NMdnB")
@@ -318,14 +318,14 @@ class NormalizedMedianBiasMetric(BaseMetric):
     long_name = "Normalized Median Bias"
     units = "%"
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
-        mdn_geometry = np.median(geometry)
+        mdn_geometry = np.median(x)
         if mdn_geometry == 0:
             return np.nan
-        return float(100.0 * np.median(dataset - geometry) / mdn_geometry)
+        return float(100.0 * np.median(y - x) / mdn_geometry)
 
 
 @statistic_registry.register("FB")
@@ -341,12 +341,12 @@ class FractionalBiasMetric(BaseMetric):
     long_name = "Fractional Bias"
     units = "%"
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
-        mean_geometry = np.mean(geometry)
-        mean_dataset = np.mean(dataset)
+        mean_geometry = np.mean(x)
+        mean_dataset = np.mean(y)
         denom = mean_geometry + mean_dataset
         if denom == 0:
             return np.nan
@@ -364,15 +364,15 @@ class MeanNormalizedBiasMetric(BaseMetric):
     long_name = "Mean Normalized Bias"
     units = "%"
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        # Exclude zero geometry values.
-        mask = geometry != 0
-        geometry = geometry[mask]
-        dataset = dataset[mask]
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        # Exclude zero x values.
+        mask = x != 0
+        x = x[mask]
+        y = y[mask]
+        if len(x) == 0:
             return np.nan
-        return float(100.0 * np.mean((dataset - geometry) / geometry))
+        return float(100.0 * np.mean((y - x) / x))
 
 
 # =============================================================================
@@ -391,11 +391,11 @@ class MeanErrorMetric(BaseMetric):
     long_name = "Mean Error"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
-        return float(np.mean(np.abs(dataset - geometry)))
+        return float(np.mean(np.abs(y - x)))
 
 
 @statistic_registry.register("MdnE")
@@ -406,11 +406,11 @@ class MedianErrorMetric(BaseMetric):
     long_name = "Median Error"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
-        return float(np.median(np.abs(dataset - geometry)))
+        return float(np.median(np.abs(y - x)))
 
 
 @statistic_registry.register("RMSE")
@@ -424,11 +424,11 @@ class RMSEMetric(BaseMetric):
     long_name = "Root Mean Square Error"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
-        return float(np.sqrt(np.mean((dataset - geometry) ** 2)))
+        return float(np.sqrt(np.mean((y - x) ** 2)))
 
 
 @statistic_registry.register("NME")
@@ -442,14 +442,14 @@ class NormalizedMeanErrorMetric(BaseMetric):
     long_name = "Normalized Mean Error"
     units = "%"
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
-        sum_geometry = np.sum(geometry)
+        sum_geometry = np.sum(x)
         if sum_geometry == 0:
             return np.nan
-        return float(100.0 * np.sum(np.abs(dataset - geometry)) / sum_geometry)
+        return float(100.0 * np.sum(np.abs(y - x)) / sum_geometry)
 
 
 @statistic_registry.register("FE")
@@ -465,16 +465,16 @@ class FractionalErrorMetric(BaseMetric):
     long_name = "Fractional Error"
     units = "%"
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
-        denom = dataset + geometry
+        denom = y + x
         # Exclude where denominator is zero
         mask = denom != 0
         if not np.any(mask):
             return np.nan
-        return float(200.0 * np.mean(np.abs(dataset[mask] - geometry[mask]) / denom[mask]))
+        return float(200.0 * np.mean(np.abs(y[mask] - x[mask]) / denom[mask]))
 
 
 @statistic_registry.register("MNE")
@@ -488,15 +488,15 @@ class MeanNormalizedErrorMetric(BaseMetric):
     long_name = "Mean Normalized Error"
     units = "%"
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
         # Exclude zero datasets
-        mask = geometry != 0
-        geometry = geometry[mask]
-        dataset = dataset[mask]
-        if len(geometry) == 0:
+        mask = x != 0
+        x = x[mask]
+        y = y[mask]
+        if len(x) == 0:
             return np.nan
-        return float(100.0 * np.mean(np.abs(dataset - geometry) / geometry))
+        return float(100.0 * np.mean(np.abs(y - x) / x))
 
 
 # =============================================================================
@@ -517,14 +517,14 @@ class CorrelationMetric(BaseMetric):
     long_name = "Correlation Coefficient"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) < 2:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) < 2:
             return np.nan
         # Check for zero variance
-        if np.std(geometry) == 0 or np.std(dataset) == 0:
+        if np.std(x) == 0 or np.std(y) == 0:
             return np.nan
-        return float(np.corrcoef(geometry, dataset)[0, 1])
+        return float(np.corrcoef(x, y)[0, 1])
 
 
 @statistic_registry.register("R2")
@@ -540,13 +540,13 @@ class R2Metric(BaseMetric):
     long_name = "Coefficient of Determination"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) < 2:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) < 2:
             return np.nan
-        if np.std(geometry) == 0 or np.std(dataset) == 0:
+        if np.std(x) == 0 or np.std(y) == 0:
             return np.nan
-        r = np.corrcoef(geometry, dataset)[0, 1]
+        r = np.corrcoef(x, y)[0, 1]
         return float(r**2)
 
 
@@ -563,16 +563,14 @@ class IndexOfAgreementMetric(BaseMetric):
     long_name = "Index of Agreement"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
 
-        mean_geometry = np.mean(geometry)
-        numerator = np.sum((dataset - geometry) ** 2)
-        denominator = np.sum(
-            (np.abs(dataset - mean_geometry) + np.abs(geometry - mean_geometry)) ** 2
-        )
+        mean_geometry = np.mean(x)
+        numerator = np.sum((y - x) ** 2)
+        denominator = np.sum((np.abs(y - mean_geometry) + np.abs(x - mean_geometry)) ** 2)
 
         if denominator == 0:
             return np.nan
@@ -592,14 +590,14 @@ class ModifiedIndexOfAgreementMetric(BaseMetric):
     long_name = "Modified Index of Agreement"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
 
-        mean_geometry = np.mean(geometry)
-        numerator = np.sum(np.abs(dataset - geometry))
-        denominator = np.sum(np.abs(dataset - mean_geometry) + np.abs(geometry - mean_geometry))
+        mean_geometry = np.mean(x)
+        numerator = np.sum(np.abs(y - x))
+        denominator = np.sum(np.abs(y - mean_geometry) + np.abs(x - mean_geometry))
 
         if denominator == 0:
             return np.nan
@@ -619,14 +617,14 @@ class ModifiedCoefficientOfEfficiencyMetric(BaseMetric):
     long_name = "Modified Coefficient of Efficiency"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) == 0:
             return np.nan
 
-        mean_geometry = np.mean(geometry)
-        numerator = np.sum(np.abs(dataset - geometry))
-        denominator = np.sum(np.abs(geometry - mean_geometry))
+        mean_geometry = np.mean(x)
+        numerator = np.sum(np.abs(y - x))
+        denominator = np.sum(np.abs(x - mean_geometry))
 
         if denominator == 0:
             return np.nan
@@ -647,13 +645,13 @@ class AnomalyCorrelationMetric(BaseMetric):
     long_name = "Anomaly Correlation"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        if len(geometry) < 2:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        if len(x) < 2:
             return np.nan
 
-        x_anom = geometry - np.mean(geometry)
-        y_anom = dataset - np.mean(dataset)
+        x_anom = x - np.mean(x)
+        y_anom = y - np.mean(y)
 
         numerator = np.sum(x_anom * y_anom)
         denominator = np.sqrt(np.sum(x_anom**2) * np.sum(y_anom**2))
@@ -676,15 +674,15 @@ class MeanRatioMetric(BaseMetric):
     long_name = "Mean Ratio"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        # Exclude zero dataset values
-        mask = dataset != 0
-        geometry = geometry[mask]
-        dataset = dataset[mask]
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        # Exclude zero y values
+        mask = y != 0
+        x = x[mask]
+        y = y[mask]
+        if len(x) == 0:
             return np.nan
-        return float(np.mean(geometry / dataset))
+        return float(np.mean(x / y))
 
 
 @statistic_registry.register("RMdn")
@@ -695,15 +693,15 @@ class MedianRatioMetric(BaseMetric):
     long_name = "Median Ratio"
     units = None
 
-    def compute(self, geometry: np.ndarray, dataset: np.ndarray, **kwargs: Any) -> float:
-        geometry, dataset = _prepare_arrays(geometry, dataset)
-        # Exclude zero dataset values
-        mask = dataset != 0
-        geometry = geometry[mask]
-        dataset = dataset[mask]
-        if len(geometry) == 0:
+    def compute(self, x: np.ndarray, y: np.ndarray, **kwargs: Any) -> float:
+        x, y = _prepare_arrays(x, y)
+        # Exclude zero y values
+        mask = y != 0
+        x = x[mask]
+        y = y[mask]
+        if len(x) == 0:
             return np.nan
-        return float(np.median(geometry / dataset))
+        return float(np.median(x / y))
 
 
 # =============================================================================
@@ -788,8 +786,8 @@ def list_metrics() -> list[str]:
 
 def compute_metric(
     name: str,
-    geometry: np.ndarray,
-    dataset: np.ndarray,
+    x: np.ndarray,
+    y: np.ndarray,
     **kwargs: Any,
 ) -> float:
     """Compute a single metric.
@@ -798,10 +796,10 @@ def compute_metric(
     ----------
     name
         Metric name.
-    geometry
-        Dataset values.
-    dataset
-        Dataset values.
+    x
+        Reference values.
+    y
+        Comparison values.
     **kwargs
         Additional options.
 
@@ -811,4 +809,4 @@ def compute_metric(
         Computed metric value.
     """
     metric = get_metric(name)
-    return metric.compute(geometry, dataset, **kwargs)
+    return metric.compute(x, y, **kwargs)

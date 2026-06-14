@@ -198,8 +198,8 @@ class PairingEngine:
         output_geometry: DataGeometry | None = None,
         y_geometry: DataGeometry | None = None,
         config: PairingConfig | None = None,
-        x_source: str = "geometry",
-        y_source: str = "dataset",
+        x_source: str = "x",
+        y_source: str = "y",
         **kwargs: Any,
     ) -> PairedData:
         """Pair two sources.

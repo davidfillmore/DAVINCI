@@ -230,28 +230,28 @@ class PairedData:
                 return name
         return None
 
-    def get_geometry(self, variable: str) -> xr.DataArray:
-        """Get a geometry variable."""
+    def get_x(self, variable: str) -> xr.DataArray:
+        """Get an x (geometry/reference) variable."""
         name = self._resolve_axis_var(variable, "x")
         if name is None:
             raise VariableNotFoundError(
-                f"Geometry variable '{variable}' not found. " f"Available: {self.x_variables}"
+                f"X variable '{variable}' not found. " f"Available: {self.x_variables}"
             )
         result: xr.DataArray = self.data[name]
         return result
 
-    def get_dataset(self, variable: str) -> xr.DataArray:
-        """Get a dataset variable."""
+    def get_y(self, variable: str) -> xr.DataArray:
+        """Get a y (dataset/comparison) variable."""
         name = self._resolve_axis_var(variable, "y")
         if name is None:
             raise VariableNotFoundError(
-                f"Dataset variable '{variable}' not found. " f"Available: {self.y_variables}"
+                f"Y variable '{variable}' not found. " f"Available: {self.y_variables}"
             )
         result: xr.DataArray = self.data[name]
         return result
 
     def get_pair(self, variable: str) -> tuple[xr.DataArray, xr.DataArray]:
-        """Get both geometry and dataset arrays for a variable.
+        """Get both x and y arrays for a variable.
 
         Parameters
         ----------
@@ -261,11 +261,11 @@ class PairedData:
         Returns
         -------
         tuple[xr.DataArray, xr.DataArray]
-            ``(geometry_array, dataset_array)``.
+            ``(x_array, y_array)``.
         """
-        geometry = self.get_geometry(variable)
-        dataset = self.get_dataset(variable)
-        return (geometry, dataset)
+        x = self.get_x(variable)
+        y = self.get_y(variable)
+        return (x, y)
 
     @property
     def time_range(self) -> TimeRange | None:

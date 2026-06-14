@@ -1058,8 +1058,8 @@ class TestPairingWorkflow:
         )
 
         assert paired is not None
-        assert "geometry_temperature" in paired.data.data_vars
-        assert "dataset_temperature" in paired.data.data_vars
+        assert "x_temperature" in paired.data.data_vars
+        assert "y_temperature" in paired.data.data_vars
 
     def test_engine_pair_track(self, dataset_3d: xr.Dataset, track_geometry: xr.Dataset) -> None:
         """Test full pairing workflow through engine for track data."""
@@ -1075,8 +1075,8 @@ class TestPairingWorkflow:
         )
 
         assert paired is not None
-        assert "geometry_ozone" in paired.data.data_vars
-        assert "dataset_ozone" in paired.data.data_vars
+        assert "x_ozone" in paired.data.data_vars
+        assert "y_ozone" in paired.data.data_vars
 
     def test_engine_pair_grid(self, dataset_2d: xr.Dataset, gridded_geometry: xr.Dataset) -> None:
         """Test full pairing workflow through engine for gridded data."""
@@ -1092,8 +1092,8 @@ class TestPairingWorkflow:
         )
 
         assert paired is not None
-        assert "geometry_temperature" in paired.data.data_vars
-        assert "dataset_temperature" in paired.data.data_vars
+        assert "x_temperature" in paired.data.data_vars
+        assert "y_temperature" in paired.data.data_vars
 
 
 # =============================================================================

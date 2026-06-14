@@ -87,10 +87,10 @@ class ScorecardPlotter(BasePlotter):
         y_var = y_series.var_name
 
         # Calculate basic statistics (via central metric registry)
-        geometry = paired_data[x_var].values.flatten()
-        dataset = paired_data[y_var].values.flatten()
+        x = paired_data[x_var].values.flatten()
+        y = paired_data[y_var].values.flatten()
 
-        registry_stats = annotation_metrics(geometry, dataset, ["N", "MG", "MD", "MB", "RMSE", "R"])
+        registry_stats = annotation_metrics(x, y, ["N", "MG", "MD", "MB", "RMSE", "R"])
         stats = {
             "N": int(registry_stats["N"]),
             "Mean Geometry": registry_stats["MG"],

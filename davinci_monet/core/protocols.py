@@ -334,18 +334,18 @@ class StatisticMetric(Protocol):
     @abstractmethod
     def compute(
         self,
-        geometry: xr.DataArray,
-        dataset: xr.DataArray,
+        x: xr.DataArray,
+        y: xr.DataArray,
         **kwargs: Any,
     ) -> float:
         """Compute the statistic.
 
         Parameters
         ----------
-        geometry
-            Geometry values.
-        dataset
-            Dataset values (aligned with geometry).
+        x
+            Reference values.
+        y
+            Comparison values (aligned with x).
         **kwargs
             Metric-specific options.
 

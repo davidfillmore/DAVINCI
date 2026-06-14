@@ -315,8 +315,8 @@ class PlottingStage(BaseStage):
             if not pair_vars:
                 return None
             x_var_name, y_var_name, x_var = pair_vars[0]
-            x_source = str(paired_data[x_var_name].attrs.get("source_label", "geometry"))
-            y_source = str(paired_data[y_var_name].attrs.get("source_label", "dataset"))
+            x_source = str(paired_data[x_var_name].attrs.get("source_label", "x"))
+            y_source = str(paired_data[y_var_name].attrs.get("source_label", "y"))
             var_spec = {"x_var": x_var, "y_var": x_var}
 
         return (

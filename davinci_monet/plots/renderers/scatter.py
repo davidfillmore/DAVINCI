@@ -438,8 +438,8 @@ class ScatterPlotter(BasePlotter):
     def _add_regression_line(
         self,
         ax: matplotlib.axes.Axes,
-        geometry: np.ndarray,
-        dataset: np.ndarray,
+        x: np.ndarray,
+        y: np.ndarray,
         vmin: float,
         vmax: float,
     ) -> None:
@@ -449,13 +449,13 @@ class ScatterPlotter(BasePlotter):
         ----------
         ax
             Axes to add line to.
-        geometry, dataset
+        x, y
             Data arrays.
         vmin, vmax
             Axis limits.
         """
         # Linear regression
-        coeffs = np.polyfit(geometry, dataset, 1)
+        coeffs = np.polyfit(x, y, 1)
         slope, intercept = coeffs
 
         # Plot line
@@ -474,8 +474,8 @@ class ScatterPlotter(BasePlotter):
     def _add_stats_annotation(
         self,
         ax: matplotlib.axes.Axes,
-        geometry: np.ndarray,
-        dataset: np.ndarray,
+        x: np.ndarray,
+        y: np.ndarray,
     ) -> None:
         """Add statistics annotation to plot.
 
@@ -483,11 +483,11 @@ class ScatterPlotter(BasePlotter):
         ----------
         ax
             Axes to annotate.
-        geometry, dataset
+        x, y
             Data arrays.
         """
         # Calculate statistics (via central metric registry)
-        stats = annotation_metrics(geometry, dataset, ["N", "MB", "RMSE", "R", "NME"])
+        stats = annotation_metrics(x, y, ["N", "MB", "RMSE", "R", "NME"])
         n = int(stats["N"])
         mb = stats["MB"]
         rmse = stats["RMSE"]

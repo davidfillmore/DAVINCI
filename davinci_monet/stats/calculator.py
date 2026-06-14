@@ -1,7 +1,7 @@
 """Statistics calculator for paired source data.
 
 This module provides the main interface for computing statistics
-on paired geometry/dataset datasets, with support for grouping and multiple
+on paired x/y datasets, with support for grouping and multiple
 metrics.
 """
 
@@ -78,14 +78,14 @@ class StatisticsCalculator:
     Examples
     --------
     >>> calc = StatisticsCalculator()
-    >>> stats = calc.compute(paired_data, "geometry_o3", "dataset_o3")
+    >>> stats = calc.compute(paired_data, "x_o3", "y_o3")
     >>> print(stats)
            N     MG     MD      MB    RMSE      R
     0  1000  45.2  47.1    1.9    5.3  0.85
 
     >>> # Group by site
     >>> stats = calc.compute(
-    ...     paired_data, "geometry_o3", "dataset_o3",
+    ...     paired_data, "x_o3", "y_o3",
     ...     groupby="site"
     ... )
     """
@@ -160,10 +160,10 @@ class StatisticsCalculator:
         pd.DataFrame
             Single-row DataFrame with statistics.
         """
-        geometry = x_data.values.flatten()
-        dataset = y_data.values.flatten()
+        x = x_data.values.flatten()
+        y = y_data.values.flatten()
 
-        results = self._compute_metrics(geometry, dataset, metrics, **kwargs)
+        results = self._compute_metrics(x, y, metrics, **kwargs)
         df = pd.DataFrame([results])
 
         if self.config.round_precision is not None:
@@ -272,11 +272,11 @@ class StatisticsCalculator:
 
         results = []
         for (x_key, x_group), (_, y_group) in zip(x_grouped, y_grouped):
-            geometry = x_group.values.flatten()
-            dataset = y_group.values.flatten()
+            x = x_group.values.flatten()
+            y = y_group.values.flatten()
 
             row = {name: x_key}
-            row.update(self._compute_metrics(geometry, dataset, metrics, **kwargs))
+            row.update(self._compute_metrics(x, y, metrics, **kwargs))
             results.append(row)
 
         df = pd.DataFrame(results)
@@ -318,11 +318,11 @@ class StatisticsCalculator:
 
         # This is a simplified implementation - for now, convert to pandas
         # and use pandas groupby
-        x_df = x_data.to_dataframe(name="geometry").reset_index()
-        y_df = y_data.to_dataframe(name="dataset").reset_index()
+        x_df = x_data.to_dataframe(name="x").reset_index()
+        y_df = y_data.to_dataframe(name="y").reset_index()
 
         # Merge on common indices
-        common_cols = list(set(x_df.columns) & set(y_df.columns) - {"geometry", "dataset"})
+        common_cols = list(set(x_df.columns) & set(y_df.columns) - {"x", "y"})
         df = pd.merge(x_df, y_df, on=common_cols)
 
         # Add groupby columns
@@ -362,11 +362,11 @@ class StatisticsCalculator:
             if not isinstance(group_keys, tuple):
                 group_keys = (group_keys,)
 
-            geometry = group_df["geometry"].values
-            dataset = group_df["dataset"].values
+            x = group_df["x"].values
+            y = group_df["y"].values
 
             row = dict(zip(group_cols, group_keys))
-            row.update(self._compute_metrics(geometry, dataset, metrics, **kwargs))
+            row.update(self._compute_metrics(x, y, metrics, **kwargs))
             results.append(row)
 
         result_df = pd.DataFrame(results)
@@ -378,8 +378,8 @@ class StatisticsCalculator:
 
     def _compute_metrics(
         self,
-        geometry: np.ndarray,
-        dataset: np.ndarray,
+        x: np.ndarray,
+        y: np.ndarray,
         metrics: list[str],
         **kwargs: Any,
     ) -> dict[str, float]:
@@ -387,7 +387,7 @@ class StatisticsCalculator:
 
         Parameters
         ----------
-        geometry, dataset
+        x, y
             Arrays of x and y values.
         metrics
             List of metric names.
@@ -401,14 +401,14 @@ class StatisticsCalculator:
         """
         # Remove NaN if configured
         if self.config.remove_nan:
-            mask = np.isfinite(geometry) & np.isfinite(dataset)
-            geometry = geometry[mask]
-            dataset = dataset[mask]
+            mask = np.isfinite(x) & np.isfinite(y)
+            x = x[mask]
+            y = y[mask]
 
         results = {}
 
         # Check minimum samples
-        if len(geometry) < self.config.min_samples:
+        if len(x) < self.config.min_samples:
             for metric_name in metrics:
                 results[metric_name] = np.nan
             return results
@@ -417,7 +417,7 @@ class StatisticsCalculator:
         for metric_name in metrics:
             try:
                 metric = get_metric(metric_name)
-                results[metric_name] = metric.compute(geometry, dataset, **kwargs)
+                results[metric_name] = metric.compute(x, y, **kwargs)
             except Exception as exc:
                 logger.warning(
                     "Metric '%s' raised an exception and will be set to NaN: %s",
@@ -509,13 +509,13 @@ def calculate_statistics(
     Examples
     --------
     >>> stats = calculate_statistics(
-    ...     paired_data, "geometry_o3", "dataset_o3",
+    ...     paired_data, "x_o3", "y_o3",
     ...     metrics=["MB", "RMSE", "R"],
     ... )
 
     >>> # Group by site and month
     >>> stats = calculate_statistics(
-    ...     paired_data, "geometry_o3", "dataset_o3",
+    ...     paired_data, "x_o3", "y_o3",
     ...     groupby=["site", "time.month"],
     ... )
     """
@@ -534,18 +534,18 @@ def calculate_statistics(
 
 
 def quick_stats(
-    geometry: np.ndarray,
-    dataset: np.ndarray,
+    x: np.ndarray,
+    y: np.ndarray,
     metrics: Sequence[str] | None = None,
 ) -> dict[str, float]:
     """Quick statistics calculation from arrays.
 
     Parameters
     ----------
-    geometry
-        Dataset array.
-    dataset
-        Dataset array.
+    x
+        Reference array.
+    y
+        Comparison array.
     metrics
         List of metric names. If None, uses standard set.
 
@@ -556,24 +556,24 @@ def quick_stats(
 
     Examples
     --------
-    >>> stats = quick_stats(geometry_array, dataset_array)
+    >>> stats = quick_stats(x_array, y_array)
     >>> print(f"RMSE: {stats['RMSE']:.2f}")
     """
     metrics = list(metrics) if metrics is not None else STANDARD_METRICS
 
-    geometry = np.asarray(geometry).flatten()
-    dataset = np.asarray(dataset).flatten()
+    x = np.asarray(x).flatten()
+    y = np.asarray(y).flatten()
 
     # Remove NaN
-    mask = np.isfinite(geometry) & np.isfinite(dataset)
-    geometry = geometry[mask]
-    dataset = dataset[mask]
+    mask = np.isfinite(x) & np.isfinite(y)
+    x = x[mask]
+    y = y[mask]
 
     results = {}
     for metric_name in metrics:
         try:
             metric = get_metric(metric_name)
-            results[metric_name] = metric.compute(geometry, dataset)
+            results[metric_name] = metric.compute(x, y)
         except Exception as exc:
             logger.warning(
                 "Metric '%s' raised an exception and will be set to NaN: %s",

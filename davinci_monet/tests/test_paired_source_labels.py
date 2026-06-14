@@ -141,8 +141,8 @@ class TestPairedHelperRobustness:
         ds["airnow_o3"].attrs.update({"axis": "x", "source_label": "airnow"})
         ds["cam_o3"].attrs.update({"axis": "y", "source_label": "cam"})
         pd = PairedData(data=ds, y_source="cam", x_source="airnow", geometry=DataGeometry.POINT)
-        np.testing.assert_array_equal(pd.get_geometry("o3").values, np.ones(3))
-        np.testing.assert_array_equal(pd.get_dataset("o3").values, np.zeros(3))
+        np.testing.assert_array_equal(pd.get_x("o3").values, np.ones(3))
+        np.testing.assert_array_equal(pd.get_y("o3").values, np.zeros(3))
 
     def test_geometry_dataset_accessors_are_canonical(self) -> None:
         ds = xr.Dataset(
@@ -163,11 +163,11 @@ class TestPairedHelperRobustness:
         assert pd.y_source == "cam"
         assert pd.x_variables == ["airnow_o3"]
         assert pd.y_variables == ["cam_o3"]
-        np.testing.assert_array_equal(pd.get_geometry("o3").values, np.ones(3))
-        np.testing.assert_array_equal(pd.get_dataset("o3").values, np.zeros(3))
+        np.testing.assert_array_equal(pd.get_x("o3").values, np.ones(3))
+        np.testing.assert_array_equal(pd.get_y("o3").values, np.zeros(3))
 
     def test_prefix_fallback_respects_axis(self) -> None:
-        # get_dataset must not return a prefixed var whose axis attr is 'x'.
+        # get_y must not return a prefixed var whose axis attr is 'x'.
         ds = xr.Dataset(
             {"dataset_o3": ("time", np.zeros(3)), "geometry_o3": ("time", np.ones(3))},
             coords={"time": np.arange(3)},
@@ -175,5 +175,5 @@ class TestPairedHelperRobustness:
         ds["dataset_o3"].attrs["axis"] = "y"
         ds["geometry_o3"].attrs["axis"] = "x"
         pd = PairedData(data=ds, y_source="cam", x_source="airnow", geometry=DataGeometry.POINT)
-        np.testing.assert_array_equal(pd.get_dataset("o3").values, np.zeros(3))
-        np.testing.assert_array_equal(pd.get_geometry("o3").values, np.ones(3))
+        np.testing.assert_array_equal(pd.get_y("o3").values, np.zeros(3))
+        np.testing.assert_array_equal(pd.get_x("o3").values, np.ones(3))

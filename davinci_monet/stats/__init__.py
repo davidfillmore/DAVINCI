@@ -8,10 +8,10 @@ Quick Start
 >>> from davinci_monet.stats import calculate_statistics, quick_stats
 >>>
 >>> # Calculate statistics from paired data
->>> stats = calculate_statistics(paired_data, "geometry_o3", "dataset_o3")
+>>> stats = calculate_statistics(paired_data, "x_o3", "y_o3")
 >>>
 >>> # Quick stats from arrays
->>> stats = quick_stats(geometry_array, dataset_array)
+>>> stats = quick_stats(x_array, y_array)
 >>> print(f"RMSE: {stats['RMSE']:.2f}")
 
 Available Metrics
