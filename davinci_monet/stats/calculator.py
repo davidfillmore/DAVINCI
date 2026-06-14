@@ -107,15 +107,15 @@ class StatisticsCalculator:
         Parameters
         ----------
         paired_data
-            Paired dataset with geometry and dataset variables.
+            Paired dataset with x and y variables.
         metrics
             List of metric names. If None, uses config.metrics.
         groupby
             Optional dimension(s) to group by.
         x_var
-            Name of geometry variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         **kwargs
             Additional options passed to individual metrics.
 
@@ -388,7 +388,7 @@ class StatisticsCalculator:
         Parameters
         ----------
         geometry, dataset
-            Arrays of dataset and dataset values.
+            Arrays of x and y values.
         metrics
             List of metric names.
         **kwargs
@@ -445,9 +445,9 @@ class StatisticsCalculator:
         metrics
             List of metric names.
         x_var
-            Geometry variable name.
+            Name of the x variable.
         y_var
-            Dataset variable name.
+            Name of the y variable.
         **kwargs
             Additional options.
 
@@ -487,7 +487,7 @@ def calculate_statistics(
     Parameters
     ----------
     paired_data
-        Paired dataset with geometry and dataset variables.
+        Paired dataset with x and y variables.
     metrics
         List of metric names. If None, uses standard set.
     groupby
@@ -495,9 +495,9 @@ def calculate_statistics(
     config
         Statistics configuration.
     x_var
-        Name of geometry variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     **kwargs
         Additional options.
 

@@ -103,7 +103,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
+            Exactly 2 series: one x series and one y series.
         ax
             Ignored (creates own figure).
         **kwargs
@@ -204,11 +204,11 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         ax
             Ignored (creates own figure).
         site
@@ -271,11 +271,11 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         time_dim
             Name of time dimension.
         site_dim
@@ -369,9 +369,9 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
         site
             Site identifier value.
         x_var
-            Dataset variable name.
+            Name of the x variable.
         y_var
-            Dataset variable name.
+            Name of the y variable.
         time_dim
             Time dimension name.
         site_dim
@@ -564,11 +564,11 @@ def plot_per_site_timeseries(
     Parameters
     ----------
     paired_data
-        Paired dataset with dataset and dataset variables.
+        Paired dataset with x and y variables.
     x_var
-        Name of dataset variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     title
         Plot title.
     site

@@ -65,7 +65,7 @@ class ScorecardPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
+            Exactly 2 series: one x series and one y series.
         ax
             Optional axes to plot on. If None, creates new figure.
         **kwargs
@@ -124,11 +124,11 @@ class ScorecardPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with geometry and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Compatibility name for geometry variable.
+            Compatibility name for the x variable.
         y_var
-            Compatibility name for dataset variable.
+            Compatibility name for the y variable.
         ax
             Optional axes to plot on.
         **kwargs
@@ -427,11 +427,11 @@ def plot_scorecard(
     Parameters
     ----------
     paired_data
-        Paired dataset with dataset and dataset variables.
+        Paired dataset with x and y variables.
     x_var
-        Name of dataset variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     config
         Plot configuration.
     **kwargs

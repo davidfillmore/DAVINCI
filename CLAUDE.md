@@ -341,8 +341,8 @@ consumers select series by axis/source rather than by a name prefix. This is the
 going-forward naming after the renderer rewire clean break (R-5).
 
 Pipeline and `PairingEngine.pair_sources()` output is source-label named. Direct
-strategy implementations may still use adapter-local variable names internally,
-but those are not the public paired dataset convention.
+strategy implementations may still use adapter-local `x_`/`y_` prefixed variable
+names internally, but those are not the public paired dataset convention.
 
 Either way it is **prefix** format, NOT suffix (`pm25_cam`, `pm25_source`).
 

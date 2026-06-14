@@ -75,7 +75,7 @@ class ProfileStrategy(BasePairingStrategy):
         Returns
         -------
         xr.Dataset
-            Paired dataset with dataset and geometry profiles.
+            Paired dataset with x and y profiles.
         """
         dataset = y_data
         geometry = x_data
@@ -212,7 +212,7 @@ class ProfileStrategy(BasePairingStrategy):
 
         # Add dataset variables with prefix
         for var in y_column.data_vars:
-            y_var_name = f"dataset_{var}"
+            y_var_name = f"y_{var}"
             data_vars[y_var_name] = y_column[var]
 
         return xr.Dataset(data_vars, coords=coords)

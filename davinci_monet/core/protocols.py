@@ -218,11 +218,11 @@ class Plotter(Protocol):
         Parameters
         ----------
         paired_data
-            Paired Dataset containing dataset and dataset variables.
+            Paired Dataset containing x and y variables.
         x_var
-            Name of the dataset variable to plot.
+            Name of the x variable to plot.
         y_var
-            Name of the dataset variable to plot.
+            Name of the y variable to plot.
         **kwargs
             Plot-specific options (colors, labels, domains, etc.).
 
@@ -289,9 +289,9 @@ class SpatialPlotter(Protocol):
         paired_data
             Paired Dataset.
         x_var
-            Compatibility name for geometry variable.
+            Compatibility name for the x variable.
         y_var
-            Compatibility name for dataset variable.
+            Compatibility name for the y variable.
         domain
             Geographic extent (lon_min, lon_max, lat_min, lat_max).
         projection
@@ -378,9 +378,9 @@ class StatisticsCalculator(Protocol):
         paired_data
             Paired Dataset.
         x_var
-            Geometry variable name.
+            Name of the x variable.
         y_var
-            Dataset variable name.
+            Name of the y variable.
         metrics
             List of metric names to compute. If None, compute all.
         groupby

@@ -87,7 +87,7 @@ class PointStrategy(BasePairingStrategy):
         Returns
         -------
         xr.Dataset
-            Paired dataset with dataset values at dataset locations.
+            Paired dataset with y values at x locations.
         """
         dataset = y_data
         geometry = x_data
@@ -343,7 +343,7 @@ class PointStrategy(BasePairingStrategy):
                 )
             var_name = str(var)
             if var_name in x_var_names:
-                var_name = f"dataset_{var_name}"
+                var_name = f"y_{var_name}"
             data_vars[var_name] = y_da
 
         return xr.Dataset(data_vars, coords=dict(geometry.coords))

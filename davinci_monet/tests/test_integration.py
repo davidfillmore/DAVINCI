@@ -422,25 +422,25 @@ class TestGeometryOnlyPipeline:
             "plots": {
                 "geometry_ts_o3": {
                     "type": "timeseries",
-                    "geometry": "dc8",
+                    "source": "dc8",
                     "variable": "O3",
                     "title": "O3 Time Series",
                 },
                 "geometry_hist_o3": {
                     "type": "histogram",
-                    "geometry": "dc8",
+                    "source": "dc8",
                     "variable": "O3",
                     "title": "O3 Distribution",
                 },
                 "geometry_profile_o3": {
                     "type": "vertical_profile",
-                    "geometry": "dc8",
+                    "source": "dc8",
                     "variable": "O3",
                     "title": "O3 Vertical Profile",
                 },
                 "geometry_track_o3": {
                     "type": "flight_track",
-                    "geometry": "dc8",
+                    "source": "dc8",
                     "variable": "O3",
                     "title": "O3 Flight Track",
                 },

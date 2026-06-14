@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 class TimeSeriesPlotter(BasePlotter):
     """Plotter for time series comparisons.
 
-    Creates line plots showing dataset and dataset values over time.
+    Creates line plots showing x and y values over time.
     Supports temporal resampling and uncertainty bands.
 
     Parameters
@@ -82,11 +82,11 @@ class TimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         ax
             Optional axes to plot on. If None, creates new figure.
         resample
@@ -813,11 +813,11 @@ def plot_timeseries(
     Parameters
     ----------
     paired_data
-        Paired dataset with dataset and dataset variables.
+        Paired dataset with x and y variables.
     x_var
-        Name of dataset variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     config
         Plot configuration.
     **kwargs

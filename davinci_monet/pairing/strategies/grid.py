@@ -234,7 +234,7 @@ class GridStrategy(BasePairingStrategy):
         geometry: xr.Dataset,
         time_tolerance: TimeDelta | None,
     ) -> tuple[xr.Dataset, xr.Dataset]:
-        """Align dataset and dataset time dimensions.
+        """Align x and y time dimensions.
 
         Parameters
         ----------
@@ -302,7 +302,7 @@ class GridStrategy(BasePairingStrategy):
 
         # Add dataset variables with prefix
         for var in dataset.data_vars:
-            y_var_name = f"dataset_{var}"
+            y_var_name = f"y_{var}"
             data_vars[y_var_name] = dataset[var]
 
         return xr.Dataset(data_vars, coords=coords)

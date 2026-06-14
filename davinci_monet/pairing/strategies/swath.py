@@ -99,7 +99,7 @@ class SwathStrategy(BasePairingStrategy):
         Returns
         -------
         xr.Dataset
-            Paired dataset with dataset values at swath pixels.
+            Paired dataset with y values at swath pixels.
         """
         dataset = y_data
         geometry = x_data
@@ -350,7 +350,7 @@ class SwathStrategy(BasePairingStrategy):
 
         # Add dataset variables with prefix
         for var in y_at_pixels.data_vars:
-            y_var_name = f"dataset_{var}"
+            y_var_name = f"y_{var}"
             data_vars[y_var_name] = y_at_pixels[var]
 
         return xr.Dataset(data_vars, coords=coords)

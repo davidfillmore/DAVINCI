@@ -43,9 +43,9 @@ def annotation_metrics(
     Parameters
     ----------
     geometry
-        Geometry (dataset) values.
+        The x series values.
     dataset
-        Dataset (dataset) values. Must broadcast to the same flattened length
+        The y series values. Must broadcast to the same flattened length
         as ``geometry``.
     metrics
         Registry metric names to compute (e.g. ``["N", "MB", "RMSE", "R"]``).

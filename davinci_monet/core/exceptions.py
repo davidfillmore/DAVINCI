@@ -338,7 +338,7 @@ class GeometryMismatchError(PairingError):
 
 
 class NoOverlapError(PairingError):
-    """Raised when dataset and dataset data have no spatial/temporal overlap.
+    """Raised when x and y data have no spatial/temporal overlap.
 
     Parameters
     ----------

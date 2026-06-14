@@ -451,9 +451,9 @@ class TestPointStrategy:
 
         # Should have both geometry and dataset variables (dataset vars are prefixed on collision)
         assert "temperature" in paired.data_vars  # Geometry var
-        assert "dataset_temperature" in paired.data_vars
+        assert "y_temperature" in paired.data_vars
         assert "humidity" in paired.data_vars  # Geometry var
-        assert "dataset_humidity" in paired.data_vars
+        assert "y_humidity" in paired.data_vars
 
         # Should have site dimension
         assert "site" in paired.dims
@@ -518,7 +518,7 @@ class TestPointStrategy:
             time_method="linear",
         )
 
-        m = paired["dataset_pm25"].values.squeeze()  # shape (13,)
+        m = paired["y_pm25"].values.squeeze()  # shape (13,)
         # Endpoints exact
         assert abs(m[0] - 10.0) < 1e-6
         assert abs(m[12] - 20.0) < 1e-6
@@ -560,7 +560,7 @@ class TestPointStrategy:
             y_data=dataset,
             radius_of_influence=200000.0,
         )
-        m = paired["dataset_pm25"].values.squeeze()
+        m = paired["y_pm25"].values.squeeze()
 
         # First 6 hours nearest to dataset[0]=10, last 7 nearest to dataset[1]=20.
         # (Ties at the midpoint resolve toward the later snapshot.)
@@ -612,7 +612,7 @@ class TestPointStrategy:
 
         # No NaN on the dataset side — every retained site has a valid dataset match
         assert not np.isnan(
-            paired["dataset_temperature"].values
+            paired["y_temperature"].values
         ).any(), "Dataset values must be finite at all paired sites."
 
         # No leak of the 1000.0 sentinel values from the dropped Delhi/Chennai sites
@@ -650,7 +650,7 @@ class TestTrackStrategy:
 
         # Should have both geometry and dataset variables
         assert "ozone" in paired.data_vars
-        assert "dataset_ozone" in paired.data_vars
+        assert "y_ozone" in paired.data_vars
 
         # Should have time dimension
         assert "time" in paired.dims
@@ -701,7 +701,7 @@ class TestTrackStrategy:
 
         # No NaN on the dataset side at retained points
         assert not np.isnan(
-            paired["dataset_ozone"].values
+            paired["y_ozone"].values
         ).any(), "Dataset values must be finite at all paired track points."
 
         # No leak of sentinel values from dropped points
@@ -883,7 +883,7 @@ class TestSwathStrategy:
 
         # Out-of-domain pixels: geometry must be NaN, dataset must be NaN
         out_geometry = paired["temperature"].values[:, 3:]
-        out_dataset = paired["dataset_temperature"].values[:, 3:]
+        out_dataset = paired["y_temperature"].values[:, 3:]
         assert np.isnan(out_geometry).all(), (
             "Geometry values at out-of-radius swath pixels must be NaN; " f"got {out_geometry}"
         )
@@ -893,7 +893,7 @@ class TestSwathStrategy:
 
         # In-domain pixels: geometry must retain its 300.0 value, dataset must be finite
         in_geometry = paired["temperature"].values[:, :3]
-        in_dataset = paired["dataset_temperature"].values[:, :3]
+        in_dataset = paired["y_temperature"].values[:, :3]
         np.testing.assert_array_equal(in_geometry, np.full_like(in_geometry, 300.0))
         assert not np.isnan(
             in_dataset
@@ -926,7 +926,7 @@ class TestGridStrategy:
 
         # Should have both variables
         assert "temperature" in paired.data_vars
-        assert "dataset_temperature" in paired.data_vars
+        assert "y_temperature" in paired.data_vars
 
         # Should be on dataset grid
         assert len(paired["lat"]) == len(gridded_geometry["lat"])
@@ -945,7 +945,7 @@ class TestGridStrategy:
 
         # Should have both variables
         assert "temperature" in paired.data_vars
-        assert "dataset_temperature" in paired.data_vars
+        assert "y_temperature" in paired.data_vars
 
         # Should be on dataset grid
         assert len(paired["lat"]) == len(dataset_2d["lat"])

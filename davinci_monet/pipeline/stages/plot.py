@@ -131,11 +131,11 @@ class PlottingStage(BaseStage):
 
         for plot_name, plot_spec in plots_config.items():
             plot_type = plot_spec.get("type", "")
-            # Single-source specs carry either ``source:`` or ``geometry:``.
-            if not plot_type or ("source" not in plot_spec and "geometry" not in plot_spec):
+            # Single-source specs carry a ``source:`` key.
+            if not plot_type or "source" not in plot_spec:
                 continue
 
-            source_label = str(plot_spec.get("source") or plot_spec.get("geometry") or "")
+            source_label = str(plot_spec.get("source") or "")
             variable = plot_spec.get("variable", "")
 
             if source_label not in source_map:

@@ -283,14 +283,14 @@ class PairingEngine:
             y_name = str(y_var)
             x_key = self._select_var(
                 paired_ds,
-                [x_name, f"geometry_{x_name}"],
+                [x_name, f"x_{x_name}"],
             )
             y_key = self._select_var(
                 paired_ds,
                 [
                     y_name,
-                    f"dataset_{y_name}",
-                    f"dataset_{x_name}",
+                    f"y_{y_name}",
+                    f"y_{x_name}",
                 ],
             )
 

@@ -142,7 +142,7 @@ class TestUnifiedStageRoutesTimeseriesThroughRender:
                 "plots": {
                     "o3_ts": {
                         "type": "timeseries",
-                        "geometry": "airnow",
+                        "source": "airnow",
                         "variable": "o3",
                         "title": "O3",
                     }

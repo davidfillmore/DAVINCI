@@ -204,7 +204,7 @@ class SwathGridStrategy(BasePairingStrategy):
         # Create gridded geometry dataset
         x_gridded = xr.Dataset(
             {
-                f"geometry_{x_var}": (["time", "lon", "lat"], data_grid.astype(np.float32)),
+                f"x_{x_var}": (["time", "lon", "lat"], data_grid.astype(np.float32)),
                 "sample_count": (["time", "lon", "lat"], count_grid),
             },
             coords={
@@ -234,7 +234,7 @@ class SwathGridStrategy(BasePairingStrategy):
 
         # Create paired output
         paired = x_gridded.copy()
-        paired[f"dataset_{y_var}"] = y_on_grid
+        paired[f"y_{y_var}"] = y_on_grid
 
         return paired
 

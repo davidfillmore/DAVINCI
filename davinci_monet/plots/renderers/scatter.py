@@ -77,7 +77,7 @@ class ScatterPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one geometry and one dataset.
+            Exactly 2 series: one x series and one y series.
         ax
             Optional axes to plot on. If None, creates new figure.
         **kwargs
@@ -272,11 +272,11 @@ class ScatterPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with geometry and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of geometry variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         ax
             Optional axes to plot on. If None, creates new figure.
         show_density
@@ -336,11 +336,11 @@ class ScatterPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with geometry and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of geometry variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         flight_coord
             Name of the flight coordinate (default: "flight").
         min_points
@@ -529,11 +529,11 @@ def plot_scatter(
     Parameters
     ----------
     paired_data
-        Paired dataset with geometry and dataset variables.
+        Paired dataset with x and y variables.
     x_var
-        Name of geometry variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     config
         Plot configuration.
     **kwargs

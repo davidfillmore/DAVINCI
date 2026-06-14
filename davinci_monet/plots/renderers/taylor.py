@@ -32,7 +32,7 @@ class TaylorPlotter(BasePlotter):
     """Plotter for Taylor diagrams.
 
     Creates Taylor diagrams showing the statistical relationship
-    between dataset and dataset data using correlation, standard
+    between x and y data using correlation, standard
     deviation, and centered RMS difference.
 
     Parameters
@@ -64,7 +64,7 @@ class TaylorPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
+            Exactly 2 series: one x series and one y series.
         ax
             Optional axes to plot on (must be polar). If None, creates new.
         **kwargs
@@ -184,11 +184,11 @@ class TaylorPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         ax
             Optional axes to plot on (must be polar). If None, creates new.
         normalize
@@ -345,9 +345,9 @@ class TaylorPlotter(BasePlotter):
         paired_datasets
             Dictionary mapping dataset names to paired datasets.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         normalize
             If True, normalize by dataset standard deviation.
         colors
@@ -411,11 +411,11 @@ def plot_taylor(
     Parameters
     ----------
     paired_data
-        Paired dataset with dataset and dataset variables.
+        Paired dataset with x and y variables.
     x_var
-        Name of dataset variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     config
         Plot configuration.
     **kwargs

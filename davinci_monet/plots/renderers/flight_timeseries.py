@@ -105,7 +105,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
     """Plotter for flight-by-flight time series comparisons.
 
     Creates a multi-panel figure with one subplot per flight,
-    showing both dataset and dataset time series along the flight track.
+    showing both x and y time series along the flight track.
 
     Parameters
     ----------
@@ -137,7 +137,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
+            Exactly 2 series: one x series and one y series.
         ax
             Ignored for this plot type (creates own figure).
         **kwargs
@@ -414,11 +414,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         ax
             Ignored for this plot type (creates own figure).
         ncols
@@ -493,11 +493,11 @@ class FlightTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         time_dim
             Name of time dimension.
         flight_coord
@@ -737,11 +737,11 @@ def plot_flight_timeseries(
     Parameters
     ----------
     paired_data
-        Paired dataset with dataset and dataset variables.
+        Paired dataset with x and y variables.
     x_var
-        Name of dataset variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     title
         Plot title.
     ncols

@@ -1,7 +1,7 @@
 """Statistics module for DAVINCI.
 
 This module provides comprehensive statistical analysis capabilities
-for paired geometry and dataset values.
+for paired x and y values.
 
 Quick Start
 -----------

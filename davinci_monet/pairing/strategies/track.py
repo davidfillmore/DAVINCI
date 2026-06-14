@@ -115,7 +115,7 @@ class TrackStrategy(BasePairingStrategy):
         Returns
         -------
         xr.Dataset
-            Paired dataset with dataset values along track.
+            Paired dataset with y values along track.
         """
         dataset = y_data
         geometry = x_data
@@ -690,8 +690,8 @@ class TrackStrategy(BasePairingStrategy):
         for var in y_along_track.data_vars:
             var_name = str(var)
             if var_name in x_var_names:
-                # Name collision - add dataset_ prefix
-                data_vars[f"dataset_{var_name}"] = y_along_track[var]
+                # Name collision - add y_ prefix
+                data_vars[f"y_{var_name}"] = y_along_track[var]
             else:
                 # No collision - keep original name
                 data_vars[var_name] = y_along_track[var]

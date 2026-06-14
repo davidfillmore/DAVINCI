@@ -39,7 +39,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
     """Plotter for site-by-site time series comparisons.
 
     Creates a multi-panel figure with one subplot per monitoring site,
-    showing both dataset and dataset time series for direct comparison.
+    showing both x and y time series for direct comparison.
 
     Parameters
     ----------
@@ -71,7 +71,7 @@ class SiteTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         series
-            Exactly 2 series: one geometry (geometry) and one dataset (dataset).
+            Exactly 2 series: one x series and one y series.
         ax
             Ignored for this plot type (creates own figure).
         **kwargs
@@ -333,11 +333,11 @@ class SiteTimeSeriesPlotter(BasePlotter):
         Parameters
         ----------
         paired_data
-            Paired dataset with dataset and dataset variables.
+            Paired dataset with x and y variables.
         x_var
-            Name of dataset variable.
+            Name of the x variable.
         y_var
-            Name of dataset variable.
+            Name of the y variable.
         ax
             Ignored for this plot type (creates own figure).
         ncols
@@ -412,11 +412,11 @@ def plot_site_timeseries(
     Parameters
     ----------
     paired_data
-        Paired dataset with dataset and dataset variables.
+        Paired dataset with x and y variables.
     x_var
-        Name of dataset variable.
+        Name of the x variable.
     y_var
-        Name of dataset variable.
+        Name of the y variable.
     title
         Plot title.
     ncols
