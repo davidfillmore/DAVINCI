@@ -78,14 +78,14 @@ plots:
     type: timeseries
     pairs: [merra2_vs_terra]
     title: "Global-Mean Monthly AOD - Terra"
-    geometry_label: "MODIS Terra"
-    dataset_label: "MERRA-2"
+    x_label: "MODIS Terra"
+    y_label: "MERRA-2"
   aqua_aod_timeseries:
     type: timeseries
     pairs: [merra2_vs_aqua]
     title: "Global-Mean Monthly AOD - Aqua"
-    geometry_label: "MODIS Aqua"
-    dataset_label: "MERRA-2"
+    x_label: "MODIS Aqua"
+    y_label: "MERRA-2"
 
 stats:
   output_table: true
