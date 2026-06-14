@@ -1,7 +1,7 @@
 """Tests for the unified data-source pipeline plumbing.
 
 ``LoadSourcesStage`` loads all data sources into a single ``context.sources``
-view and tags each dataset with ``dataset_label`` and ``geometry`` metadata.
+view and tags each dataset with ``source_label`` and ``geometry`` metadata.
 
 These are unit tests: they construct data containers directly and exercise the
 context API and stage logic, per the repo's existing pipeline-stage test pattern
@@ -105,7 +105,7 @@ class TestLoadSourcesStage:
         assert ctx.get_source("cam") is y_data
         assert ctx.get_source("airnow") is x_data
 
-        # Datasets tagged with dataset_label / geometry.
+        # Datasets tagged with source_label / geometry.
         cam_attrs = ctx.sources["cam"].data.attrs
         assert cam_attrs["source_label"] == "cam"
         assert cam_attrs["geometry"] == "grid"

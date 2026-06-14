@@ -150,7 +150,7 @@ class TestGeometryStatisticsStage:
         assert StatisticsStage().validate(geometry_context) is True
 
     def test_execute_computes_stats(self, geometry_context: PipelineContext) -> None:
-        """execute() returns descriptive stats: geometry_label -> var_name -> metric."""
+        """execute() returns descriptive stats: source_label -> var_name -> metric."""
         from davinci_monet.pipeline.stages import StatisticsStage
 
         result = StatisticsStage().execute(geometry_context)

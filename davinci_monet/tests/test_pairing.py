@@ -985,8 +985,8 @@ class TestPairingWorkflow:
             dataset_vars=["DATASET_AOD"],
             output_geometry=DataGeometry.GRID,
             dataset_geometry=DataGeometry.GRID,
-            geometry_label="sensor",
-            dataset_label="reanalysis",
+            x_source="sensor",
+            y_source="reanalysis",
             config=PairingConfig(time_tolerance=timedelta(hours=1)),
         )
 
@@ -1035,8 +1035,8 @@ class TestPairingWorkflow:
             dataset_vars=["M2"],
             output_geometry=DataGeometry.SWATH,
             dataset_geometry=DataGeometry.GRID,
-            geometry_label="ceres",
-            dataset_label="merra2",
+            x_source="ceres",
+            y_source="merra2",
             config=PairingConfig(time_tolerance=timedelta(hours=1)),
         )
 

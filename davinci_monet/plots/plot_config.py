@@ -150,8 +150,8 @@ class PlotConfig:
     # Variable configuration
     x_var: str | None = None
     y_var: str | None = None
-    geometry_label: str | None = None
-    dataset_label: str | None = None
+    x_label: str | None = None
+    y_label: str | None = None
 
     # Value limits
     vmin: float | None = None
@@ -213,8 +213,8 @@ class PlotConfig:
         top_level_fields = {
             "x_var",
             "y_var",
-            "geometry_label",
-            "dataset_label",
+            "x_label",
+            "y_label",
             "vmin",
             "vmax",
             "xlabel",

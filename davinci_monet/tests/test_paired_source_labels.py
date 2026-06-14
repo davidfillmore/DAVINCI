@@ -157,7 +157,7 @@ class TestPairedHelperRobustness:
             y_source="cam",
             x_source="airnow",
             geometry=DataGeometry.POINT,
-            pairing_info={"geometry_label": "airnow", "source_label": "cam"},
+            pairing_info={"x_source": "airnow", "source_label": "cam"},
         )
 
         assert pd.x_source == "airnow"

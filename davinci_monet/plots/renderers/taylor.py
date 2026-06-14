@@ -87,8 +87,8 @@ class TaylorPlotter(BasePlotter):
 
         normalize: bool = kwargs.pop("normalize", True)
         show_geometry: bool = kwargs.pop("show_geometry", True)
-        geometry_label: str | None = kwargs.pop("geometry_label", None)
-        dataset_label: str | None = kwargs.pop("dataset_label", None)
+        x_label: str | None = kwargs.pop("x_label", None)
+        y_label: str | None = kwargs.pop("y_label", None)
         marker: str | None = kwargs.pop("marker", None)
         color: str | None = kwargs.pop("color", None)
 
@@ -130,7 +130,7 @@ class TaylorPlotter(BasePlotter):
             x_color=style.x_color,
             y_color=style.y_color,
         )
-        label = dataset_label or self.config.dataset_label or get_series_label(paired_data, y_var)
+        label = y_label or self.config.y_label or get_series_label(paired_data, y_var)
 
         # Plot dataset point
         # Taylor diagram uses polar coordinates: theta=arccos(correlation), r=std
@@ -155,9 +155,7 @@ class TaylorPlotter(BasePlotter):
                 marker="*",
                 color="k",
                 markersize=style.markersize * 2,
-                label=geometry_label
-                or self.config.geometry_label
-                or get_series_label(paired_data, x_var),
+                label=x_label or self.config.x_label or get_series_label(paired_data, x_var),
                 linestyle="none",
             )
 
@@ -175,8 +173,8 @@ class TaylorPlotter(BasePlotter):
         ax: matplotlib.axes.Axes | None = None,
         normalize: bool = True,
         show_geometry: bool = True,
-        geometry_label: str | None = None,
-        dataset_label: str | None = None,
+        x_label: str | None = None,
+        y_label: str | None = None,
         marker: str | None = None,
         color: str | None = None,
         **kwargs: Any,
@@ -197,9 +195,9 @@ class TaylorPlotter(BasePlotter):
             If True, normalize by dataset standard deviation.
         show_geometry
             If True, show geometry (dataset) point.
-        geometry_label
+        x_label
             Label for geometry point. Defaults to the geometry source label.
-        dataset_label
+        y_label
             Label for dataset point.
         marker
             Marker style for dataset point.
@@ -218,8 +216,8 @@ class TaylorPlotter(BasePlotter):
             ax=ax,
             normalize=normalize,
             show_geometry=show_geometry,
-            geometry_label=geometry_label,
-            dataset_label=dataset_label,
+            x_label=x_label,
+            y_label=y_label,
             marker=marker,
             color=color,
             **kwargs,
@@ -392,7 +390,7 @@ class TaylorPlotter(BasePlotter):
                 ax=ax,
                 normalize=normalize,
                 show_geometry=(i == 0),  # Only show geometry once
-                dataset_label=name,
+                y_label=name,
                 color=color,
                 marker=marker,
                 **kwargs,

@@ -223,9 +223,9 @@ class CERESSSFReader:
             and SWATH geometry tagged.
         """
         real = [Path(f) for f in file_paths if not Path(f).name.startswith("._")]
-        file_list = validate_file_list(real, dataset_label="CERES SSF")
+        file_list = validate_file_list(real, source_label="CERES SSF")
         file_list = _filter_files_to_time_range(file_list, time_range)
-        file_list = validate_file_list(file_list, dataset_label="CERES SSF")
+        file_list = validate_file_list(file_list, source_label="CERES SSF")
 
         formats = {_sniff_format(p) for p in file_list}
         if len(formats) > 1:

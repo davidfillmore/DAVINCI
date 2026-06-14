@@ -143,7 +143,7 @@ class GenericReader:
         xr.Dataset
             Dataset data with optionally standardized dimensions.
         """
-        file_list = validate_file_list(file_paths, dataset_label="")
+        file_list = validate_file_list(file_paths, source_label="")
 
         # Extract our custom kwargs
         standardize = kwargs.pop("standardize", True)

@@ -134,7 +134,7 @@ def resolve_file_list(files: Any) -> list[str]:
 def validate_file_list(
     file_paths: Sequence[str | Path],
     *,
-    dataset_label: str,
+    source_label: str,
 ) -> list[Path]:
     """Convert to ``Path`` objects and verify the files exist.
 
@@ -146,7 +146,7 @@ def validate_file_list(
     ----------
     file_paths
         Paths provided to the reader's ``open()``.
-    dataset_label
+    source_label
         Human-readable source name used in error messages (e.g. ``"CMAQ"``,
         ``"WRF-Chem"``, ``"CESM"``, ``"UFS"``). For the generic reader an
         empty string yields the established wording (``"No files provided"`` /
@@ -166,14 +166,14 @@ def validate_file_list(
 
     # "No CMAQ files provided" with a label, "No files provided" without.
     if not file_list:
-        noun = f"{dataset_label} files" if dataset_label else "files"
+        noun = f"{source_label} files" if source_label else "files"
         raise DataNotFoundError(f"No {noun} provided")
 
     missing = [f for f in file_list if not f.exists()]
     if missing:
         # "CMAQ files not found: ..." with a label, "Files not found: ..."
         # (leading capital) without, matching the established wording.
-        label = f"{dataset_label} files" if dataset_label else "Files"
+        label = f"{source_label} files" if source_label else "Files"
         raise DataNotFoundError(f"{label} not found: {missing}")
 
     return file_list

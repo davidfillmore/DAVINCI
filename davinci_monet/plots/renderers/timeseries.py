@@ -70,8 +70,8 @@ class TimeSeriesPlotter(BasePlotter):
         uncertainty_type: Literal["std", "iqr", "range"] = "std",
         time_dim: str = "time",
         aggregate_dim: str | None = None,
-        geometry_label: str | None = None,
-        dataset_label: str | None = None,
+        x_label: str | None = None,
+        y_label: str | None = None,
         show_individual_sites: bool = False,
         site_dim: str = "site",
         site_label_var: str = "site_name",
@@ -99,9 +99,9 @@ class TimeSeriesPlotter(BasePlotter):
             Name of time dimension.
         aggregate_dim
             Optional dimension to aggregate over (e.g., 'site').
-        geometry_label
+        x_label
             Custom label for datasets.
-        dataset_label
+        y_label
             Custom label for dataset.
         **kwargs
             Additional plotting arguments.
@@ -166,12 +166,8 @@ class TimeSeriesPlotter(BasePlotter):
 
         # Series legend labels prefer source identity (e.g. airnow/cam); axis
         # remains a styling hint only.
-        geometry_label = geometry_label or get_series_label(
-            paired_data, x_var, self.config.geometry_label
-        )
-        dataset_label = dataset_label or get_series_label(
-            paired_data, y_var, self.config.dataset_label
-        )
+        x_label = x_label or get_series_label(paired_data, x_var, self.config.x_label)
+        y_label = y_label or get_series_label(paired_data, y_var, self.config.y_label)
 
         # Series colors by source axis (geometry gray, dataset blue, else palette); a
         # customised StyleConfig still wins for the geometry/dataset axes (R-3).
@@ -200,7 +196,7 @@ class TimeSeriesPlotter(BasePlotter):
             linewidth=style.linewidth,
             markersize=style.markersize,
             alpha=style.alpha,
-            label=geometry_label,
+            label=x_label,
         )
 
         # Plot dataset
@@ -213,7 +209,7 @@ class TimeSeriesPlotter(BasePlotter):
             linewidth=style.linewidth,
             markersize=style.markersize,
             alpha=style.alpha,
-            label=dataset_label,
+            label=y_label,
         )
 
         # Show uncertainty bands if requested (requires ungrouped data)

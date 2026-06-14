@@ -585,8 +585,8 @@ class TestPlottingStage:
             title=title,
             paired_data=context_with_paired.paired["test_dataset_test_geometry"],
             var_spec={"x_var": "o3", "y_var": "o3"},
-            geometry_label="test_geometry",
-            dataset_label="test_dataset",
+            x_source="test_geometry",
+            y_source="test_dataset",
         )
 
         assert plotter_config["title"] == title

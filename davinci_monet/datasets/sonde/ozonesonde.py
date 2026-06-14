@@ -78,7 +78,7 @@ class OzonesondeReader:
             Ozonesonde datasets with dimensions (time, level) and
             lat/lon coordinates.
         """
-        file_list = validate_file_list(file_paths, dataset_label="Ozonesonde")
+        file_list = validate_file_list(file_paths, source_label="Ozonesonde")
 
         # Auto-detect format if not specified
         if format_type is None:

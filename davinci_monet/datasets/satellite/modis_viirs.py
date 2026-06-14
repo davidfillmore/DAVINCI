@@ -90,7 +90,7 @@ class MODISVIIRSReader:
                 f"modis_viirs slice supports GRID products only; " f"{product} is {entry.geometry}."
             )
 
-        files = validate_file_list(file_paths, dataset_label="MODIS/VIIRS")
+        files = validate_file_list(file_paths, source_label="MODIS/VIIRS")
 
         total = len(files)
         per_file: list[xr.Dataset | None] = []

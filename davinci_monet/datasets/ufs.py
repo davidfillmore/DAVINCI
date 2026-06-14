@@ -72,7 +72,7 @@ class UFSReader:
         xr.Dataset
             UFS data with standardized dimensions (time, z, lat, lon).
         """
-        file_list = validate_file_list(file_paths, dataset_label="UFS")
+        file_list = validate_file_list(file_paths, source_label="UFS")
 
         # Try monetio first
         try:

@@ -99,7 +99,7 @@ class AERONETReader:
         **kwargs: Any,
     ) -> xr.Dataset:
         """Open AERONET data from files."""
-        file_list = validate_file_list(file_paths, dataset_label="AERONET")
+        file_list = validate_file_list(file_paths, source_label="AERONET")
 
         def _open() -> xr.Dataset:
             if len(file_list) > 1:

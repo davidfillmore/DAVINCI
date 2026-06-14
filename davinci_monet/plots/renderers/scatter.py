@@ -33,9 +33,9 @@ if TYPE_CHECKING:
     import xarray as xr
 
 
-def _source_display_name(dataset_label: Any) -> str:
+def _source_display_name(source_label: Any) -> str:
     """Return the label form used for dataset names on axes."""
-    return str(dataset_label).replace("_", " ").upper()
+    return str(source_label).replace("_", " ").upper()
 
 
 @register_plotter("scatter")
@@ -217,29 +217,29 @@ class ScatterPlotter(BasePlotter):
         # Set labels. Explicit labels are complete overrides; otherwise qualify
         # comparison axes by source identity when available.
         units = get_variable_units(paired_data, x_var)
-        geometry_label_text = get_variable_label(paired_data, x_var)
-        dataset_label_text = get_variable_label(paired_data, y_var)
-        if self.config.geometry_label:
-            geometry_label_text = self.config.geometry_label
+        x_label_text = get_variable_label(paired_data, x_var)
+        y_label_text = get_variable_label(paired_data, y_var)
+        if self.config.x_label:
+            x_label_text = self.config.x_label
         elif x_var in paired_data:
-            dataset_label = paired_data[x_var].attrs.get("source_label")
-            if dataset_label:
-                geometry_label_text = f"{_source_display_name(dataset_label)} {geometry_label_text}"
-        if self.config.dataset_label:
-            dataset_label_text = self.config.dataset_label
+            x_source = paired_data[x_var].attrs.get("source_label")
+            if x_source:
+                x_label_text = f"{_source_display_name(x_source)} {x_label_text}"
+        if self.config.y_label:
+            y_label_text = self.config.y_label
         elif y_var in paired_data:
-            dataset_label = paired_data[y_var].attrs.get("source_label")
-            if dataset_label:
-                dataset_label_text = f"{_source_display_name(dataset_label)} {dataset_label_text}"
-        geometry_label = format_label_with_units(
-            geometry_label_text or "Geometry",
+            y_source = paired_data[y_var].attrs.get("source_label")
+            if y_source:
+                y_label_text = f"{_source_display_name(y_source)} {y_label_text}"
+        x_label = format_label_with_units(
+            x_label_text or "Geometry",
             units,
         )
-        dataset_label = format_label_with_units(
-            dataset_label_text or "Dataset",
+        y_label = format_label_with_units(
+            y_label_text or "Dataset",
             units,
         )
-        self.set_labels(ax, xlabel=geometry_label, ylabel=dataset_label)
+        self.set_labels(ax, xlabel=x_label, ylabel=y_label)
 
         # Grid
         ax.grid(True, alpha=0.3)

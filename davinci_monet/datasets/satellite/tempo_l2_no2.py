@@ -98,7 +98,7 @@ class TEMPOL2NO2Reader:
         xr.Dataset
             TEMPO datasets with swath dimensions.
         """
-        file_list = validate_file_list(file_paths, dataset_label="TEMPO")
+        file_list = validate_file_list(file_paths, source_label="TEMPO")
 
         # Try monetio first
         try:

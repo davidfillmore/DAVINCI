@@ -99,7 +99,7 @@ class GOESL3AODReader:
         xr.Dataset
             GOES datasets with grid dimensions.
         """
-        file_list = validate_file_list(file_paths, dataset_label="GOES")
+        file_list = validate_file_list(file_paths, source_label="GOES")
 
         # Try monetio first
         try:

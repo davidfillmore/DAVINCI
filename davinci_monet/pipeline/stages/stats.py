@@ -44,7 +44,7 @@ class StatisticsStage(BaseStage):
         start = time.time()
         all_stats: dict[str, dict[str, dict[str, float]]] = {}
         source_items = sources if sources is not None else iter_single_source_datasets(context)
-        for dataset_label, _source_obj, ds in source_items:
+        for source_label, _source_obj, ds in source_items:
             source_stats: dict[str, dict[str, float]] = {}
             for var_name in ds.data_vars:
                 var_key = str(var_name)
@@ -64,7 +64,7 @@ class StatisticsStage(BaseStage):
                     "p75": float(np.percentile(values, 75)),
                     "p90": float(np.percentile(values, 90)),
                 }
-            all_stats[dataset_label] = source_stats
+            all_stats[source_label] = source_stats
         return self._create_result(
             StageStatus.COMPLETED,
             data=all_stats,

@@ -79,8 +79,8 @@ class TestGetSeriesLabel:
         assert get_series_label(ds, "airnow_o3") == "airnow"
         assert get_series_label(ds, "cam_o3") == "cam"
 
-    def test_falls_back_to_variable_label_without_dataset_label(self) -> None:
-        # A var without axis/dataset_label attrs falls back to the standard label.
+    def test_falls_back_to_variable_label_without_source_label(self) -> None:
+        # A var without axis/source_label attrs falls back to the standard label.
         ds = xr.Dataset({"geometry_o3": ("time", np.zeros(3))}, coords={"time": np.arange(3)})
         from davinci_monet.plots.base import get_variable_label
 
@@ -151,16 +151,14 @@ class TestTimeseriesAxisStyling:
 
 
 class TestTaylorRoleStyling:
-    def test_geometry_label_respects_config_geometry_label(self) -> None:
-        # A PlotConfig.geometry_label override must win over the dataset_label for the
+    def test_geometry_label_respects_config_x_label(self) -> None:
+        # A PlotConfig.x_label override must win over the source label for the
         # Taylor geometry point (parity with the dataset label chain).
         from davinci_monet.plots.base import PlotConfig
         from davinci_monet.plots.renderers.taylor import TaylorPlotter
 
-        ds = _paired_with_aliases()  # geometry renamed to airnow_o3 (dataset_label "airnow")
-        fig = TaylorPlotter(config=PlotConfig(geometry_label="CustomRef")).plot(
-            ds, "airnow_o3", "cam_o3"
-        )
+        ds = _paired_with_aliases()  # geometry renamed to airnow_o3 (source_label "airnow")
+        fig = TaylorPlotter(config=PlotConfig(x_label="CustomRef")).plot(ds, "airnow_o3", "cam_o3")
         labels = {ln.get_label() for ln in fig.axes[0].get_lines()}
         assert "CustomRef" in labels
         assert "airnow" not in labels

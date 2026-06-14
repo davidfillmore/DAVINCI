@@ -177,7 +177,7 @@ class PairedData:
     ) -> "PairedData":
         """Construct paired data from geometry (x) and dataset (y) source labels."""
         info = dict(pairing_info or {})
-        info.setdefault("geometry_label", x_source)
+        info.setdefault("x_source", x_source)
         info.setdefault("source_label", y_source)
         return cls(
             data=data,

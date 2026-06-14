@@ -112,7 +112,7 @@ class OpenAQReader:
         **kwargs: Any,
     ) -> xr.Dataset:
         """Open OpenAQ data from files."""
-        file_list = validate_file_list(file_paths, dataset_label="OpenAQ")
+        file_list = validate_file_list(file_paths, source_label="OpenAQ")
 
         def _open() -> xr.Dataset:
             if len(file_list) > 1:

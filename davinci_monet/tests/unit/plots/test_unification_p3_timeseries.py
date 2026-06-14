@@ -23,7 +23,7 @@ from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 from davinci_monet.plots.style import NCAR_PRIMARY
 
 
-def _multisite_series(n_t: int = 12, n_s: int = 6, dataset_label: str = "airnow") -> PlotSeries:
+def _multisite_series(n_t: int = 12, n_s: int = 6, source_label: str = "airnow") -> PlotSeries:
     rng = np.random.default_rng(0)
     times = np.datetime64("2024-02-01") + np.arange(n_t) * np.timedelta64(1, "h")
     ds = xr.Dataset(
@@ -31,8 +31,8 @@ def _multisite_series(n_t: int = 12, n_s: int = 6, dataset_label: str = "airnow"
         coords={"time": times, "site": np.arange(n_s)},
     )
     ds["o3"].attrs["axis"] = "x"
-    ds["o3"].attrs["source_label"] = dataset_label
-    return PlotSeries(ds, "o3", "o3", "x", dataset_label, 0)
+    ds["o3"].attrs["source_label"] = source_label
+    return PlotSeries(ds, "o3", "o3", "x", source_label, 0)
 
 
 class TestTimeseriesRenderSingleSource:
@@ -48,7 +48,7 @@ class TestTimeseriesRenderSingleSource:
         plt.close(fig)
 
     def test_single_dataset_labelled_by_source(self) -> None:
-        fig = TimeSeriesPlotter().render([_multisite_series(dataset_label="pandora")])
+        fig = TimeSeriesPlotter().render([_multisite_series(source_label="pandora")])
         assert fig.axes[0].get_lines()[0].get_label() == "pandora"
         plt.close(fig)
 

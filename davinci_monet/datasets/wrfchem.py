@@ -75,7 +75,7 @@ class WRFChemReader:
         xr.Dataset
             WRF-Chem data with standardized dimensions (time, z, lat, lon).
         """
-        file_list = validate_file_list(file_paths, dataset_label="WRF-Chem")
+        file_list = validate_file_list(file_paths, source_label="WRF-Chem")
 
         # Try monetio first; fall back to plain xarray if monetio's wrf-python
         # path isn't usable (e.g. wrf-python ↔ netCDF4 incompatibility raising

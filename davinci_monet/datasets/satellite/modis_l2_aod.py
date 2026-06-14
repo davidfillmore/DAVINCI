@@ -100,7 +100,7 @@ class MODISL2AODReader:
         xr.Dataset
             MODIS datasets with swath dimensions.
         """
-        file_list = validate_file_list(file_paths, dataset_label="MODIS")
+        file_list = validate_file_list(file_paths, source_label="MODIS")
 
         # Try monetio first
         try:

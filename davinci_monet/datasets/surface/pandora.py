@@ -212,7 +212,7 @@ class PandoraReader:
         xr.Dataset
             Pandora datasets with dimensions (time, site).
         """
-        file_list = validate_file_list(file_paths, dataset_label="Pandora")
+        file_list = validate_file_list(file_paths, source_label="Pandora")
 
         # Parse time bounds
         if start_time is not None:

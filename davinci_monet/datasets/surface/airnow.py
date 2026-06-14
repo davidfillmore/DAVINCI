@@ -91,7 +91,7 @@ class AirNowReader:
         **kwargs: Any,
     ) -> xr.Dataset:
         """Open AirNow data from files."""
-        file_list = validate_file_list(file_paths, dataset_label="AirNow")
+        file_list = validate_file_list(file_paths, source_label="AirNow")
 
         def _open() -> xr.Dataset:
             if len(file_list) > 1:

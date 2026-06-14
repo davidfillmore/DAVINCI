@@ -46,11 +46,11 @@ class SaveResultsStage(BaseStage):
         if stats_result and stats_result.data and stats_kind == "descriptive":
             context.log_progress("step: Writing descriptive statistics CSV...")
             desc_rows = []
-            for dataset_label, var_stats in stats_result.data.items():
+            for source_label, var_stats in stats_result.data.items():
                 for var_name, var_metrics in var_stats.items():
                     if var_name.startswith("_"):
                         continue
-                    desc_rows.append({"Variable": var_name, "Source": dataset_label, **var_metrics})
+                    desc_rows.append({"Variable": var_name, "Source": source_label, **var_metrics})
             if desc_rows:
                 desc_df = pd.DataFrame(desc_rows).set_index("Variable")
                 desc_file = output_dir / "statistics_descriptive.csv"

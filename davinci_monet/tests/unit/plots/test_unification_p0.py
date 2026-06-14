@@ -25,7 +25,7 @@ from davinci_monet.core.base import (
 def _paired(*specs: tuple[str, str, str]) -> xr.Dataset:
     """Build a paired-style dataset.
 
-    Each spec is (var_name, axis, dataset_label); values are a 3-long
+    Each spec is (var_name, axis, source_label); values are a 3-long
     time series so the dataset is realistic.
     """
     data = {}

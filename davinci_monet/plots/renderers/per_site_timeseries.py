@@ -413,8 +413,8 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
             x_color=style.x_color,
             y_color=style.y_color,
         )
-        geometry_label = get_series_label(site_data, x_var)
-        dataset_label = get_series_label(site_data, y_var)
+        x_label = get_series_label(site_data, x_var)
+        y_label = get_series_label(site_data, y_var)
 
         # Plot datasets
         if geometry_style == "scatter":
@@ -424,7 +424,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
                 s=20,
                 alpha=0.7,
                 color=x_color,
-                label=geometry_label,
+                label=x_label,
                 zorder=3,
             )
         else:
@@ -436,7 +436,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
                 markersize=4,
                 linewidth=0.8,
                 alpha=0.7,
-                label=geometry_label,
+                label=x_label,
                 zorder=3,
             )
 
@@ -448,7 +448,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
                 color=y_color,
                 linewidth=2,
                 alpha=0.8,
-                label=dataset_label,
+                label=y_label,
                 zorder=2,
             )
         else:
@@ -458,7 +458,7 @@ class PerSiteTimeSeriesPlotter(BasePlotter):
                 s=20,
                 alpha=0.7,
                 color=y_color,
-                label=dataset_label,
+                label=y_label,
                 zorder=2,
             )
 

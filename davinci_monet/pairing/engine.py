@@ -198,8 +198,8 @@ class PairingEngine:
         output_geometry: DataGeometry | None = None,
         dataset_geometry: DataGeometry | None = None,
         config: PairingConfig | None = None,
-        geometry_label: str = "geometry",
-        dataset_label: str = "dataset",
+        x_source: str = "geometry",
+        y_source: str = "dataset",
         **kwargs: Any,
     ) -> PairedData:
         """Pair two sources.
@@ -237,17 +237,17 @@ class PairingEngine:
             paired_ds,
             geometry_vars=geometry_vars,
             dataset_vars=dataset_vars,
-            geometry_label=geometry_label,
-            dataset_label=dataset_label,
+            x_source=x_source,
+            y_source=y_source,
         )
         return PairedData.from_sources(
             data=result_ds,
-            x_source=geometry_label,
-            y_source=dataset_label,
+            x_source=x_source,
+            y_source=y_source,
             geometry=output_geometry,
             pairing_info={
-                "geometry_label": geometry_label,
-                "source_label": dataset_label,
+                "x_source": x_source,
+                "source_label": y_source,
                 "geometry": output_geometry.name,
                 "dataset_geometry": dataset_geometry.name,
                 "radius_of_influence": config.radius_of_influence,
@@ -271,8 +271,8 @@ class PairingEngine:
         paired_ds: xr.Dataset,
         geometry_vars: Sequence[str],
         dataset_vars: Sequence[str],
-        geometry_label: str,
-        dataset_label: str,
+        x_source: str,
+        y_source: str,
     ) -> xr.Dataset:
         """Build a source-label paired dataset from strategy output."""
         data_vars: dict[str, xr.DataArray] = {}
@@ -297,14 +297,14 @@ class PairingEngine:
             if geometry_key is None or dataset_key is None:
                 continue
 
-            geometry_output = f"{geometry_label}_{geometry_name}"
-            dataset_output = f"{dataset_label}_{dataset_name}"
+            geometry_output = f"{x_source}_{geometry_name}"
+            dataset_output = f"{y_source}_{dataset_name}"
             geometry_da = paired_ds[geometry_key].copy()
             dataset_da = paired_ds[dataset_key].copy()
             geometry_da.attrs.update(
                 {
                     "axis": "x",
-                    "source_label": geometry_label,
+                    "source_label": x_source,
                     "dataset_variable": geometry_name,
                     "canonical_name": geometry_name,
                 }
@@ -312,7 +312,7 @@ class PairingEngine:
             dataset_da.attrs.update(
                 {
                     "axis": "y",
-                    "source_label": dataset_label,
+                    "source_label": y_source,
                     "dataset_variable": dataset_name,
                     "canonical_name": geometry_name,
                 }

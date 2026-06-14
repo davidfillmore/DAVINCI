@@ -467,7 +467,7 @@ class TestTimeSeriesPlotter:
         """Test custom labels."""
         from davinci_monet.plots import PlotConfig, TimeSeriesPlotter
 
-        config = PlotConfig(geometry_label="Custom Geometry", dataset_label="Custom Dataset")
+        config = PlotConfig(x_label="Custom Geometry", y_label="Custom Dataset")
         plotter = TimeSeriesPlotter(config=config)
 
         fig = plotter.plot(
@@ -893,15 +893,15 @@ class TestScatterPlotter:
         assert len(flight_plots) == 0
 
     def test_source_named_axis_labels(self, simple_paired_data):
-        """Fix C: geometry_label/dataset_label config produces source-named scatter axes.
+        """Fix C: x_label/y_label config produces source-named scatter axes.
 
-        When PlotConfig.geometry_label and dataset_label are set, the scatter renderer
+        When PlotConfig.x_label and y_label are set, the scatter renderer
         must use them as axis labels (no 'Dataset'/'Dataset' prefix), and the
         units suffix must not produce a bare '(1)'.
         """
         from davinci_monet.plots import PlotConfig, ScatterPlotter
 
-        config = PlotConfig(geometry_label="MODIS Terra AOD", dataset_label="MERRA-2 AOD")
+        config = PlotConfig(x_label="MODIS Terra AOD", y_label="MERRA-2 AOD")
         plotter = ScatterPlotter(config=config)
         fig = plotter.plot(
             simple_paired_data,

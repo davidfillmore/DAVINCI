@@ -189,9 +189,9 @@ class SourcePairJob:
 
     index: int
     pair_key: str
-    geometry_label: str
+    x_source: str
     geometry_obj: Any
-    dataset_label: str
+    y_source: str
     dataset_obj: Any
     x_var: str
     y_var: str

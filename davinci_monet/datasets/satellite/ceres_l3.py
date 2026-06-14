@@ -104,7 +104,7 @@ class CERESEBAFReader:
             Standardized dataset with GRID geometry tagged.
         """
         real = [Path(f) for f in file_paths if not Path(f).name.startswith("._")]
-        file_list = validate_file_list(real, dataset_label="CERES EBAF")
+        file_list = validate_file_list(real, source_label="CERES EBAF")
 
         def _validate_and_select(ds: xr.Dataset) -> xr.Dataset:
             if variables is not None:
@@ -216,7 +216,7 @@ class CERESSYN1degReader:
             Standardized dataset with GRID geometry tagged.
         """
         real = [Path(f) for f in file_paths if not Path(f).name.startswith("._")]
-        file_list = validate_file_list(real, dataset_label="CERES SYN1deg")
+        file_list = validate_file_list(real, source_label="CERES SYN1deg")
         cadences = {cadence for path in file_list if (cadence := _syn_cadence_from_filename(path))}
         if len(cadences) > 1:
             raise ValueError(

@@ -95,7 +95,7 @@ class MOPITTL3COReader:
         xr.Dataset
             MOPITT datasets with grid dimensions.
         """
-        file_list = validate_file_list(file_paths, dataset_label="MOPITT")
+        file_list = validate_file_list(file_paths, source_label="MOPITT")
 
         # Try monetio first
         try:

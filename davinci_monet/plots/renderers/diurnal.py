@@ -92,8 +92,8 @@ class DiurnalPlotter(BasePlotter):
         time_dim: str = kwargs.pop("time_dim", "time")
         show_spread: Literal["none", "std", "iqr", "range"] = kwargs.pop("show_spread", "iqr")
         aggregate_dim: str | None = kwargs.pop("aggregate_dim", None)
-        geometry_label: str | None = kwargs.pop("geometry_label", None)
-        dataset_label: str | None = kwargs.pop("dataset_label", None)
+        x_label: str | None = kwargs.pop("x_label", None)
+        y_label: str | None = kwargs.pop("y_label", None)
         utc_offset: int = kwargs.pop("utc_offset", 0)
 
         # Create figure if needed
@@ -140,12 +140,8 @@ class DiurnalPlotter(BasePlotter):
         style = self.config.style
 
         # Series legend labels prefer source identity; axis remains a styling hint.
-        geometry_label = geometry_label or get_series_label(
-            paired_data, x_var, self.config.geometry_label
-        )
-        dataset_label = dataset_label or get_series_label(
-            paired_data, y_var, self.config.dataset_label
-        )
+        x_label = x_label or get_series_label(paired_data, x_var, self.config.x_label)
+        y_label = y_label or get_series_label(paired_data, y_var, self.config.y_label)
 
         # Series colors by source axis (geometry gray, dataset blue, else palette) (R-3).
         x_color = get_axis_color(
@@ -184,7 +180,7 @@ class DiurnalPlotter(BasePlotter):
             marker=style.x_marker,
             linewidth=style.linewidth,
             markersize=style.markersize,
-            label=geometry_label,
+            label=x_label,
         )
 
         ax.plot(
@@ -195,7 +191,7 @@ class DiurnalPlotter(BasePlotter):
             marker=style.y_marker,
             linewidth=style.linewidth,
             markersize=style.markersize,
-            label=dataset_label,
+            label=y_label,
         )
 
         # Formatting
@@ -232,8 +228,8 @@ class DiurnalPlotter(BasePlotter):
         time_dim: str = "time",
         show_spread: Literal["none", "std", "iqr", "range"] = "iqr",
         aggregate_dim: str | None = None,
-        geometry_label: str | None = None,
-        dataset_label: str | None = None,
+        x_label: str | None = None,
+        y_label: str | None = None,
         utc_offset: int = 0,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
@@ -255,9 +251,9 @@ class DiurnalPlotter(BasePlotter):
             Type of spread to show ('none', 'std', 'iqr', 'range').
         aggregate_dim
             Optional additional dimension to aggregate (e.g., 'site').
-        geometry_label
+        x_label
             Custom label for datasets.
-        dataset_label
+        y_label
             Custom label for dataset.
         utc_offset
             Offset from UTC for local time (hours).
@@ -275,8 +271,8 @@ class DiurnalPlotter(BasePlotter):
             time_dim=time_dim,
             show_spread=show_spread,
             aggregate_dim=aggregate_dim,
-            geometry_label=geometry_label,
-            dataset_label=dataset_label,
+            x_label=x_label,
+            y_label=y_label,
             utc_offset=utc_offset,
             **kwargs,
         )

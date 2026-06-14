@@ -93,8 +93,8 @@ class BoxPlotter(BasePlotter):
         show_outliers: bool = kwargs.pop("show_outliers", True)
         notch: bool = kwargs.pop("notch", False)
         orientation: Literal["vertical", "horizontal"] = kwargs.pop("orientation", "vertical")
-        geometry_label: str | None = kwargs.pop("geometry_label", None)
-        dataset_label: str | None = kwargs.pop("dataset_label", None)
+        x_label: str | None = kwargs.pop("x_label", None)
+        y_label: str | None = kwargs.pop("y_label", None)
 
         # Create figure if needed
         if ax is None:
@@ -106,12 +106,8 @@ class BoxPlotter(BasePlotter):
         style = self.config.style
 
         # Series legend labels prefer the source label over Geometry/Dataset (R-3).
-        geometry_label = geometry_label or get_series_label(
-            paired_data, x_var, self.config.geometry_label
-        )
-        dataset_label = dataset_label or get_series_label(
-            paired_data, y_var, self.config.dataset_label
-        )
+        x_label = x_label or get_series_label(paired_data, x_var, self.config.x_label)
+        y_label = y_label or get_series_label(paired_data, y_var, self.config.y_label)
 
         vert = orientation == "vertical"
 
@@ -123,8 +119,8 @@ class BoxPlotter(BasePlotter):
                 x_var,
                 y_var,
                 group_by,
-                geometry_label,
-                dataset_label,
+                x_label,
+                y_label,
                 style,
                 show_means,
                 show_outliers,
@@ -138,8 +134,8 @@ class BoxPlotter(BasePlotter):
                 paired_data,
                 x_var,
                 y_var,
-                geometry_label,
-                dataset_label,
+                x_label,
+                y_label,
                 style,
                 show_means,
                 show_outliers,
@@ -177,8 +173,8 @@ class BoxPlotter(BasePlotter):
         show_outliers: bool = True,
         notch: bool = False,
         orientation: Literal["vertical", "horizontal"] = "vertical",
-        geometry_label: str | None = None,
-        dataset_label: str | None = None,
+        x_label: str | None = None,
+        y_label: str | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
         """Generate a box plot.
@@ -203,9 +199,9 @@ class BoxPlotter(BasePlotter):
             If True, use notched box style.
         orientation
             Box orientation ('vertical' or 'horizontal').
-        geometry_label
+        x_label
             Custom label for datasets.
-        dataset_label
+        y_label
             Custom label for dataset.
         **kwargs
             Additional plotting arguments.
@@ -223,8 +219,8 @@ class BoxPlotter(BasePlotter):
             show_outliers=show_outliers,
             notch=notch,
             orientation=orientation,
-            geometry_label=geometry_label,
-            dataset_label=dataset_label,
+            x_label=x_label,
+            y_label=y_label,
             **kwargs,
         )
 
@@ -234,8 +230,8 @@ class BoxPlotter(BasePlotter):
         paired_data: xr.Dataset,
         x_var: str,
         y_var: str,
-        geometry_label: str,
-        dataset_label: str,
+        x_label: str,
+        y_label: str,
         style: Any,
         show_means: bool,
         show_outliers: bool,
@@ -252,7 +248,7 @@ class BoxPlotter(BasePlotter):
             Paired dataset.
         x_var, y_var
             Variable names.
-        geometry_label, dataset_label
+        x_label, y_label
             Labels.
         style
             Style configuration.
@@ -267,7 +263,7 @@ class BoxPlotter(BasePlotter):
         dataset_values = dataset_values[np.isfinite(dataset_values)]
 
         data = [geometry_values, dataset_values]
-        labels = [geometry_label, dataset_label]
+        labels = [x_label, y_label]
         colors = [
             get_axis_color(
                 paired_data,
@@ -310,8 +306,8 @@ class BoxPlotter(BasePlotter):
         x_var: str,
         y_var: str,
         group_by: str,
-        geometry_label: str,
-        dataset_label: str,
+        x_label: str,
+        y_label: str,
         style: Any,
         show_means: bool,
         show_outliers: bool,
@@ -330,7 +326,7 @@ class BoxPlotter(BasePlotter):
             Variable names.
         group_by
             Dimension to group by.
-        geometry_label, dataset_label
+        x_label, y_label
             Labels.
         style
             Style configuration.
@@ -417,8 +413,8 @@ class BoxPlotter(BasePlotter):
         from matplotlib.patches import Patch
 
         legend_elements = [
-            Patch(facecolor=x_color, alpha=0.5, label=geometry_label),
-            Patch(facecolor=y_color, alpha=0.5, label=dataset_label),
+            Patch(facecolor=x_color, alpha=0.5, label=x_label),
+            Patch(facecolor=y_color, alpha=0.5, label=y_label),
         ]
         ax.legend(handles=legend_elements, loc="best")
 

@@ -140,20 +140,20 @@ class PairingStage(BaseStage):
                 if explicit_pos == "b" or (
                     explicit_pos is None and geometry_choice is b_geom and dataset_choice is a_geom
                 ):
-                    geometry_label, geometry_obj = b_label, b_obj
-                    dataset_label, dataset_obj = a_label, a_obj
+                    x_source, geometry_obj = b_label, b_obj
+                    y_source, dataset_obj = a_label, a_obj
                 else:
-                    geometry_label, geometry_obj = a_label, a_obj
-                    dataset_label, dataset_obj = b_label, b_obj
+                    x_source, geometry_obj = a_label, a_obj
+                    y_source, dataset_obj = b_label, b_obj
                 vmap = raw_pair.get("variables") or {}
-                x_var = vmap.get(geometry_label)
-                y_var = vmap.get(dataset_label)
+                x_var = vmap.get(x_source)
+                y_var = vmap.get(y_source)
                 if not x_var or not y_var:
                     missing = [
                         label
                         for label, value in (
-                            (geometry_label, x_var),
-                            (dataset_label, y_var),
+                            (x_source, x_var),
+                            (y_source, y_var),
                         )
                         if not value
                     ]
@@ -167,9 +167,9 @@ class PairingStage(BaseStage):
                     SourcePairJob(
                         index=pair_index,
                         pair_key=str(pair_name),
-                        geometry_label=geometry_label,
+                        x_source=x_source,
                         geometry_obj=geometry_obj,
-                        dataset_label=dataset_label,
+                        y_source=y_source,
                         dataset_obj=dataset_obj,
                         x_var=str(x_var),
                         y_var=str(y_var),
@@ -317,8 +317,8 @@ class PairingStage(BaseStage):
                 output_geometry=self._source_geometry(job.geometry_obj),
                 dataset_geometry=self._source_geometry(job.dataset_obj),
                 config=pairing_cfg,
-                geometry_label=job.geometry_label,
-                dataset_label=job.dataset_label,
+                x_source=job.x_source,
+                y_source=job.y_source,
                 **job.strategy_options,
             )
             return job, paired_obj, None

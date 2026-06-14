@@ -183,8 +183,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
         sc_geometry, sc_dataset = style.x_color, style.y_color
         x_color = get_axis_color(paired_data, x_var, 0, x_color=sc_geometry, y_color=sc_dataset)
         y_color = get_axis_color(paired_data, y_var, 1, x_color=sc_geometry, y_color=sc_dataset)
-        geometry_label = get_series_label(paired_data, x_var)
-        dataset_label = get_series_label(paired_data, y_var)
+        x_label = get_series_label(paired_data, x_var)
+        y_label = get_series_label(paired_data, y_var)
 
         # Get unique flights and filter by data availability
         if flight_coord not in paired_data.coords:
@@ -254,7 +254,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     s=12,
                     alpha=0.7,
                     color=x_color,
-                    label=geometry_label,
+                    label=x_label,
                     zorder=3,
                 )
             else:
@@ -266,7 +266,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     markersize=3,
                     linewidth=0.5,
                     alpha=0.7,
-                    label=geometry_label,
+                    label=x_label,
                     zorder=3,
                 )
 
@@ -278,7 +278,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     color=y_color,
                     linewidth=1.5,
                     alpha=0.8,
-                    label=dataset_label,
+                    label=y_label,
                     zorder=2,
                 )
             else:
@@ -288,7 +288,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     s=12,
                     alpha=0.7,
                     color=y_color,
-                    label=dataset_label,
+                    label=y_label,
                     zorder=2,
                 )
 
@@ -533,8 +533,8 @@ class FlightTimeSeriesPlotter(BasePlotter):
         sc_geometry, sc_dataset = style.x_color, style.y_color
         x_color = get_axis_color(paired_data, x_var, 0, x_color=sc_geometry, y_color=sc_dataset)
         y_color = get_axis_color(paired_data, y_var, 1, x_color=sc_geometry, y_color=sc_dataset)
-        geometry_label = get_series_label(paired_data, x_var)
-        dataset_label = get_series_label(paired_data, y_var)
+        x_label = get_series_label(paired_data, x_var)
+        y_label = get_series_label(paired_data, y_var)
 
         # Check for flight coordinate
         if flight_coord not in paired_data.coords:
@@ -593,7 +593,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     s=20,
                     alpha=0.7,
                     color=x_color,
-                    label=geometry_label,
+                    label=x_label,
                     zorder=3,
                 )
             else:
@@ -605,7 +605,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     markersize=4,
                     linewidth=0.8,
                     alpha=0.7,
-                    label=geometry_label,
+                    label=x_label,
                     zorder=3,
                 )
 
@@ -617,7 +617,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     color=y_color,
                     linewidth=2,
                     alpha=0.8,
-                    label=dataset_label,
+                    label=y_label,
                     zorder=2,
                 )
             else:
@@ -627,7 +627,7 @@ class FlightTimeSeriesPlotter(BasePlotter):
                     s=20,
                     alpha=0.7,
                     color=y_color,
-                    label=dataset_label,
+                    label=y_label,
                     zorder=2,
                 )
 

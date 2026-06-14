@@ -101,7 +101,7 @@ class TROPOMIReader:
         xr.Dataset
             TROPOMI datasets with swath dimensions.
         """
-        file_list = validate_file_list(file_paths, dataset_label="TROPOMI")
+        file_list = validate_file_list(file_paths, source_label="TROPOMI")
 
         # Try monetio first
         try:
