@@ -181,8 +181,8 @@ class LoadSourcesStage(BaseStage):
             "radius_of_influence",
             "display_name",
             "resample",
-            "min_geometry_count",
-            "track_geometry_count",
+            "min_sample_count",
+            "track_sample_count",
             "files_vert",
             "files_surf",
             "projection",
@@ -243,8 +243,8 @@ class LoadSourcesStage(BaseStage):
             data = resample_dataset(
                 data,
                 str(resample_freq),
-                min_count=cfg.get("min_geometry_count"),
-                track_count=bool(cfg.get("track_geometry_count")),
+                min_count=cfg.get("min_sample_count"),
+                track_count=bool(cfg.get("track_sample_count")),
             )
 
         geometry = self._data_geometry(getattr(reader, "geometry"))

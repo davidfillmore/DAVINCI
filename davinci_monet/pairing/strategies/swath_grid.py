@@ -87,7 +87,7 @@ class SwathGridStrategy(BasePairingStrategy):
                 Grid spacing in degrees (for grid_mode="resolution").
             - ntime, nlat, nlon : int
                 Explicit grid dimensions (for grid_mode="explicit").
-            - min_geometry_count : int
+            - min_sample_count : int
                 Minimum pixel count per cell. Cells below this are
                 masked to NaN. Default 1.
             - x_var : str
@@ -106,7 +106,7 @@ class SwathGridStrategy(BasePairingStrategy):
 
         grid_mode = kwargs.get("grid_mode", "match_dataset")
         time_resolution = kwargs.get("time_resolution", "1D")
-        min_geometry_count = kwargs.get("min_geometry_count", 1)
+        min_sample_count = kwargs.get("min_sample_count", 1)
         x_var = kwargs.get("x_var") or kwargs.get("x_var")
         y_var = kwargs.get("y_var") or kwargs.get("y_var")
 
@@ -132,7 +132,7 @@ class SwathGridStrategy(BasePairingStrategy):
         consumed = {
             "grid_mode",
             "time_resolution",
-            "min_geometry_count",
+            "min_sample_count",
             "x_var",
             "y_var",
             "x_var",
@@ -194,9 +194,9 @@ class SwathGridStrategy(BasePairingStrategy):
         # Normalize: sum → mean
         normalize_grid(count_grid, data_grid)
 
-        # Apply min_geometry_count filter
-        if min_geometry_count > 1:
-            data_grid[count_grid < min_geometry_count] = np.nan
+        # Apply min_sample_count filter
+        if min_sample_count > 1:
+            data_grid[count_grid < min_sample_count] = np.nan
 
         # Build datetime coordinates from time centers (epoch seconds)
         time_coords = pd.to_datetime(time_centers, unit="s")
@@ -205,7 +205,7 @@ class SwathGridStrategy(BasePairingStrategy):
         geometry_gridded = xr.Dataset(
             {
                 f"geometry_{x_var}": (["time", "lon", "lat"], data_grid.astype(np.float32)),
-                "geometry_count": (["time", "lon", "lat"], count_grid),
+                "sample_count": (["time", "lon", "lat"], count_grid),
             },
             coords={
                 "time": time_coords,

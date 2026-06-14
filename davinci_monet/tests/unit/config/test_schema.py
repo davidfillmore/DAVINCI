@@ -125,8 +125,8 @@ class TestVariableConfig:
             {
                 "unit_scale": 1000.0,
                 "unit_scale_method": "+",
-                "geometry_min": 0.0,
-                "geometry_max": 100.0,
+                "valid_min": 0.0,
+                "valid_max": 100.0,
                 "nan_value": -1.0,
                 "rename": "new_name",
                 "ylabel_plot": "Label",
@@ -208,19 +208,19 @@ class TestDataProcConfig:
     def test_default_values(self) -> None:
         """Test default values."""
         config = DataProcConfig()
-        assert config.rem_geometry_nan is True
+        assert config.rem_nan is True
         assert config.ts_select_time == "time"
         assert config.set_axis is False
 
     def test_all_fields(self) -> None:
         """Test all fields."""
         config = DataProcConfig(
-            rem_geometry_nan=False,
+            rem_nan=False,
             ts_select_time="time_local",
             ts_avg_window="h",
             set_axis=True,
         )
-        assert config.rem_geometry_nan is False
+        assert config.rem_nan is False
         assert config.ts_select_time == "time_local"
 
 
@@ -252,11 +252,11 @@ class TestPlotGroupConfig:
             PlotGroupConfig,
             {
                 "type": "boxplot",
-                "data_proc": {"rem_geometry_nan": False, "set_axis": True},
+                "data_proc": {"rem_nan": False, "set_axis": True},
             },
         )
         assert isinstance(config.data_proc, DataProcConfig)
-        assert config.data_proc.rem_geometry_nan is False
+        assert config.data_proc.rem_nan is False
 
 
 class TestStatsConfig:

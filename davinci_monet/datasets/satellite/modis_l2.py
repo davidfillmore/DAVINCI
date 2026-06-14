@@ -111,12 +111,12 @@ def build_modis_variable_dict(
         scale = cfg.get("unit_scale", 1.0)
         if scale != 1.0:
             entry["scale"] = scale
-        geometry_min = cfg.get("geometry_min")
-        if geometry_min is not None:
-            entry["minimum"] = geometry_min
-        geometry_max = cfg.get("geometry_max")
-        if geometry_max is not None:
-            entry["maximum"] = geometry_max
+        valid_min = cfg.get("valid_min")
+        if valid_min is not None:
+            entry["minimum"] = valid_min
+        valid_max = cfg.get("valid_max")
+        if valid_max is not None:
+            entry["maximum"] = valid_max
         result[source_name] = entry
     return result
 
@@ -180,7 +180,7 @@ class MODISL2Reader:
         start_time: str,
         end_time: str,
         time_resolution: str = "1D",
-        min_geometry_count: int = 1,
+        min_sample_count: int = 1,
         *,
         debug: bool = False,
         progress_callback: Any | None = None,
@@ -199,7 +199,7 @@ class MODISL2Reader:
             ISO-format analysis window.
         time_resolution
             Pandas frequency for temporal bins (default ``"1D"``).
-        min_geometry_count
+        min_sample_count
             Minimum pixel count per cell; cells below are set to NaN.
         debug
             Enable monetio debug logging.
@@ -211,7 +211,7 @@ class MODISL2Reader:
         xr.Dataset
             Gridded dataset with dims ``(time, lon, lat)``.
             Contains one gridded variable per entry in *variable_dict*
-            plus ``geometry_count``.
+            plus ``sample_count``.
         """
         granules = self.read_granules(files, variable_dict, debug=debug)
         if progress_callback:
@@ -225,7 +225,7 @@ class MODISL2Reader:
             start_time=start_time,
             end_time=end_time,
             time_resolution=time_resolution,
-            min_geometry_count=min_geometry_count,
+            min_sample_count=min_sample_count,
             progress_callback=progress_callback,
         )
 
@@ -243,7 +243,7 @@ class MODISL2Reader:
         start_time: str,
         end_time: str,
         time_resolution: str,
-        min_geometry_count: int,
+        min_sample_count: int,
         progress_callback: Any | None = None,
     ) -> xr.Dataset:
         """Bin an OrderedDict of granules onto a (time, lon, lat) grid."""
@@ -319,10 +319,10 @@ class MODISL2Reader:
         for var_name in var_names:
             normalize_grid(count_grids[var_name], data_grids[var_name])
 
-        # Apply min_geometry_count filter
-        if min_geometry_count > 1:
+        # Apply min_sample_count filter
+        if min_sample_count > 1:
             for var_name in var_names:
-                data_grids[var_name][count_grids[var_name] < min_geometry_count] = np.nan
+                data_grids[var_name][count_grids[var_name] < min_sample_count] = np.nan
 
         # Build xr.Dataset
         time_coords = pd.to_datetime(time_centers_epoch, unit="s")
@@ -334,12 +334,12 @@ class MODISL2Reader:
                 data_grids[var_name].astype(np.float32),
             )
 
-        # Use the maximum count across variables for geometry_count
+        # Use the maximum count across variables for sample_count
         # (they should be identical when there's one variable)
         max_count = np.zeros((ntime, nlon, nlat), dtype=np.int32)
         for var_name in var_names:
             np.maximum(max_count, count_grids[var_name], out=max_count)
-        data_vars["geometry_count"] = (["time", "lon", "lat"], max_count)
+        data_vars["sample_count"] = (["time", "lon", "lat"], max_count)
 
         ds = xr.Dataset(
             data_vars,

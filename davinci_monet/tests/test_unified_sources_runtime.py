@@ -573,7 +573,7 @@ def test_unified_source_applies_resample(tmp_path: Path) -> None:
                 "type": "generic",
                 "files": str(src),
                 "resample": "h",
-                "track_geometry_count": True,
+                "track_sample_count": True,
                 "variables": {"o3": {"units": "ppb"}},
             }
         },
@@ -586,8 +586,8 @@ def test_unified_source_applies_resample(tmp_path: Path) -> None:
     loaded = result.context.sources["hf"].data
     assert loaded.sizes["time"] == 1
     assert float(loaded["o3"].isel(time=0, site=0)) == 25.0
-    assert "geometry_count" in loaded
-    assert int(loaded["geometry_count"].isel(time=0, site=0)) == 4
+    assert "sample_count" in loaded
+    assert int(loaded["sample_count"].isel(time=0, site=0)) == 4
 
 
 def test_sources_config_pairs_swath_onto_grid(tmp_path: Path) -> None:

@@ -21,8 +21,8 @@ sources:
     files: ${REANALYSIS_DATA}/modis/*.nc
     variables:
       aod_550nm:
-        geometry_min: 0
-        geometry_max: 5
+        valid_min: 0
+        valid_max: 5
 
 pairs:
   merra2_vs_modis:

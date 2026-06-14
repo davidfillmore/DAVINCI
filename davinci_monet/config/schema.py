@@ -265,8 +265,8 @@ class SourceConfig(FlexibleSchema):
     radius_of_influence: float = 12000.0
     display_name: str | None = None
     resample: str | None = None
-    min_geometry_count: int | None = None
-    track_geometry_count: bool = False
+    min_sample_count: int | None = None
+    track_sample_count: bool = False
 
     @model_validator(mode="before")
     @classmethod
@@ -354,9 +354,9 @@ class DataProcConfig(FlexibleSchema):
         Dictionary-based filtering.
     filter_string
         Pandas query string for filtering.
-    rem_geometry_by_nan_pct
+    rem_by_nan_pct
         Remove datasets by NaN percentage.
-    rem_geometry_nan
+    rem_nan
         Remove NaN datasets.
     ts_select_time
         Time selection for timeseries: 'time' (UTC) or 'time_local'.
@@ -368,8 +368,8 @@ class DataProcConfig(FlexibleSchema):
 
     filter_dict: dict[str, FilterConfig | dict[str, Any]] | None = None
     filter_string: str | None = None
-    rem_geometry_by_nan_pct: dict[str, Any] | None = None
-    rem_geometry_nan: bool = True
+    rem_by_nan_pct: dict[str, Any] | None = None
+    rem_nan: bool = True
     ts_select_time: Literal["time", "time_local"] = "time"
     ts_avg_window: str | None = None
     set_axis: bool = False

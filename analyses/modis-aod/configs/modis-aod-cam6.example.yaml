@@ -63,8 +63,8 @@ sources:
       AOD_550_Dark_Target_Deep_Blue_Combined:
         source_name: AOD_550_Dark_Target_Deep_Blue_Combined
         rename: AOD_550
-        geometry_min: 0.0
-        geometry_max: 10.0
+        valid_min: 0.0
+        valid_max: 10.0
         unit_scale: 0.001
 
   aqua_modis:
@@ -79,8 +79,8 @@ sources:
       AOD_550_Dark_Target_Deep_Blue_Combined:
         source_name: AOD_550_Dark_Target_Deep_Blue_Combined
         rename: AOD_550
-        geometry_min: 0.0
-        geometry_max: 10.0
+        valid_min: 0.0
+        valid_max: 10.0
         unit_scale: 0.001
 
 pairs:

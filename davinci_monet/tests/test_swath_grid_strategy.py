@@ -237,7 +237,7 @@ class TestSwathGridStrategy:
         # Check output structure
         assert "geometry_AOD_550" in paired.data_vars
         assert "dataset_AODVIS" in paired.data_vars
-        assert "geometry_count" in paired.data_vars
+        assert "sample_count" in paired.data_vars
         assert "time" in paired.dims
         assert "lat" in paired.dims
         assert "lon" in paired.dims
@@ -270,8 +270,8 @@ class TestSwathGridStrategy:
             x_var="AOD_550",
             y_var="AODVIS",
         )
-        # Where geometry_count > 0, geometry data should be finite
-        count = paired["geometry_count"].values
+        # Where sample_count > 0, geometry data should be finite
+        count = paired["sample_count"].values
         x_data = paired["geometry_AOD_550"].values
         assert np.all(np.isfinite(x_data[count > 0]))
 
@@ -287,7 +287,7 @@ class TestSwathGridStrategy:
             x_var="AOD_550",
             y_var="AODVIS",
         )
-        count = paired["geometry_count"].values
+        count = paired["sample_count"].values
         x_data = paired["geometry_AOD_550"].values
         # Where count == 0, data should be NaN
         assert np.all(np.isnan(x_data[count == 0]))
@@ -303,9 +303,9 @@ class TestSwathGridStrategy:
             time_resolution="1D",
             x_var="AOD_550",
             y_var="AODVIS",
-            min_geometry_count=3,
+            min_sample_count=3,
         )
-        count = paired["geometry_count"].values
+        count = paired["sample_count"].values
         x_data = paired["geometry_AOD_550"].values
         # Cells with count < 3 should be NaN
         assert np.all(np.isnan(x_data[(count > 0) & (count < 3)]))
@@ -325,7 +325,7 @@ class TestSwathGridStrategy:
             y_var="AODVIS",
         )
         # Should have data in the 180-360 range of the dataset grid
-        count = paired["geometry_count"].values
+        count = paired["sample_count"].values
         assert count.sum() > 0
 
     def test_resolution_mode(self):
@@ -448,7 +448,7 @@ def test_per_scanline_time_bins_across_multiple_days() -> None:
     )
 
     geometry_binned = paired["geometry_flux"].values  # (time, lon, lat)
-    geometry_count = paired["geometry_count"].values
+    sample_count = paired["sample_count"].values
 
     # 3 distinct time bins must be present
     assert paired.dims["time"] == 3, f"Expected 3 time bins, got {paired.dims['time']}"

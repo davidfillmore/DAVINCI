@@ -89,8 +89,8 @@ sources:
     filename: /glade/work/fillmore/Data/AeroNet/AeroNet_${YYYY}${MM}${DD}.nc
     variables:
       aod_500nm:
-        geometry_min: 0.0
-        geometry_max: 5.0
+        valid_min: 0.0
+        valid_max: 5.0
         units: "1"
         ylabel_plot: "AOD (500 nm)"
         display_name: "AOD"

@@ -96,8 +96,8 @@ def synthetic_data(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
             filename: "{geometry_path}"
             variables:
               O3:
-                geometry_min: 0
-                geometry_max: 200
+                valid_min: 0
+                valid_max: 200
                 units: ppb
 
         pairs:

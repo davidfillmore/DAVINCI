@@ -50,17 +50,17 @@ sources:
     filename: ../data/openaq_asiaq_202402.nc
     variables:
       o3:
-        geometry_min: 0
-        geometry_max: 200
+        valid_min: 0
+        valid_max: 200
       no2:
-        geometry_min: 0
-        geometry_max: 100
+        valid_min: 0
+        valid_max: 100
       co:
-        geometry_min: 0
-        geometry_max: 5000
+        valid_min: 0
+        valid_max: 5000
       pm25:
-        geometry_min: 0
-        geometry_max: 500
+        valid_min: 0
+        valid_max: 500
 
 # One binary pair per variable. The plots below geometry the O3 pair.
 pairs:
