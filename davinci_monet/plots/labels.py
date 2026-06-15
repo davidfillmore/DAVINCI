@@ -82,6 +82,76 @@ VARIABLE_DISPLAY_NAMES: dict[str, str] = {
     "CO_DACOM_DISKIN": "CO",
 }
 
+# ---------------------------------------------------------------------------
+# Species word/phrase → formula map (used by quantity_label normalization).
+# Longer phrases come first so "nitrogen dioxide" is matched before "nitrogen".
+# Values are publication-ready LaTeX formula strings.
+# ---------------------------------------------------------------------------
+SPECIES_WORD_TO_FORMULA: list[tuple[str, str]] = [
+    # multi-word phrases first (longest first within each chemical)
+    ("nitrogen dioxide", r"NO$_2$"),
+    ("nitrogen oxides", r"NO$_x$"),
+    ("nitrous oxide", r"N$_2$O"),
+    ("nitric oxide", "NO"),
+    ("carbon monoxide", "CO"),
+    ("carbon dioxide", r"CO$_2$"),
+    ("sulfur dioxide", r"SO$_2$"),
+    ("formaldehyde", "HCHO"),
+    ("methane", r"CH$_4$"),
+    ("ammonia", r"NH$_3$"),
+    ("ozone", r"O$_3$"),
+]
+
+# Tokens that must stay lowercase in smart title-case (strip surrounding
+# punctuation before checking).  Two categories:
+#   1. unit abbreviations that would be wrong capitalised (nm → Nm, ppb → Ppb)
+#   2. short particles / prepositions (of, at, …)
+_QUANTITY_LOWERCASE_KEEP: frozenset[str] = frozenset(
+    {
+        # unit abbreviations
+        "nm",
+        "um",
+        "µm",
+        "mm",
+        "cm",
+        "m",
+        "km",
+        "s",
+        "ms",
+        "hr",
+        "h",
+        "ppb",
+        "ppbv",
+        "ppm",
+        "ppmv",
+        "ppt",
+        "pptv",
+        "mol",
+        "kg",
+        "g",
+        "mg",
+        "ug",
+        "w",
+        "pa",
+        "hpa",
+        "k",
+        # particles
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "of",
+        "at",
+        "by",
+        "in",
+        "on",
+        "to",
+        "per",
+        "vs",
+    }
+)
+
 # Patterns for title formatting (case-insensitive replacements)
 # Order matters - longer patterns first to avoid partial matches
 # Uses LaTeX math mode subscripts for matplotlib rendering
@@ -400,6 +470,8 @@ def merge_config_dicts(
 __all__ = [
     "VARIABLE_DISPLAY_NAMES",
     "TITLE_FORMULA_REPLACEMENTS",
+    "SPECIES_WORD_TO_FORMULA",
+    "_QUANTITY_LOWERCASE_KEEP",
     "UNIT_REPLACEMENTS",
     "format_plot_title",
     "format_variable_display_name",

@@ -81,10 +81,11 @@ def test_quantity_label_prefers_long_name():
 
 
 def test_quantity_label_subscripts_formula_from_long_name():
-    # A chemical formula coming from a raw long_name must be subscripted so the
-    # colorbar/axis matches the title (NO2 -> NO$_2$), not left bare.
+    # A chemical formula coming from a raw long_name must be subscripted and
+    # title-cased so the colorbar/axis matches the title (NO2 -> NO$_2$, "total
+    # column" -> "Total Column").
     ds = _ds("X", long_name="NO2 total column")
-    assert L.quantity_label(ds, "X") == r"NO$_2$ total column"
+    assert L.quantity_label(ds, "X") == r"NO$_2$ Total Column"
 
 
 # ---------------------------------------------------------------------------
@@ -244,3 +245,71 @@ def test_format_units_slug_not_replaced():
     """'slug' must NOT have its 'ug' substring replaced."""
     result = L.format_units("slug")
     assert r"$\mu$g" not in result, f"False 'ug' substitution in 'slug': {result!r}"
+
+
+# ---------------------------------------------------------------------------
+# quantity_label normalization (species-word → formula + smart title-case)
+# ---------------------------------------------------------------------------
+
+
+def test_quantity_label_ozone_word_to_formula():
+    """long_name='Ozone' must become O$_3$, not the bare word."""
+    ds = _ds("X", long_name="Ozone")
+    assert L.quantity_label(ds, "X") == r"O$_3$"
+
+
+def test_quantity_label_no2_total_column_title_case():
+    """'NO2 total column' → 'NO$_2$ Total Column' (formula subscript + title-case)."""
+    ds = _ds("X", long_name="NO2 total column")
+    assert L.quantity_label(ds, "X") == r"NO$_2$ Total Column"
+
+
+def test_quantity_label_carbon_monoxide_to_formula():
+    """'carbon monoxide' (multi-word species name) → 'CO'."""
+    ds = _ds("X", long_name="carbon monoxide")
+    assert L.quantity_label(ds, "X") == "CO"
+
+
+def test_quantity_label_ozone_mixing_ratio():
+    """'ozone mixing ratio' → 'O$_3$ Mixing Ratio'."""
+    ds = _ds("X", long_name="ozone mixing ratio")
+    assert L.quantity_label(ds, "X") == r"O$_3$ Mixing Ratio"
+
+
+# --- no-regress cases -------------------------------------------------------
+
+
+def test_quantity_label_aod_500nm_preserved():
+    """'AOD (500 nm)' must come through byte-identical: nm lowercase, 500 intact."""
+    ds = _ds("X", long_name="AOD (500 nm)")
+    assert L.quantity_label(ds, "X") == "AOD (500 nm)"
+
+
+def test_quantity_label_toa_lw_all_mon_preserved():
+    """All-upper-case tokens (TOA, LW) must stay all-caps; 'Mon' capitalised."""
+    ds = _ds("X", long_name="TOA LW All Mon")
+    assert L.quantity_label(ds, "X") == "TOA LW All Mon"
+
+
+def test_quantity_label_tropospheric_no2_column():
+    """'Tropospheric NO2 Column' → 'Tropospheric NO$_2$ Column'."""
+    ds = _ds("X", long_name="Tropospheric NO2 Column")
+    assert L.quantity_label(ds, "X") == r"Tropospheric NO$_2$ Column"
+
+
+def test_quantity_label_lookup_no2_column_unchanged():
+    """Lookup-table var no2_column (no long_name) must still give NO$_2$ Column."""
+    ds = _ds("no2_column")
+    assert L.quantity_label(ds, "no2_column") == r"NO$_2$ Column"
+
+
+def test_quantity_label_lookup_o3_unchanged():
+    """Lookup-table var o3 (no long_name) must still give O$_3$."""
+    ds = _ds("o3")
+    assert L.quantity_label(ds, "o3") == r"O$_3$"
+
+
+def test_quantity_label_toa_olr_preserved():
+    """'TOA OLR' — all-caps tokens must stay all-caps."""
+    ds = _ds("X", long_name="TOA OLR")
+    assert L.quantity_label(ds, "X") == "TOA OLR"

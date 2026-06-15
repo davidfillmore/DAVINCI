@@ -686,9 +686,10 @@ class TestScatterPlotter:
         fig = _figure(ScatterPlotter().render(build_series(data, "x_o3", "y_o3")))
 
         ax = fig.axes[0]
-        # After labeling migration: source_display_name("airnow") = "AirNow" (not ALL-CAPS)
-        assert ax.get_xlabel() == "AirNow Ozone (ppbv)"
-        assert ax.get_ylabel() == "CAM Ozone (ppbv)"
+        # quantity_label normalises "Ozone" → "O$_3$" (species-word map); source
+        # names use display form ("AirNow", "CAM").
+        assert ax.get_xlabel() == r"AirNow O$_3$ (ppbv)"
+        assert ax.get_ylabel() == r"CAM O$_3$ (ppbv)"
         assert not ax.get_xlabel().startswith("Dataset")
         assert not ax.get_ylabel().startswith("Dataset")
 

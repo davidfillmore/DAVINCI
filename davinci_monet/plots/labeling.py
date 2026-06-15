@@ -10,6 +10,8 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from davinci_monet.plots.labels import (
+    _QUANTITY_LOWERCASE_KEEP,
+    SPECIES_WORD_TO_FORMULA,
     VARIABLE_DISPLAY_NAMES,
     format_plot_title,
     get_variable_label,
@@ -91,15 +93,108 @@ def source_display_name(source_label: str | None) -> str:
     return " ".join(out)
 
 
-def quantity_label(dataset: "xr.Dataset", var_name: str) -> str:
-    """Quantity name only (no source, no units), chem-formatted.
+def _normalize_quantity_label(raw: str) -> str:
+    """Normalize an auto-derived quantity label for consistent display.
 
-    Chemical formulas are subscripted (``NO2`` -> ``NO$_2$``) even when the name
-    comes from a raw ``long_name``/``standard_name`` attr, so axes and colorbars
-    match the title. ``format_plot_title`` is idempotent on already-formatted
-    lookup-table names (no bare ``NO2`` left to match).
+    Applied only to labels that originate from raw data attributes
+    (``long_name``, ``standard_name``) — NOT to user-supplied titles or
+    lookup-table names.  Three passes, in order:
+
+    1. Species word/phrase → LaTeX formula (case-insensitive, whole-word,
+       longest-first, skips tokens already inside ``$…$``).
+    2. Smart title-case: capitalise each word EXCEPT tokens that contain
+       ``$`` (already LaTeX), tokens containing a digit, all-uppercase
+       tokens, and a keep-set of unit abbreviations and particles.
+    3. Formula subscript via ``format_plot_title`` (idempotent).
     """
-    return format_plot_title(get_variable_label(dataset, var_name, include_prefix=False))
+    text = raw
+
+    # ---- pass 1: species word → formula ------------------------------------
+    # We must not touch substrings that are already inside $…$.  Strategy:
+    # split on dollar-sign delimited segments and only process plain-text
+    # segments.
+    def _apply_species_map(s: str) -> str:
+        """Replace species words in a plain-text segment."""
+        for phrase, formula in SPECIES_WORD_TO_FORMULA:
+            # Whole-word / whole-phrase match, case-insensitive.
+            pattern = r"(?<![A-Za-z])" + re.escape(phrase) + r"(?![A-Za-z])"
+            s = re.sub(pattern, formula, s, flags=re.IGNORECASE)
+        return s
+
+    # Split into (plain, latex, plain, latex, …) alternating segments.
+    # Dollar-sign blocks: $...$ (non-nested, greedy).
+    parts = re.split(r"(\$[^$]*\$)", text)
+    text = "".join(
+        part if (i % 2 == 1) else _apply_species_map(part) for i, part in enumerate(parts)
+    )
+
+    # ---- pass 2: smart title-case ------------------------------------------
+    def _title_case_token(tok: str) -> str:
+        # Tokens that are already LaTeX (contain $): leave untouched.
+        if "$" in tok:
+            return tok
+        # Tokens containing a digit: leave untouched (NO2, 500, 2.5).
+        if any(c.isdigit() for c in tok):
+            return tok
+        # All-uppercase tokens (TOA, LW, AOD, OLR, CO, UV, …): leave as-is.
+        # A token is "all-uppercase" if stripping punctuation leaves only
+        # uppercase ASCII letters (length ≥ 2, or a known 1-char acronym).
+        alpha = re.sub(r"[^A-Za-z]", "", tok)
+        if alpha and alpha == alpha.upper() and (len(alpha) >= 2 or alpha in {"K", "W"}):
+            return tok
+        # Keep-set (units + particles): strip surrounding punctuation before
+        # comparing.
+        stripped = tok.strip("()[].,;:!?").lower()
+        if stripped in _QUANTITY_LOWERCASE_KEEP:
+            return tok
+        # Default: capitalise first letter, leave rest.
+        return tok[0].upper() + tok[1:] if tok else tok
+
+    # Tokenise preserving spaces and punctuation attached to words.
+    # We split on spaces to handle multi-char tokens like "(500".
+    text = " ".join(_title_case_token(t) for t in text.split(" "))
+
+    # ---- pass 3: formula subscript (idempotent) ----------------------------
+    return format_plot_title(text)
+
+
+def quantity_label(dataset: "xr.Dataset", var_name: str) -> str:
+    """Quantity name only (no source, no units), normalised and chem-formatted.
+
+    When the label comes from the lookup table or a ``display_name`` attr it
+    is returned as-is after a formula-subscript pass (idempotent for
+    already-formatted strings).
+
+    When the label comes from a raw ``long_name`` / ``standard_name`` attr it
+    is additionally normalised:
+      1. Species words/phrases are replaced with LaTeX formulas
+         (e.g. "Ozone" → "O$_3$", "nitrogen dioxide" → "NO$_2$").
+      2. Smart title-case is applied (preserving existing LaTeX tokens,
+         digit-containing tokens, all-uppercase acronyms, and a keep-set of
+         unit abbreviations and particles).
+      3. Chemical formula subscripts are applied via ``format_plot_title``.
+
+    ``title_text`` is deliberately NOT changed — user-supplied titles must
+    pass through unchanged.
+    """
+    raw = get_variable_label(dataset, var_name, include_prefix=False)
+
+    # Detect whether the label came from a raw attr or the lookup / display_name
+    # path. Raw attrs produce labels that differ from what the lookup would give
+    # for the same var. A simple heuristic: check the variable's own attrs.
+    var_from_attr = False
+    if var_name in dataset:
+        attrs = dataset[var_name].attrs
+        if attrs.get("display_name"):
+            # display_name is already publication-quality: only do subscripts.
+            return format_plot_title(raw)
+        if attrs.get("long_name") or attrs.get("standard_name"):
+            var_from_attr = True
+
+    if var_from_attr:
+        return _normalize_quantity_label(raw)
+    # Lookup-table / format_variable_display_name path: subscripts only.
+    return format_plot_title(raw)
 
 
 def _distinctive_source_tokens(source: str, quantity: str) -> list[str]:
