@@ -121,6 +121,22 @@ def test_axis_label_no_units():
     assert L.axis_label("Altitude", "1") == "Altitude"
 
 
+def test_axis_label_normalizes_raw_quantity():
+    # Renderers (e.g. timeseries) pass a raw long_name straight to axis_label
+    # (bypassing quantity_label), so axis_label itself must normalize: species
+    # word -> formula and casing.
+    assert L.axis_label("Ozone", "ppbv") == r"O$_3$ (ppbv)"
+    assert L.axis_label("NO2 total column", "mol/m2") == r"NO$_2$ Total Column (mol m$^{-2}$)"
+
+
+def test_axis_label_normalization_idempotent_on_lookup():
+    # Already-formatted lookup quantities must be unchanged by the normalization.
+    assert L.axis_label("AOD (500 nm)", "1") == "AOD (500 nm)"
+    assert L.axis_label(r"Tropospheric NO$_2$ Column", "mol/m2") == (
+        r"Tropospheric NO$_2$ Column (mol m$^{-2}$)"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Task 5: legend_label
 # ---------------------------------------------------------------------------

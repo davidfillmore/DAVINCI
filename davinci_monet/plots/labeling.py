@@ -215,8 +215,13 @@ def axis_label(quantity: str, units: str | None, source: str | None = None) -> s
     tokens are kept, so e.g. ``cesm_no2_column`` + ``Tropospheric NO2 Column``
     renders ``CESM Tropospheric NO2 Column`` (not ``CESM NO2 Column
     Tropospheric NO2 Column``).
+
+    The quantity is normalised here (species words → formulas, smart title-case,
+    formula subscripts) so axes/colorbars are consistent regardless of whether
+    the caller passed a lookup name or a raw ``long_name`` — normalisation is
+    idempotent on already-formatted strings.
     """
-    q = quantity or ""
+    q = _normalize_quantity_label(quantity or "")
     if source:
         distinctive = _distinctive_source_tokens(source, q)
         if distinctive and q:
