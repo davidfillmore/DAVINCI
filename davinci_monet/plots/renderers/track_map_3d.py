@@ -14,11 +14,11 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (registers 3D projection)
 
 from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots import labeling
 from davinci_monet.plots.base import (
     BasePlotter,
     build_series,
     calculate_symmetric_limits,
-    format_label_with_units,
     format_plot_title,
     get_variable_label,
     get_variable_units,
@@ -193,19 +193,26 @@ class TrackMap3DPlotter(BasePlotter):
             raise ValueError(f"Altitude variable '{alt_var}' not found")
 
         # Calculate what to show (derived values colored on the track)
+        y_src = paired_data[y_var].attrs.get("source_label") or ""
+        x_src = paired_data[x_var].attrs.get("source_label") or ""
         if show_var == "x":
             values = paired_data[x_var].values
             default_cmap = "viridis"
-            label = get_variable_label(paired_data, x_var, include_prefix=False)
+            label = labeling.axis_label(
+                labeling.quantity_label(paired_data, x_var),
+                get_variable_units(paired_data, x_var),
+            )
         elif show_var == "y":
             values = paired_data[y_var].values
             default_cmap = "viridis"
-            label = get_variable_label(paired_data, y_var, include_prefix=False)
+            label = labeling.axis_label(
+                labeling.quantity_label(paired_data, y_var),
+                get_variable_units(paired_data, y_var),
+            )
         else:  # bias
             values = paired_data[y_var].values - paired_data[x_var].values
             default_cmap = "RdBu_r"
-            # Consistent bias label with other plotters
-            label = "Bias (Y - X)"
+            label = labeling.bias_label(y_src, x_src, get_variable_units(paired_data, x_var))
 
         cmap = cmap or default_cmap
 
@@ -239,10 +246,8 @@ class TrackMap3DPlotter(BasePlotter):
             vmin = self.config.vmin if self.config.vmin is not None else float(np.nanmin(values))
             vmax = self.config.vmax if self.config.vmax is not None else float(np.nanmax(values))
 
-        # Colorbar label
-        units = get_variable_units(paired_data, x_var)
-        cbar_label = format_label_with_units(label, units)
-        cbar_label = format_plot_title(cbar_label)  # Apply subscript formatting
+        # Colorbar label (label already built above with units; apply subscript formatting)
+        cbar_label = format_plot_title(label)
 
         # Draw the shared 3D track body (scatter, projection, surface-plane map
         # features, city markers, axis setup, labels, colorbar).
