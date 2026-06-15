@@ -41,7 +41,17 @@ class BasePairingStrategy(ABC):
         horizontal_method: str = "nearest",
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Sample ``y_data`` onto ``x_data``."""
+        """Sample ``y_data`` onto ``x_data``.
+
+        The engine passes ``radius_of_influence``, ``time_tolerance``,
+        ``vertical_method`` and ``horizontal_method`` by name, plus
+        ``time_method`` and ``x_vars``/``y_vars``/``x_var``/``y_var`` via
+        ``**kwargs``. By contract a strategy emits the x side bare and the y side
+        ``y_``-prefixed, sets no attrs (the engine writes them), and tolerates
+        options it does not use. NOTE: ``time_method`` is currently honored only
+        by :class:`~davinci_monet.pairing.strategies.point.PointStrategy`; all
+        other geometries use nearest-time alignment regardless of its value.
+        """
         ...
 
     def _get_y_coords(self, data: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:

@@ -395,6 +395,24 @@ class TestPairingStage:
 
         assert stage.validate(ctx) is False
 
+    def test_strategy_options_drops_engine_named_kwargs(self):
+        """vertical_method/horizontal_method are passed by name by the engine, so they
+        must be stripped from strategy_options to avoid a duplicate-keyword TypeError;
+        genuine strategy options pass through."""
+        opts = PairingStage._strategy_options(
+            pairing_config_dict={},
+            pair_spec={
+                "vertical_method": "linear",
+                "horizontal_method": "bilinear",
+                "time_method": "linear",
+                "extract_surface": True,
+            },
+        )
+        assert "vertical_method" not in opts
+        assert "horizontal_method" not in opts
+        assert "time_method" not in opts
+        assert opts["extract_surface"] is True
+
     def test_execute_forwards_pair_strategy_options(self):
         """Pair-level strategy options flow into the unified pairing strategy."""
         stage = PairingStage()

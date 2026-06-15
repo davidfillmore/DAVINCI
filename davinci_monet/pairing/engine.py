@@ -6,6 +6,7 @@ geometry-specific strategies based on the x and y source geometries.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, Mapping, Sequence
@@ -104,11 +105,26 @@ class PairingEngine:
     def register_strategy(self, strategy: PairingStrategy) -> None:
         """Register a pairing strategy for a geometry type.
 
+        The registry maps each :class:`DataGeometry` to exactly one strategy.
+        Registering a *different* strategy class for a geometry that is already
+        mapped warns (and keeps last-wins) rather than silently shadowing, so a
+        collision — e.g. ``SwathStrategy`` and ``IntermediateGridStrategy`` both
+        claiming ``SWATH`` — is visible. Re-registering the same class is silent.
+
         Parameters
         ----------
         strategy
             Strategy instance implementing PairingStrategy protocol.
         """
+        existing = self._strategies.get(strategy.geometry)
+        if existing is not None and type(existing) is not type(strategy):
+            warnings.warn(
+                f"Overwriting pairing strategy for geometry {strategy.geometry.name}: "
+                f"{type(existing).__name__} -> {type(strategy).__name__}. Each geometry "
+                f"maps to exactly one strategy; the last registration wins.",
+                UserWarning,
+                stacklevel=2,
+            )
         self._strategies[strategy.geometry] = strategy
 
     def get_strategy(self, geometry: DataGeometry) -> PairingStrategy:

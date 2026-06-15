@@ -33,9 +33,7 @@ class SaveResultsStage(BaseStage):
         saved_files: list[str] = []
 
         # Get output directory from analysis config
-        analysis_config = context.config_dict().get("analysis", {})
-        output_dir_str = analysis_config.get("output_dir") or "."
-        output_dir = Path(output_dir_str)
+        output_dir = Path(context.analysis_config().output_dir or ".")
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Save statistics from the statistics stage. Comparison stats go to

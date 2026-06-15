@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import warnings
 
+from davinci_monet.core.exceptions import PairingError
 from davinci_monet.core.protocols import DataGeometry
 
 __all__ = ["IRREGULAR_GEOMETRIES", "PairDirectionWarning", "resolve_pair_direction"]
@@ -65,7 +66,9 @@ def resolve_pair_direction(
             return geom_a, geom_b
         if explicit_geometry == "b":
             return geom_b, geom_a
-        raise ValueError(f"explicit_geometry must be 'a', 'b', or None; got {explicit_geometry!r}")
+        raise PairingError(
+            f"explicit_geometry must be 'a', 'b', or None; got {explicit_geometry!r}"
+        )
 
     rank_a, rank_b = _rank(geom_a), _rank(geom_b)
     if rank_a > rank_b:

@@ -46,11 +46,18 @@ class SwathStrategy(BasePairingStrategy):
     4. Creates paired dataset with collocated values
 
     .. note::
+        ``SwathStrategy`` and :class:`IntermediateGridStrategy` both report
+        ``DataGeometry.SWATH``. The engine registry maps one strategy per
+        geometry, so they cannot both be registered:
+        :class:`IntermediateGridStrategy` is the canonical engine-registered
+        SWATH handler (see ``PairingEngine._register_default_strategies``), and
+        this direct per-pixel class is intentionally **not** registered — it is
+        preserved for direct use only. Registering both into one engine emits a
+        collision warning (last registration wins).
+
         Production satellite analyses use :class:`IntermediateGridStrategy` or the
         external ``bin_swath_to_grid`` helper, which collapse pixels onto a
-        target grid before pairing. This direct per-pixel class is preserved
-        for possible future use and is not on the current production path —
-        see the module docstring.
+        target grid before pairing. See the module docstring.
 
     Examples
     --------

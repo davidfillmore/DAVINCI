@@ -17,7 +17,7 @@ from typing import Any, Callable, Literal, Sequence, TextIO
 
 from tqdm import tqdm
 
-from davinci_monet.config.schema import MonetConfig
+from davinci_monet.config.schema import MonetConfig, PlotStyleConfig
 from davinci_monet.core.exceptions import ConfigurationError, PipelineError
 from davinci_monet.pipeline.display import ProgressFormatter
 from davinci_monet.pipeline.lifecycle import PipelineResourcePolicy
@@ -244,14 +244,13 @@ class PipelineRunner:
         context
             Pipeline context containing configuration.
         """
-        analysis_config = context.config_dict().get("analysis", {})
-        style_config = analysis_config.get("style")
+        style_config = context.analysis_config().style
 
         if style_config is None:
             return
 
         # Handle both dict and PlotStyleConfig object
-        if hasattr(style_config, "theme"):
+        if isinstance(style_config, PlotStyleConfig):
             theme = style_config.theme
             style_context = style_config.context
             use_seaborn = style_config.use_seaborn

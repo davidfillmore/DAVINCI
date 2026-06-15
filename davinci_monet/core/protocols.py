@@ -143,6 +143,24 @@ class PairingStrategy(Protocol):
     (``pairing.engine``) is the sole writer of those attrs and the sole point
     that relabels variables to the public ``<source_label>_<var>`` form.
 
+    Option contract
+    ---------------
+    The engine passes these options (some by name, some via ``**kwargs``); a
+    strategy must accept all of them and may ignore any it does not use:
+
+    - ``radius_of_influence``, ``time_tolerance``, ``vertical_method``,
+      ``horizontal_method``, ``time_method`` (by name);
+    - ``x_vars``/``y_vars`` and the single-variable ``x_var``/``y_var``
+      (via ``**kwargs``).
+
+    Caveats (currently true, not yet unified):
+
+    - ``time_method`` is honored **only** by ``PointStrategy``; every other
+      geometry uses nearest-time alignment regardless of its value.
+    - ``method: grid`` is a separate symmetric-binning route in the engine
+      (``IntermediateGridStrategy``) that does **not** flow through this protocol's
+      option set or the temporal-overlap guard; it is driven by ``time_resolution``.
+
     Concrete strategy classes may keep an internal ``pair(dataset, geometry,
     ...)`` method that ``pair_sources`` delegates to, but it is not part of this
     public contract.
