@@ -80,6 +80,13 @@ def test_quantity_label_prefers_long_name():
     assert "Tropospheric" in L.quantity_label(ds, "X")
 
 
+def test_quantity_label_subscripts_formula_from_long_name():
+    # A chemical formula coming from a raw long_name must be subscripted so the
+    # colorbar/axis matches the title (NO2 -> NO$_2$), not left bare.
+    ds = _ds("X", long_name="NO2 total column")
+    assert L.quantity_label(ds, "X") == r"NO$_2$ total column"
+
+
 # ---------------------------------------------------------------------------
 # Task 4: axis_label
 # ---------------------------------------------------------------------------

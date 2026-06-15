@@ -90,8 +90,14 @@ def source_display_name(source_label: str | None) -> str:
 
 
 def quantity_label(dataset: "xr.Dataset", var_name: str) -> str:
-    """Quantity name only (no source, no units), chem-formatted."""
-    return get_variable_label(dataset, var_name, include_prefix=False)
+    """Quantity name only (no source, no units), chem-formatted.
+
+    Chemical formulas are subscripted (``NO2`` -> ``NO$_2$``) even when the name
+    comes from a raw ``long_name``/``standard_name`` attr, so axes and colorbars
+    match the title. ``format_plot_title`` is idempotent on already-formatted
+    lookup-table names (no bare ``NO2`` left to match).
+    """
+    return format_plot_title(get_variable_label(dataset, var_name, include_prefix=False))
 
 
 def _distinctive_source_tokens(source: str, quantity: str) -> list[str]:
