@@ -35,3 +35,25 @@ def test_format_units(raw, expected):
 
 def test_format_units_micrograms():
     assert L.format_units("ug/m3") == r"$\mu$g m$^{-3}$"
+
+
+# ---------------------------------------------------------------------------
+# Task 2: source_display_name
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "key,expected",
+    [
+        ("cesm_no2_column", r"CESM NO$_2$ Column"),
+        ("airnow", "AirNow"),
+        ("pandora", "Pandora"),
+        ("merra2", "MERRA-2"),
+        ("ceres", "CERES"),
+        ("cam", "CAM"),
+        ("", ""),
+        (None, ""),
+    ],
+)
+def test_source_display_name(key, expected):
+    assert L.source_display_name(key) == expected
