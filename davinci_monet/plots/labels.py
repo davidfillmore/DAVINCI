@@ -224,7 +224,23 @@ def format_plot_title(title: str) -> str:
     """
     import re
 
-    result = title
+    # Species words/phrases -> formula first (e.g. "Ozone" -> "O$_3$"), so titles
+    # and any other text routed through here are consistent with the lookup
+    # table. Only plain-text segments are touched (never inside an existing
+    # ``$...$`` LaTeX block); whole-word, longest-phrase-first, case-insensitive.
+    segments = re.split(r"(\$[^$]*\$)", title)
+    for i in range(0, len(segments), 2):
+        seg = segments[i]
+        for phrase, formula in SPECIES_WORD_TO_FORMULA:
+            seg = re.sub(
+                r"(?<![A-Za-z])" + re.escape(phrase) + r"(?![A-Za-z])",
+                formula,
+                seg,
+                flags=re.IGNORECASE,
+            )
+        segments[i] = seg
+    result = "".join(segments)
+
     for pattern, replacement in TITLE_FORMULA_REPLACEMENTS:
         # Case-insensitive replacement while preserving surrounding text
         result = re.sub(re.escape(pattern), replacement, result, flags=re.IGNORECASE)

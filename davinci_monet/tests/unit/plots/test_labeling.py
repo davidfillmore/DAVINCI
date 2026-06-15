@@ -117,6 +117,13 @@ def test_axis_label_dedup_partial_overlap():
     assert out == r"CESM Tropospheric NO$_2$ Column (mol m$^{-2}$)"
 
 
+def test_axis_label_dedup_partial_quantity_keeps_word_order():
+    # quantity "NO2" is a subset of the source's embedded "NO2 Column" -> use the
+    # source name in good order, NOT a reordered "CESM Column NO2".
+    out = L.axis_label(r"NO$_2$", "mol/m2", source="cesm_no2_column")
+    assert out == r"CESM NO$_2$ Column (mol m$^{-2}$)"
+
+
 def test_axis_label_no_units():
     assert L.axis_label("Altitude", "1") == "Altitude"
 
@@ -156,13 +163,14 @@ def test_legend_label_uncertainty():
 
 
 def test_bias_label_factors_shared_quantity():
+    # 'Bias' lives in the title, so the colorbar is just direction + units.
     out = L.bias_label("merra2_olr", "ceres_olr", "W m-2")
-    assert out == "Bias, MERRA-2 − CERES (W m$^{-2}$)"
+    assert out == "MERRA-2 − CERES (W m$^{-2}$)"
 
 
 def test_bias_label_no_shared_quantity():
     out = L.bias_label("cesm_no2_column", "pandora", "mol/m2")
-    assert out == "Bias, CESM NO$_2$ Column − Pandora (mol m$^{-2}$)"
+    assert out == "CESM NO$_2$ Column − Pandora (mol m$^{-2}$)"
 
 
 def test_bias_label_never_uses_xy():
@@ -170,11 +178,17 @@ def test_bias_label_never_uses_xy():
     assert " x" not in out.lower() and " y" not in out.lower()
 
 
+def test_bias_label_no_redundant_bias_word():
+    # The colorbar must NOT repeat "Bias" (the title carries it).
+    out = L.bias_label("merra2_olr", "ceres_olr", "W m-2")
+    assert "Bias" not in out
+
+
 def test_bias_label_strips_quantity_when_given():
     # quantity is already in the title -> strip it from the source names so the
-    # colorbar stays terse: "Bias, CESM − Pandora".
+    # colorbar stays terse: "CESM − Pandora".
     out = L.bias_label("cesm_no2_column", "pandora", "mol/m2", quantity=r"NO$_2$ Column")
-    assert out == "Bias, CESM − Pandora (mol m$^{-2}$)"
+    assert out == "CESM − Pandora (mol m$^{-2}$)"
 
 
 # ---------------------------------------------------------------------------

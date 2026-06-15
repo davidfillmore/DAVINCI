@@ -238,8 +238,11 @@ class TestSpatialBiasColorbarlabel:
         not pytest.importorskip("cartopy", reason="cartopy not available"),
         reason="cartopy not available",
     )
-    def test_colorbar_contains_bias(self, paired_no2_mol_m2: xr.Dataset) -> None:
-        """Colorbar label must contain 'Bias,'."""
+    def test_bias_colorbar_is_direction_units_no_xy_no_bias_word(
+        self, paired_no2_mol_m2: xr.Dataset
+    ) -> None:
+        """Bias colorbar = '<src> − <src> (units)': names sources, no x/y, and
+        does NOT repeat 'Bias' (the title carries it)."""
         from davinci_monet.plots import SpatialBiasPlotter
 
         fig = SpatialBiasPlotter().render(
@@ -251,7 +254,9 @@ class TestSpatialBiasColorbarlabel:
         )
         cb_ax = fig.axes[-1]
         cb_label = cb_ax.get_ylabel()
-        assert "Bias," in cb_label, f"Colorbar must contain 'Bias,', got: {cb_label!r}"
+        assert "−" in cb_label, f"Colorbar must show a difference, got: {cb_label!r}"
+        assert "Bias" not in cb_label, f"Colorbar must not repeat 'Bias', got: {cb_label!r}"
+        assert "y - x" not in cb_label.lower() and "(y" not in cb_label.lower()
         plt.close(fig)
 
     @pytest.mark.skipif(

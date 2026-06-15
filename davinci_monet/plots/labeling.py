@@ -208,6 +208,16 @@ def _distinctive_source_tokens(source: str, quantity: str) -> list[str]:
     return [t for t in source_display_name(source).split() if t not in q_tokens]
 
 
+def distinctive_source_name(source_label: str, quantity: str) -> str:
+    """Source display name for use NEXT TO a quantity (e.g. a single-source map
+    title ``Quantity (Source)``), with quantity-overlapping tokens removed so a
+    key like ``cesm_no2_column`` beside ``NO2 Column`` yields ``CESM`` (not
+    ``CESM NO2 Column``). Falls back to the full display name if nothing is left.
+    """
+    toks = _distinctive_source_tokens(source_label, quantity)
+    return " ".join(toks) or source_display_name(source_label)
+
+
 def axis_label(quantity: str, units: str | None, source: str | None = None) -> str:
     """Compose an axis label (D2 context-aware, with de-dup).
 
@@ -223,13 +233,20 @@ def axis_label(quantity: str, units: str | None, source: str | None = None) -> s
     """
     q = _normalize_quantity_label(quantity or "")
     if source:
-        distinctive = _distinctive_source_tokens(source, q)
-        if distinctive and q:
-            label = f"{' '.join(distinctive)} {q}"
-        elif distinctive:
-            label = " ".join(distinctive)
+        src = source_display_name(source)
+        if q and q in src:
+            # The source name already contains the quantity (in good order),
+            # e.g. quantity "NO2" with source "CESM NO2 Column" -> use the source
+            # name as-is rather than reordering tokens ("CESM Column NO2").
+            label = src
         else:
-            label = q
+            distinctive = _distinctive_source_tokens(source, q)
+            if distinctive and q:
+                label = f"{' '.join(distinctive)} {q}"
+            elif distinctive:
+                label = " ".join(distinctive)
+            else:
+                label = q
     else:
         label = q
     u = format_units(units)
@@ -248,12 +265,14 @@ def bias_label(
     units: str | None,
     quantity: str | None = None,
 ) -> str:
-    """'Bias, <Ysrc> − <Xsrc> (units)' — viewer-facing, never x/y.
+    """Bias colorbar label '<Ysrc> − <Xsrc> (units)' — viewer-facing, never x/y.
 
-    When ``quantity`` is given (it already appears in the plot title), tokens
-    each source shares with it are stripped so the label stays terse, e.g.
+    The word "Bias" lives in the plot TITLE (``title_text(..., operation="Bias")``),
+    so the colorbar carries only the direction and units to avoid repetition.
+    When ``quantity`` is given (it already appears in the title), tokens each
+    source shares with it are stripped so the label stays terse, e.g.
     ``cesm_no2_column`` vs ``pandora`` with quantity ``NO2 Column`` →
-    ``Bias, CESM − Pandora``. Any remaining shared trailing tokens are factored.
+    ``CESM − Pandora``. Any remaining shared trailing tokens are factored.
     """
     if quantity:
         yw = _distinctive_source_tokens(y_source, quantity)
@@ -266,7 +285,7 @@ def bias_label(
         xw.pop()
     y = " ".join(yw) or source_display_name(y_source)
     x = " ".join(xw) or source_display_name(x_source)
-    core = f"Bias, {y} − {x}"
+    core = f"{y} − {x}"
     u = format_units(units)
     return f"{core} ({u})" if u else core
 
@@ -291,6 +310,7 @@ __all__ = [
     "source_display_name",
     "quantity_label",
     "axis_label",
+    "distinctive_source_name",
     "legend_label",
     "bias_label",
     "title_text",

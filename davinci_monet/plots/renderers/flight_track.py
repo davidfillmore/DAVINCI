@@ -217,10 +217,10 @@ class FlightTrackPlotter(BasePlotter):
         text_cfg = self.config.text
         cmap = cmap or get_sequential_cmap()
 
-        # Colorbar label
+        # Colorbar carries units only; the title (below) carries the quantity.
         var_label = get_variable_label(x_data, variable, include_prefix=False)
         units = get_variable_units(x_data, variable)
-        cbar_label = labeling.axis_label(var_label, units)
+        cbar_label = labeling.format_units(units)
 
         # Draw the shared 3D track body (scatter, projection, surface-plane map
         # features, axis setup, labels, colorbar). ``use_maxnlocator`` matches
