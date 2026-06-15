@@ -291,12 +291,9 @@ class PointStrategy(BasePairingStrategy):
         # Combine data variables
         data_vars: dict[str, Any] = {}
 
-        # Add x variables
-        x_var_names = set()
+        # Add x variables (bare names)
         for var in x_data.data_vars:
-            var_name = str(var)
-            data_vars[var_name] = x_data[var]
-            x_var_names.add(var_name)
+            data_vars[str(var)] = x_data[var]
 
         # Add y variables - reassign to x coordinates to ensure alignment
         # The y source was extracted at same site/time locations, just with integer indices
@@ -336,9 +333,9 @@ class PointStrategy(BasePairingStrategy):
                     coords={d: x_data.coords[d] for d in x_ref.dims if d in x_data.coords},
                     name=var,
                 )
-            var_name = str(var)
-            if var_name in x_var_names:
-                var_name = f"y_{var_name}"
-            data_vars[var_name] = y_da
+            # Contract: emit every y variable under a ``y_`` prefix. The engine
+            # is the sole writer of axis/source_label attrs and the sole point
+            # that relabels to the public ``<source_label>_<var>`` form.
+            data_vars[f"y_{var}"] = y_da
 
         return xr.Dataset(data_vars, coords=dict(x_data.coords))

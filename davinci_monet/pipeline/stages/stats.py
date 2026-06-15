@@ -10,6 +10,7 @@ from typing import Any
 
 import xarray as xr
 
+from davinci_monet.config.schema import StatsConfig
 from davinci_monet.core.base import iter_paired_variable_xy
 from davinci_monet.pipeline.stages.base import (
     BaseStage,
@@ -84,8 +85,9 @@ class StatisticsStage(BaseStage):
         start = time.time()
         stats_results: dict[str, Any] = {}
 
-        stats_config = context.config_dict().get("stats", {})
-        requested_pairs = stats_config.get("data") or []
+        stats_cfg = context.stats_config()
+        effective_cfg = stats_cfg or StatsConfig()
+        requested_pairs = effective_cfg.data or []
         if isinstance(requested_pairs, str):
             requested_pairs = [requested_pairs]
         if requested_pairs:
@@ -122,12 +124,12 @@ class StatisticsStage(BaseStage):
 
                 paired_data = filter_paired_by_domain(
                     paired_data,
-                    stats_config.get("domain_type"),
-                    stats_config.get("domain_name"),
+                    effective_cfg.domain_type,
+                    effective_cfg.domain_name,
                 )
 
                 # Calculate basic statistics
-                pair_stats = self._calculate_stats(paired_data, stats_config)
+                pair_stats = self._calculate_stats(paired_data, stats_cfg)
                 stats_results[pair_key] = pair_stats
 
                 # Summary
@@ -154,7 +156,9 @@ class StatisticsStage(BaseStage):
             duration=time.time() - start,
         )
 
-    def _calculate_stats(self, paired_data: xr.Dataset, config: dict[str, Any]) -> dict[str, Any]:
+    def _calculate_stats(
+        self, paired_data: xr.Dataset, stats_cfg: StatsConfig | None
+    ) -> dict[str, Any]:
         """Calculate statistics for a paired dataset."""
         import numpy as np
 
@@ -163,13 +167,19 @@ class StatisticsStage(BaseStage):
 
         stats: dict[str, Any] = {}
 
-        metrics = config.get("metrics") or config.get("stat_list")
-        if isinstance(metrics, str):
-            metrics = [metrics]
-        round_precision = config.get("round_output", 3)
-        include_counts = config.get("include_counts", True)
-        remove_nan = config.get("remove_nan", True)
-        min_samples = config.get("min_samples", 3)
+        # An absent stats section keeps the legacy behavior of computing the
+        # full standard metric set (metrics=None); a present section uses its
+        # explicit ``metrics`` / ``stat_list``.
+        metrics: list[str] | None
+        if stats_cfg is None:
+            metrics = None
+            stats_cfg = StatsConfig()
+        else:
+            metrics = stats_cfg.metrics or stats_cfg.stat_list
+        round_precision = stats_cfg.round_output
+        include_counts = stats_cfg.include_counts
+        remove_nan = stats_cfg.remove_nan
+        min_samples = stats_cfg.min_samples
 
         calc_config = StatisticsConfig(
             metrics=list(metrics) if metrics else list(STANDARD_METRICS),
@@ -213,7 +223,7 @@ class StatisticsStage(BaseStage):
             stats[base_name] = row
 
         # Per-flight statistics (if flight coord exists and enabled)
-        per_flight = config.get("per_flight", False)
+        per_flight = stats_cfg.per_flight
         if per_flight and "flight" in paired_data.coords:
             stats["_per_flight"] = self._calculate_per_flight_stats(paired_data)
 

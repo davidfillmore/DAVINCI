@@ -290,12 +290,10 @@ class Registry(Generic[T]):
 # Pre-configured registries for each component type
 # =============================================================================
 
-# Note: These registries store component *classes* (types), not instances.
-# The type hint uses `type[Protocol]` to indicate we're storing classes
-# that implement the protocol.
-
-# Using Any here to avoid circular imports - actual type checking
-# happens at registration time via runtime_checkable protocols
+# Note: These registries store component *classes* (types), not instances,
+# keyed by a unique name. Registration validates only that the name is unique
+# (see Registry.register) — it does NOT type-check the class against any
+# protocol. The `type` hint is intentionally broad to avoid circular imports.
 
 source_registry: Registry[type] = Registry("source")
 """Unified registry for data source reader classes.

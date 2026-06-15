@@ -279,6 +279,27 @@ class TestStatsConfig:
         config = StatsConfig(stat_list=["MB", "RMSE", "R2"])
         assert config.stat_list == ["MB", "RMSE", "R2"]
 
+    def test_runtime_knobs_have_defaults(self) -> None:
+        """The previously dead-pinned runtime knobs default to legacy values."""
+        config = StatsConfig()
+        assert config.include_counts is True
+        assert config.remove_nan is True
+        assert config.min_samples == 3
+        assert config.per_flight is False
+
+    def test_runtime_knobs_are_accepted(self) -> None:
+        """StrictSchema (extra=forbid) now accepts these knobs instead of rejecting them."""
+        config = StatsConfig(
+            include_counts=False,
+            remove_nan=False,
+            min_samples=10,
+            per_flight=True,
+        )
+        assert config.include_counts is False
+        assert config.remove_nan is False
+        assert config.min_samples == 10
+        assert config.per_flight is True
+
 
 class TestMonetConfig:
     """Tests for root MonetConfig."""

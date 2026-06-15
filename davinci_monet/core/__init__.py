@@ -36,16 +36,10 @@ from davinci_monet.core.exceptions import (
     VariableNotFoundError,
 )
 from davinci_monet.core.protocols import (
-    Configurable,
     DataGeometry,
-    PairingEngine,
     PairingStrategy,
-    Plotter,
     SourceProcessor,
     SourceReader,
-    SpatialPlotter,
-    StatisticMetric,
-    StatisticsCalculator,
 )
 from davinci_monet.core.registry import (
     ComponentAlreadyRegisteredError,
@@ -77,15 +71,6 @@ __all__ = [
     "SourceProcessor",
     # Pairing protocols
     "PairingStrategy",
-    "PairingEngine",
-    # Plotting protocols
-    "Plotter",
-    "SpatialPlotter",
-    # Statistics protocols
-    "StatisticMetric",
-    "StatisticsCalculator",
-    # Configuration protocol
-    "Configurable",
     # Registry
     "Registry",
     "RegistryError",

@@ -19,6 +19,10 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+# Single canonical-name helper: defined in core.base, re-exported here under the
+# historical name so plot code keeps importing it from davinci_monet.plots.labels.
+from davinci_monet.core.base import paired_canonical_name as canonical_variable_name
+
 if TYPE_CHECKING:
     import xarray as xr
 
@@ -198,27 +202,6 @@ def format_variable_display_name(var_name: str, include_prefix: bool = True) -> 
     )
 
     return formatted
-
-
-def canonical_variable_name(dataset: xr.Dataset, var_name: str) -> str:
-    """Strip a paired variable's prefix to its canonical (unprefixed) name.
-
-    Handles source-label naming (``<source_label>_<canonical>``, e.g.
-    ``cam_o3`` -> ``o3``, derived from the variable's ``source_label`` attr) and
-    the ``x_``/``y_`` prefixes. Names with no recognized prefix are returned
-    unchanged.
-    """
-    if var_name in dataset:
-        canonical = dataset[var_name].attrs.get("canonical_name")
-        if canonical:
-            return str(canonical)
-        source_label = dataset[var_name].attrs.get("source_label")
-        if source_label and var_name.startswith(f"{source_label}_"):
-            return var_name[len(source_label) + 1 :]
-    for prefix in ("x_", "y_"):
-        if var_name.startswith(prefix):
-            return var_name[len(prefix) :]
-    return var_name
 
 
 def get_variable_label(

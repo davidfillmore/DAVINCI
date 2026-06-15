@@ -15,7 +15,16 @@ from typing import Any, Callable, Protocol, cast, runtime_checkable
 
 import xarray as xr
 
-from davinci_monet.config.schema import MonetConfig
+from davinci_monet.config.schema import (
+    AnalysisConfig,
+    MonetConfig,
+    PipelinePairingConfig,
+    PlotGroupConfig,
+    SourceConfig,
+    SourcePairConfig,
+    StatsConfig,
+    SummaryConfig,
+)
 from davinci_monet.core.protocols import DataGeometry
 from davinci_monet.core.schema_utils import dump_schema, is_schema_object
 
@@ -144,6 +153,97 @@ class PipelineContext:
         if is_schema_object(self.config):
             return dump_schema(self.config, exclude_none=True)
         return cast(dict[str, Any], self.config)
+
+    def _typed_config(self) -> MonetConfig | None:
+        """Return the whole config as a :class:`MonetConfig`, or ``None``.
+
+        Stages should prefer the typed accessors below over ``config_dict()``:
+        they preserve the schema's types and defaults all the way to the
+        consumer instead of flattening to ``dict[str, Any]``. The pipeline path
+        always stores a validated ``MonetConfig`` (returned here as-is). A
+        directly-constructed dict context has no whole-config model — it may be
+        a deliberately partial stage fixture — so this returns ``None`` and the
+        section accessors build just the requested sub-model on demand, without
+        imposing cross-section validation the stage does not need.
+        """
+        return self.config if isinstance(self.config, MonetConfig) else None
+
+    def _config_section(self, key: str) -> Any:
+        """Raw value of a top-level config section from a dict context."""
+        return self.config.get(key) if isinstance(self.config, dict) else None
+
+    def analysis_config(self) -> AnalysisConfig:
+        """Typed ``analysis:`` section."""
+        typed = self._typed_config()
+        if typed is not None:
+            return typed.analysis
+        section = self._config_section("analysis")
+        if isinstance(section, AnalysisConfig):
+            return section
+        return AnalysisConfig(**section) if section else AnalysisConfig()
+
+    def sources_config(self) -> dict[str, SourceConfig]:
+        """Typed ``sources:`` mapping."""
+        typed = self._typed_config()
+        if typed is not None:
+            return typed.sources
+        section = self._config_section("sources") or {}
+        return {
+            str(k): v if isinstance(v, SourceConfig) else SourceConfig(**v)
+            for k, v in section.items()
+        }
+
+    def pairs_config(self) -> dict[str, SourcePairConfig]:
+        """Typed ``pairs:`` mapping."""
+        typed = self._typed_config()
+        if typed is not None:
+            return typed.pairs
+        section = self._config_section("pairs") or {}
+        return {
+            str(k): v if isinstance(v, SourcePairConfig) else SourcePairConfig(**v)
+            for k, v in section.items()
+        }
+
+    def pairing_config(self) -> PipelinePairingConfig | None:
+        """Typed ``pairing:`` section (``None`` when absent)."""
+        typed = self._typed_config()
+        if typed is not None:
+            return typed.pairing
+        section = self._config_section("pairing")
+        if section is None or isinstance(section, PipelinePairingConfig):
+            return section
+        return PipelinePairingConfig(**section)
+
+    def plots_config(self) -> dict[str, PlotGroupConfig]:
+        """Typed ``plots:`` mapping."""
+        typed = self._typed_config()
+        if typed is not None:
+            return typed.plots
+        section = self._config_section("plots") or {}
+        return {
+            str(k): v if isinstance(v, PlotGroupConfig) else PlotGroupConfig(**v)
+            for k, v in section.items()
+        }
+
+    def stats_config(self) -> StatsConfig | None:
+        """Typed ``stats:`` section (``None`` when absent)."""
+        typed = self._typed_config()
+        if typed is not None:
+            return typed.stats
+        section = self._config_section("stats")
+        if section is None or isinstance(section, StatsConfig):
+            return section
+        return StatsConfig(**section)
+
+    def summary_config(self) -> SummaryConfig | None:
+        """Typed ``summary:`` section (``None`` when absent)."""
+        typed = self._typed_config()
+        if typed is not None:
+            return typed.summary
+        section = self._config_section("summary")
+        if section is None or isinstance(section, SummaryConfig):
+            return section
+        return SummaryConfig(**section)
 
     def log_progress(self, message: str) -> None:
         """Log a progress message if callback is set."""

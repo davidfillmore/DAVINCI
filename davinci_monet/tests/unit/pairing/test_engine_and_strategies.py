@@ -767,8 +767,8 @@ class TestTrackStrategy:
             radius_of_influence=500000.0,
         )
 
-        # Verify dataset O3 values show altitude dependence
-        y_o3 = paired["O3"].values
+        # Verify dataset O3 values show altitude dependence (y emitted as y_<var>)
+        y_o3 = paired["y_O3"].values
 
         # Surface (0m, ~1000 hPa) should have O3 near 40 ppb
         assert y_o3[0] < 50, f"Surface O3 should be ~40 ppb, got {y_o3[0]:.1f}"
