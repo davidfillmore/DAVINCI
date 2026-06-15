@@ -86,7 +86,84 @@ class ICARTTReader:
             )
             ds = self._open_with_parser(file_list, variables, **kwargs)
 
+        # Apply header units before standardization so that _standardize_dataset
+        # can overwrite header units for variables it converts (e.g. altitude ft→m).
+        ds = self._apply_header_units(ds, file_list)
+
         return self._standardize_dataset(ds)
+
+    def _parse_header_units(self, file_path: Path) -> dict[str, str]:
+        """Parse variable units from an ICARTT FFI-1001 file header.
+
+        Returns a mapping of ``{variable_name: units}`` derived from the
+        independent-variable line (L9, 0-indexed line 8) and the dependent-
+        variable definition lines (L13 onward, 0-indexed lines 12..12+NV-1).
+        Returns an empty dict on any malformed or unreadable header.
+
+        Parameters
+        ----------
+        file_path
+            Path to a single ICARTT (.ict) file.
+
+        Returns
+        -------
+        dict[str, str]
+            Mapping of variable shortname to units string.
+        """
+        units: dict[str, str] = {}
+        try:
+            with open(file_path, "r") as f:
+                lines = f.readlines()
+            nlhead = int(lines[0].split(",")[0])
+            # Independent variable: 0-indexed line 8 (L9), format "name, units, ..."
+            xparts = [p.strip() for p in lines[8].split(",")]
+            if len(xparts) >= 2 and xparts[0]:
+                units[xparts[0]] = xparts[1]
+            # Number of dependent variables: 0-indexed line 9 (L10)
+            nv = int(lines[9].split(",")[0])
+            # Dependent variable defs: 0-indexed lines 12..12+NV-1
+            # Each line: "shortname, units, longname ..."
+            for i in range(12, 12 + nv):
+                # Stop before the column-names line (last header line)
+                if i >= nlhead - 1 or i >= len(lines):
+                    break
+                parts = [p.strip() for p in lines[i].split(",")]
+                if len(parts) >= 2 and parts[0]:
+                    units[parts[0]] = parts[1]
+        except (ValueError, IndexError, OSError):
+            return {}
+        return units
+
+    def _apply_header_units(self, ds: xr.Dataset, file_list: list[Path]) -> xr.Dataset:
+        """Stamp units attrs onto dataset variables from the ICARTT file header.
+
+        Only sets ``units`` when the variable is present in the header units map
+        and does **not** already carry a ``units`` attribute.  Both data
+        variables and coordinates are covered by iterating ``ds.variables``.
+
+        Parameters
+        ----------
+        ds
+            Dataset to annotate (modified in-place; also returned for chaining).
+        file_list
+            List of source files; the first file is used to parse the header
+            (units are identical across concatenated files of one product).
+
+        Returns
+        -------
+        xr.Dataset
+            The same dataset with units attrs applied where missing.
+        """
+        if not file_list:
+            return ds
+        header_units = self._parse_header_units(file_list[0])
+        if not header_units:
+            return ds
+        for raw_name in list(ds.variables):
+            name = str(raw_name)
+            if name in header_units and not ds[name].attrs.get("units"):
+                ds[name].attrs["units"] = header_units[name]
+        return ds
 
     def _open_with_monetio(
         self,
