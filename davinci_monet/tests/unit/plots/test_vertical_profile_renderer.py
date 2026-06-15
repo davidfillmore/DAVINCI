@@ -7,6 +7,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 import xarray as xr
 
 from davinci_monet.core.base import PlotSeries
@@ -39,17 +40,14 @@ class TestVerticalProfileRender:
         assert len(fig.axes[0].get_lines()) >= 1
         plt.close(fig)
 
-    def test_multi_source_overlay_legend(self) -> None:
-        fig = VerticalProfilePlotter().render(
-            [_profile_series("dc8", 0), _profile_series("gv", 1)], mode="binned"
-        )
-        _, labels = fig.axes[0].get_legend_handles_labels()
-        assert {"dc8", "gv"}.issubset(set(labels))
-        plt.close(fig)
+    def test_rejects_multiple_series(self) -> None:
+        with pytest.raises(NotImplementedError, match="requires exactly 1 series"):
+            VerticalProfilePlotter().render(
+                [_profile_series("dc8", 0), _profile_series("gv", 1)],
+                mode="binned",
+            )
 
     def test_geometry_named_alias_is_rejected(self) -> None:
-        import pytest
-
         from davinci_monet.plots.registry import get_plotter_class
 
         with pytest.raises(Exception):

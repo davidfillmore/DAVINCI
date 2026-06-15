@@ -6,7 +6,6 @@ using cartopy projections.
 
 from __future__ import annotations
 
-from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -467,18 +466,6 @@ class BaseSpatialPlotter(BasePlotter):
             cbar.set_label(label, fontsize=self.config.text.fontsize)
         cbar.ax.tick_params(labelsize=self.config.text.tick_fontsize)
         return cbar
-
-    @abstractmethod
-    def plot(
-        self,
-        paired_data: xr.Dataset,
-        x_var: str,
-        y_var: str,
-        ax: matplotlib.axes.Axes | None = None,
-        **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
-        """Generate the spatial plot."""
-        ...
 
 
 def get_domain_extent(

@@ -1,4 +1,4 @@
-"""Vertical profile renderer for one or more source series."""
+"""Vertical profile renderer for one source series."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ import numpy as np
 
 from davinci_monet.plots.base import (
     BasePlotter,
-    build_series,
     get_variable_label,
     series_colors,
 )
@@ -17,27 +16,16 @@ from davinci_monet.plots.registry import register_plotter
 if TYPE_CHECKING:
     import matplotlib.axes
     import matplotlib.figure
-    import xarray as xr
 
     from davinci_monet.core.base import PlotSeries
 
 
 @register_plotter("vertical_profile")
 class VerticalProfilePlotter(BasePlotter):
-    """Altitude vs. value profile for 1..N source series."""
+    """Altitude vs. value profile for one source series."""
 
     name: str = "vertical_profile"
     default_figsize: tuple[float, float] = (6, 8)
-
-    def plot(
-        self,
-        x_data: xr.Dataset,
-        variable: str,
-        ax: matplotlib.axes.Axes | None = None,
-        **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
-        """Single-source convenience wrapper; ``render`` is the unified entry."""
-        return self.render(build_series(x_data, variable), ax=ax, **kwargs)
 
     def render(
         self,
@@ -50,14 +38,18 @@ class VerticalProfilePlotter(BasePlotter):
         title: str | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Render vertical profile(s): 1 → single source, N → overlay."""
+        """Render one source's vertical profile."""
+        if len(series) != 1:
+            raise NotImplementedError(
+                f"VerticalProfilePlotter.render requires exactly 1 series; got {len(series)}."
+            )
+
         if ax is None:
             fig, ax = self.create_figure()
         else:
             fig = ax.get_figure()  # type: ignore[assignment]
 
         colors = series_colors(series)
-        multi = len(series) > 1
         for s, color in zip(series, colors):
             label = s.source_label or get_variable_label(
                 s.dataset, s.var_name, include_prefix=False
@@ -84,8 +76,6 @@ class VerticalProfilePlotter(BasePlotter):
         )
         self.set_title(ax, title if title else f"{var_label} Vertical Profile")
         ax.grid(True, alpha=0.3)
-        if multi:
-            ax.legend(fontsize=self.config.text.legend)
         return fig
 
     def _plot_scatter(self, ax: Any, s: PlotSeries, alt_coord: str, color: str, label: str) -> None:

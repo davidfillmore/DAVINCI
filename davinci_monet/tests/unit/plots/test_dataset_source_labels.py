@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import xarray as xr
 
-from davinci_monet.plots.base import source_label
+from davinci_monet.plots.base import build_series, source_label
 from davinci_monet.plots.style import NCAR_PRIMARY
 
 
@@ -41,7 +41,6 @@ class TestGeometryTimeseriesSourceLabel:
     """R-4 now flows through the unified TimeSeriesPlotter.render (single source)."""
 
     def test_single_series_labelled_by_source(self) -> None:
-        from davinci_monet.plots.base import build_series
         from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 
         ds = _geometry_timeseries_ds(source_label="pandora")
@@ -50,7 +49,6 @@ class TestGeometryTimeseriesSourceLabel:
 
     def test_single_series_keeps_geometry_only_blue(self) -> None:
         # Geometry-only convention: NCAR blue, NOT the paired x-axis gray.
-        from davinci_monet.plots.base import build_series
         from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 
         ds = _geometry_timeseries_ds(source_label="pandora")
@@ -63,7 +61,7 @@ class TestGeometryHistogramSourceLabel:
         from davinci_monet.plots.renderers.histogram import HistogramPlotter
 
         ds = _geometry_timeseries_ds(source_label="pandora")
-        fig = HistogramPlotter().plot(ds, "O3")
+        fig = HistogramPlotter().render(build_series(ds, "O3"))
         _, labels = fig.axes[0].get_legend_handles_labels()
         assert "pandora" in labels
 
@@ -82,6 +80,6 @@ class TestVerticalProfileSourceLabel:
             },
         )
         ds.attrs["source_label"] = "dc8"
-        fig = VerticalProfilePlotter().plot(ds, "O3")  # default scatter mode
+        fig = VerticalProfilePlotter().render(build_series(ds, "O3"))  # default scatter mode
         _, labels = fig.axes[0].get_legend_handles_labels()
         assert "dc8" in labels

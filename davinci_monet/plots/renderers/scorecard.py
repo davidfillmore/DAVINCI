@@ -15,8 +15,6 @@ from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots._stats import annotation_metrics
 from davinci_monet.plots.base import (
     BasePlotter,
-    PlotConfig,
-    build_series,
     canonical_variable_name,
     extract_xy_series,
 )
@@ -26,7 +24,6 @@ if TYPE_CHECKING:
     import matplotlib.axes
     import matplotlib.figure
     import pandas as pd
-    import xarray as xr
 
 
 @register_plotter("scorecard")
@@ -44,7 +41,7 @@ class ScorecardPlotter(BasePlotter):
     Examples
     --------
     >>> plotter = ScorecardPlotter()
-    >>> fig = plotter.plot_from_stats(
+    >>> fig = plotter.render_from_dataframe(
     ...     stats_df,
     ...     row_var="variable",
     ...     col_var="dataset",
@@ -70,7 +67,7 @@ class ScorecardPlotter(BasePlotter):
         ax
             Optional axes to plot on. If None, creates new figure.
         **kwargs
-            Forwarded to plot_from_dataframe.
+            Forwarded to render_from_dataframe.
 
         Returns
         -------
@@ -99,46 +96,9 @@ class ScorecardPlotter(BasePlotter):
         stats_df = pd.DataFrame([stats])
         stats_df.index = [canonical_variable_name(paired_data, x_var)]
 
-        return self.plot_from_dataframe(stats_df, ax=ax, **kwargs)
+        return self.render_from_dataframe(stats_df, ax=ax, **kwargs)
 
-    def plot(
-        self,
-        paired_data: xr.Dataset,
-        x_var: str,
-        y_var: str,
-        ax: matplotlib.axes.Axes | None = None,
-        **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
-        """Generate a scorecard from paired data.
-
-        This method calculates statistics from paired data and creates
-        a scorecard. For pre-computed statistics, use plot_from_stats().
-
-        Parameters
-        ----------
-        paired_data
-            Paired dataset with x and y variables.
-        x_var
-            Compatibility name for the x variable.
-        y_var
-            Compatibility name for the y variable.
-        ax
-            Optional axes to plot on.
-        **kwargs
-            Additional arguments passed to plot_from_dataframe.
-
-        Returns
-        -------
-        matplotlib.figure.Figure
-            The generated figure.
-        """
-        return self.render(
-            build_series(paired_data, x_var, y_var),
-            ax=ax,
-            **kwargs,
-        )
-
-    def plot_from_dataframe(
+    def render_from_dataframe(
         self,
         stats_df: pd.DataFrame,
         ax: matplotlib.axes.Axes | None = None,
@@ -320,7 +280,7 @@ class ScorecardPlotter(BasePlotter):
                     )
                     ax.add_patch(rect)
 
-    def plot_multi_metric(
+    def render_multi_metric(
         self,
         stats_dict: dict[str, pd.DataFrame],
         metrics: Sequence[str],
@@ -394,7 +354,7 @@ class ScorecardPlotter(BasePlotter):
             # Set center for bias metrics
             center = 0 if "bias" in metric.lower() or metric in ["MB", "NMB"] else None
 
-            self.plot_from_dataframe(
+            self.render_from_dataframe(
                 metric_df,
                 ax=axes[i],
                 cmap=cmap,
@@ -406,37 +366,3 @@ class ScorecardPlotter(BasePlotter):
 
         plt.tight_layout()
         return fig
-
-
-def plot_scorecard(
-    paired_data: xr.Dataset,
-    x_var: str,
-    y_var: str,
-    config: PlotConfig | dict[str, Any] | None = None,
-    **kwargs: Any,
-) -> matplotlib.figure.Figure:
-    """Convenience function for scorecard plotting.
-
-    Parameters
-    ----------
-    paired_data
-        Paired dataset with x and y variables.
-    x_var
-        Name of the x variable.
-    y_var
-        Name of the y variable.
-    config
-        Plot configuration.
-    **kwargs
-        Additional arguments passed to plot method.
-
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The generated figure.
-    """
-    if isinstance(config, dict):
-        config = PlotConfig.from_dict(config)
-
-    plotter = ScorecardPlotter(config=config)
-    return plotter.plot(paired_data, x_var, y_var, **kwargs)

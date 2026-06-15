@@ -12,8 +12,7 @@ import matplotlib.pyplot as plt
 import xarray as xr
 from _helpers import create_paired_surface_data, save_figure
 
-from davinci_monet.plots.base import build_series
-from davinci_monet.plots.renderers.spatial.field import SpatialPlotter
+from davinci_monet.plots import PlotConfig, SpatialPlotter, build_series
 
 
 def main():
@@ -36,8 +35,7 @@ def main():
     ds["O3"].attrs["units"] = "ppbv"
 
     # Render via the unified contract: SpatialPlotter().render(build_series(ds, var)).
-    plotter = SpatialPlotter()
-    plotter.config.title = "Spatial Field: Surface O3"
+    plotter = SpatialPlotter(config=PlotConfig(title="Spatial Field: Surface O3"))
     fig = plotter.render(build_series(ds, "O3"))
 
     save_figure(fig, "08_spatial_field")

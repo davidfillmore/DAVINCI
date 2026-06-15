@@ -10,9 +10,7 @@ Data: Satellite swath datasets (NO2 column density)
 import matplotlib.pyplot as plt
 from _helpers import create_paired_swath_data, save_figure
 
-from davinci_monet.plots import plot_spatial_bias
-from davinci_monet.plots.base import build_series
-from davinci_monet.plots.renderers.spatial.field import SpatialPlotter
+from davinci_monet.plots import PlotConfig, SpatialBiasPlotter, SpatialPlotter, build_series
 
 
 def main():
@@ -63,14 +61,12 @@ def main():
     )
 
     # 1. Spatial bias plot (colorbar indicates "Dataset - Geometry")
-    fig1 = plot_spatial_bias(
-        paired_flat,
-        x_var="x_no2",
-        y_var="y_no2",
+    plotter_bias = SpatialBiasPlotter(PlotConfig(title="Spatial Bias: TROPOMI L2 NO2"))
+    fig1 = plotter_bias.render(
+        build_series(paired_flat, "x_no2", "y_no2"),
         lat_var="latitude",
         lon_var="longitude",
         time_average=False,  # Already 1D
-        title="Spatial Bias: TROPOMI L2 NO2",
         marker_size=3,
     )
     save_figure(fig1, "14a_satellite_swath_bias")
@@ -92,8 +88,7 @@ def main():
         return out
 
     # 2. Spatial field (geometry / x source)
-    plotter_x = SpatialPlotter()
-    plotter_x.config.title = "Spatial Field: TROPOMI L2 NO2 (Geometry)"
+    plotter_x = SpatialPlotter(PlotConfig(title="Spatial Field: TROPOMI L2 NO2 (Geometry)"))
     fig2 = plotter_x.render(
         build_series(_single_source("x_no2", "geometry"), "NO2"),
         time_average=False,
@@ -103,8 +98,7 @@ def main():
     plt.close(fig2)
 
     # 3. Spatial field (dataset / y source)
-    plotter_y = SpatialPlotter()
-    plotter_y.config.title = "Spatial Field: TROPOMI L2 NO2 (Dataset)"
+    plotter_y = SpatialPlotter(PlotConfig(title="Spatial Field: TROPOMI L2 NO2 (Dataset)"))
     fig3 = plotter_y.render(
         build_series(_single_source("y_no2", "dataset"), "NO2"),
         time_average=False,

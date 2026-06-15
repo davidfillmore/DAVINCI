@@ -6,7 +6,7 @@ comparisons, including density coloring and regression lines.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,7 +16,6 @@ from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots._stats import annotation_metrics
 from davinci_monet.plots.base import (
     BasePlotter,
-    PlotConfig,
     build_series,
     extract_xy_series,
     format_label_with_units,
@@ -54,10 +53,8 @@ class ScatterPlotter(BasePlotter):
     Examples
     --------
     >>> plotter = ScatterPlotter()
-    >>> fig = plotter.plot(
-    ...     paired_data,
-    ...     x_var="airnow_o3",
-    ...     y_var="cam_o3",
+    >>> fig = plotter.render(
+    ...     build_series(paired_data, "airnow_o3", "cam_o3"),
     ...     show_density=True,
     ...     show_regression=True,
     ... )
@@ -255,81 +252,6 @@ class ScatterPlotter(BasePlotter):
 
         return fig
 
-    def plot(
-        self,
-        paired_data: xr.Dataset,
-        x_var: str,
-        y_var: str,
-        ax: matplotlib.axes.Axes | None = None,
-        show_density: bool = False,
-        density_cmap: str = "viridis",
-        density_bins: int = 50,
-        show_regression: bool = True,
-        show_one_to_one: bool = True,
-        show_stats: bool = True,
-        color_by: str | None = None,
-        marker_size: float | None = None,
-        alpha: float | None = None,
-        **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
-        """Generate a scatter plot.
-
-        Parameters
-        ----------
-        paired_data
-            Paired dataset with x and y variables.
-        x_var
-            Name of the x variable.
-        y_var
-            Name of the y variable.
-        ax
-            Optional axes to plot on. If None, creates new figure.
-        show_density
-            If True, color points by density.
-        density_cmap
-            Colormap for density coloring.
-        density_bins
-            Number of bins for density calculation.
-        show_regression
-            If True, show linear regression line.
-        show_one_to_one
-            If True, show 1:1 line.
-        show_stats
-            If True, show statistics annotation.
-        color_by
-            Optional variable name to color points by.
-        marker_size
-            Override marker size.
-        alpha
-            Override alpha.
-        **kwargs
-            Additional plotting arguments.
-
-        Returns
-        -------
-        matplotlib.figure.Figure
-            The generated figure.
-        """
-        result = self.render(
-            build_series(paired_data, x_var, y_var),
-            ax=ax,
-            show_density=show_density,
-            density_cmap=density_cmap,
-            density_bins=density_bins,
-            show_regression=show_regression,
-            show_one_to_one=show_one_to_one,
-            show_stats=show_stats,
-            color_by=color_by,
-            marker_size=marker_size,
-            alpha=alpha,
-            **kwargs,
-        )
-        if isinstance(result, list):
-            raise TypeError(
-                "ScatterPlotter.plot() expected one figure; use render() for split output."
-            )
-        return result
-
     def _render_by_flight(
         self,
         paired_data: xr.Dataset,
@@ -497,37 +419,3 @@ class ScatterPlotter(BasePlotter):
             horizontalalignment="right",
             bbox=props,
         )
-
-
-def plot_scatter(
-    paired_data: xr.Dataset,
-    x_var: str,
-    y_var: str,
-    config: PlotConfig | dict[str, Any] | None = None,
-    **kwargs: Any,
-) -> matplotlib.figure.Figure:
-    """Convenience function for scatter plotting.
-
-    Parameters
-    ----------
-    paired_data
-        Paired dataset with x and y variables.
-    x_var
-        Name of the x variable.
-    y_var
-        Name of the y variable.
-    config
-        Plot configuration.
-    **kwargs
-        Additional arguments passed to plot method.
-
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The generated figure.
-    """
-    if isinstance(config, dict):
-        config = PlotConfig.from_dict(config)
-
-    plotter = ScatterPlotter(config=config)
-    return plotter.plot(paired_data, x_var, y_var, **kwargs)

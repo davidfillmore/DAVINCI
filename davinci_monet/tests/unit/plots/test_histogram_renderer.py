@@ -7,6 +7,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 import xarray as xr
 
 from davinci_monet.core.base import PlotSeries
@@ -32,16 +33,11 @@ class TestHistogramRender:
         assert len(ax.get_lines()) >= 1  # median axvline
         plt.close(fig)
 
-    def test_multi_source_overlay_has_legend(self) -> None:
-        fig = HistogramPlotter().render([_series("airnow", 0), _series("pandora", 1)])
-        ax = fig.axes[0]
-        _, labels = ax.get_legend_handles_labels()
-        assert {"airnow", "pandora"}.issubset(set(labels))
-        plt.close(fig)
+    def test_rejects_multiple_series(self) -> None:
+        with pytest.raises(NotImplementedError, match="requires exactly 1 series"):
+            HistogramPlotter().render([_series("airnow", 0), _series("pandora", 1)])
 
     def test_geometry_named_alias_is_rejected(self) -> None:
-        import pytest
-
         from davinci_monet.plots.registry import get_plotter_class
 
         with pytest.raises(Exception):

@@ -162,6 +162,15 @@ cd examples && python run_all_examples.py
 
 Output is saved to `examples/output/plots/` as both PNG (300 DPI) and PDF.
 
+Direct Python plotting uses plotter classes and `render(build_series(...))`:
+
+```python
+from davinci_monet.plots import PlotConfig, ScatterPlotter, build_series
+
+plotter = ScatterPlotter(PlotConfig(title="O3 Scatter"))
+fig = plotter.render(build_series(paired_data, "airnow_o3", "cam_o3"))
+```
+
 ## Analyses
 
 The `analyses/` directory contains real-world dataset evaluation studies:

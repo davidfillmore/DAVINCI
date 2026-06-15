@@ -641,19 +641,24 @@ class TestPlottingStage:
         assert result.status == StageStatus.FAILED
         assert "missing_pair" in (result.error or "")
 
-    def test_labeled_render_results_are_saved_without_legacy_split_helpers(self, tmp_path):
+    def test_labeled_render_results_are_saved_without_legacy_split_helpers(
+        self,
+        tmp_path,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
         """The plotting stage consumes render() lists directly."""
         from davinci_monet.plots.base import BasePlotter
-        from davinci_monet.plots.registry import register_plotter
+        from davinci_monet.plots.registry import plotter_registry
 
-        @register_plotter("test_labeled_multi", replace=True)
         class LabeledMultiPlotter(BasePlotter):
-            name = "test_labeled_multi"
+            name = "scatter"
 
             def render(self, series, ax=None, **kwargs):
                 fig_a, _ = self.create_figure()
                 fig_b, _ = self.create_figure()
                 return [("flight_a", fig_a), ("flight_b", fig_b)]
+
+        monkeypatch.setitem(plotter_registry._components, "scatter", LabeledMultiPlotter)
 
         paired = xr.Dataset(
             {
@@ -687,7 +692,7 @@ class TestPlottingStage:
                         "y": {"source": "cam", "variable": "O3"},
                     }
                 },
-                "plots": {"multi": {"type": "test_labeled_multi", "pairs": ["cam_airnow_o3"]}},
+                "plots": {"multi": {"type": "scatter", "pairs": ["cam_airnow_o3"]}},
             },
             paired={"cam_airnow_o3": paired},
         )

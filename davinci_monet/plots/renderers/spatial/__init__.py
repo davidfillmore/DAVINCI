@@ -13,12 +13,9 @@ from davinci_monet.plots.renderers.spatial.base import (
     get_domain_extent,
     get_projection,
 )
-from davinci_monet.plots.renderers.spatial.bias import SpatialBiasPlotter, plot_spatial_bias
+from davinci_monet.plots.renderers.spatial.bias import SpatialBiasPlotter
 from davinci_monet.plots.renderers.spatial.field import SpatialPlotter
-from davinci_monet.plots.renderers.spatial.overlay import (
-    SpatialOverlayPlotter,
-    plot_spatial_overlay,
-)
+from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
 
 __all__ = [
     # Base classes
@@ -31,7 +28,4 @@ __all__ = [
     "SpatialBiasPlotter",
     "SpatialOverlayPlotter",
     "SpatialPlotter",
-    # Convenience functions
-    "plot_spatial_bias",
-    "plot_spatial_overlay",
 ]

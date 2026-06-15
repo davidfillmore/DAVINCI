@@ -9,7 +9,7 @@ Data: Surface point datasets (O3)
 import matplotlib.pyplot as plt
 from _helpers import create_paired_surface_data, save_figure
 
-from davinci_monet.plots import plot_scorecard
+from davinci_monet.plots import PlotConfig, ScorecardPlotter, build_series
 
 
 def main():
@@ -20,12 +20,8 @@ def main():
     paired = create_paired_surface_data(n_sites=30, variables=["O3"])
 
     # Create plot using davinci_monet.plots
-    fig = plot_scorecard(
-        paired,
-        x_var="x_o3",
-        y_var="y_o3",
-        title="Scorecard: O3 Performance Metrics",
-    )
+    plotter = ScorecardPlotter(PlotConfig(title="Scorecard: O3 Performance Metrics"))
+    fig = plotter.render(build_series(paired, "x_o3", "y_o3"))
 
     save_figure(fig, "10_scorecard")
     plt.close(fig)

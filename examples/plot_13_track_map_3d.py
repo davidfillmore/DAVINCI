@@ -10,7 +10,7 @@ Data: Aircraft track datasets (O3)
 import matplotlib.pyplot as plt
 from _helpers import create_paired_track_data, save_figure
 
-from davinci_monet.plots import plot_track_map_3d
+from davinci_monet.plots import PlotConfig, TrackMap3DPlotter, build_series
 
 
 def main():
@@ -22,11 +22,9 @@ def main():
 
     # Example 1: Show bias (default)
     print("  Bias view...")
-    fig = plot_track_map_3d(
-        paired,
-        x_var="x_o3",
-        y_var="y_o3",
-        title="3D Track Map: Aircraft O3 Bias",
+    plotter = TrackMap3DPlotter(PlotConfig(title="3D Track Map: Aircraft O3 Bias"))
+    fig = plotter.render(
+        build_series(paired, "x_o3", "y_o3"),
         show_var="bias",
     )
     save_figure(fig, "13a_track_map_3d_bias")
@@ -34,11 +32,9 @@ def main():
 
     # Example 2: Show datasets
     print("  Datasets view...")
-    fig = plot_track_map_3d(
-        paired,
-        x_var="x_o3",
-        y_var="y_o3",
-        title="3D Track Map: Aircraft O3 (Geometry)",
+    plotter = TrackMap3DPlotter(PlotConfig(title="3D Track Map: Aircraft O3 (Geometry)"))
+    fig = plotter.render(
+        build_series(paired, "x_o3", "y_o3"),
         show_var="x",
     )
     save_figure(fig, "13b_track_map_3d_geometry")
@@ -46,11 +42,9 @@ def main():
 
     # Example 3: Show dataset
     print("  Dataset view...")
-    fig = plot_track_map_3d(
-        paired,
-        x_var="x_o3",
-        y_var="y_o3",
-        title="3D Track Map: Aircraft O3 (Dataset)",
+    plotter = TrackMap3DPlotter(PlotConfig(title="3D Track Map: Aircraft O3 (Dataset)"))
+    fig = plotter.render(
+        build_series(paired, "x_o3", "y_o3"),
         show_var="y",
     )
     save_figure(fig, "13c_track_map_3d_dataset")

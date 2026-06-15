@@ -6,7 +6,7 @@ vertical cross-sections of aircraft or gridded data along a trajectory.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,8 +15,6 @@ from matplotlib.colors import TwoSlopeNorm
 from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     BasePlotter,
-    PlotConfig,
-    build_series,
     calculate_symmetric_limits,
     format_label_with_units,
     get_variable_label,
@@ -27,7 +25,6 @@ from davinci_monet.plots.registry import register_plotter
 if TYPE_CHECKING:
     import matplotlib.axes
     import matplotlib.figure
-    import xarray as xr
 
 
 @register_plotter("curtain")
@@ -45,10 +42,8 @@ class CurtainPlotter(BasePlotter):
     Examples
     --------
     >>> plotter = CurtainPlotter()
-    >>> fig = plotter.plot(
-    ...     paired_data,
-    ...     x_var="x_o3",
-    ...     y_var="y_o3",
+    >>> fig = plotter.render(
+    ...     build_series(paired_data, "x_o3", "y_o3"),
     ...     alt_var="altitude",
     ... )
     """
@@ -212,72 +207,6 @@ class CurtainPlotter(BasePlotter):
 
         return fig
 
-    def plot(
-        self,
-        paired_data: xr.Dataset,
-        x_var: str,
-        y_var: str,
-        ax: matplotlib.axes.Axes | None = None,
-        alt_var: str = "altitude",
-        time_dim: str = "time",
-        show_var: Literal["x", "y", "bias"] = "bias",
-        cmap: str | None = None,
-        n_levels: int = 20,
-        show_scatter: bool = True,
-        scatter_size: float | None = None,
-        invert_yaxis: bool = False,
-        **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
-        """Generate a curtain plot.
-
-        Parameters
-        ----------
-        paired_data
-            Paired dataset with x and y variables.
-        x_var
-            Name of the x variable.
-        y_var
-            Name of the y variable.
-        ax
-            Optional axes to plot on.
-        alt_var
-            Name of altitude coordinate/variable.
-        time_dim
-            Name of time dimension.
-        show_var
-            Which variable to show ('x', 'y', 'bias').
-        cmap
-            Colormap. Defaults to RdBu_r for bias, viridis otherwise.
-        n_levels
-            Number of contour levels.
-        show_scatter
-            If True, overlay x-source points as scatter.
-        scatter_size
-            Size of scatter points.
-        invert_yaxis
-            If True, invert y-axis (for pressure coordinates).
-        **kwargs
-            Additional plotting arguments.
-
-        Returns
-        -------
-        matplotlib.figure.Figure
-            The generated figure.
-        """
-        return self.render(
-            build_series(paired_data, x_var, y_var),
-            ax=ax,
-            alt_var=alt_var,
-            time_dim=time_dim,
-            show_var=show_var,
-            cmap=cmap,
-            n_levels=n_levels,
-            show_scatter=show_scatter,
-            scatter_size=scatter_size,
-            invert_yaxis=invert_yaxis,
-            **kwargs,
-        )
-
     def _plot_1d_trajectory(
         self,
         ax: matplotlib.axes.Axes,
@@ -440,37 +369,3 @@ class CurtainPlotter(BasePlotter):
             cbar.set_label("Bias (Y - X)")
         else:
             cbar.set_label(show_var.title())
-
-
-def plot_curtain(
-    paired_data: xr.Dataset,
-    x_var: str,
-    y_var: str,
-    config: PlotConfig | dict[str, Any] | None = None,
-    **kwargs: Any,
-) -> matplotlib.figure.Figure:
-    """Convenience function for curtain plotting.
-
-    Parameters
-    ----------
-    paired_data
-        Paired dataset with x and y variables.
-    x_var
-        Name of the x variable.
-    y_var
-        Name of the y variable.
-    config
-        Plot configuration.
-    **kwargs
-        Additional arguments passed to plot method.
-
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The generated figure.
-    """
-    if isinstance(config, dict):
-        config = PlotConfig.from_dict(config)
-
-    plotter = CurtainPlotter(config=config)
-    return plotter.plot(paired_data, x_var, y_var, **kwargs)

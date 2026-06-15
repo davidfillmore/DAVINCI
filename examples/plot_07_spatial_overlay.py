@@ -12,7 +12,7 @@ import numpy as np
 import xarray as xr
 from _helpers import create_paired_surface_data, save_figure
 
-from davinci_monet.plots import plot_spatial_overlay
+from davinci_monet.plots import PlotConfig, SpatialOverlayPlotter, build_series
 from davinci_monet.tests.synthetic.datasets import create_dataset_dataset
 from davinci_monet.tests.synthetic.generators import Domain
 
@@ -36,12 +36,10 @@ def main():
     y_field = dataset_grid["O3"].isel(time=0)
 
     # Create plot using davinci_monet.plots
-    fig = plot_spatial_overlay(
-        paired_mean,
-        x_var="x_o3",
-        y_var="y_o3",
+    plotter = SpatialOverlayPlotter(PlotConfig(title="Spatial Overlay: O3 Dataset + Geometry"))
+    fig = plotter.render(
+        build_series(paired_mean, "x_o3", "y_o3"),
         y_field=y_field,
-        title="Spatial Overlay: O3 Dataset + Geometry",
     )
 
     save_figure(fig, "07_spatial_overlay")

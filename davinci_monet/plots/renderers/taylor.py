@@ -14,8 +14,6 @@ import numpy as np
 from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     BasePlotter,
-    PlotConfig,
-    build_series,
     clean_xy,
     extract_xy_series,
     get_axis_color,
@@ -45,11 +43,7 @@ class TaylorPlotter(BasePlotter):
     Examples
     --------
     >>> plotter = TaylorPlotter()
-    >>> fig = plotter.plot(
-    ...     paired_data,
-    ...     x_var="x_o3",
-    ...     y_var="y_o3",
-    ... )
+    >>> fig = plotter.render(build_series(paired_data, "x_o3", "y_o3"))
     """
 
     name: str = "taylor"
@@ -61,12 +55,12 @@ class TaylorPlotter(BasePlotter):
         ax: matplotlib.axes.Axes | None = None,
         **kwargs: Any,
     ) -> matplotlib.figure.Figure:
-        """Render a Taylor diagram from a list of two PlotSeries.
+        """Render a Taylor diagram from two or more PlotSeries.
 
         Parameters
         ----------
         series
-            Exactly 2 series: one x series and one y series.
+            At least 2 series: one x/reference series and one or more y series.
         ax
             Optional axes to plot on (must be polar). If None, creates new.
         **kwargs
@@ -77,7 +71,10 @@ class TaylorPlotter(BasePlotter):
         matplotlib.figure.Figure
             The generated figure.
         """
-        paired_data, x_var, y_var = extract_xy_series(series, "TaylorPlotter.render")
+        if len(series) < 2:
+            raise NotImplementedError(
+                f"TaylorPlotter.render requires at least 2 series; got {len(series)}."
+            )
 
         normalize: bool = kwargs.pop("normalize", True)
         show_x: bool = kwargs.pop("show_x", True)
@@ -85,22 +82,28 @@ class TaylorPlotter(BasePlotter):
         y_label: str | None = kwargs.pop("y_label", None)
         marker: str | None = kwargs.pop("marker", None)
         color: str | None = kwargs.pop("color", None)
+        colors: dict[str, str] = kwargs.pop("colors", {}) or {}
+        markers: dict[str, str] = kwargs.pop("markers", {}) or {}
 
-        # Get data, flatten, and drop non-finite pairs
-        x_values, y_values = clean_xy(paired_data[x_var].values, paired_data[y_var].values)
+        if len(series) == 2:
+            paired_data, x_var, y_var = extract_xy_series(series, "TaylorPlotter.render")
+            x_series = next((s for s in series if s.axis == "x"), series[0])
+            y_series = next((s for s in series if s is not x_series), series[1])
+            y_series_list = [y_series]
+        else:
+            x_series = next((s for s in series if s.axis == "x"), series[0])
+            y_series_list = [s for s in series if s is not x_series]
+            paired_data = x_series.dataset
+            x_var = x_series.var_name
+            y_var = y_series_list[0].var_name
 
-        # Calculate statistics
+        # Use the first comparison to scale the Taylor axes, preserving the
+        # historical one-reference/many-model diagram behavior.
+        x_values, _ = clean_xy(paired_data[x_var].values, y_series_list[0].dataset[y_var].values)
         x_std = np.std(x_values)
-        y_std = np.std(y_values)
-        correlation = np.corrcoef(x_values, y_values)[0, 1]
 
         # Normalize if requested
-        if normalize:
-            y_std_norm = y_std / x_std
-            x_std_norm = 1.0
-        else:
-            y_std_norm = y_std
-            x_std_norm = x_std
+        x_std_norm = 1.0 if normalize else x_std
 
         # Create Taylor diagram
         if ax is None:
@@ -110,28 +113,49 @@ class TaylorPlotter(BasePlotter):
 
         # Get style
         style = self.config.style
-        m = marker or style.y_marker
-        c = color or get_axis_color(
-            paired_data,
-            y_var,
-            1,
-            x_color=style.x_color,
-            y_color=style.y_color,
-        )
-        label = y_label or self.config.y_label or get_series_label(paired_data, y_var)
+        default_colors = plt.cm.tab10.colors  # type: ignore[attr-defined]
 
-        # Plot y point
-        # Taylor diagram uses polar coordinates: theta=arccos(correlation), r=std
-        theta = np.arccos(correlation)
-        ax.plot(
-            theta,
-            y_std_norm,
-            marker=m,
-            color=c,
-            markersize=style.markersize * 1.5,
-            label=label,
-            linestyle="none",
-        )
+        for i, current_y in enumerate(y_series_list):
+            current_label = get_series_label(current_y.dataset, current_y.var_name)
+            if len(y_series_list) == 1:
+                label = y_label or self.config.y_label or current_label
+            else:
+                label = current_label
+            key = current_y.source_label or current_y.var_name
+            m = markers.get(key) or markers.get(label) or marker or style.y_marker
+            if len(y_series_list) == 1:
+                default_color = color or get_axis_color(
+                    current_y.dataset,
+                    current_y.var_name,
+                    current_y.index,
+                    x_color=style.x_color,
+                    y_color=style.y_color,
+                )
+            else:
+                default_color = default_colors[i % len(default_colors)]
+            c = colors.get(key) or colors.get(label) or default_color
+
+            x_values, y_values = clean_xy(
+                x_series.dataset[x_series.var_name].values,
+                current_y.dataset[current_y.var_name].values,
+            )
+            x_std = np.std(x_values)
+            y_std = np.std(y_values)
+            correlation = np.corrcoef(x_values, y_values)[0, 1]
+
+            y_std_norm = y_std / x_std if normalize else y_std
+
+            # Taylor diagram uses polar coordinates: theta=arccos(correlation), r=std
+            theta = np.arccos(correlation)
+            ax.plot(
+                theta,
+                y_std_norm,
+                marker=m,
+                color=c,
+                markersize=style.markersize * 1.5,
+                label=label,
+                linestyle="none",
+            )
 
         # Plot the x (reference) point. Label it with the x source label by
         # default (R-3), keeping the conventional black star marker.
@@ -142,7 +166,9 @@ class TaylorPlotter(BasePlotter):
                 marker="*",
                 color="k",
                 markersize=style.markersize * 2,
-                label=x_label or self.config.x_label or get_series_label(paired_data, x_var),
+                label=x_label
+                or self.config.x_label
+                or get_series_label(x_series.dataset, x_series.var_name),
                 linestyle="none",
             )
 
@@ -151,64 +177,6 @@ class TaylorPlotter(BasePlotter):
         self.set_title(ax)
 
         return fig
-
-    def plot(
-        self,
-        paired_data: xr.Dataset,
-        x_var: str,
-        y_var: str,
-        ax: matplotlib.axes.Axes | None = None,
-        normalize: bool = True,
-        show_x: bool = True,
-        x_label: str | None = None,
-        y_label: str | None = None,
-        marker: str | None = None,
-        color: str | None = None,
-        **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
-        """Generate a Taylor diagram.
-
-        Parameters
-        ----------
-        paired_data
-            Paired dataset with x and y variables.
-        x_var
-            Name of the x variable.
-        y_var
-            Name of the y variable.
-        ax
-            Optional axes to plot on (must be polar). If None, creates new.
-        normalize
-            If True, normalize by x standard deviation.
-        show_x
-            If True, show the x (reference) point.
-        x_label
-            Label for x point. Defaults to the x source label.
-        y_label
-            Label for y point.
-        marker
-            Marker style for y point.
-        color
-            Color for y point.
-        **kwargs
-            Additional plotting arguments.
-
-        Returns
-        -------
-        matplotlib.figure.Figure
-            The generated figure.
-        """
-        return self.render(
-            build_series(paired_data, x_var, y_var),
-            ax=ax,
-            normalize=normalize,
-            show_x=show_x,
-            x_label=x_label,
-            y_label=y_label,
-            marker=marker,
-            color=color,
-            **kwargs,
-        )
 
     def _create_taylor_axes(
         self,
@@ -314,107 +282,3 @@ class TaylorPlotter(BasePlotter):
                     alpha=0.3,
                     linewidth=0.5,
                 )
-
-    def plot_multiple(
-        self,
-        paired_datasets: dict[str, xr.Dataset],
-        x_var: str,
-        y_var: str,
-        normalize: bool = True,
-        colors: dict[str, str] | None = None,
-        markers: dict[str, str] | None = None,
-        **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
-        """Plot multiple datasets on a single Taylor diagram.
-
-        Parameters
-        ----------
-        paired_datasets
-            Dictionary mapping dataset names to paired datasets.
-        x_var
-            Name of the x variable.
-        y_var
-            Name of the y variable.
-        normalize
-            If True, normalize by x standard deviation.
-        colors
-            Optional color mapping for each dataset.
-        markers
-            Optional marker mapping for each dataset.
-        **kwargs
-            Additional arguments passed to plot.
-
-        Returns
-        -------
-        matplotlib.figure.Figure
-            The generated figure.
-        """
-        colors = colors or {}
-        markers = markers or {}
-
-        # Use first dataset to create axes
-        first_key = next(iter(paired_datasets))
-        first_data = paired_datasets[first_key]
-
-        x_values = first_data[x_var].values.flatten()
-        x_values = x_values[np.isfinite(x_values)]
-        ref_std = 1.0 if normalize else np.std(x_values)
-
-        fig, ax = self._create_taylor_axes(ref_std, normalize)
-
-        # Default color cycle
-        default_colors = plt.cm.tab10.colors  # type: ignore[attr-defined]
-
-        # Plot each dataset
-        for i, (name, data) in enumerate(paired_datasets.items()):
-            color = colors.get(name, default_colors[i % len(default_colors)])
-            marker = markers.get(name, "o")
-
-            self.plot(
-                data,
-                x_var,
-                y_var,
-                ax=ax,
-                normalize=normalize,
-                show_x=(i == 0),  # Only show x once
-                y_label=name,
-                color=color,
-                marker=marker,
-                **kwargs,
-            )
-
-        return fig
-
-
-def plot_taylor(
-    paired_data: xr.Dataset,
-    x_var: str,
-    y_var: str,
-    config: PlotConfig | dict[str, Any] | None = None,
-    **kwargs: Any,
-) -> matplotlib.figure.Figure:
-    """Convenience function for Taylor diagram plotting.
-
-    Parameters
-    ----------
-    paired_data
-        Paired dataset with x and y variables.
-    x_var
-        Name of the x variable.
-    y_var
-        Name of the y variable.
-    config
-        Plot configuration.
-    **kwargs
-        Additional arguments passed to plot method.
-
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The generated figure.
-    """
-    if isinstance(config, dict):
-        config = PlotConfig.from_dict(config)
-
-    plotter = TaylorPlotter(config=config)
-    return plotter.plot(paired_data, x_var, y_var, **kwargs)

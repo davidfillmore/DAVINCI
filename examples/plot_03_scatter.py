@@ -10,7 +10,7 @@ Data: Surface point datasets (O3) and satellite swath data (NO2)
 import matplotlib.pyplot as plt
 from _helpers import create_paired_surface_data, create_paired_swath_data, save_figure
 
-from davinci_monet.plots import plot_scatter
+from davinci_monet.plots import PlotConfig, ScatterPlotter, build_series
 
 
 def main():
@@ -21,12 +21,8 @@ def main():
     print("  Surface O3...")
     paired_surface = create_paired_surface_data(n_sites=30, variables=["O3"])
 
-    fig = plot_scatter(
-        paired_surface,
-        x_var="x_o3",
-        y_var="y_o3",
-        title="Scatter Plot: Surface O3",
-    )
+    plotter = ScatterPlotter(PlotConfig(title="Scatter Plot: Surface O3"))
+    fig = plotter.render(build_series(paired_surface, "x_o3", "y_o3"))
     save_figure(fig, "03a_scatter_surface")
     plt.close(fig)
 
@@ -48,11 +44,9 @@ def main():
         }
     )
 
-    fig = plot_scatter(
-        scatter_ds,
-        x_var="x_no2",
-        y_var="y_no2",
-        title="Scatter Plot: Satellite NO2 (Swath)",
+    plotter = ScatterPlotter(PlotConfig(title="Scatter Plot: Satellite NO2 (Swath)"))
+    fig = plotter.render(
+        build_series(scatter_ds, "x_no2", "y_no2"),
         show_density=True,
     )
     save_figure(fig, "03b_scatter_satellite")

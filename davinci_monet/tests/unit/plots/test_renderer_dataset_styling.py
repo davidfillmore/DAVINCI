@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import xarray as xr
 
-from davinci_monet.plots.base import get_axis_color, get_series_label
+from davinci_monet.plots.base import build_series, get_axis_color, get_series_label
 from davinci_monet.plots.style import NCAR_PALETTE, X_COLOR, Y_COLOR
 
 
@@ -114,7 +114,8 @@ class TestTimeseriesAxisStyling:
     def test_geometry_gray_dataset_blue_unchanged(self) -> None:
         from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 
-        fig = TimeSeriesPlotter().plot(_ts_paired(), "airnow_o3", "cam_o3")
+        ds = _ts_paired()
+        fig = TimeSeriesPlotter().render(build_series(ds, "airnow_o3", "cam_o3"))
         colors = self._line_colors_by_label(fig)
         assert colors["airnow"] == X_COLOR
         assert colors["cam"] == Y_COLOR
@@ -122,7 +123,8 @@ class TestTimeseriesAxisStyling:
     def test_legend_uses_dataset_labels(self) -> None:
         from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 
-        fig = TimeSeriesPlotter().plot(_ts_paired(), "airnow_o3", "cam_o3")
+        ds = _ts_paired()
+        fig = TimeSeriesPlotter().render(build_series(ds, "airnow_o3", "cam_o3"))
         labels = {ln.get_label() for ln in fig.axes[0].get_lines()}
         assert "airnow" in labels
         assert "cam" in labels
@@ -144,7 +146,7 @@ class TestTimeseriesAxisStyling:
         )
         for name, label in (("wrf_o3", "wrf"), ("cam_o3", "cam")):
             ds[name].attrs["source_label"] = label  # axis-less (no geometry/dataset)
-        fig = TimeSeriesPlotter().plot(ds, "wrf_o3", "cam_o3")
+        fig = TimeSeriesPlotter().render(build_series(ds, "wrf_o3", "cam_o3"))
         colors = self._line_colors_by_label(fig)
         assert colors["wrf"] == NCAR_PALETTE[0]
         assert colors["cam"] == NCAR_PALETTE[1]
@@ -154,12 +156,14 @@ class TestTimeseriesAxisStyling:
 class TestTaylorRoleStyling:
     def test_geometry_label_respects_config_x_label(self) -> None:
         # A PlotConfig.x_label override must win over the source label for the
-        # Taylor geometry point (parity with the dataset label chain).
+        # Taylor x-axis point follows the same source-label chain.
         from davinci_monet.plots.base import PlotConfig
         from davinci_monet.plots.renderers.taylor import TaylorPlotter
 
         ds = _paired_with_aliases()  # geometry renamed to airnow_o3 (source_label "airnow")
-        fig = TaylorPlotter(config=PlotConfig(x_label="CustomRef")).plot(ds, "airnow_o3", "cam_o3")
+        fig = TaylorPlotter(config=PlotConfig(x_label="CustomRef")).render(
+            build_series(ds, "airnow_o3", "cam_o3")
+        )
         labels = {ln.get_label() for ln in fig.axes[0].get_lines()}
         assert "CustomRef" in labels
         assert "airnow" not in labels

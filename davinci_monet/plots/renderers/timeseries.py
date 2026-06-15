@@ -15,7 +15,6 @@ import pandas as pd
 
 from davinci_monet.plots.base import (
     BasePlotter,
-    PlotConfig,
     format_label_with_units,
     get_axis_color,
     get_series_label,
@@ -48,10 +47,8 @@ class TimeSeriesPlotter(BasePlotter):
     Examples
     --------
     >>> plotter = TimeSeriesPlotter()
-    >>> fig = plotter.plot(
-    ...     paired_data,
-    ...     x_var="x_o3",
-    ...     y_var="y_o3",
+    >>> fig = plotter.render(
+    ...     build_series(paired_data, "x_o3", "y_o3"),
     ...     resample="1h",
     ... )
     """
@@ -59,7 +56,7 @@ class TimeSeriesPlotter(BasePlotter):
     name: str = "timeseries"
     default_figsize: tuple[float, float] = (9, 4)  # Wide for temporal data
 
-    def plot(
+    def _plot(
         self,
         paired_data: xr.Dataset,
         x_var: str,
@@ -275,14 +272,14 @@ class TimeSeriesPlotter(BasePlotter):
           (the cross-site mean — no more one-line-per-site spaghetti). Opt into
           per-site lines with ``show_individual_sites=True`` and a ±1σ band with
           ``show_uncertainty=True``.
-        - ``2`` series → x-vs-y; delegates to the paired
-          ``plot()`` so x-gray/y-blue styling is unchanged.
+        - ``2`` series → x-vs-y; delegates to the paired implementation so
+          x-gray/y-blue styling is unchanged.
         - ``>2`` series → multi-source overlay, palette-cycled.
         """
         if len(series) == 2:
             x_series = next((s for s in series if s.axis == "x"), series[0])
             y_series = next((s for s in series if s.axis == "y"), series[1])
-            return self.plot(
+            return self._plot(
                 x_series.dataset,
                 x_series.var_name,
                 y_series.var_name,
@@ -755,7 +752,7 @@ class TimeSeriesPlotter(BasePlotter):
                     )
                 )
         else:
-            # Just use mean values. Replicate plot()'s aggregation so that
+            # Just use mean values. Replicate _plot()'s aggregation so that
             # ylim is computed from the actual plotted line, not the raw
             # per-site/per-track-point distribution. Without this, a single
             # outlier (e.g. one wildfire-impacted PM2.5 site at 200 µg/m³)
@@ -799,37 +796,3 @@ class TimeSeriesPlotter(BasePlotter):
             vmax = data_max + padding
 
         ax.set_ylim(vmin, vmax)
-
-
-def plot_timeseries(
-    paired_data: xr.Dataset,
-    x_var: str,
-    y_var: str,
-    config: PlotConfig | dict[str, Any] | None = None,
-    **kwargs: Any,
-) -> matplotlib.figure.Figure:
-    """Convenience function for time series plotting.
-
-    Parameters
-    ----------
-    paired_data
-        Paired dataset with x and y variables.
-    x_var
-        Name of the x variable.
-    y_var
-        Name of the y variable.
-    config
-        Plot configuration.
-    **kwargs
-        Additional arguments passed to plot method.
-
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The generated figure.
-    """
-    if isinstance(config, dict):
-        config = PlotConfig.from_dict(config)
-
-    plotter = TimeSeriesPlotter(config=config)
-    return plotter.plot(paired_data, x_var, y_var, **kwargs)

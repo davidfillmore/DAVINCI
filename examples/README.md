@@ -37,14 +37,15 @@ Output is saved to `output/plots/` as PNG (300 DPI) and PDF.
 All examples use the same pattern:
 
 ```python
-from davinci_monet.plots import plot_scatter  # or any plot type
 from _helpers import create_paired_surface_data, save_figure
+from davinci_monet.plots import PlotConfig, ScatterPlotter, build_series
 
 # Generate synthetic paired data
 paired = create_paired_surface_data(n_sites=30, variables=["O3"])
 
 # Create plot using davinci_monet.plots
-fig = plot_scatter(paired, x_var="x_o3", y_var="y_o3", title="My Plot")
+plotter = ScatterPlotter(PlotConfig(title="My Plot"))
+fig = plotter.render(build_series(paired, "x_o3", "y_o3"))
 
 # Save output
 save_figure(fig, "my_scatter")
@@ -64,27 +65,21 @@ Provides functions to create paired x-y datasets:
 
 ## Using in Your Analysis
 
-Import plotters directly:
+Direct plotting uses plotter classes and `render(build_series(...))`:
 
 ```python
-from davinci_monet.plots import (
-    plot_scatter,
-    plot_spatial_bias,
-    plot_taylor,
-    plot_timeseries,
-    # ... etc
-)
+from davinci_monet.plots import PlotConfig, ScatterPlotter, build_series
 
 # With your paired data
-fig = plot_scatter(my_paired_data, "x_pm25", "y_pm25")
+plotter = ScatterPlotter(PlotConfig(title="PM2.5 Scatter"))
+fig = plotter.render(build_series(my_paired_data, "x_pm25", "y_pm25"))
 fig.savefig("my_scatter.png")
 ```
 
 Or use the registry:
 
 ```python
-from davinci_monet.plots import get_plotter
-from davinci_monet.plots.base import build_series
+from davinci_monet.plots import build_series, get_plotter
 
 plotter = get_plotter("scatter")
 fig = plotter.render(build_series(my_paired_data, "x_pm25", "y_pm25"))

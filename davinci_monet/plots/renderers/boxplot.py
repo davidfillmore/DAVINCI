@@ -14,8 +14,6 @@ import numpy as np
 from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     BasePlotter,
-    PlotConfig,
-    build_series,
     extract_xy_series,
     format_label_with_units,
     get_axis_color,
@@ -46,10 +44,8 @@ class BoxPlotter(BasePlotter):
     Examples
     --------
     >>> plotter = BoxPlotter()
-    >>> fig = plotter.plot(
-    ...     paired_data,
-    ...     x_var="x_o3",
-    ...     y_var="y_o3",
+    >>> fig = plotter.render(
+    ...     build_series(paired_data, "x_o3", "y_o3"),
     ...     group_by="site",
     ... )
     """
@@ -154,68 +150,6 @@ class BoxPlotter(BasePlotter):
         self.set_limits(ax, axis="y" if vert else "x")
 
         return fig
-
-    def plot(
-        self,
-        paired_data: xr.Dataset,
-        x_var: str,
-        y_var: str,
-        ax: matplotlib.axes.Axes | None = None,
-        group_by: str | None = None,
-        show_means: bool = True,
-        show_outliers: bool = True,
-        notch: bool = False,
-        orientation: Literal["vertical", "horizontal"] = "vertical",
-        x_label: str | None = None,
-        y_label: str | None = None,
-        **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
-        """Generate a box plot.
-
-        Parameters
-        ----------
-        paired_data
-            Paired dataset with x and y variables.
-        x_var
-            Name of the x variable.
-        y_var
-            Name of the y variable.
-        ax
-            Optional axes to plot on. If None, creates new figure.
-        group_by
-            Optional dimension/coordinate to group data by.
-        show_means
-            If True, show mean markers on boxes.
-        show_outliers
-            If True, show outlier points.
-        notch
-            If True, use notched box style.
-        orientation
-            Box orientation ('vertical' or 'horizontal').
-        x_label
-            Custom label for the x series.
-        y_label
-            Custom label for the y series.
-        **kwargs
-            Additional plotting arguments.
-
-        Returns
-        -------
-        matplotlib.figure.Figure
-            The generated figure.
-        """
-        return self.render(
-            build_series(paired_data, x_var, y_var),
-            ax=ax,
-            group_by=group_by,
-            show_means=show_means,
-            show_outliers=show_outliers,
-            notch=notch,
-            orientation=orientation,
-            x_label=x_label,
-            y_label=y_label,
-            **kwargs,
-        )
 
     def _plot_simple(
         self,
@@ -410,37 +344,3 @@ class BoxPlotter(BasePlotter):
             Patch(facecolor=y_color, alpha=0.5, label=y_label),
         ]
         ax.legend(handles=legend_elements, loc="best")
-
-
-def plot_boxplot(
-    paired_data: xr.Dataset,
-    x_var: str,
-    y_var: str,
-    config: PlotConfig | dict[str, Any] | None = None,
-    **kwargs: Any,
-) -> matplotlib.figure.Figure:
-    """Convenience function for box plotting.
-
-    Parameters
-    ----------
-    paired_data
-        Paired dataset with x and y variables.
-    x_var
-        Name of the x variable.
-    y_var
-        Name of the y variable.
-    config
-        Plot configuration.
-    **kwargs
-        Additional arguments passed to plot method.
-
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The generated figure.
-    """
-    if isinstance(config, dict):
-        config = PlotConfig.from_dict(config)
-
-    plotter = BoxPlotter(config=config)
-    return plotter.plot(paired_data, x_var, y_var, **kwargs)
