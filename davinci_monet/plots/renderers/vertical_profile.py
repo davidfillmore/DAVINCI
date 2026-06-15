@@ -6,9 +6,11 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
+from davinci_monet.plots import labeling
 from davinci_monet.plots.base import (
     BasePlotter,
     get_variable_label,
+    get_variable_units,
     series_colors,
 )
 from davinci_monet.plots.registry import register_plotter
@@ -61,20 +63,23 @@ class VerticalProfilePlotter(BasePlotter):
 
         first = series[0]
         var_label = get_variable_label(first.dataset, first.var_name, include_prefix=False)
-        units = first.dataset[first.var_name].attrs.get("units", "")
+        units = get_variable_units(first.dataset, first.var_name)
         ax.set_xlabel(
-            f"{var_label} ({units})" if units else var_label, fontsize=self.config.text.fontsize
+            labeling.axis_label(var_label, units),
+            fontsize=self.config.text.fontsize,
         )
         alt_units = (
             first.dataset[alt_coord].attrs.get("units", "")
             if alt_coord in first.dataset.coords
-            else ""
+            else None
         )
         ax.set_ylabel(
-            f"Altitude ({alt_units})" if alt_units else "Altitude",
+            labeling.axis_label("Altitude", alt_units),
             fontsize=self.config.text.fontsize,
         )
-        self.set_title(ax, title if title else f"{var_label} Vertical Profile")
+        self.set_title(
+            ax, title if title else labeling.title_text(var_label, operation="Vertical Profile")
+        )
         ax.grid(True, alpha=0.3)
         return fig
 

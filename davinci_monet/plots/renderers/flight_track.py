@@ -13,10 +13,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (registers 3D projection)
 
+from davinci_monet.plots import labeling
 from davinci_monet.plots.base import (
     BasePlotter,
-    format_label_with_units,
-    format_plot_title,
     get_variable_label,
     get_variable_units,
 )
@@ -221,8 +220,7 @@ class FlightTrackPlotter(BasePlotter):
         # Colorbar label
         var_label = get_variable_label(x_data, variable, include_prefix=False)
         units = get_variable_units(x_data, variable)
-        cbar_label = format_label_with_units(var_label, units)
-        cbar_label = format_plot_title(cbar_label)
+        cbar_label = labeling.axis_label(var_label, units)
 
         # Draw the shared 3D track body (scatter, projection, surface-plane map
         # features, axis setup, labels, colorbar). ``use_maxnlocator`` matches
@@ -267,7 +265,7 @@ class FlightTrackPlotter(BasePlotter):
 
         # Title
         if title is None:
-            title = f"{var_label} Flight Track"
+            title = labeling.title_text(var_label, operation="Flight Track")
         self.set_figure_title(fig, title, y=0.85)
 
         plt.tight_layout(rect=(0, 0, 1, 0.95))

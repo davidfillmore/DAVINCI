@@ -6,9 +6,11 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from davinci_monet.plots import labeling
 from davinci_monet.plots.base import (
     BasePlotter,
     get_variable_label,
+    get_variable_units,
     series_colors,
 )
 from davinci_monet.plots.registry import register_plotter
@@ -100,11 +102,14 @@ class HistogramPlotter(BasePlotter):
 
         first = series[0]
         var_label = get_variable_label(first.dataset, first.var_name, include_prefix=False)
-        units = first.dataset[first.var_name].attrs.get("units", "")
+        units = get_variable_units(first.dataset, first.var_name)
         ax.set_xlabel(
-            f"{var_label} ({units})" if units else var_label, fontsize=self.config.text.fontsize
+            labeling.axis_label(var_label, units),
+            fontsize=self.config.text.fontsize,
         )
         ax.set_ylabel("Count", fontsize=self.config.text.fontsize)
-        self.set_title(ax, title if title else f"{var_label} Distribution")
+        self.set_title(
+            ax, title if title else labeling.title_text(var_label, operation="Distribution")
+        )
         ax.grid(True, alpha=0.3, axis="y")
         return fig
