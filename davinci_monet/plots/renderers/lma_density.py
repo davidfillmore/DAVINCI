@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
+from davinci_monet.plots import labeling
 from davinci_monet.plots.base import BasePlotter
 from davinci_monet.plots.registry import register_plotter
 from davinci_monet.plots.style import NCAR_PALETTE
@@ -309,7 +310,7 @@ class LMADensityPlotter(BasePlotter):
                 color=track_colors[label],
                 linewidth=1.5,
                 transform=ccrs.PlateCarree(),
-                label=label.upper(),
+                label=labeling.source_display_name(label),
                 zorder=5,
             )
 

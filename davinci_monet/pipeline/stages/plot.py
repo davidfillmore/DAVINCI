@@ -566,7 +566,7 @@ class PlottingStage(BaseStage):
         import time
         from pathlib import Path
 
-        from davinci_monet.plots.base import format_plot_title
+        from davinci_monet.plots.labeling import title_text as _title_text
 
         start = time.time()
         plots_generated: list[str] = []
@@ -600,7 +600,7 @@ class PlottingStage(BaseStage):
                 plot_number += 1
                 plot_type = plot_spec.get("type", "scatter")
                 plot_pairs = plot_spec.get("pairs", [])
-                title = format_plot_title(plot_spec.get("title", plot_name))
+                title = _title_text(plot_spec.get("title", plot_name))
                 arity = plot_arity(plot_type)
                 generated_before = len(plots_generated)
 

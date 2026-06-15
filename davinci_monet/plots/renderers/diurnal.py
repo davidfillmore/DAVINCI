@@ -13,11 +13,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots import labeling
 from davinci_monet.plots.base import (
     BasePlotter,
     format_label_with_units,
     get_axis_color,
-    get_series_label,
     get_variable_label,
     get_variable_units,
 )
@@ -130,9 +130,19 @@ class DiurnalPlotter(BasePlotter):
         # Get style configuration
         style = self.config.style
 
-        # Series legend labels prefer source identity; axis remains a styling hint.
-        x_label = x_label or get_series_label(paired_data, x_var, self.config.x_label)
-        y_label = y_label or get_series_label(paired_data, y_var, self.config.y_label)
+        # Series legend labels prefer source identity; route through
+        # labeling.legend_label so the displayed name is always friendly
+        # (never a raw config key / ALL-CAPS).
+        def _series_legend(var: str, config_label: str | None) -> str:
+            if config_label:
+                return config_label
+            src = paired_data[var].attrs.get("source_label") if var in paired_data else None
+            if src:
+                return labeling.legend_label(src)
+            return get_variable_label(paired_data, var, include_prefix=False)
+
+        x_label = x_label or _series_legend(x_var, self.config.x_label)
+        y_label = y_label or _series_legend(y_var, self.config.y_label)
 
         # Series colors by source axis (x gray, y blue, else palette) (R-3).
         x_color = get_axis_color(

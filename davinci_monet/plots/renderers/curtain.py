@@ -13,10 +13,10 @@ import numpy as np
 from matplotlib.colors import TwoSlopeNorm
 
 from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots import labeling
 from davinci_monet.plots.base import (
     BasePlotter,
     calculate_symmetric_limits,
-    format_label_with_units,
     get_variable_label,
     get_variable_units,
 )
@@ -131,6 +131,25 @@ class CurtainPlotter(BasePlotter):
         alt_values = altitude.values
         data_values = plot_data.values
 
+        # Build colorbar label before dispatching to sub-renderers.
+        units = get_variable_units(paired_data, x_var)
+        y_src = paired_data[y_var].attrs.get("source_label") or ""
+        x_src = paired_data[x_var].attrs.get("source_label") or ""
+        if show_var == "bias":
+            cbar_label: str = labeling.bias_label(
+                y_src, x_src, units, quantity=labeling.quantity_label(paired_data, x_var)
+            )
+        elif show_var == "x":
+            cbar_label = labeling.axis_label(
+                labeling.quantity_label(paired_data, x_var),
+                get_variable_units(paired_data, x_var),
+            )
+        else:
+            cbar_label = labeling.axis_label(
+                labeling.quantity_label(paired_data, y_var),
+                get_variable_units(paired_data, y_var),
+            )
+
         # Handle different data shapes
         if data_values.ndim == 1:
             # 1D trajectory data - create 2D representation
@@ -144,6 +163,7 @@ class CurtainPlotter(BasePlotter):
                 cmap,
                 show_var,
                 scatter_size,
+                cbar_label,
             )
         else:
             # 2D or higher - use contourf
@@ -155,6 +175,7 @@ class CurtainPlotter(BasePlotter):
                 cmap,
                 n_levels,
                 show_var,
+                cbar_label,
             )
 
         # Calculate limits
@@ -176,19 +197,11 @@ class CurtainPlotter(BasePlotter):
         # Formatting
         self.apply_text_style(ax)
 
-        # Labels
-        units = get_variable_units(paired_data, x_var)
-
-        if show_var == "bias":
-            ylabel_text = "Bias (Y - X)"
-        else:
-            ylabel_text = get_variable_label(paired_data, x_var if show_var == "x" else y_var)
-
         alt_units = get_variable_units(paired_data, alt_var) or "m"
         self.set_labels(
             ax,
             xlabel="Time",
-            ylabel=f"Altitude ({alt_units})",
+            ylabel=labeling.axis_label("Altitude", alt_units),
         )
 
         # Title
@@ -196,7 +209,8 @@ class CurtainPlotter(BasePlotter):
             self.set_title(ax, self.config.title)
         else:
             var_label = get_variable_label(paired_data, x_var)
-            self.set_title(ax, f"{var_label} Curtain ({show_var.title()})")
+            title = labeling.title_text(var_label, operation="Bias" if show_var == "bias" else None)
+            self.set_title(ax, title)
 
         # Invert y-axis if needed (e.g., for pressure)
         if invert_yaxis:
@@ -217,6 +231,7 @@ class CurtainPlotter(BasePlotter):
         cmap: str,
         show_var: str,
         scatter_size: float | None,
+        cbar_label: str = "",
     ) -> None:
         """Plot 1D trajectory data as colored scatter.
 
@@ -238,6 +253,8 @@ class CurtainPlotter(BasePlotter):
             Which variable is shown.
         scatter_size
             Scatter point size.
+        cbar_label
+            Label for the colorbar.
         """
         import pandas as pd
 
@@ -277,12 +294,8 @@ class CurtainPlotter(BasePlotter):
         )
 
         # Add colorbar
-        units = None  # Would need to pass this in
         cbar = ax.get_figure().colorbar(scatter, ax=ax)  # type: ignore[union-attr]
-        if show_var == "bias":
-            cbar.set_label("Bias (Y - X)")
-        else:
-            cbar.set_label(show_var.title())
+        cbar.set_label(cbar_label or show_var.title())
 
     def _plot_2d_curtain(
         self,
@@ -293,6 +306,7 @@ class CurtainPlotter(BasePlotter):
         cmap: str,
         n_levels: int,
         show_var: str,
+        cbar_label: str = "",
     ) -> None:
         """Plot 2D curtain data as contourf.
 
@@ -312,6 +326,8 @@ class CurtainPlotter(BasePlotter):
             Number of contour levels.
         show_var
             Which variable is shown.
+        cbar_label
+            Label for the colorbar.
         """
         import pandas as pd
 
@@ -365,7 +381,4 @@ class CurtainPlotter(BasePlotter):
 
         # Add colorbar
         cbar = ax.get_figure().colorbar(contour, ax=ax)  # type: ignore[union-attr]
-        if show_var == "bias":
-            cbar.set_label("Bias (Y - X)")
-        else:
-            cbar.set_label(show_var.title())
+        cbar.set_label(cbar_label or show_var.title())

@@ -12,9 +12,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots import labeling
 from davinci_monet.plots.base import (
-    format_label_with_units,
-    get_variable_label,
     get_variable_units,
 )
 from davinci_monet.plots.registry import register_plotter
@@ -248,17 +247,16 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         # Add colorbar. The contour and scatter share this scale, so the label
         # is the chemistry variable itself.
         units = get_variable_units(paired_data, x_var)
-        label = format_label_with_units(
-            get_variable_label(paired_data, x_var, include_prefix=False) or x_var,
+        label = labeling.axis_label(
+            labeling.quantity_label(paired_data, x_var),
             units,
         )
         self.add_colorbar(fig, contour, ax, label=label)
 
-        # Title
+        # Title — terse quantity only, no "vs", no contour/points roles.
         if self.config.title:
             self.set_title(ax, self.config.title)
         else:
-            var_label = get_variable_label(paired_data, x_var)
-            self.set_title(ax, f"{var_label}: Y (contour) vs X (points)")
+            self.set_title(ax, labeling.title_text(labeling.quantity_label(paired_data, x_var)))
 
         return fig

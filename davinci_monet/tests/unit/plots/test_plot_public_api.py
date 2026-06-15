@@ -60,4 +60,8 @@ def test_taylor_multi_series_uses_canonical_render_contract() -> None:
     fig = plotter.render(plots.build_series(ds, ["obs_o3", "model_a_o3", "model_b_o3"]))
 
     labels = {line.get_label() for line in fig.axes[0].lines}
-    assert {"obs", "model_a", "model_b"}.issubset(labels)
+    # Raw source keys must be routed through labeling.source_display_name:
+    # "obs" -> "Obs", "model_a" -> "Model A", "model_b" -> "Model B".
+    assert {"Obs", "Model A", "Model B"}.issubset(labels)
+    # Raw config keys must never appear in the legend.
+    assert not {"obs", "model_a", "model_b"} & labels

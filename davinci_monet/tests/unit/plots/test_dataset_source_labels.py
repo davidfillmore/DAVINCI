@@ -45,7 +45,8 @@ class TestGeometryTimeseriesSourceLabel:
 
         ds = _geometry_timeseries_ds(source_label="pandora")
         fig = TimeSeriesPlotter().render(build_series(ds, "O3"))
-        assert fig.axes[0].get_lines()[0].get_label() == "pandora"
+        # labeling.legend_label("pandora") -> "Pandora" (friendly display name)
+        assert fig.axes[0].get_lines()[0].get_label() == "Pandora"
 
     def test_single_series_keeps_geometry_only_blue(self) -> None:
         # Geometry-only convention: NCAR blue, NOT the paired x-axis gray.

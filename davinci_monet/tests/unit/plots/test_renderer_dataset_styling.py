@@ -117,8 +117,9 @@ class TestTimeseriesAxisStyling:
         ds = _ts_paired()
         fig = TimeSeriesPlotter().render(build_series(ds, "airnow_o3", "cam_o3"))
         colors = self._line_colors_by_label(fig)
-        assert colors["airnow"] == X_COLOR
-        assert colors["cam"] == Y_COLOR
+        # labeling.legend_label returns friendly display names ("AirNow", "CAM")
+        assert colors["AirNow"] == X_COLOR
+        assert colors["CAM"] == Y_COLOR
 
     def test_legend_uses_dataset_labels(self) -> None:
         from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
@@ -126,8 +127,9 @@ class TestTimeseriesAxisStyling:
         ds = _ts_paired()
         fig = TimeSeriesPlotter().render(build_series(ds, "airnow_o3", "cam_o3"))
         labels = {ln.get_label() for ln in fig.axes[0].get_lines()}
-        assert "airnow" in labels
-        assert "cam" in labels
+        # labeling.legend_label now returns friendly display names
+        assert "AirNow" in labels
+        assert "CAM" in labels
         assert "Datasets" not in labels
         assert "Dataset" not in labels
 
@@ -148,9 +150,10 @@ class TestTimeseriesAxisStyling:
             ds[name].attrs["source_label"] = label  # axis-less (no geometry/dataset)
         fig = TimeSeriesPlotter().render(build_series(ds, "wrf_o3", "cam_o3"))
         colors = self._line_colors_by_label(fig)
-        assert colors["wrf"] == NCAR_PALETTE[0]
-        assert colors["cam"] == NCAR_PALETTE[1]
-        assert colors["wrf"] != colors["cam"]
+        # labeling.legend_label returns friendly display names ("WRF", "CAM")
+        assert colors["WRF"] == NCAR_PALETTE[0]
+        assert colors["CAM"] == NCAR_PALETTE[1]
+        assert colors["WRF"] != colors["CAM"]
 
 
 class TestTaylorRoleStyling:
@@ -166,4 +169,7 @@ class TestTaylorRoleStyling:
         )
         labels = {ln.get_label() for ln in fig.axes[0].get_lines()}
         assert "CustomRef" in labels
+        # Raw config keys must never appear — friendly names only.
         assert "airnow" not in labels
+        assert "cam" not in labels
+        assert "CAM" in labels

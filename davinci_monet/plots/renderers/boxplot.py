@@ -12,12 +12,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots import labeling
 from davinci_monet.plots.base import (
     BasePlotter,
     extract_xy_series,
     format_label_with_units,
     get_axis_color,
-    get_series_label,
     get_variable_label,
     get_variable_units,
 )
@@ -94,9 +94,19 @@ class BoxPlotter(BasePlotter):
         # Get style configuration
         style = self.config.style
 
-        # Series legend labels prefer the source label over X/Y (R-3).
-        x_label = x_label or get_series_label(paired_data, x_var, self.config.x_label)
-        y_label = y_label or get_series_label(paired_data, y_var, self.config.y_label)
+        # Series legend labels prefer source identity; route through
+        # labeling.legend_label so the displayed name is always friendly
+        # (never a raw config key / ALL-CAPS).
+        def _series_legend(var: str, config_label: str | None) -> str:
+            if config_label:
+                return config_label
+            src = paired_data[var].attrs.get("source_label") if var in paired_data else None
+            if src:
+                return labeling.legend_label(src)
+            return get_variable_label(paired_data, var, include_prefix=False)
+
+        x_label = x_label or _series_legend(x_var, self.config.x_label)
+        y_label = y_label or _series_legend(y_var, self.config.y_label)
 
         vert = orientation == "vertical"
 

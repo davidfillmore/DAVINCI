@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from davinci_monet.plots import labeling
 from davinci_monet.plots.base import (
-    format_label_with_units,
     get_variable_label,
     get_variable_units,
 )
@@ -174,13 +174,19 @@ class SpatialPlotter(BaseSpatialPlotter):
 
         units = get_variable_units(ds, variable)
         var_label = get_variable_label(ds, variable, include_prefix=False)
-        self.add_colorbar(fig, mappable, ax, label=format_label_with_units(var_label, units))
+        self.add_colorbar(
+            fig,
+            mappable,
+            ax,
+            label=labeling.axis_label(labeling.quantity_label(ds, variable), units),
+        )
 
         if self.config.title:
             self.set_title(ax, self.config.title)
         else:
-            src = (source_label or "").replace("_", " ").upper().strip()
-            self.set_title(ax, f"{var_label} ({src})" if src else var_label)
+            src_display = labeling.source_display_name(source_label) if source_label else ""
+            title_q = labeling.title_text(var_label)
+            self.set_title(ax, f"{title_q} ({src_display})" if src_display else title_q)
         return fig
 
     # -- helpers ---------------------------------------------------------------

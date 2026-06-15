@@ -13,12 +13,12 @@ import numpy as np
 from matplotlib.colors import LogNorm, Normalize
 
 from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots import labeling
 from davinci_monet.plots._stats import annotation_metrics
 from davinci_monet.plots.base import (
     BasePlotter,
     build_series,
     extract_xy_series,
-    format_label_with_units,
     get_variable_label,
     get_variable_units,
 )
@@ -30,11 +30,6 @@ if TYPE_CHECKING:
     import matplotlib.axes
     import matplotlib.figure
     import xarray as xr
-
-
-def _source_display_name(source_label: Any) -> str:
-    """Return the label form used for dataset names on axes."""
-    return str(source_label).replace("_", " ").upper()
 
 
 @register_plotter("scatter")
@@ -216,31 +211,17 @@ class ScatterPlotter(BasePlotter):
         # Formatting
         self.apply_text_style(ax)
 
-        # Set labels. Explicit labels are complete overrides; otherwise qualify
-        # comparison axes by source identity when available.
-        units = get_variable_units(paired_data, x_var)
-        x_label_text = get_variable_label(paired_data, x_var)
-        y_label_text = get_variable_label(paired_data, y_var)
-        if self.config.x_label:
-            x_label_text = self.config.x_label
-        elif x_var in paired_data:
-            x_source = paired_data[x_var].attrs.get("source_label")
-            if x_source:
-                x_label_text = f"{_source_display_name(x_source)} {x_label_text}"
-        if self.config.y_label:
-            y_label_text = self.config.y_label
-        elif y_var in paired_data:
-            y_source = paired_data[y_var].attrs.get("source_label")
-            if y_source:
-                y_label_text = f"{_source_display_name(y_source)} {y_label_text}"
-        x_label = format_label_with_units(
-            x_label_text or "Geometry",
-            units,
-        )
-        y_label = format_label_with_units(
-            y_label_text or "Dataset",
-            units,
-        )
+        # Set labels. Explicit config labels are complete overrides; otherwise
+        # build per-axis labels via the central labeling module so source names
+        # are clean and units are always SI-formatted.
+        x_units = get_variable_units(paired_data, x_var)
+        y_units = get_variable_units(paired_data, y_var)
+        x_q = labeling.quantity_label(paired_data, x_var)
+        y_q = labeling.quantity_label(paired_data, y_var)
+        x_src = paired_data[x_var].attrs.get("source_label") if x_var in paired_data else None
+        y_src = paired_data[y_var].attrs.get("source_label") if y_var in paired_data else None
+        x_label = self.config.x_label or labeling.axis_label(x_q, x_units, source=x_src)
+        y_label = self.config.y_label or labeling.axis_label(y_q, y_units, source=y_src)
         self.set_labels(ax, xlabel=x_label, ylabel=y_label)
 
         # Grid

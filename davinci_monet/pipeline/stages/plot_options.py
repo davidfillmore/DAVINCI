@@ -117,18 +117,21 @@ def build_plot_subtitle(
     *,
     snapshot_timestamp: str | None = None,
 ) -> str:
-    """Return the date/timestamp subtitle line for a plot."""
+    """Return the date/timestamp subtitle line for a plot.
+
+    Delegates to ``labeling.subtitle_text`` so the date format is consistent
+    across the pipeline and all renderers.  A ``snapshot_timestamp`` (e.g. a
+    single UTC string for spatial-overlay time slices) bypasses the date range
+    and is returned verbatim.
+    """
     if snapshot_timestamp:
         return snapshot_timestamp
 
+    from davinci_monet.plots.labeling import subtitle_text
+
     start_time = analysis_config.get("start_time", "")
     end_time = analysis_config.get("end_time", "")
-    if not start_time:
-        return ""
-
-    start_date = str(start_time).split(" ")[0]
-    end_date = str(end_time).split(" ")[0] if end_time else start_date
-    return start_date if start_date == end_date else f"{start_date} - {end_date}"
+    return subtitle_text(start_time or None, end_time or None)
 
 
 def timestamp_from_field(field: Any, time_index: int = 0) -> str:

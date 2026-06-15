@@ -696,7 +696,7 @@ class TestPlottingStage:
         )
 
         assert plotter_config["title"] == title
-        assert plotter_config["subtitle"] == "2003-01-01 - 2003-12-31"
+        assert plotter_config["subtitle"] == "2003-01-01 – 2003-12-31"
         assert "caption" not in plotter_config
 
     def test_missing_plot_pair_fails_stage(self, context_with_paired: PipelineContext):

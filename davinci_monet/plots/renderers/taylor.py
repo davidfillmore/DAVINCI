@@ -12,12 +12,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots import labeling
 from davinci_monet.plots.base import (
     BasePlotter,
     clean_xy,
     extract_xy_series,
     get_axis_color,
-    get_series_label,
+    get_variable_label,
 )
 from davinci_monet.plots.registry import register_plotter
 
@@ -116,11 +117,21 @@ class TaylorPlotter(BasePlotter):
         default_colors = plt.cm.tab10.colors  # type: ignore[attr-defined]
 
         for i, current_y in enumerate(y_series_list):
-            current_label = get_series_label(current_y.dataset, current_y.var_name)
+            # Route source labels through labeling.legend_label for friendly display.
+            raw_src = (
+                current_y.dataset[current_y.var_name].attrs.get("source_label")
+                if current_y.var_name in current_y.dataset
+                else None
+            )
+            friendly_label = (
+                labeling.legend_label(raw_src)
+                if raw_src
+                else get_variable_label(current_y.dataset, current_y.var_name, include_prefix=False)
+            )
             if len(y_series_list) == 1:
-                label = y_label or self.config.y_label or current_label
+                label = y_label or self.config.y_label or friendly_label
             else:
-                label = current_label
+                label = friendly_label
             key = current_y.source_label or current_y.var_name
             m = markers.get(key) or markers.get(label) or marker or style.y_marker
             if len(y_series_list) == 1:
@@ -157,18 +168,26 @@ class TaylorPlotter(BasePlotter):
                 linestyle="none",
             )
 
-        # Plot the x (reference) point. Label it with the x source label by
-        # default (R-3), keeping the conventional black star marker.
+        # Plot the x (reference) point. Label it with a friendly source name
+        # (R-3), keeping the conventional black star marker.
         if show_x:
+            x_raw_src = (
+                x_series.dataset[x_series.var_name].attrs.get("source_label")
+                if x_series.var_name in x_series.dataset
+                else None
+            )
+            x_default_label = (
+                labeling.legend_label(x_raw_src)
+                if x_raw_src
+                else get_variable_label(x_series.dataset, x_series.var_name, include_prefix=False)
+            )
             ax.plot(
                 0,  # Perfect correlation
                 x_std_norm,
                 marker="*",
                 color="k",
                 markersize=style.markersize * 2,
-                label=x_label
-                or self.config.x_label
-                or get_series_label(x_series.dataset, x_series.var_name),
+                label=x_label or self.config.x_label or x_default_label,
                 linestyle="none",
             )
 
