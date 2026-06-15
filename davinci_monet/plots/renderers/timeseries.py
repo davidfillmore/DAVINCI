@@ -13,11 +13,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from davinci_monet.plots import labeling
 from davinci_monet.plots.base import (
     BasePlotter,
-    format_label_with_units,
     get_axis_color,
-    get_series_label,
     get_variable_label,
     get_variable_units,
     series_colors,
@@ -162,9 +161,18 @@ class TimeSeriesPlotter(BasePlotter):
         style = self.config.style
 
         # Series legend labels prefer source identity (e.g. airnow/cam); axis
-        # remains a styling hint only.
-        x_label = x_label or get_series_label(paired_data, x_var, self.config.x_label)
-        y_label = y_label or get_series_label(paired_data, y_var, self.config.y_label)
+        # remains a styling hint only.  Route through labeling.legend_label so
+        # the displayed name is always friendly (never a raw config key).
+        def _series_legend(var: str, config_label: str | None) -> str:
+            if config_label:
+                return config_label
+            src = paired_data[var].attrs.get("source_label") if var in paired_data else None
+            if src:
+                return labeling.legend_label(src)
+            return get_variable_label(paired_data, var, include_prefix=False)
+
+        x_label = x_label or _series_legend(x_var, self.config.x_label)
+        y_label = y_label or _series_legend(y_var, self.config.y_label)
 
         # Series colors by source axis (x gray, y blue, else palette); a
         # customised StyleConfig still wins for the x/y axes (R-3).
@@ -228,12 +236,14 @@ class TimeSeriesPlotter(BasePlotter):
         # Formatting
         self.apply_text_style(ax)
 
-        # Set labels - use automatic variable display name (no prefix for shared axis)
+        # Set labels - use automatic variable display name (no prefix for shared axis).
+        # Always include SI-formatted units via labeling.axis_label so units are
+        # never silently omitted.
         units = get_variable_units(paired_data, x_var)
-        ylabel = format_label_with_units(
-            self.config.ylabel or get_variable_label(paired_data, x_var, include_prefix=False),
-            units,
+        quantity = self.config.ylabel or get_variable_label(
+            paired_data, x_var, include_prefix=False
         )
+        ylabel = labeling.axis_label(quantity, units)
         self.set_labels(ax, xlabel="Time", ylabel=ylabel)
 
         # Smart auto-scaling for y-axis
@@ -320,7 +330,10 @@ class TimeSeriesPlotter(BasePlotter):
         ds = s.dataset
         da = ds[s.var_name]
         color = color or series_colors([s])[0]
-        label = s.source_label or get_variable_label(ds, s.var_name, include_prefix=False)
+        if s.source_label:
+            label = labeling.legend_label(s.source_label)
+        else:
+            label = get_variable_label(ds, s.var_name, include_prefix=False)
         time_values = pd.to_datetime(ds[time_dim].values)
         non_time_dims = [d for d in da.dims if d != time_dim]
 
@@ -365,11 +378,9 @@ class TimeSeriesPlotter(BasePlotter):
                     linewidth=0,
                 )
 
-        units = ds[s.var_name].attrs.get("units", "")
+        units = ds[s.var_name].attrs.get("units") or None
         var_label = get_variable_label(ds, s.var_name, include_prefix=False)
-        ax.set_ylabel(
-            f"{var_label} ({units})" if units else var_label, fontsize=self.config.text.fontsize
-        )
+        ax.set_ylabel(labeling.axis_label(var_label, units), fontsize=self.config.text.fontsize)
         ax.set_xlabel("Time", fontsize=self.config.text.fontsize)
         self.set_title(ax, title)
         ax.grid(True, alpha=0.3)
@@ -409,9 +420,10 @@ class TimeSeriesPlotter(BasePlotter):
             da = s.dataset[s.var_name]
             non_time_dims = [d for d in da.dims if d != time_dim]
             mean = da.mean(dim=non_time_dims) if non_time_dims else da
-            label = s.source_label or get_variable_label(
-                s.dataset, s.var_name, include_prefix=False
-            )
+            if s.source_label:
+                label = labeling.legend_label(s.source_label)
+            else:
+                label = get_variable_label(s.dataset, s.var_name, include_prefix=False)
             ax.plot(
                 pd.to_datetime(s.dataset[time_dim].values),
                 mean.values,
@@ -422,11 +434,9 @@ class TimeSeriesPlotter(BasePlotter):
         ax.legend(fontsize=self.config.text.legend)
 
         first = series[0]
-        units = first.dataset[first.var_name].attrs.get("units", "")
+        units = first.dataset[first.var_name].attrs.get("units") or None
         var_label = get_variable_label(first.dataset, first.var_name, include_prefix=False)
-        ax.set_ylabel(
-            f"{var_label} ({units})" if units else var_label, fontsize=self.config.text.fontsize
-        )
+        ax.set_ylabel(labeling.axis_label(var_label, units), fontsize=self.config.text.fontsize)
         ax.set_xlabel("Time", fontsize=self.config.text.fontsize)
         self.set_title(ax, title)
         ax.grid(True, alpha=0.3)
@@ -511,10 +521,11 @@ class TimeSeriesPlotter(BasePlotter):
                 markersize=4,
                 linewidth=1,
                 alpha=0.7,
-                label=f"{label} (x)",
+                label=label,
             )
 
-            # Plot y series as dashed lines
+            # Plot y series as dashed lines (same site colour, dashed style
+            # is the visual discriminator; suppress duplicate legend entry)
             ax.plot(
                 time_values,
                 site_y.values,
@@ -524,18 +535,19 @@ class TimeSeriesPlotter(BasePlotter):
                 markersize=4,
                 linewidth=1,
                 alpha=0.7,
-                label=f"{label} (y)",
+                label="_" + label,
             )
 
         # Formatting
         self.apply_text_style(ax)
 
-        # Set labels - use automatic variable display name (no prefix for shared axis)
+        # Set labels - use automatic variable display name (no prefix for shared axis).
+        # Always include SI-formatted units via labeling.axis_label.
         units = get_variable_units(paired_data, x_var)
-        ylabel = format_label_with_units(
-            self.config.ylabel or get_variable_label(paired_data, x_var, include_prefix=False),
-            units,
+        quantity = self.config.ylabel or get_variable_label(
+            paired_data, x_var, include_prefix=False
         )
+        ylabel = labeling.axis_label(quantity, units)
         self.set_labels(ax, xlabel="Time", ylabel=ylabel)
 
         # Legend - put outside plot if many sites

@@ -49,7 +49,8 @@ class TestTimeseriesRenderSingleSource:
 
     def test_single_dataset_labelled_by_source(self) -> None:
         fig = TimeSeriesPlotter().render([_multisite_series(source_label="pandora")])
-        assert fig.axes[0].get_lines()[0].get_label() == "pandora"
+        # labeling.legend_label("pandora") -> "Pandora" (friendly display name)
+        assert fig.axes[0].get_lines()[0].get_label() == "Pandora"
         plt.close(fig)
 
     def test_show_individual_sites_opt_in(self) -> None:
