@@ -78,3 +78,28 @@ def test_quantity_label_from_lookup():
 def test_quantity_label_prefers_long_name():
     ds = _ds("X", long_name="Tropospheric NO2 Column")
     assert "Tropospheric" in L.quantity_label(ds, "X")
+
+
+# ---------------------------------------------------------------------------
+# Task 4: axis_label
+# ---------------------------------------------------------------------------
+
+
+def test_axis_label_no_source():
+    assert L.axis_label(r"NO$_2$ Column", "mol/m2") == r"NO$_2$ Column (mol m$^{-2}$)"
+
+
+def test_axis_label_with_source():
+    assert (
+        L.axis_label(r"NO$_2$ Column", "mol/m2", source="pandora")
+        == r"Pandora NO$_2$ Column (mol m$^{-2}$)"
+    )
+
+
+def test_axis_label_dedup():
+    out = L.axis_label(r"NO$_2$ Column", "mol/m2", source="cesm_no2_column")
+    assert out == r"CESM NO$_2$ Column (mol m$^{-2}$)"
+
+
+def test_axis_label_no_units():
+    assert L.axis_label("Altitude", "1") == "Altitude"

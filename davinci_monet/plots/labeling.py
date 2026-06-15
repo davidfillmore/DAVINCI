@@ -85,3 +85,16 @@ def source_display_name(source_label: str | None) -> str:
 def quantity_label(dataset: "xr.Dataset", var_name: str) -> str:
     """Quantity name only (no source, no units), chem-formatted."""
     return get_variable_label(dataset, var_name, include_prefix=False)
+
+
+def axis_label(quantity: str, units: str | None, source: str | None = None) -> str:
+    """Compose an axis label (D2 context-aware, with de-dup)."""
+    label = quantity or ""
+    if source:
+        src = source_display_name(source)
+        if quantity and quantity.lower() in src.lower():
+            label = src
+        else:
+            label = f"{src} {quantity}".strip()
+    u = format_units(units)
+    return f"{label} ({u})" if u else label
