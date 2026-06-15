@@ -169,4 +169,7 @@ class TestTaylorRoleStyling:
         )
         labels = {ln.get_label() for ln in fig.axes[0].get_lines()}
         assert "CustomRef" in labels
+        # Raw config keys must never appear — friendly names only.
         assert "airnow" not in labels
+        assert "cam" not in labels
+        assert "CAM" in labels

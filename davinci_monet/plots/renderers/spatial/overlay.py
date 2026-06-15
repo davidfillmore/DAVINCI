@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots import labeling
 from davinci_monet.plots.base import (
     format_label_with_units,
     get_variable_label,
@@ -254,11 +255,18 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         )
         self.add_colorbar(fig, contour, ax, label=label)
 
-        # Title
+        # Title — never expose internal x/y axis names to viewers.
         if self.config.title:
             self.set_title(ax, self.config.title)
         else:
-            var_label = get_variable_label(paired_data, x_var)
-            self.set_title(ax, f"{var_label}: Y (contour) vs X (points)")
+            quantity = get_variable_label(paired_data, x_var, include_prefix=False)
+            y_src = paired_data[y_var].attrs.get("source_label") if y_var in paired_data else None
+            x_src = paired_data[x_var].attrs.get("source_label") if x_var in paired_data else None
+            if y_src or x_src:
+                y_name = labeling.source_display_name(y_src) if y_src else "gridded"
+                x_name = labeling.source_display_name(x_src) if x_src else "points"
+                self.set_title(ax, f"{quantity}: {y_name} (contour) vs {x_name}")
+            else:
+                self.set_title(ax, labeling.title_text(quantity, "Spatial Overlay"))
 
         return fig
