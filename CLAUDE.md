@@ -525,6 +525,38 @@ fig = plotter.render(build_series(paired_data, "airnow_o3", "cam_o3"))
 
 **Font**: Poppins (with Helvetica/Arial fallbacks)
 
+### Plot Label & Title Conventions (publication quality)
+
+All plot text is composed by one module — **`davinci_monet/plots/labeling.py`**
+(pure functions: `format_units`, `source_display_name`, `quantity_label`,
+`axis_label`, `legend_label`, `bias_label`, `title_text`, `subtitle_text`).
+Renderers MUST call these, never build label strings ad-hoc. `labels.py` keeps
+the lookup tables. Design spec: `docs/superpowers/specs/2026-06-15-plot-labeling-system-design.md`.
+
+Rules (enforced by `tests/unit/plots/test_labeling.py` + `test_labels_rendered.py`):
+- **Titles are terse** — the quantity only (chem-formatted), plus an operation
+  word only when it changes meaning (`… Bias`, `… Vertical Profile`). NEVER put
+  dates, stats, `Mean ± Std`, or `vs <source>` in a title; those go in the date
+  **subtitle** and the in-axes **stats box**.
+- **Never expose `x`/`y` to viewers.** Bias labels name the sources:
+  `Bias, <Ysrc> − <Xsrc> (units)` (U+2212 minus). Pass the quantity to
+  `bias_label` so it factors out (→ `Bias, CESM − Pandora`).
+- **Source names are auto-cleaned** from the config key (acronym map: CESM,
+  MERRA-2, AirNow, AERONET, CERES, MODIS, WRF-Chem…); never the raw key, never
+  ALL-CAPS. Source appears on an axis only where no legend carries it (scatter);
+  timeseries/single-source carry it in the legend/title.
+- **De-dup**: when a source key embeds the quantity (`cesm_no2_column`), only its
+  distinctive token (`CESM`) is kept next to the quantity — no repetition.
+- **Units are negative-exponent SI** via `format_units`: `mol m⁻²`, `W m⁻²`,
+  `µg m⁻³`; ratios `mol mol⁻¹`; dimensionless (`1`/`none`) omitted; `ppb`/`%`/`K`
+  left as-is. **Build axis labels from `quantity + format_units(units)` — do NOT
+  bake units into config `ylabel_plot` strings.** A variable's `units` (config or
+  attr) drives this; aircraft/ICARTT variables that lack a `units` attr show no
+  unit until one is supplied (config `units:` field, applied at `load.py`).
+- **iCloud delivery is PDF-only**; the optional synthetic gallery
+  (`analyses/_gallery/make_gallery.py`) renders one figure per plot type for
+  multimodal label inspection.
+
 ## Common Gotchas
 
 1. **Unit conversions**: Dataset variables often need `unit_scale` in config:
