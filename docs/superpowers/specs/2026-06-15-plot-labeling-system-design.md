@@ -201,4 +201,24 @@ stage complete; re-mirror the final PDFs and proceed to the gate/commit.
 - De-dup: `axis_label` repeats the quantity per scatter axis (expected); `bias_label` factors the shared quantity out (it's in the title) → short `Bias, CESM − Pandora`.
 - With auto-clean (D5), a key like `cesm_no2_column` displays as `CESM NO₂ Column`, not bare `CESM`; the bias-label shared-quantity factoring is what yields the short `CESM − Pandora` form.
 - Title override: a config `title:` is used verbatim (chem-formatted) as the terse line; the system never appends context to it.
-```
+
+## Post-implementation revisions (from multimodal review)
+
+The §2 colorbar rules were refined after rendering every plot type and inspecting
+the PDFs — the title and colorbar were doubling up on the quantity/"Bias":
+
+- **Title owns the quantity; colorbar owns units/direction only.** Single-source
+  maps (spatial field, curtain, track-3D, flight-track): **colorbar = units only**
+  (`mol m⁻²`), title = `Quantity (Source)`. Bias plots: **colorbar = `<Ysrc> −
+  <Xsrc> (units)`** (no leading "Bias,"), title = `Quantity Bias`. So each of
+  "quantity"/"Bias" appears exactly once.
+- **Species words normalise in titles too** — `format_plot_title` now maps
+  `Ozone→O₃` (etc.), not just formula tokens, so auto-titles match the lookup.
+- **`axis_label` de-dup keeps word order**: if the quantity is a substring of the
+  source name, use the source name as-is (`CESM NO₂ Column`), never a reordered
+  `CESM Column NO₂`; otherwise distinctive source tokens + quantity.
+- **Reader/file units survive the load stage** — a no-op `unit_scale: 1.0` no
+  longer strips the `units` attr (ICARTT `ppbv`, altitude `m` now reach plots).
+- **ICARTT header units** are parsed and applied (`datasets/aircraft/icartt.py`).
+- **Gallery is full-pipeline** (`analyses/_gallery/run_gallery.py`): synthetic
+  source NetCDFs → configs → `run_analysis`, per CLAUDE.md's pipeline mandate.
