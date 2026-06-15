@@ -338,11 +338,11 @@ class TestTimeseriesLabelsClean:
         )
         ax = fig.axes[0]
         legend = ax.get_legend()
-        if legend is not None:
-            legend_texts = [t.get_text() for t in legend.get_texts()]
-            for text in legend_texts:
-                assert "pandora_no2_column" not in text, f"Raw source key in legend: {text!r}"
-                assert "cesm_no2_column" not in text, f"Raw source key in legend: {text!r}"
+        assert legend is not None, "TimeSeriesPlotter must produce a legend"
+        legend_texts = [t.get_text() for t in legend.get_texts()]
+        for text in legend_texts:
+            assert "pandora_no2_column" not in text, f"Raw source key in legend: {text!r}"
+            assert "cesm_no2_column" not in text, f"Raw source key in legend: {text!r}"
         plt.close(fig)
 
     def test_legend_no_xy_role_tokens(self, paired_no2_mol_m2: xr.Dataset) -> None:
@@ -359,9 +359,9 @@ class TestTimeseriesLabelsClean:
         )
         ax = fig.axes[0]
         legend = ax.get_legend()
-        if legend is not None:
-            legend_texts = [t.get_text() for t in legend.get_texts()]
-            for text in legend_texts:
-                assert "(x)" not in text.lower(), f"x/y role token in legend: {text!r}"
-                assert "(y)" not in text.lower(), f"x/y role token in legend: {text!r}"
+        assert legend is not None, "TimeSeriesPlotter must produce a legend"
+        legend_texts = [t.get_text() for t in legend.get_texts()]
+        for text in legend_texts:
+            assert "(x)" not in text.lower(), f"x/y role token in legend: {text!r}"
+            assert "(y)" not in text.lower(), f"x/y role token in legend: {text!r}"
         plt.close(fig)

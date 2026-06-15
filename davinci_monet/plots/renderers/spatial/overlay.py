@@ -14,8 +14,6 @@ import numpy as np
 from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots import labeling
 from davinci_monet.plots.base import (
-    format_label_with_units,
-    get_variable_label,
     get_variable_units,
 )
 from davinci_monet.plots.registry import register_plotter
@@ -249,24 +247,16 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
         # Add colorbar. The contour and scatter share this scale, so the label
         # is the chemistry variable itself.
         units = get_variable_units(paired_data, x_var)
-        label = format_label_with_units(
-            get_variable_label(paired_data, x_var, include_prefix=False) or x_var,
+        label = labeling.axis_label(
+            labeling.quantity_label(paired_data, x_var),
             units,
         )
         self.add_colorbar(fig, contour, ax, label=label)
 
-        # Title — never expose internal x/y axis names to viewers.
+        # Title — terse quantity only, no "vs", no contour/points roles.
         if self.config.title:
             self.set_title(ax, self.config.title)
         else:
-            quantity = get_variable_label(paired_data, x_var, include_prefix=False)
-            y_src = paired_data[y_var].attrs.get("source_label") if y_var in paired_data else None
-            x_src = paired_data[x_var].attrs.get("source_label") if x_var in paired_data else None
-            if y_src or x_src:
-                y_name = labeling.source_display_name(y_src) if y_src else "gridded"
-                x_name = labeling.source_display_name(x_src) if x_src else "points"
-                self.set_title(ax, f"{quantity}: {y_name} (contour) vs {x_name}")
-            else:
-                self.set_title(ax, labeling.title_text(quantity, "Spatial Overlay"))
+            self.set_title(ax, labeling.title_text(labeling.quantity_label(paired_data, x_var)))
 
         return fig

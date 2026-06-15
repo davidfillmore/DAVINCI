@@ -36,7 +36,7 @@ def format_units(units: str | None) -> str:
     # Pass through pre-formatted strings (Unicode or LaTeX already present).
     if "$" in s or not s.isascii():
         return s
-    s = s.replace("ug", r"$\mu$g")
+    s = re.sub(r"(?<![A-Za-z])ug(?![A-Za-z])", r"$\\mu$g", s)
 
     # division: "/unitN" -> " unit^{-N}" (N defaults to 1)
     def _div(m: re.Match[str]) -> str:
@@ -79,6 +79,8 @@ def source_display_name(source_label: str | None) -> str:
         return ""
     out = []
     for tok in str(source_label).split("_"):
+        if not tok:
+            continue
         low = tok.lower()
         if low in _SOURCE_ACRONYMS:
             out.append(_SOURCE_ACRONYMS[low])

@@ -108,8 +108,6 @@ class HistogramPlotter(BasePlotter):
             fontsize=self.config.text.fontsize,
         )
         ax.set_ylabel("Count", fontsize=self.config.text.fontsize)
-        self.set_title(
-            ax, title if title else labeling.title_text(var_label, operation="Distribution")
-        )
+        self.set_title(ax, title if title else labeling.title_text(var_label))
         ax.grid(True, alpha=0.3, axis="y")
         return fig

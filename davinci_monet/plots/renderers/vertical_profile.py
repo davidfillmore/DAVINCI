@@ -77,9 +77,7 @@ class VerticalProfilePlotter(BasePlotter):
             labeling.axis_label("Altitude", alt_units),
             fontsize=self.config.text.fontsize,
         )
-        self.set_title(
-            ax, title if title else labeling.title_text(var_label, operation="Vertical Profile")
-        )
+        self.set_title(ax, title if title else labeling.title_text(var_label))
         ax.grid(True, alpha=0.3)
         return fig
 

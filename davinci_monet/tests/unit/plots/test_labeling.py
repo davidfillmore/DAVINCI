@@ -194,3 +194,53 @@ def test_labels_format_units_delegates_to_si():
     from davinci_monet.plots import labels
 
     assert labels.format_units("mol/m2") == "mol m$^{-2}$"
+
+
+# ---------------------------------------------------------------------------
+# Fix #5: source_display_name — skip empty tokens (double-underscore safety)
+# ---------------------------------------------------------------------------
+
+
+def test_source_display_name_double_underscore():
+    """Double underscores (empty tokens) must not produce double spaces."""
+    result = L.source_display_name("cesm__no2")
+    assert "  " not in result, f"Double space found in: {result!r}"
+
+
+def test_source_display_name_leading_underscore():
+    """Leading underscore must not produce a leading space."""
+    result = L.source_display_name("_cesm")
+    assert not result.startswith(" "), f"Leading space found in: {result!r}"
+
+
+def test_source_display_name_trailing_underscore():
+    """Trailing underscore must not produce a trailing space."""
+    result = L.source_display_name("cesm_")
+    assert not result.endswith(" "), f"Trailing space found in: {result!r}"
+
+
+# ---------------------------------------------------------------------------
+# Fix #6: format_units ug replace — word-boundary safe
+# ---------------------------------------------------------------------------
+
+
+def test_format_units_ug_m3():
+    """'ug/m3' must render as µg m^{-3}."""
+    assert L.format_units("ug/m3") == r"$\mu$g m$^{-3}$"
+
+
+def test_format_units_ug_space_m3():
+    """'ug m-3' (space-separated) must render correctly."""
+    assert L.format_units("ug m-3") == r"$\mu$g m$^{-3}$"
+
+
+def test_format_units_bug_not_replaced():
+    """'bug' must NOT have its 'ug' substring replaced."""
+    result = L.format_units("bug")
+    assert r"$\mu$g" not in result, f"False 'ug' substitution in 'bug': {result!r}"
+
+
+def test_format_units_slug_not_replaced():
+    """'slug' must NOT have its 'ug' substring replaced."""
+    result = L.format_units("slug")
+    assert r"$\mu$g" not in result, f"False 'ug' substitution in 'slug': {result!r}"

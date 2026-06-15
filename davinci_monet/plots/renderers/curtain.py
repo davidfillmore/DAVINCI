@@ -201,7 +201,7 @@ class CurtainPlotter(BasePlotter):
         self.set_labels(
             ax,
             xlabel="Time",
-            ylabel=f"Altitude ({alt_units})",
+            ylabel=labeling.axis_label("Altitude", alt_units),
         )
 
         # Title
@@ -209,7 +209,8 @@ class CurtainPlotter(BasePlotter):
             self.set_title(ax, self.config.title)
         else:
             var_label = get_variable_label(paired_data, x_var)
-            self.set_title(ax, f"{var_label} Curtain ({show_var.title()})")
+            title = labeling.title_text(var_label, operation="Bias" if show_var == "bias" else None)
+            self.set_title(ax, title)
 
         # Invert y-axis if needed (e.g., for pressure)
         if invert_yaxis:

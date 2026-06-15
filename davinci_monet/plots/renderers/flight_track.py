@@ -265,7 +265,7 @@ class FlightTrackPlotter(BasePlotter):
 
         # Title
         if title is None:
-            title = labeling.title_text(var_label, operation="Flight Track")
+            title = labeling.title_text(var_label)
         self.set_figure_title(fig, title, y=0.85)
 
         plt.tight_layout(rect=(0, 0, 1, 0.95))
