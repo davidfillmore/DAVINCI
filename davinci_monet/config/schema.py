@@ -89,6 +89,9 @@ class AnalysisConfig(StrictSchema):
         Enable debug mode.
     style
         Plot styling configuration (NCAR branding, fonts, colors).
+    city_labels
+        Optional mapping of ``city name -> [lat, lon]`` annotated on spatial
+        and 3-D track plots (forwarded to renderers via the plotting stage).
     """
 
     start_time: datetime | str | None = None
@@ -97,6 +100,7 @@ class AnalysisConfig(StrictSchema):
     log_dir: Path | str | None = None
     debug: bool = False
     style: PlotStyleConfig | dict[str, Any] | None = None
+    city_labels: dict[str, list[float]] | None = None
 
     @field_validator("style", mode="before")
     @classmethod
