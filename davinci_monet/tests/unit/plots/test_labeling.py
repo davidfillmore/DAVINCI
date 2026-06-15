@@ -116,3 +116,23 @@ def test_legend_label_plain():
 
 def test_legend_label_uncertainty():
     assert L.legend_label("pandora", uncertainty="mean ± σ") == "Pandora (mean ± σ)"
+
+
+# ---------------------------------------------------------------------------
+# Task 6: bias_label
+# ---------------------------------------------------------------------------
+
+
+def test_bias_label_factors_shared_quantity():
+    out = L.bias_label("merra2_olr", "ceres_olr", "W m-2")
+    assert out == "Bias, MERRA-2 − CERES (W m$^{-2}$)"
+
+
+def test_bias_label_no_shared_quantity():
+    out = L.bias_label("cesm_no2_column", "pandora", "mol/m2")
+    assert out == "Bias, CESM NO$_2$ Column − Pandora (mol m$^{-2}$)"
+
+
+def test_bias_label_never_uses_xy():
+    out = L.bias_label("cesm_no2_column", "pandora", None)
+    assert " x" not in out.lower() and " y" not in out.lower()

@@ -104,3 +104,17 @@ def legend_label(source_label: str, uncertainty: str | None = None) -> str:
     """Compose a legend entry: friendly name, optionally with uncertainty note."""
     name = source_display_name(source_label)
     return f"{name} ({uncertainty})" if uncertainty else name
+
+
+def bias_label(y_source: str, x_source: str, units: str | None) -> str:
+    """'Bias, <Ysrc> − <Xsrc> (units)'; factor a shared trailing quantity."""
+    yw = source_display_name(y_source).split()
+    xw = source_display_name(x_source).split()
+    while yw and xw and yw[-1] == xw[-1]:
+        yw.pop()
+        xw.pop()
+    y = " ".join(yw) or source_display_name(y_source)
+    x = " ".join(xw) or source_display_name(x_source)
+    core = f"Bias, {y} − {x}"
+    u = format_units(units)
+    return f"{core} ({u})" if u else core
