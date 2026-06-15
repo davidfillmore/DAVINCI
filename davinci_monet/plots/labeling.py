@@ -23,12 +23,19 @@ _DIMENSIONLESS = {"", "1", "none", "dimensionless", "unitless", "fraction"}
 
 
 def format_units(units: str | None) -> str:
-    """Rewrite a raw unit string to negative-exponent SI LaTeX (D3)."""
+    """Rewrite a raw unit string to negative-exponent SI LaTeX (D3).
+
+    Strings that already contain non-ASCII characters or LaTeX (``$``) are
+    returned unchanged — they are assumed to be pre-formatted.
+    """
     if units is None:
         return ""
     s = str(units).strip()
     if s.lower() in _DIMENSIONLESS:
         return ""
+    # Pass through pre-formatted strings (Unicode or LaTeX already present).
+    if "$" in s or not s.isascii():
+        return s
     s = s.replace("ug", r"$\mu$g")
 
     # division: "/unitN" -> " unit^{-N}" (N defaults to 1)
