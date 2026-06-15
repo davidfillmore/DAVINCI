@@ -98,3 +98,9 @@ def axis_label(quantity: str, units: str | None, source: str | None = None) -> s
             label = f"{src} {quantity}".strip()
     u = format_units(units)
     return f"{label} ({u})" if u else label
+
+
+def legend_label(source_label: str, uncertainty: str | None = None) -> str:
+    """Compose a legend entry: friendly name, optionally with uncertainty note."""
+    name = source_display_name(source_label)
+    return f"{name} ({uncertainty})" if uncertainty else name

@@ -103,3 +103,16 @@ def test_axis_label_dedup():
 
 def test_axis_label_no_units():
     assert L.axis_label("Altitude", "1") == "Altitude"
+
+
+# ---------------------------------------------------------------------------
+# Task 5: legend_label
+# ---------------------------------------------------------------------------
+
+
+def test_legend_label_plain():
+    assert L.legend_label("cesm_no2_column") == r"CESM NO$_2$ Column"
+
+
+def test_legend_label_uncertainty():
+    assert L.legend_label("pandora", uncertainty="mean ± σ") == "Pandora (mean ± σ)"
