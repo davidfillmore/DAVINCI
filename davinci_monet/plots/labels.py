@@ -278,17 +278,15 @@ def get_variable_units(
 
 
 def format_units(units: str) -> str:
-    """Rewrite raw unit strings to LaTeX-rendered form.
+    """Rewrite raw unit strings to negative-exponent SI LaTeX form.
 
-    Applies UNIT_REPLACEMENTS so e.g. ``"ug/m3"`` becomes the proper
-    ``"$\\mu$g/m$^3$"`` with greek mu and superscripted exponent.
+    Delegates to :func:`davinci_monet.plots.labeling.format_units` so that
+    all callers get the canonical SI rendering (e.g. ``"mol/m2"`` →
+    ``"mol m$^{-2}$"``).
     """
-    result = units
-    for pattern, replacement in UNIT_REPLACEMENTS:
-        if pattern in result:
-            result = result.replace(pattern, replacement)
-            break
-    return result
+    from davinci_monet.plots.labeling import format_units as _si
+
+    return _si(units)
 
 
 def format_label_with_units(label: str, units: str | None) -> str:

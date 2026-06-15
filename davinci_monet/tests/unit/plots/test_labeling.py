@@ -161,3 +161,14 @@ def test_subtitle_single():
 
 def test_subtitle_empty():
     assert L.subtitle_text(None, None) == ""
+
+
+# ---------------------------------------------------------------------------
+# Task 8: labels.format_units delegates to SI labeling
+# ---------------------------------------------------------------------------
+
+
+def test_labels_format_units_delegates_to_si():
+    from davinci_monet.plots import labels
+
+    assert labels.format_units("mol/m2") == "mol m$^{-2}$"
