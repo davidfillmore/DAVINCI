@@ -140,15 +140,10 @@ class CurtainPlotter(BasePlotter):
                 y_src, x_src, units, quantity=labeling.quantity_label(paired_data, x_var)
             )
         elif show_var == "x":
-            cbar_label = labeling.axis_label(
-                labeling.quantity_label(paired_data, x_var),
-                get_variable_units(paired_data, x_var),
-            )
+            # Colorbar carries units only; the title carries the quantity.
+            cbar_label = labeling.format_units(get_variable_units(paired_data, x_var))
         else:
-            cbar_label = labeling.axis_label(
-                labeling.quantity_label(paired_data, y_var),
-                get_variable_units(paired_data, y_var),
-            )
+            cbar_label = labeling.format_units(get_variable_units(paired_data, y_var))
 
         # Handle different data shapes
         if data_values.ndim == 1:

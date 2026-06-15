@@ -173,19 +173,24 @@ class SpatialPlotter(BaseSpatialPlotter):
         )
 
         units = get_variable_units(ds, variable)
-        var_label = get_variable_label(ds, variable, include_prefix=False)
+        # Colorbar carries units only; the title carries the quantity (+ source),
+        # so the quantity is not repeated in both places.
         self.add_colorbar(
             fig,
             mappable,
             ax,
-            label=labeling.axis_label(labeling.quantity_label(ds, variable), units),
+            label=labeling.format_units(units),
         )
 
         if self.config.title:
             self.set_title(ax, self.config.title)
         else:
-            src_display = labeling.source_display_name(source_label) if source_label else ""
-            title_q = labeling.title_text(var_label)
+            title_q = labeling.quantity_label(ds, variable)
+            # Source de-duped against the quantity so e.g. a "cesm_no2_column"
+            # source beside "NO2 Column" reads "(CESM)", not "(CESM NO2 Column)".
+            src_display = (
+                labeling.distinctive_source_name(source_label, title_q) if source_label else ""
+            )
             self.set_title(ax, f"{title_q} ({src_display})" if src_display else title_q)
         return fig
 

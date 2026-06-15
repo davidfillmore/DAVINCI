@@ -198,17 +198,12 @@ class TrackMap3DPlotter(BasePlotter):
         if show_var == "x":
             values = paired_data[x_var].values
             default_cmap = "viridis"
-            label = labeling.axis_label(
-                labeling.quantity_label(paired_data, x_var),
-                get_variable_units(paired_data, x_var),
-            )
+            # Colorbar carries units only; the title carries the quantity.
+            label = labeling.format_units(get_variable_units(paired_data, x_var))
         elif show_var == "y":
             values = paired_data[y_var].values
             default_cmap = "viridis"
-            label = labeling.axis_label(
-                labeling.quantity_label(paired_data, y_var),
-                get_variable_units(paired_data, y_var),
-            )
+            label = labeling.format_units(get_variable_units(paired_data, y_var))
         else:  # bias
             values = paired_data[y_var].values - paired_data[x_var].values
             default_cmap = "RdBu_r"
