@@ -80,3 +80,8 @@ def source_display_name(source_label: str | None) -> str:
         else:
             out.append(tok.capitalize())
     return " ".join(out)
+
+
+def quantity_label(dataset: "xr.Dataset", var_name: str) -> str:
+    """Quantity name only (no source, no units), chem-formatted."""
+    return get_variable_label(dataset, var_name, include_prefix=False)

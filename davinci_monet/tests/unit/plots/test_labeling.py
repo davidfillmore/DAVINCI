@@ -57,3 +57,24 @@ def test_format_units_micrograms():
 )
 def test_source_display_name(key, expected):
     assert L.source_display_name(key) == expected
+
+
+# ---------------------------------------------------------------------------
+# Task 3: quantity_label
+# ---------------------------------------------------------------------------
+
+
+def _ds(var: str, **attrs: object) -> xr.Dataset:
+    d = xr.Dataset({var: ("t", np.arange(3.0))})
+    d[var].attrs.update(attrs)
+    return d
+
+
+def test_quantity_label_from_lookup():
+    ds = _ds("no2_column")
+    assert L.quantity_label(ds, "no2_column") == r"NO$_2$ Column"
+
+
+def test_quantity_label_prefers_long_name():
+    ds = _ds("X", long_name="Tropospheric NO2 Column")
+    assert "Tropospheric" in L.quantity_label(ds, "X")
