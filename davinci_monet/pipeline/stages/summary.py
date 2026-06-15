@@ -32,7 +32,6 @@ class SummaryStage(BaseStage):
 
         from davinci_monet.ai import collect_payload, extract_bullets, generate_summary
         from davinci_monet.config.schema import SummaryConfig
-        from davinci_monet.core.schema_utils import validate_schema
 
         start = time.time()
         logger = logging.getLogger(__name__)
@@ -43,8 +42,7 @@ class SummaryStage(BaseStage):
         # SKIPPED with a warning rather than propagating to the runner, which
         # would otherwise mark the whole run FAILED.
         try:
-            config = context.config_dict()
-            cfg = validate_schema(SummaryConfig, config.get("summary") or {})
+            cfg = context.summary_config() or SummaryConfig()
             if not cfg.enabled:
                 return self._create_result(
                     StageStatus.SKIPPED,
@@ -55,7 +53,7 @@ class SummaryStage(BaseStage):
             payload = collect_payload(context, cfg)
             result = generate_summary(payload, cfg=cfg)
 
-            output_dir = Path(config.get("analysis", {}).get("output_dir") or ".")
+            output_dir = Path(context.analysis_config().output_dir or ".")
             output_dir.mkdir(parents=True, exist_ok=True)
             out_path = output_dir / cfg.output_filename
             out_path.write_text(result.markdown)

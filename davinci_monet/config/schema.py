@@ -560,6 +560,14 @@ class StatsConfig(StrictSchema):
         List of pair identifiers.
     data_proc
         Data processing configuration.
+    include_counts
+        Include per-metric sample counts in the statistics output.
+    remove_nan
+        Drop NaN pairs before computing metrics.
+    min_samples
+        Minimum number of valid pairs required to compute metrics.
+    per_flight
+        Also compute per-flight statistics when a ``flight`` coordinate exists.
     """
 
     stat_list: list[str] = Field(default_factory=lambda: ["MB", "NMB", "R2", "RMSE"])
@@ -571,6 +579,10 @@ class StatsConfig(StrictSchema):
     domain_name: list[str] = Field(default_factory=lambda: ["CONUS"])
     data: list[str] = Field(default_factory=list)
     data_proc: DataProcConfig | dict[str, Any] | None = None
+    include_counts: bool = True
+    remove_nan: bool = True
+    min_samples: int = 3
+    per_flight: bool = False
 
 
 # =============================================================================

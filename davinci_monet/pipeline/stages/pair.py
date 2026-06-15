@@ -217,6 +217,12 @@ class PairingStage(BaseStage):
             "radius_of_influence",
             "time_tolerance",
             "time_method",
+            # vertical_method/horizontal_method are sourced from PairingConfig and
+            # passed BY NAME by PairingEngine.pair_sources; they must never also
+            # ride strategy_options or the **spread raises TypeError (got multiple
+            # values for keyword argument).
+            "vertical_method",
+            "horizontal_method",
             "max_pair_workers",
             "dask_pair_workers",
         }

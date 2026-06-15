@@ -258,6 +258,31 @@ class TestPairingEngine:
         engine.register_strategy(strategy)
         assert engine.get_strategy(DataGeometry.POINT) is strategy
 
+    def test_register_strategy_warns_on_geometry_collision(self) -> None:
+        """Two different strategy classes claiming the same geometry warns (last wins).
+
+        SwathStrategy and IntermediateGridStrategy both report SWATH; registering
+        both into one engine must surface the collision rather than silently shadow.
+        """
+        from davinci_monet.pairing.strategies import IntermediateGridStrategy
+
+        engine = PairingEngine(register_defaults=False)
+        engine.register_strategy(IntermediateGridStrategy())
+        swath = SwathStrategy()
+        with pytest.warns(UserWarning, match="SWATH"):
+            engine.register_strategy(swath)
+        assert engine.get_strategy(DataGeometry.SWATH) is swath
+
+    def test_register_same_strategy_class_is_silent(self) -> None:
+        """Re-registering the same strategy class for a geometry does not warn."""
+        import warnings
+
+        engine = PairingEngine(register_defaults=False)
+        engine.register_strategy(PointStrategy())
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            engine.register_strategy(PointStrategy())
+
     def test_detect_geometry_point(self, point_geometry: xr.Dataset) -> None:
         """Test geometry detection for point datasets."""
         engine = PairingEngine()
@@ -767,8 +792,8 @@ class TestTrackStrategy:
             radius_of_influence=500000.0,
         )
 
-        # Verify dataset O3 values show altitude dependence
-        y_o3 = paired["O3"].values
+        # Verify dataset O3 values show altitude dependence (y emitted as y_<var>)
+        y_o3 = paired["y_O3"].values
 
         # Surface (0m, ~1000 hPa) should have O3 near 40 ppb
         assert y_o3[0] < 50, f"Surface O3 should be ~40 ppb, got {y_o3[0]:.1f}"

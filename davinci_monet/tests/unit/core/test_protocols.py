@@ -8,20 +8,11 @@ These tests verify that:
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Mapping, Sequence
-
-import pytest
+from typing import Any
 
 from davinci_monet.core.protocols import (
-    Configurable,
     DataGeometry,
-    PairingEngine,
     PairingStrategy,
-    Plotter,
-    SpatialPlotter,
-    StatisticMetric,
-    StatisticsCalculator,
 )
 
 
@@ -61,155 +52,11 @@ class TestPairingStrategyProtocol:
 
             def pair_sources(
                 self,
-                geometry: Any,
-                dataset: Any,
+                x_data: Any,
+                y_data: Any,
                 **kwargs: Any,
             ) -> Any:
                 return None
 
         strategy = MockPointStrategy()
         assert isinstance(strategy, PairingStrategy)
-
-
-class TestPlotterProtocol:
-    """Tests for Plotter protocol."""
-
-    def test_protocol_is_runtime_checkable(self) -> None:
-        """Verify Plotter is runtime_checkable."""
-
-        class MockPlotter:
-            @property
-            def name(self) -> str:
-                return "timeseries"
-
-            def plot(
-                self,
-                paired_data: Any,
-                x_var: str,
-                y_var: str,
-                **kwargs: Any,
-            ) -> Any:
-                return None
-
-            def save(
-                self,
-                fig: Any,
-                output_path: str | Path,
-                **kwargs: Any,
-            ) -> Path:
-                return Path(output_path)
-
-        plotter = MockPlotter()
-        assert isinstance(plotter, Plotter)
-
-
-class TestStatisticMetricProtocol:
-    """Tests for StatisticMetric protocol."""
-
-    def test_protocol_is_runtime_checkable(self) -> None:
-        """Verify StatisticMetric is runtime_checkable."""
-
-        class MockMetric:
-            @property
-            def name(self) -> str:
-                return "MB"
-
-            @property
-            def long_name(self) -> str:
-                return "Mean Bias"
-
-            def compute(
-                self,
-                geometry: Any,
-                dataset: Any,
-                **kwargs: Any,
-            ) -> float:
-                return 0.0
-
-        metric = MockMetric()
-        assert isinstance(metric, StatisticMetric)
-
-
-class TestConfigurableProtocol:
-    """Tests for Configurable protocol."""
-
-    def test_protocol_is_runtime_checkable(self) -> None:
-        """Verify Configurable is runtime_checkable."""
-
-        class MockConfigurable:
-            @classmethod
-            def from_config(cls, config: Mapping[str, Any]) -> "MockConfigurable":
-                return cls()
-
-        obj = MockConfigurable()
-        assert isinstance(obj, Configurable)
-
-
-class TestPairingEngineProtocol:
-    """Tests for PairingEngine protocol."""
-
-    def test_protocol_is_runtime_checkable(self) -> None:
-        """Verify PairingEngine is runtime_checkable."""
-
-        class MockEngine:
-            def register_strategy(self, strategy: PairingStrategy) -> None:
-                pass
-
-            def pair_sources(
-                self,
-                geometry: Any,
-                dataset: Any,
-                **kwargs: Any,
-            ) -> Any:
-                return None
-
-        engine = MockEngine()
-        assert isinstance(engine, PairingEngine)
-
-
-class TestStatisticsCalculatorProtocol:
-    """Tests for StatisticsCalculator protocol."""
-
-    def test_protocol_is_runtime_checkable(self) -> None:
-        """Verify StatisticsCalculator is runtime_checkable."""
-
-        class MockCalculator:
-            def compute(
-                self,
-                paired_data: Any,
-                x_var: str,
-                y_var: str,
-                metrics: Sequence[str] | None = None,
-                groupby: str | Sequence[str] | None = None,
-                **kwargs: Any,
-            ) -> Any:
-                return None
-
-        calc = MockCalculator()
-        assert isinstance(calc, StatisticsCalculator)
-
-
-class TestSpatialPlotterProtocol:
-    """Tests for SpatialPlotter protocol."""
-
-    def test_protocol_is_runtime_checkable(self) -> None:
-        """Verify SpatialPlotter is runtime_checkable."""
-
-        class MockSpatialPlotter:
-            @property
-            def name(self) -> str:
-                return "spatial_bias"
-
-            def plot(
-                self,
-                paired_data: Any,
-                x_var: str,
-                y_var: str,
-                domain: tuple[float, float, float, float] | None = None,
-                projection: Any | None = None,
-                **kwargs: Any,
-            ) -> Any:
-                return None
-
-        plotter = MockSpatialPlotter()
-        assert isinstance(plotter, SpatialPlotter)

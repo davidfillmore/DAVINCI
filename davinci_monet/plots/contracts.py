@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from enum import Enum
 
+from davinci_monet.core.exceptions import PlottingError
+
 
 class PlotArity(str, Enum):
     """Supported renderer input shapes."""
@@ -62,7 +64,7 @@ def plot_arity(plot_type: str) -> PlotArity:
         return PlotArity.PAIRWISE
     if plot_type in MULTI_SOURCE_PLOTS:
         return PlotArity.MULTI_SOURCE
-    raise ValueError(f"Unknown plot type '{plot_type}'")
+    raise PlottingError(f"Unknown plot type '{plot_type}'")
 
 
 def validate_plot_shape(

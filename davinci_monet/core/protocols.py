@@ -1,8 +1,13 @@
 """Protocol definitions for DAVINCI components.
 
-This module defines the interfaces (Protocols) that all pluggable components
-must implement. Using Protocols enables static type checking while maintaining
-flexibility for plugin architectures.
+This module defines the interfaces (Protocols) for the pluggable data-source and
+pairing components. Using runtime_checkable Protocols enables static type
+checking while maintaining flexibility for the plugin architecture.
+
+Only the contracts that real implementations actually conform to live here.
+Plotters, metrics, and the statistics calculator are concrete base classes in
+their own subpackages (``plots.base.BasePlotter``, ``stats.metrics.BaseMetric``,
+``stats.calculator.StatisticsCalculator``) and are not modelled as protocols.
 
 Data Geometry Types:
     - point: Fixed locations (surface stations, ground sites)
@@ -17,11 +22,9 @@ from __future__ import annotations
 from abc import abstractmethod
 from enum import Enum, auto
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping, Protocol, Sequence, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, Sequence, runtime_checkable
 
 if TYPE_CHECKING:
-    import matplotlib.figure
-    import pandas as pd
     import xarray as xr
 
 
@@ -133,9 +136,34 @@ class SourceProcessor(Protocol):
 class PairingStrategy(Protocol):
     """Protocol for source-pairing strategies.
 
-    ``pair_sources`` is the canonical  API. Concrete strategy
-    classes may keep an internal ``pair(dataset, geometry, ...)`` method that
-    ``pair_sources`` delegates to, but it is not part of this public contract.
+    Concrete strategies expose ``pair_sources(x_data, y_data, **kwargs)`` and
+    return a single paired ``xr.Dataset``. By contract a strategy emits the x
+    side under its bare variable name and the y side under a ``y_`` prefix; it
+    sets **no** ``axis``/``source_label`` attrs. The :class:`PairingEngine`
+    (``pairing.engine``) is the sole writer of those attrs and the sole point
+    that relabels variables to the public ``<source_label>_<var>`` form.
+
+    Option contract
+    ---------------
+    The engine passes these options (some by name, some via ``**kwargs``); a
+    strategy must accept all of them and may ignore any it does not use:
+
+    - ``radius_of_influence``, ``time_tolerance``, ``vertical_method``,
+      ``horizontal_method``, ``time_method`` (by name);
+    - ``x_vars``/``y_vars`` and the single-variable ``x_var``/``y_var``
+      (via ``**kwargs``).
+
+    Caveats (currently true, not yet unified):
+
+    - ``time_method`` is honored **only** by ``PointStrategy``; every other
+      geometry uses nearest-time alignment regardless of its value.
+    - ``method: grid`` is a separate symmetric-binning route in the engine
+      (``IntermediateGridStrategy``) that does **not** flow through this protocol's
+      option set or the temporal-overlap guard; it is driven by ``time_resolution``.
+
+    Concrete strategy classes may keep an internal ``pair(dataset, geometry,
+    ...)`` method that ``pair_sources`` delegates to, but it is not part of this
+    public contract.
     """
 
     @property
@@ -151,272 +179,5 @@ class PairingStrategy(Protocol):
         y_data: xr.Dataset,
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Pair two  sources.
-
-        The dataset is sampled onto the geometry geometry.
-        """
-        ...
-
-
-@runtime_checkable
-class PairingEngine(Protocol):
-    """Protocol for the main pairing orchestrator.
-
-    The pairing engine selects the appropriate strategy based on
-    data geometry and coordinates the pairing process.
-    """
-
-    @abstractmethod
-    def register_strategy(self, strategy: PairingStrategy) -> None:
-        """Register a pairing strategy for a geometry type."""
-        ...
-
-    @abstractmethod
-    def pair_sources(
-        self,
-        x_data: xr.Dataset,
-        y_data: xr.Dataset,
-        **kwargs: Any,
-    ) -> xr.Dataset:
-        """Pair two  sources using the appropriate strategy.
-
-        The strategy is selected based on the geometry Dataset's geometry.
-        """
-        ...
-
-
-# =============================================================================
-# Plotting Protocols
-# =============================================================================
-
-
-@runtime_checkable
-class Plotter(Protocol):
-    """Protocol for plot renderers.
-
-    Each plotter handles a specific plot type (timeseries, scatter,
-    spatial, Taylor diagram, etc.).
-    """
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Unique identifier for this plot type."""
-        ...
-
-    @abstractmethod
-    def plot(
-        self,
-        paired_data: xr.Dataset,
-        x_var: str,
-        y_var: str,
-        **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
-        """Generate a plot from paired data.
-
-        Parameters
-        ----------
-        paired_data
-            Paired Dataset containing x and y variables.
-        x_var
-            Name of the x variable to plot.
-        y_var
-            Name of the y variable to plot.
-        **kwargs
-            Plot-specific options (colors, labels, domains, etc.).
-
-        Returns
-        -------
-        matplotlib.figure.Figure
-            The generated figure.
-        """
-        ...
-
-    @abstractmethod
-    def save(
-        self,
-        fig: matplotlib.figure.Figure,
-        output_path: str | Path,
-        **kwargs: Any,
-    ) -> Path:
-        """Save figure to file.
-
-        Parameters
-        ----------
-        fig
-            Figure to save.
-        output_path
-            Output file path.
-        **kwargs
-            Save options (dpi, format, etc.).
-
-        Returns
-        -------
-        Path
-            Path to saved file.
-        """
-        ...
-
-
-@runtime_checkable
-class SpatialPlotter(Protocol):
-    """Protocol for spatial/map-based plotters.
-
-    Extends base plotter with geospatial capabilities.
-    """
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Unique identifier for this plot type."""
-        ...
-
-    @abstractmethod
-    def plot(
-        self,
-        paired_data: xr.Dataset,
-        x_var: str,
-        y_var: str,
-        domain: tuple[float, float, float, float] | None = None,
-        projection: Any | None = None,
-        **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
-        """Generate a spatial plot.
-
-        Parameters
-        ----------
-        paired_data
-            Paired Dataset.
-        x_var
-            Compatibility name for the x variable.
-        y_var
-            Compatibility name for the y variable.
-        domain
-            Geographic extent (lon_min, lon_max, lat_min, lat_max).
-        projection
-            Cartopy projection for the map.
-        **kwargs
-            Additional plot options.
-
-        Returns
-        -------
-        matplotlib.figure.Figure
-            The generated figure.
-        """
-        ...
-
-
-# =============================================================================
-# Statistics Protocols
-# =============================================================================
-
-
-@runtime_checkable
-class StatisticMetric(Protocol):
-    """Protocol for individual statistical metrics.
-
-    Each metric computes a single statistic (MB, RMSE, R2, etc.).
-    """
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Short name/abbreviation (e.g., 'MB', 'RMSE')."""
-        ...
-
-    @property
-    @abstractmethod
-    def long_name(self) -> str:
-        """Full descriptive name (e.g., 'Mean Bias')."""
-        ...
-
-    @abstractmethod
-    def compute(
-        self,
-        x: xr.DataArray,
-        y: xr.DataArray,
-        **kwargs: Any,
-    ) -> float:
-        """Compute the statistic.
-
-        Parameters
-        ----------
-        x
-            Reference values.
-        y
-            Comparison values (aligned with x).
-        **kwargs
-            Metric-specific options.
-
-        Returns
-        -------
-        float
-            Computed statistic value.
-        """
-        ...
-
-
-@runtime_checkable
-class StatisticsCalculator(Protocol):
-    """Protocol for computing multiple statistics on paired data."""
-
-    @abstractmethod
-    def compute(
-        self,
-        paired_data: xr.Dataset,
-        x_var: str,
-        y_var: str,
-        metrics: Sequence[str] | None = None,
-        groupby: str | Sequence[str] | None = None,
-        **kwargs: Any,
-    ) -> pd.DataFrame:
-        """Compute statistics for paired data.
-
-        Parameters
-        ----------
-        paired_data
-            Paired Dataset.
-        x_var
-            Name of the x variable.
-        y_var
-            Name of the y variable.
-        metrics
-            List of metric names to compute. If None, compute all.
-        groupby
-            Optional dimension(s) to group by (e.g., 'site', 'time.month').
-        **kwargs
-            Additional options.
-
-        Returns
-        -------
-        pd.DataFrame
-            Statistics table with metrics as columns.
-        """
-        ...
-
-
-# =============================================================================
-# Configuration Protocol
-# =============================================================================
-
-
-@runtime_checkable
-class Configurable(Protocol):
-    """Protocol for components that can be configured from dict/YAML."""
-
-    @classmethod
-    @abstractmethod
-    def from_config(cls, config: Mapping[str, Any]) -> Configurable:
-        """Create instance from configuration dict.
-
-        Parameters
-        ----------
-        config
-            Configuration dictionary (typically from YAML).
-
-        Returns
-        -------
-        Configurable
-            Configured instance.
-        """
+        """Pair two sources, returning a dataset of x (bare) and y_ vars."""
         ...

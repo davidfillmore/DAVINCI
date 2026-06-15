@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from davinci_monet.core.base import iter_paired_variable_xy, paired_canonical_name
+from davinci_monet.core.exceptions import PlottingError
 from davinci_monet.core.schema_utils import dump_schema, is_schema_object
 from davinci_monet.pipeline.stages.base import (
     BaseStage,
@@ -135,16 +136,16 @@ class PlottingStage(BaseStage):
         variable = str(plot_spec.get("variable") or "")
 
         if not source_label:
-            raise ValueError(f"Plot '{plot_name}' is missing source")
+            raise PlottingError(f"Plot '{plot_name}' is missing source")
         if not variable:
-            raise ValueError(f"Plot '{plot_name}' is missing variable")
+            raise PlottingError(f"Plot '{plot_name}' is missing variable")
         if source_label not in source_map:
-            raise ValueError(f"Source '{source_label}' not found for plot '{plot_name}'")
+            raise PlottingError(f"Source '{source_label}' not found for plot '{plot_name}'")
 
         _source_obj, ds = source_map[source_label]
 
         if variable not in ds.data_vars:
-            raise ValueError(
+            raise PlottingError(
                 f"Variable '{variable}' not in source '{source_label}' for plot '{plot_name}'"
             )
 
@@ -214,7 +215,7 @@ class PlottingStage(BaseStage):
                 _logger.warning(f"Source plot {label} failed: {e}")
 
         if errors:
-            raise ValueError("; ".join(errors))
+            raise PlottingError("; ".join(errors))
 
         return file_index
 
@@ -509,7 +510,7 @@ class PlottingStage(BaseStage):
 
         resolved = self._resolve_pair_labels_and_vars(pair_name, pair_spec, context)
         if resolved is None:
-            raise ValueError(f"Pair '{pair_name}' not found or has no matching x/y variables")
+            raise PlottingError(f"Pair '{pair_name}' not found or has no matching x/y variables")
         (
             paired_data,
             x_source,
@@ -522,7 +523,7 @@ class PlottingStage(BaseStage):
         paired_data = self._apply_domain_filter(paired_data, plot_spec)
 
         if x_var_name not in paired_data or y_var_name not in paired_data:
-            raise ValueError(
+            raise PlottingError(
                 f"Pair '{pair_name}' missing resolved variables "
                 f"'{x_var_name}' and/or '{y_var_name}'"
             )
@@ -583,8 +584,7 @@ class PlottingStage(BaseStage):
 
         # Get output directory
         analysis_config = config.get("analysis", {})
-        output_dir_str = analysis_config.get("output_dir") or "."
-        output_dir = Path(output_dir_str)
+        output_dir = Path(context.analysis_config().output_dir or ".")
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Get pairs config for variable mapping
@@ -621,7 +621,7 @@ class PlottingStage(BaseStage):
                     )
                 elif arity == PlotArity.PAIRWISE:
                     if not plot_pairs:
-                        raise ValueError(f"Plot '{plot_name}' has no configured pairs")
+                        raise PlottingError(f"Plot '{plot_name}' has no configured pairs")
                     for pair_name in plot_pairs:
                         file_index = self._render_pair(
                             context=context,

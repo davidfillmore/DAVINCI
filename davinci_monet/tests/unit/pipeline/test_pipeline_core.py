@@ -196,6 +196,26 @@ class TestPipelineContext:
         assert model_context.config_dict()["sources"]["cam"]["type"] == "generic"
         assert dict_context.config_dict()["sources"]["cam"]["type"] == "generic"
 
+    def test_typed_config_accessors(self):
+        """Typed accessors return sub-models for both MonetConfig and dict contexts."""
+        from davinci_monet.config.parser import validate_config
+        from davinci_monet.config.schema import AnalysisConfig, StatsConfig
+
+        section = {"stats": {"metrics": ["N", "MB"], "min_samples": 7}}
+        model_context = PipelineContext(config=validate_config(section))
+        dict_context = PipelineContext(config=section)
+
+        for ctx in (model_context, dict_context):
+            stats = ctx.stats_config()
+            assert isinstance(stats, StatsConfig)
+            assert stats.min_samples == 7
+            assert isinstance(ctx.analysis_config(), AnalysisConfig)
+
+        # No stats section -> None, so the stage falls back to legacy defaults.
+        empty_context = PipelineContext()
+        assert empty_context.stats_config() is None
+        assert isinstance(empty_context.analysis_config(), AnalysisConfig)
+
 
 # =============================================================================
 # BaseStage Tests
@@ -375,6 +395,24 @@ class TestPairingStage:
 
         assert stage.validate(ctx) is False
 
+    def test_strategy_options_drops_engine_named_kwargs(self):
+        """vertical_method/horizontal_method are passed by name by the engine, so they
+        must be stripped from strategy_options to avoid a duplicate-keyword TypeError;
+        genuine strategy options pass through."""
+        opts = PairingStage._strategy_options(
+            pairing_config_dict={},
+            pair_spec={
+                "vertical_method": "linear",
+                "horizontal_method": "bilinear",
+                "time_method": "linear",
+                "extract_surface": True,
+            },
+        )
+        assert "vertical_method" not in opts
+        assert "horizontal_method" not in opts
+        assert "time_method" not in opts
+        assert opts["extract_surface"] is True
+
     def test_execute_forwards_pair_strategy_options(self):
         """Pair-level strategy options flow into the unified pairing strategy."""
         stage = PairingStage()
@@ -514,6 +552,38 @@ class TestStatisticsStage:
 
         assert result.status == StageStatus.FAILED
         assert "missing" in (result.error or "")
+
+    def test_per_flight_knob_via_validated_config(self):
+        """per_flight is no longer a dead-pinned knob: a validated config that sets it
+        (previously rejected by StrictSchema) now reaches the stage and emits per-flight
+        stats."""
+        from davinci_monet.config.parser import validate_config
+
+        times = pd.date_range("2024-01-01", periods=6, freq="h")
+        ds = xr.Dataset(
+            {
+                "obs_o3": (
+                    "time",
+                    np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
+                    {"axis": "x", "source_label": "obs", "canonical_name": "o3"},
+                ),
+                "mod_o3": (
+                    "time",
+                    np.array([1.1, 2.2, 2.9, 4.2, 5.1, 5.8]),
+                    {"axis": "y", "source_label": "mod", "canonical_name": "o3"},
+                ),
+            },
+            coords={"time": times, "flight": ("time", ["F1", "F1", "F1", "F2", "F2", "F2"])},
+        )
+        cfg = validate_config({"stats": {"per_flight": True, "metrics": ["N", "MB", "R"]}})
+        ctx = PipelineContext(config=cfg, paired={"p": ds})
+
+        result = StatisticsStage().execute(ctx)
+
+        assert result.status == StageStatus.COMPLETED
+        assert "_per_flight" in result.data["p"]
+        flights = {row["flight"] for row in result.data["p"]["_per_flight"]}
+        assert flights == {"F1", "F2"}
 
     def test_stats_item_error_fails_stage(
         self,

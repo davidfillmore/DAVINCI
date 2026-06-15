@@ -6,6 +6,7 @@ geometry-specific strategies based on the x and y source geometries.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, Mapping, Sequence
@@ -104,11 +105,26 @@ class PairingEngine:
     def register_strategy(self, strategy: PairingStrategy) -> None:
         """Register a pairing strategy for a geometry type.
 
+        The registry maps each :class:`DataGeometry` to exactly one strategy.
+        Registering a *different* strategy class for a geometry that is already
+        mapped warns (and keeps last-wins) rather than silently shadowing, so a
+        collision — e.g. ``SwathStrategy`` and ``IntermediateGridStrategy`` both
+        claiming ``SWATH`` — is visible. Re-registering the same class is silent.
+
         Parameters
         ----------
         strategy
             Strategy instance implementing PairingStrategy protocol.
         """
+        existing = self._strategies.get(strategy.geometry)
+        if existing is not None and type(existing) is not type(strategy):
+            warnings.warn(
+                f"Overwriting pairing strategy for geometry {strategy.geometry.name}: "
+                f"{type(existing).__name__} -> {type(strategy).__name__}. Each geometry "
+                f"maps to exactly one strategy; the last registration wins.",
+                UserWarning,
+                stacklevel=2,
+            )
         self._strategies[strategy.geometry] = strategy
 
     def get_strategy(self, geometry: DataGeometry) -> PairingStrategy:
@@ -235,8 +251,19 @@ class PairingEngine:
                 min_sample_count=kwargs.get("min_sample_count", 1),
                 vertical=kwargs.get("vertical"),
             )
+            # Route through the shared relabeler so grid pairs get the public
+            # ``<source_label>_<var>`` names and axis/source_label/canonical_name
+            # attrs, exactly like the geometry-based path. (Diagnostic
+            # ``*_sample_count`` vars are intentionally not carried to output.)
+            result_ds = self._assemble_paired_dataset(
+                grid_paired_ds,
+                x_vars=x_vars,
+                y_vars=y_vars,
+                x_source=x_source,
+                y_source=y_source,
+            )
             return PairedData.from_sources(
-                data=grid_paired_ds,
+                data=result_ds,
                 x_source=x_source,
                 y_source=y_source,
                 geometry=DataGeometry.GRID,
@@ -314,7 +341,16 @@ class PairingEngine:
         x_source: str,
         y_source: str,
     ) -> xr.Dataset:
-        """Build a source-label paired dataset from strategy output."""
+        """Build a source-label paired dataset from strategy output.
+
+        Contract: strategies emit the x side under its bare variable name (or an
+        ``x_`` prefix for gridded strategies) and the y side under a ``y_``
+        prefix. The ``y_``-prefixed candidates are therefore resolved *before*
+        the bare ``y_name`` fallback so that a same-named x variable is never
+        mistaken for the y series. A pair whose x or y variable cannot be
+        resolved is a strategy/contract violation and raises rather than being
+        silently dropped.
+        """
         data_vars: dict[str, xr.DataArray] = {}
         coords = dict(paired_ds.coords)
 
@@ -328,14 +364,18 @@ class PairingEngine:
             y_key = self._select_var(
                 paired_ds,
                 [
-                    y_name,
                     f"y_{y_name}",
                     f"y_{x_name}",
+                    y_name,
                 ],
             )
 
             if x_key is None or y_key is None:
-                continue
+                raise PairingError(
+                    f"Could not resolve paired variables for x={x_name!r}, "
+                    f"y={y_name!r} in strategy output {list(paired_ds.data_vars)}. "
+                    "Strategies must emit x bare (or x_-prefixed) and y as y_<var>."
+                )
 
             x_output = f"{x_source}_{x_name}"
             y_output = f"{y_source}_{y_name}"

@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Sequence
 import numpy as np
 import pandas as pd
 
+from davinci_monet.core.exceptions import StatisticsError
 from davinci_monet.stats.metrics import STANDARD_METRICS, get_metric, list_metrics
 
 if TYPE_CHECKING:
@@ -126,7 +127,7 @@ class StatisticsCalculator:
         """
         metrics = list(metrics) if metrics is not None else self.config.metrics
         if x_var is None or y_var is None:
-            raise ValueError("Both x_var and y_var are required")
+            raise StatisticsError("Both x_var and y_var are required")
 
         # Get data arrays
         x_data = paired_data[x_var]
@@ -216,10 +217,10 @@ class StatisticsCalculator:
                     elif accessor == "season":
                         group_coord = x_data.time.dt.season
                     else:
-                        raise ValueError(f"Unknown time accessor: {accessor}")
+                        raise StatisticsError(f"Unknown time accessor: {accessor}")
                     parsed_groupby.append((g, group_coord))
                 else:
-                    raise ValueError(f"Unknown groupby pattern: {g}")
+                    raise StatisticsError(f"Unknown groupby pattern: {g}")
             else:
                 parsed_groupby.append((g, g))
 

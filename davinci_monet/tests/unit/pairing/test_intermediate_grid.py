@@ -115,8 +115,9 @@ def test_engine_routes_method_grid_to_symmetric():
     )
     data = getattr(paired, "data", paired)
     assert isinstance(data, xr.Dataset)
-    assert "x_aod" in data and "y_AOD" in data
-    assert list(data["x_aod"].dims) == ["time", "lon", "lat"]
+    # The engine relabels grid output to public <source_label>_<var> names.
+    assert "obs_aod" in data and "mod_AOD" in data
+    assert list(data["obs_aod"].dims) == ["time", "lon", "lat"]
 
 
 @pytest.mark.integration
@@ -358,4 +359,4 @@ def test_method_grid_3d_runs_through_pipeline(tmp_path):
     assert ctx is not None and "obs_vs_mod" in ctx.paired
     paired = ctx.paired["obs_vs_mod"]
     data = paired.data if hasattr(paired, "data") else paired
-    assert "alt" in data.coords and list(data["x_O3"].dims) == ["time", "lon", "lat", "alt"]
+    assert "alt" in data.coords and list(data["obs_O3"].dims) == ["time", "lon", "lat", "alt"]

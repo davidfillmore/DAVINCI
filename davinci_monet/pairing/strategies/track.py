@@ -691,24 +691,17 @@ class TrackStrategy(BasePairingStrategy):
         # Combine coordinates
         coords = dict(x_data.coords)
 
-        # Get x variable names to check for collisions
-        x_var_names = set(str(v) for v in x_data.data_vars)
-
         # Combine data variables
         data_vars: dict[str, Any] = {}
 
-        # Add x variables
+        # Add x variables (bare names)
         for var in x_data.data_vars:
             data_vars[str(var)] = x_data[var]
 
-        # Add y variables - add prefix only if name collision
+        # Add y variables under a ``y_`` prefix. Contract: strategies emit y as
+        # ``y_<var>`` with no attrs; the engine is the sole attr writer and the
+        # sole point that relabels to the public ``<source_label>_<var>`` form.
         for var in y_along_track.data_vars:
-            var_name = str(var)
-            if var_name in x_var_names:
-                # Name collision - add y_ prefix
-                data_vars[f"y_{var_name}"] = y_along_track[var]
-            else:
-                # No collision - keep original name
-                data_vars[var_name] = y_along_track[var]
+            data_vars[f"y_{var}"] = y_along_track[var]
 
         return xr.Dataset(data_vars, coords=coords)
