@@ -136,3 +136,28 @@ def test_bias_label_no_shared_quantity():
 def test_bias_label_never_uses_xy():
     out = L.bias_label("cesm_no2_column", "pandora", None)
     assert " x" not in out.lower() and " y" not in out.lower()
+
+
+# ---------------------------------------------------------------------------
+# Task 7: title_text + subtitle_text
+# ---------------------------------------------------------------------------
+
+
+def test_title_text_terse():
+    assert L.title_text("NO2 Tropospheric Column") == r"NO$_2$ Tropospheric Column"
+
+
+def test_title_text_operation():
+    assert L.title_text("OLR", operation="Bias") == "OLR Bias"
+
+
+def test_subtitle_range():
+    assert L.subtitle_text("2024-02-01", "2024-02-29") == "2024-02-01 – 2024-02-29"
+
+
+def test_subtitle_single():
+    assert L.subtitle_text("2024-02-01", "2024-02-01") == "2024-02-01"
+
+
+def test_subtitle_empty():
+    assert L.subtitle_text(None, None) == ""

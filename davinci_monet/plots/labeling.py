@@ -118,3 +118,30 @@ def bias_label(y_source: str, x_source: str, units: str | None) -> str:
     core = f"Bias, {y} − {x}"
     u = format_units(units)
     return f"{core} ({u})" if u else core
+
+
+def title_text(quantity: str, operation: str | None = None) -> str:
+    """Terse plot title: chem-format the quantity, optionally append operation."""
+    q = format_plot_title(quantity or "")
+    return f"{q} {operation}".strip() if operation else q
+
+
+def subtitle_text(start: Any, end: Any) -> str:
+    """Date-range subtitle: 'YYYY-MM-DD – YYYY-MM-DD' or single date or ''."""
+    if not start:
+        return ""
+    s = str(start).split(" ")[0].split("T")[0]
+    e = str(end).split(" ")[0].split("T")[0] if end else s
+    return s if s == e else f"{s} – {e}"
+
+
+__all__ = [
+    "format_units",
+    "source_display_name",
+    "quantity_label",
+    "axis_label",
+    "legend_label",
+    "bias_label",
+    "title_text",
+    "subtitle_text",
+]
