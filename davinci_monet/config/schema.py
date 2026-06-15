@@ -8,6 +8,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from davinci_monet.plots.contracts import validate_plot_shape
+
 # =============================================================================
 # Base Configuration
 # =============================================================================
@@ -717,6 +719,16 @@ class MonetConfig(StrictSchema):
 
         for plot_name, plot in self.plots.items():
             extra = getattr(plot, "__pydantic_extra__", None) or {}
+
+            errors.extend(
+                validate_plot_shape(
+                    plot_name=plot_name,
+                    plot_type=plot.type,
+                    pairs=list(plot.pairs),
+                    source=plot.source,
+                    variable=plot.variable,
+                )
+            )
 
             pairs_refs = plot.pairs
             if isinstance(pairs_refs, str):

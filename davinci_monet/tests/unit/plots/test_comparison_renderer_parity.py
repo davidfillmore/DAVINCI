@@ -1,13 +1,8 @@
-"""Render-parity tests for the four comparison renderers.
+"""Render-contract tests for comparison renderers.
 
-Each renderer now overrides render(series) with the real logic; plot() is a thin
-wrapper. These smoke + structural tests verify that:
-
-  plotter.plot(ds, "geometry_x", "dataset_x")  ≡  plotter.render(build_series(ds, "geometry_x", "dataset_x"))
-
-in terms of the figure structure (same number of axes, same collections/lines for
-scatter). No metric math is checked here — that is covered by the existing
-test_plots.py tests.
+Public plot() wrappers were removed in Task 6. These smoke + structural tests
+exercise renderer behavior through render(build_series(...)) directly. No metric
+math is checked here; that is covered by the existing test_plots.py tests.
 """
 
 from __future__ import annotations
@@ -25,6 +20,13 @@ from davinci_monet.plots.base import build_series
 # ---------------------------------------------------------------------------
 # Shared fixture helpers
 # ---------------------------------------------------------------------------
+
+
+def _figure(
+    result: matplotlib.figure.Figure | list[tuple[str, matplotlib.figure.Figure]],
+) -> matplotlib.figure.Figure:
+    assert isinstance(result, matplotlib.figure.Figure)
+    return result
 
 
 def _paired_ds(n: int = 30, seed: int = 0) -> xr.Dataset:
@@ -54,47 +56,34 @@ def _paired_ds(n: int = 30, seed: int = 0) -> xr.Dataset:
 # ---------------------------------------------------------------------------
 
 
-class TestScatterRenderParity:
-    def test_plot_and_render_both_return_figure(self) -> None:
+class TestScatterRendererContract:
+    def test_render_returns_figure(self) -> None:
         from davinci_monet.plots.renderers.scatter import ScatterPlotter
 
         ds = _paired_ds()
         plotter = ScatterPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        assert isinstance(fig_plot, matplotlib.figure.Figure)
-        assert isinstance(fig_render, matplotlib.figure.Figure)
-        plt.close(fig_render)
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert isinstance(fig, matplotlib.figure.Figure)
+        plt.close(fig)
 
-    def test_plot_and_render_same_axes_count(self) -> None:
+    def test_render_creates_axes(self) -> None:
         from davinci_monet.plots.renderers.scatter import ScatterPlotter
 
         ds = _paired_ds()
         plotter = ScatterPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        n_axes_plot = len(fig_plot.axes)
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        assert isinstance(fig_render, matplotlib.figure.Figure)
-        n_axes_render = len(fig_render.axes)
-        plt.close(fig_render)
-        assert n_axes_plot == n_axes_render
+        fig = _figure(plotter.render(build_series(ds, "x_o3", "y_o3")))
+        assert len(fig.axes) >= 1
+        plt.close(fig)
 
-    def test_plot_and_render_same_collections_count(self) -> None:
-        """Both paths produce the same number of PathCollections (scatter points)."""
+    def test_render_creates_scatter_collection(self) -> None:
+        """render() produces PathCollections for scatter points."""
         from davinci_monet.plots.renderers.scatter import ScatterPlotter
 
         ds = _paired_ds()
         plotter = ScatterPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        n_col_plot = len(fig_plot.axes[0].collections)
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        assert isinstance(fig_render, matplotlib.figure.Figure)
-        n_col_render = len(fig_render.axes[0].collections)
-        plt.close(fig_render)
-        assert n_col_plot == n_col_render
+        fig = _figure(plotter.render(build_series(ds, "x_o3", "y_o3")))
+        assert len(fig.axes[0].collections) >= 1
+        plt.close(fig)
 
     def test_render_wrong_series_count_raises(self) -> None:
         from davinci_monet.plots.renderers.scatter import ScatterPlotter
@@ -110,31 +99,24 @@ class TestScatterRenderParity:
 # ---------------------------------------------------------------------------
 
 
-class TestBoxRenderParity:
-    def test_plot_and_render_both_return_figure(self) -> None:
+class TestBoxRendererContract:
+    def test_render_returns_figure(self) -> None:
         from davinci_monet.plots.renderers.boxplot import BoxPlotter
 
         ds = _paired_ds()
         plotter = BoxPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        plt.close(fig_render)
-        assert isinstance(fig_plot, matplotlib.figure.Figure)
-        assert isinstance(fig_render, matplotlib.figure.Figure)
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert isinstance(fig, matplotlib.figure.Figure)
+        plt.close(fig)
 
-    def test_plot_and_render_same_axes_count(self) -> None:
+    def test_render_creates_axes(self) -> None:
         from davinci_monet.plots.renderers.boxplot import BoxPlotter
 
         ds = _paired_ds()
         plotter = BoxPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        n_plot = len(fig_plot.axes)
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        n_render = len(fig_render.axes)
-        plt.close(fig_render)
-        assert n_plot == n_render
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert len(fig.axes) >= 1
+        plt.close(fig)
 
     def test_render_wrong_series_count_raises(self) -> None:
         from davinci_monet.plots.renderers.boxplot import BoxPlotter
@@ -150,44 +132,33 @@ class TestBoxRenderParity:
 # ---------------------------------------------------------------------------
 
 
-class TestDiurnalRenderParity:
-    def test_plot_and_render_both_return_figure(self) -> None:
+class TestDiurnalRendererContract:
+    def test_render_returns_figure(self) -> None:
         from davinci_monet.plots.renderers.diurnal import DiurnalPlotter
 
         ds = _paired_ds(n=48)
         plotter = DiurnalPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        plt.close(fig_render)
-        assert isinstance(fig_plot, matplotlib.figure.Figure)
-        assert isinstance(fig_render, matplotlib.figure.Figure)
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert isinstance(fig, matplotlib.figure.Figure)
+        plt.close(fig)
 
-    def test_plot_and_render_same_axes_count(self) -> None:
+    def test_render_creates_axes(self) -> None:
         from davinci_monet.plots.renderers.diurnal import DiurnalPlotter
 
         ds = _paired_ds(n=48)
         plotter = DiurnalPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        n_plot = len(fig_plot.axes)
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        n_render = len(fig_render.axes)
-        plt.close(fig_render)
-        assert n_plot == n_render
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert len(fig.axes) >= 1
+        plt.close(fig)
 
-    def test_plot_and_render_same_lines_count(self) -> None:
+    def test_render_creates_lines(self) -> None:
         from davinci_monet.plots.renderers.diurnal import DiurnalPlotter
 
         ds = _paired_ds(n=48)
         plotter = DiurnalPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        n_lines_plot = len(fig_plot.axes[0].get_lines())
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        n_lines_render = len(fig_render.axes[0].get_lines())
-        plt.close(fig_render)
-        assert n_lines_plot == n_lines_render
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert len(fig.axes[0].get_lines()) >= 1
+        plt.close(fig)
 
     def test_render_wrong_series_count_raises(self) -> None:
         from davinci_monet.plots.renderers.diurnal import DiurnalPlotter
@@ -203,18 +174,15 @@ class TestDiurnalRenderParity:
 # ---------------------------------------------------------------------------
 
 
-class TestTaylorRenderParity:
-    def test_plot_and_render_both_return_figure(self) -> None:
+class TestTaylorRendererContract:
+    def test_render_returns_figure(self) -> None:
         from davinci_monet.plots.renderers.taylor import TaylorPlotter
 
         ds = _paired_ds()
         plotter = TaylorPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        plt.close(fig_render)
-        assert isinstance(fig_plot, matplotlib.figure.Figure)
-        assert isinstance(fig_render, matplotlib.figure.Figure)
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert isinstance(fig, matplotlib.figure.Figure)
+        plt.close(fig)
 
     def test_render_uses_config_subtitle(self) -> None:
         from davinci_monet.plots.base import PlotConfig
@@ -231,31 +199,23 @@ class TestTaylorRenderParity:
         assert any(t.get_text() == "2024-02-01 - 2024-02-02" for t in ax.texts)
         plt.close(fig)
 
-    def test_plot_and_render_same_axes_count(self) -> None:
+    def test_render_creates_axes(self) -> None:
         from davinci_monet.plots.renderers.taylor import TaylorPlotter
 
         ds = _paired_ds()
         plotter = TaylorPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        n_plot = len(fig_plot.axes)
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        n_render = len(fig_render.axes)
-        plt.close(fig_render)
-        assert n_plot == n_render
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert len(fig.axes) >= 1
+        plt.close(fig)
 
-    def test_plot_and_render_same_lines_count(self) -> None:
+    def test_render_creates_lines(self) -> None:
         from davinci_monet.plots.renderers.taylor import TaylorPlotter
 
         ds = _paired_ds()
         plotter = TaylorPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        n_lines_plot = len(fig_plot.axes[0].get_lines())
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        n_lines_render = len(fig_render.axes[0].get_lines())
-        plt.close(fig_render)
-        assert n_lines_plot == n_lines_render
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert len(fig.axes[0].get_lines()) >= 1
+        plt.close(fig)
 
     def test_render_wrong_series_count_raises(self) -> None:
         from davinci_monet.plots.renderers.taylor import TaylorPlotter
@@ -271,31 +231,24 @@ class TestTaylorRenderParity:
 # ---------------------------------------------------------------------------
 
 
-class TestScorecardRenderParity:
-    def test_plot_and_render_both_return_figure(self) -> None:
+class TestScorecardRendererContract:
+    def test_render_returns_figure(self) -> None:
         from davinci_monet.plots.renderers.scorecard import ScorecardPlotter
 
         ds = _paired_ds()
         plotter = ScorecardPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        plt.close(fig_render)
-        assert isinstance(fig_plot, matplotlib.figure.Figure)
-        assert isinstance(fig_render, matplotlib.figure.Figure)
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert isinstance(fig, matplotlib.figure.Figure)
+        plt.close(fig)
 
-    def test_plot_and_render_same_axes_count(self) -> None:
+    def test_render_creates_axes(self) -> None:
         from davinci_monet.plots.renderers.scorecard import ScorecardPlotter
 
         ds = _paired_ds()
         plotter = ScorecardPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        n_plot = len(fig_plot.axes)
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        n_render = len(fig_render.axes)
-        plt.close(fig_render)
-        assert n_plot == n_render
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert len(fig.axes) >= 1
+        plt.close(fig)
 
     def test_render_wrong_series_count_raises(self) -> None:
         from davinci_monet.plots.renderers.scorecard import ScorecardPlotter
@@ -305,29 +258,30 @@ class TestScorecardRenderParity:
         with pytest.raises(NotImplementedError, match="ScorecardPlotter"):
             plotter.render(build_series(ds, "x_o3"))
 
-    def test_side_entries_still_work(self) -> None:
-        """plot_from_dataframe and plot_multi_metric must remain callable."""
+    def test_canonical_dataframe_helpers_work(self) -> None:
+        """DataFrame scorecard helpers use render_* names only."""
         import pandas as pd
 
         from davinci_monet.plots.renderers.scorecard import ScorecardPlotter
 
         plotter = ScorecardPlotter()
 
-        # plot_from_dataframe
+        assert not hasattr(plotter, "plot_from_dataframe")
+        assert not hasattr(plotter, "plot_multi_metric")
+
         stats_df = pd.DataFrame(
             {"Dataset A": [0.9, 2.5], "Dataset B": [0.85, -1.0]},
             index=["R", "MB"],
         )
-        fig = plotter.plot_from_dataframe(stats_df)
+        fig = plotter.render_from_dataframe(stats_df)
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
-        # plot_multi_metric
         stats_dict = {
             "Dataset A": pd.DataFrame({"R": [0.9], "MB": [1.2]}, index=["o3"]),
             "Dataset B": pd.DataFrame({"R": [0.85], "MB": [-0.5]}, index=["o3"]),
         }
-        fig2 = plotter.plot_multi_metric(stats_dict, metrics=["R", "MB"])
+        fig2 = plotter.render_multi_metric(stats_dict, metrics=["R", "MB"])
         assert isinstance(fig2, matplotlib.figure.Figure)
         plt.close(fig2)
 
@@ -362,31 +316,24 @@ def _track_ds(n: int = 30, seed: int = 0) -> xr.Dataset:
     return ds
 
 
-class TestCurtainRenderParity:
-    def test_plot_and_render_both_return_figure(self) -> None:
+class TestCurtainRendererContract:
+    def test_render_returns_figure(self) -> None:
         from davinci_monet.plots.renderers.curtain import CurtainPlotter
 
         ds = _track_ds()
         plotter = CurtainPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3", alt_var="altitude")
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"), alt_var="altitude")
-        plt.close(fig_render)
-        assert isinstance(fig_plot, matplotlib.figure.Figure)
-        assert isinstance(fig_render, matplotlib.figure.Figure)
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"), alt_var="altitude")
+        assert isinstance(fig, matplotlib.figure.Figure)
+        plt.close(fig)
 
-    def test_plot_and_render_same_axes_count(self) -> None:
+    def test_render_creates_axes(self) -> None:
         from davinci_monet.plots.renderers.curtain import CurtainPlotter
 
         ds = _track_ds()
         plotter = CurtainPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3", alt_var="altitude")
-        n_plot = len(fig_plot.axes)
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"), alt_var="altitude")
-        n_render = len(fig_render.axes)
-        plt.close(fig_render)
-        assert n_plot == n_render
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"), alt_var="altitude")
+        assert len(fig.axes) >= 1
+        plt.close(fig)
 
     def test_curtain_show_var_forwarded(self) -> None:
         """render() must accept show_var kwarg and produce the correct bias plot."""
@@ -447,31 +394,24 @@ def _spatial_point_ds(n_sites: int = 5, seed: int = 0) -> xr.Dataset:
     return ds
 
 
-class TestSpatialBiasRenderParity:
-    def test_plot_and_render_both_return_figure(self) -> None:
+class TestSpatialBiasRendererContract:
+    def test_render_returns_figure(self) -> None:
         from davinci_monet.plots.renderers.spatial.bias import SpatialBiasPlotter
 
         ds = _spatial_point_ds()
         plotter = SpatialBiasPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        plt.close(fig_render)
-        assert isinstance(fig_plot, matplotlib.figure.Figure)
-        assert isinstance(fig_render, matplotlib.figure.Figure)
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert isinstance(fig, matplotlib.figure.Figure)
+        plt.close(fig)
 
-    def test_plot_and_render_same_axes_count(self) -> None:
+    def test_render_creates_axes(self) -> None:
         from davinci_monet.plots.renderers.spatial.bias import SpatialBiasPlotter
 
         ds = _spatial_point_ds()
         plotter = SpatialBiasPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3")
-        n_plot = len(fig_plot.axes)
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"))
-        n_render = len(fig_render.axes)
-        plt.close(fig_render)
-        assert n_plot == n_render
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"))
+        assert len(fig.axes) >= 1
+        plt.close(fig)
 
     def test_render_wrong_series_count_raises(self) -> None:
         from davinci_monet.plots.renderers.spatial.bias import SpatialBiasPlotter
@@ -529,33 +469,26 @@ def _dataset_field_da() -> "xr.DataArray":
     )
 
 
-class TestSpatialOverlayRenderParity:
-    def test_plot_and_render_both_return_figure(self) -> None:
+class TestSpatialOverlayRendererContract:
+    def test_render_returns_figure(self) -> None:
         from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
 
         ds = _overlay_ds()
         y_field = _dataset_field_da()
         plotter = SpatialOverlayPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3", y_field=y_field)
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"), y_field=y_field)
-        plt.close(fig_render)
-        assert isinstance(fig_plot, matplotlib.figure.Figure)
-        assert isinstance(fig_render, matplotlib.figure.Figure)
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"), y_field=y_field)
+        assert isinstance(fig, matplotlib.figure.Figure)
+        plt.close(fig)
 
-    def test_plot_and_render_same_axes_count(self) -> None:
+    def test_render_creates_axes(self) -> None:
         from davinci_monet.plots.renderers.spatial.overlay import SpatialOverlayPlotter
 
         ds = _overlay_ds()
         y_field = _dataset_field_da()
         plotter = SpatialOverlayPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3", y_field=y_field)
-        n_plot = len(fig_plot.axes)
-        plt.close(fig_plot)
-        fig_render = plotter.render(build_series(ds, "x_o3", "y_o3"), y_field=y_field)
-        n_render = len(fig_render.axes)
-        plt.close(fig_render)
-        assert n_plot == n_render
+        fig = plotter.render(build_series(ds, "x_o3", "y_o3"), y_field=y_field)
+        assert len(fig.axes) >= 1
+        plt.close(fig)
 
     def test_dataset_field_forwarded_via_render(self) -> None:
         """render() must accept and use the dataset_field kwarg (not fall back to paired_data)."""
@@ -656,40 +589,33 @@ def _flight_3d_ds(n_per_flight: int = 30, n_flights: int = 2, seed: int = 0) -> 
     return ds
 
 
-class TestTrackMap3DRenderParity:
-    def test_plot_and_render_both_return_figure(self) -> None:
+class TestTrackMap3DRendererContract:
+    def test_render_returns_figure(self) -> None:
         from davinci_monet.plots.renderers.track_map_3d import TrackMap3DPlotter
 
         ds = _track_3d_ds()
         plotter = TrackMap3DPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3", alt_var="altitude", show_coastlines=False)
-        plt.close(fig_plot)
-        fig_render = plotter.render(
+        fig = plotter.render(
             build_series(ds, "x_o3", "y_o3"),
             alt_var="altitude",
             show_coastlines=False,
         )
-        assert isinstance(fig_plot, matplotlib.figure.Figure)
-        assert isinstance(fig_render, matplotlib.figure.Figure)
-        plt.close(fig_render)
+        assert isinstance(fig, matplotlib.figure.Figure)
+        plt.close(fig)
 
-    def test_plot_and_render_same_axes_count(self) -> None:
+    def test_render_creates_axes(self) -> None:
         from davinci_monet.plots.renderers.track_map_3d import TrackMap3DPlotter
 
         ds = _track_3d_ds()
         plotter = TrackMap3DPlotter()
-        fig_plot = plotter.plot(ds, "x_o3", "y_o3", alt_var="altitude", show_coastlines=False)
-        n_plot = len(fig_plot.axes)
-        plt.close(fig_plot)
-        fig_render = plotter.render(
+        fig = plotter.render(
             build_series(ds, "x_o3", "y_o3"),
             alt_var="altitude",
             show_coastlines=False,
         )
-        assert isinstance(fig_render, matplotlib.figure.Figure)
-        n_render = len(fig_render.axes)
-        plt.close(fig_render)
-        assert n_plot == n_render
+        assert isinstance(fig, matplotlib.figure.Figure)
+        assert len(fig.axes) >= 1
+        plt.close(fig)
 
     def test_render_split_by_flight_returns_labeled_figures(self) -> None:
         """Split track-map output is part of the render contract."""

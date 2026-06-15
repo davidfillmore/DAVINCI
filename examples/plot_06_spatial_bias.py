@@ -10,7 +10,7 @@ Data: Surface point datasets (O3)
 import matplotlib.pyplot as plt
 from _helpers import create_paired_surface_data, save_figure
 
-from davinci_monet.plots import plot_spatial_bias
+from davinci_monet.plots import PlotConfig, SpatialBiasPlotter, build_series
 
 
 def main():
@@ -24,12 +24,8 @@ def main():
     paired_mean = paired.mean(dim="time")
 
     # Create plot using davinci_monet.plots
-    fig = plot_spatial_bias(
-        paired_mean,
-        x_var="x_o3",
-        y_var="y_o3",
-        title="Spatial Bias: Surface O3",
-    )
+    plotter = SpatialBiasPlotter(PlotConfig(title="Spatial Bias: Surface O3"))
+    fig = plotter.render(build_series(paired_mean, "x_o3", "y_o3"))
 
     save_figure(fig, "06_spatial_bias")
     plt.close(fig)

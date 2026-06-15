@@ -13,8 +13,6 @@ import numpy as np
 
 from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
-    PlotConfig,
-    build_series,
     format_label_with_units,
     get_variable_label,
     get_variable_units,
@@ -22,7 +20,6 @@ from davinci_monet.plots.base import (
 from davinci_monet.plots.registry import register_plotter
 from davinci_monet.plots.renderers.spatial.base import (
     BaseSpatialPlotter,
-    MapConfig,
     maybe_time_average,
     resolve_spatial_coords,
     surface_level_index,
@@ -51,10 +48,8 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
     Examples
     --------
     >>> plotter = SpatialOverlayPlotter()
-    >>> fig = plotter.plot(
-    ...     paired_data,
-    ...     x_var="x_o3",
-    ...     y_var="y_o3",
+    >>> fig = plotter.render(
+    ...     build_series(paired_data, "x_o3", "y_o3"),
     ...     y_field=y_data["o3"],
     ... )
     """
@@ -267,130 +262,3 @@ class SpatialOverlayPlotter(BaseSpatialPlotter):
             self.set_title(ax, f"{var_label}: Y (contour) vs X (points)")
 
         return fig
-
-    def plot(
-        self,
-        paired_data: xr.Dataset,
-        x_var: str,
-        y_var: str,
-        ax: matplotlib.axes.Axes | None = None,
-        y_field: xr.DataArray | None = None,
-        lat_var: str = "latitude",
-        lon_var: str = "longitude",
-        y_lat: str = "lat",
-        y_lon: str = "lon",
-        time_index: int = 0,
-        level_index: int | str | None = "surface",
-        cmap: str = "viridis",
-        n_levels: int = 15,
-        marker_size: float | None = None,
-        x_edgecolor: str = "black",
-        x_linewidth: float = 0.5,
-        **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
-        """Generate a spatial overlay plot.
-
-        Thin wrapper around :meth:`render`. See that method for parameter docs.
-
-        Parameters
-        ----------
-        paired_data
-            Paired dataset with x and y variables.
-        x_var
-            Name of the x variable.
-        y_var
-            Name of the y variable.
-        ax
-            Optional GeoAxes to plot on.
-        y_field
-            Optional separate y field for contouring.
-            If None, tries to use y_var from paired_data.
-        lat_var
-            Name of latitude coordinate for datasets.
-        lon_var
-            Name of longitude coordinate for datasets.
-        y_lat
-            Name of latitude dimension in y field.
-        y_lon
-            Name of longitude dimension in y field.
-        time_index
-            Time index to plot if dataset has time dimension.
-        level_index
-            Vertical level to plot if the dataset has a vertical dimension.
-            ``"surface"`` (default) auto-detects the surface level (last index
-            for CESM-style ascending-pressure coordinates, else first); an int
-            selects that index explicitly; None skips level selection.
-        cmap
-            Colormap name.
-        n_levels
-            Number of contour levels.
-        marker_size
-            Override marker size.
-        x_edgecolor
-            Edge color for x (geometry) markers.
-        x_linewidth
-            Edge line width for x (geometry) markers.
-        **kwargs
-            Additional plotting arguments.
-
-        Returns
-        -------
-        matplotlib.figure.Figure
-            The generated figure.
-        """
-        return self.render(
-            build_series(paired_data, x_var, y_var),
-            ax=ax,
-            y_field=y_field,
-            lat_var=lat_var,
-            lon_var=lon_var,
-            y_lat=y_lat,
-            y_lon=y_lon,
-            time_index=time_index,
-            level_index=level_index,
-            cmap=cmap,
-            n_levels=n_levels,
-            marker_size=marker_size,
-            x_edgecolor=x_edgecolor,
-            x_linewidth=x_linewidth,
-            **kwargs,
-        )
-
-
-def plot_spatial_overlay(
-    paired_data: xr.Dataset,
-    x_var: str,
-    y_var: str,
-    config: PlotConfig | dict[str, Any] | None = None,
-    map_config: MapConfig | dict[str, Any] | None = None,
-    **kwargs: Any,
-) -> matplotlib.figure.Figure:
-    """Convenience function for spatial overlay plotting.
-
-    Parameters
-    ----------
-    paired_data
-        Paired dataset with x and y variables.
-    x_var
-        Name of the x variable.
-    y_var
-        Name of the y variable.
-    config
-        Plot configuration.
-    map_config
-        Map configuration.
-    **kwargs
-        Additional arguments passed to plot method.
-
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The generated figure.
-    """
-    if isinstance(config, dict):
-        config = PlotConfig.from_dict(config)
-    if isinstance(map_config, dict):
-        map_config = MapConfig.from_dict(map_config)
-
-    plotter = SpatialOverlayPlotter(config=config, map_config=map_config)
-    return plotter.plot(paired_data, x_var, y_var, **kwargs)

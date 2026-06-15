@@ -15,9 +15,18 @@ import xarray as xr
 matplotlib.use("Agg")  # Use non-interactive backend for testing
 import matplotlib.pyplot as plt
 
+from davinci_monet.plots import build_series
+
 # =============================================================================
 # Fixtures
 # =============================================================================
+
+
+def _figure(
+    result: matplotlib.figure.Figure | list[tuple[str, matplotlib.figure.Figure]],
+) -> matplotlib.figure.Figure:
+    assert isinstance(result, matplotlib.figure.Figure)
+    return result
 
 
 @pytest.fixture
@@ -257,7 +266,7 @@ class TestBasePlotterNoCaption:
         config = PlotConfig.from_dict({"caption": caption_text})
         plotter = ScatterPlotter(config=config)
 
-        fig = plotter.plot(ds, "x_o3", "y_o3")
+        fig = _figure(plotter.render(build_series(ds, "x_o3", "y_o3")))
         output_file = tmp_path / "test_caption.png"
         plotter.save(fig, output_file)
 
@@ -295,7 +304,7 @@ class TestBasePlotterSubtitle:
         )
         plotter = ScatterPlotter(config=config)
 
-        fig = plotter.plot(ds, "x_o3", "y_o3")
+        fig = _figure(plotter.render(build_series(ds, "x_o3", "y_o3")))
         ax = fig.axes[0]
 
         assert ax.get_title() == r"O$_3$: Y vs X"
@@ -412,15 +421,16 @@ class TestRegistry:
         assert plotter.config.vmin == 0
         assert plotter.config.vmax == 100
 
-    def test_get_plot_category(self):
+    def test_category_lookup(self):
         """Test plot category classification."""
-        from davinci_monet.plots import get_plot_category
+        import davinci_monet.plots as plots_module
 
-        assert get_plot_category("timeseries") == "temporal"
-        assert get_plot_category("scatter") == "statistical"
-        assert get_plot_category("spatial_bias") == "spatial"
-        assert get_plot_category("curtain") == "specialized"
-        assert get_plot_category("unknown") is None
+        category_lookup = plots_module.get_plot_category
+        assert category_lookup("timeseries") == "temporal"
+        assert category_lookup("scatter") == "statistical"
+        assert category_lookup("spatial_bias") == "spatial"
+        assert category_lookup("curtain") == "specialized"
+        assert category_lookup("unknown") is None
 
 
 # =============================================================================
@@ -433,12 +443,10 @@ class TestTimeSeriesPlotter:
 
     def test_basic_plot(self, simple_paired_data):
         """Test basic time series plot."""
-        from davinci_monet.plots import plot_timeseries
+        from davinci_monet.plots import TimeSeriesPlotter
 
-        fig = plot_timeseries(
-            simple_paired_data,
-            "x_o3",
-            "y_o3",
+        fig = TimeSeriesPlotter().render(
+            build_series(simple_paired_data, "x_o3", "y_o3"),
             aggregate_dim="site",
         )
 
@@ -448,12 +456,10 @@ class TestTimeSeriesPlotter:
 
     def test_with_resampling(self, simple_paired_data):
         """Test time series with resampling."""
-        from davinci_monet.plots import plot_timeseries
+        from davinci_monet.plots import TimeSeriesPlotter
 
-        fig = plot_timeseries(
-            simple_paired_data,
-            "x_o3",
-            "y_o3",
+        fig = TimeSeriesPlotter().render(
+            build_series(simple_paired_data, "x_o3", "y_o3"),
             aggregate_dim="site",
             resample="6h",
         )
@@ -468,10 +474,8 @@ class TestTimeSeriesPlotter:
         config = PlotConfig(x_label="Custom X", y_label="Custom Y")
         plotter = TimeSeriesPlotter(config=config)
 
-        fig = plotter.plot(
-            simple_paired_data,
-            "x_o3",
-            "y_o3",
+        fig = plotter.render(
+            build_series(simple_paired_data, "x_o3", "y_o3"),
             aggregate_dim="site",
         )
 
@@ -479,7 +483,7 @@ class TestTimeSeriesPlotter:
         plt.close(fig)
 
     def test_smart_ylim_matches_plotted_aggregate(self):
-        """When no aggregate_dim is passed, plot() averages across non-time dims;
+        """When no aggregate_dim is passed, render() averages across non-time dims;
         smart-ylim must compute its range from that same aggregate, not the
         raw per-site values.
 
@@ -516,8 +520,8 @@ class TestTimeSeriesPlotter:
         )
 
         plotter = TimeSeriesPlotter()
-        # Do not pass aggregate_dim → plot() auto-aggregates over 'site'
-        fig = plotter.plot(paired, "x_pm25", "y_pm25")
+        # Do not pass aggregate_dim → render() auto-aggregates over 'site'
+        fig = plotter.render(build_series(paired, "x_pm25", "y_pm25"))
 
         ax = fig.axes[0]
         _, ymax = ax.get_ylim()
@@ -534,9 +538,9 @@ class TestDiurnalPlotter:
 
     def test_basic_plot(self, simple_paired_data):
         """Test basic diurnal plot."""
-        from davinci_monet.plots import plot_diurnal
+        from davinci_monet.plots import DiurnalPlotter
 
-        fig = plot_diurnal(simple_paired_data, "x_o3", "y_o3")
+        fig = DiurnalPlotter().render(build_series(simple_paired_data, "x_o3", "y_o3"))
 
         assert fig is not None
         plt.close(fig)
@@ -548,11 +552,9 @@ class TestDiurnalPlotter:
         plotter = DiurnalPlotter()
 
         for spread in ["none", "std", "iqr", "range"]:
-            fig = plotter.plot(
-                simple_paired_data,
-                "x_o3",
-                "y_o3",
-                show_spread=spread,  # type: ignore[arg-type]
+            fig = plotter.render(
+                build_series(simple_paired_data, "x_o3", "y_o3"),
+                show_spread=spread,
             )
             assert fig is not None
             plt.close(fig)
@@ -563,22 +565,22 @@ class TestScatterPlotter:
 
     def test_basic_plot(self, simple_paired_data):
         """Test basic scatter plot."""
-        from davinci_monet.plots import plot_scatter
+        from davinci_monet.plots import ScatterPlotter
 
-        fig = plot_scatter(simple_paired_data, "x_o3", "y_o3")
+        fig = _figure(ScatterPlotter().render(build_series(simple_paired_data, "x_o3", "y_o3")))
 
         assert fig is not None
         plt.close(fig)
 
     def test_with_density(self, simple_paired_data):
         """Test scatter plot with density coloring."""
-        from davinci_monet.plots import plot_scatter
+        from davinci_monet.plots import ScatterPlotter
 
-        fig = plot_scatter(
-            simple_paired_data,
-            "x_o3",
-            "y_o3",
-            show_density=True,
+        fig = _figure(
+            ScatterPlotter().render(
+                build_series(simple_paired_data, "x_o3", "y_o3"),
+                show_density=True,
+            )
         )
 
         assert fig is not None
@@ -589,13 +591,13 @@ class TestScatterPlotter:
         from davinci_monet.plots import ScatterPlotter
 
         plotter = ScatterPlotter()
-        fig = plotter.plot(
-            simple_paired_data,
-            "x_o3",
-            "y_o3",
-            show_regression=True,
-            show_stats=True,
-            show_one_to_one=True,
+        fig = _figure(
+            plotter.render(
+                build_series(simple_paired_data, "x_o3", "y_o3"),
+                show_regression=True,
+                show_stats=True,
+                show_one_to_one=True,
+            )
         )
 
         assert fig is not None
@@ -649,11 +651,7 @@ class TestScatterPlotter:
 
         config = PlotConfig(x_label="MODIS Terra AOD", y_label="MERRA-2 AOD")
         plotter = ScatterPlotter(config=config)
-        fig = plotter.plot(
-            simple_paired_data,
-            "x_o3",
-            "y_o3",
-        )
+        fig = _figure(plotter.render(build_series(simple_paired_data, "x_o3", "y_o3")))
 
         ax = fig.axes[0]
         xlabel = ax.get_xlabel()
@@ -685,7 +683,7 @@ class TestScatterPlotter:
         data["x_o3"].attrs.update({"axis": "x", "source_label": "airnow"})
         data["y_o3"].attrs.update({"axis": "y", "source_label": "cam"})
 
-        fig = ScatterPlotter().plot(data, "x_o3", "y_o3")
+        fig = _figure(ScatterPlotter().render(build_series(data, "x_o3", "y_o3")))
 
         ax = fig.axes[0]
         assert ax.get_xlabel() == "AIRNOW Ozone (ppbv)"
@@ -701,9 +699,9 @@ class TestTaylorPlotter:
 
     def test_basic_plot(self, simple_paired_data):
         """Test basic Taylor diagram."""
-        from davinci_monet.plots import plot_taylor
+        from davinci_monet.plots import TaylorPlotter
 
-        fig = plot_taylor(simple_paired_data, "x_o3", "y_o3")
+        fig = TaylorPlotter().render(build_series(simple_paired_data, "x_o3", "y_o3"))
 
         assert fig is not None
         plt.close(fig)
@@ -713,10 +711,8 @@ class TestTaylorPlotter:
         from davinci_monet.plots import TaylorPlotter
 
         plotter = TaylorPlotter()
-        fig = plotter.plot(
-            simple_paired_data,
-            "x_o3",
-            "y_o3",
+        fig = plotter.render(
+            build_series(simple_paired_data, "x_o3", "y_o3"),
             normalize=True,
         )
 
@@ -729,9 +725,9 @@ class TestBoxPlotter:
 
     def test_basic_plot(self, simple_paired_data):
         """Test basic box plot."""
-        from davinci_monet.plots import plot_boxplot
+        from davinci_monet.plots import BoxPlotter
 
-        fig = plot_boxplot(simple_paired_data, "x_o3", "y_o3")
+        fig = BoxPlotter().render(build_series(simple_paired_data, "x_o3", "y_o3"))
 
         assert fig is not None
         plt.close(fig)
@@ -741,10 +737,8 @@ class TestBoxPlotter:
         from davinci_monet.plots import BoxPlotter
 
         plotter = BoxPlotter()
-        fig = plotter.plot(
-            simple_paired_data,
-            "x_o3",
-            "y_o3",
+        fig = plotter.render(
+            build_series(simple_paired_data, "x_o3", "y_o3"),
             group_by="site",
         )
 
@@ -753,12 +747,10 @@ class TestBoxPlotter:
 
     def test_horizontal(self, simple_paired_data):
         """Test horizontal box plot."""
-        from davinci_monet.plots import plot_boxplot
+        from davinci_monet.plots import BoxPlotter
 
-        fig = plot_boxplot(
-            simple_paired_data,
-            "x_o3",
-            "y_o3",
+        fig = BoxPlotter().render(
+            build_series(simple_paired_data, "x_o3", "y_o3"),
             orientation="horizontal",
         )
 
@@ -771,12 +763,10 @@ class TestCurtainPlotter:
 
     def test_basic_plot(self, track_paired_data):
         """Test basic curtain plot."""
-        from davinci_monet.plots import plot_curtain
+        from davinci_monet.plots import CurtainPlotter
 
-        fig = plot_curtain(
-            track_paired_data,
-            "x_o3",
-            "y_o3",
+        fig = CurtainPlotter().render(
+            build_series(track_paired_data, "x_o3", "y_o3"),
             alt_var="altitude",
         )
 
@@ -790,12 +780,12 @@ class TestCurtainPlotter:
         plotter = CurtainPlotter()
 
         for show_var in ["x", "y", "bias"]:
-            fig = plotter.plot(
-                track_paired_data,
-                "x_o3",
-                "y_o3",
-                alt_var="altitude",
-                show_var=show_var,  # type: ignore[arg-type]
+            fig = _figure(
+                plotter.render(
+                    build_series(track_paired_data, "x_o3", "y_o3"),
+                    alt_var="altitude",
+                    show_var=show_var,
+                )
             )
             assert fig is not None
             plt.close(fig)
@@ -806,13 +796,13 @@ class TestTrackMap3DPlotter:
 
     def test_basic_plot(self, track_paired_data):
         """Test basic 3D track plot."""
-        from davinci_monet.plots import plot_track_map_3d
+        from davinci_monet.plots import TrackMap3DPlotter
 
-        fig = plot_track_map_3d(
-            track_paired_data,
-            "x_o3",
-            "y_o3",
-            alt_var="altitude",
+        fig = _figure(
+            TrackMap3DPlotter().render(
+                build_series(track_paired_data, "x_o3", "y_o3"),
+                alt_var="altitude",
+            )
         )
 
         assert fig is not None
@@ -825,12 +815,12 @@ class TestTrackMap3DPlotter:
         plotter = TrackMap3DPlotter()
 
         for show_var in ["x", "y", "bias"]:
-            fig = plotter.plot(
-                track_paired_data,
-                "x_o3",
-                "y_o3",
-                alt_var="altitude",
-                show_var=show_var,  # type: ignore[arg-type]
+            fig = _figure(
+                plotter.render(
+                    build_series(track_paired_data, "x_o3", "y_o3"),
+                    alt_var="altitude",
+                    show_var=show_var,
+                )
             )
             assert fig is not None
             plt.close(fig)
@@ -840,13 +830,13 @@ class TestTrackMap3DPlotter:
         from davinci_monet.plots import TrackMap3DPlotter
 
         plotter = TrackMap3DPlotter()
-        fig = plotter.plot(
-            track_paired_data,
-            "x_o3",
-            "y_o3",
-            alt_var="altitude",
-            elev=45,
-            azim=-90,
+        fig = _figure(
+            plotter.render(
+                build_series(track_paired_data, "x_o3", "y_o3"),
+                alt_var="altitude",
+                elev=45,
+                azim=-90,
+            )
         )
 
         assert fig is not None
@@ -857,12 +847,12 @@ class TestTrackMap3DPlotter:
         from davinci_monet.plots import TrackMap3DPlotter
 
         plotter = TrackMap3DPlotter()
-        fig = plotter.plot(
-            track_paired_data,
-            "x_o3",
-            "y_o3",
-            alt_var="altitude",
-            show_projection=False,
+        fig = _figure(
+            plotter.render(
+                build_series(track_paired_data, "x_o3", "y_o3"),
+                alt_var="altitude",
+                show_projection=False,
+            )
         )
 
         assert fig is not None
@@ -916,9 +906,9 @@ class TestScorecardPlotter:
 
     def test_basic_plot(self, simple_paired_data):
         """Test basic scorecard plot."""
-        from davinci_monet.plots import plot_scorecard
+        from davinci_monet.plots import ScorecardPlotter
 
-        fig = plot_scorecard(simple_paired_data, "x_o3", "y_o3")
+        fig = ScorecardPlotter().render(build_series(simple_paired_data, "x_o3", "y_o3"))
 
         assert fig is not None
         plt.close(fig)
@@ -937,7 +927,8 @@ class TestScorecardPlotter:
         )
 
         plotter = ScorecardPlotter()
-        fig = plotter.plot_from_dataframe(stats_df)
+        render_dataframe = plotter.render_from_dataframe
+        fig = render_dataframe(stats_df)
 
         assert fig is not None
         plt.close(fig)
@@ -952,9 +943,9 @@ class TestSpatialPlotters:
     )
     def test_spatial_bias(self, simple_paired_data):
         """Test spatial bias plot."""
-        from davinci_monet.plots import plot_spatial_bias
+        from davinci_monet.plots import SpatialBiasPlotter
 
-        fig = plot_spatial_bias(simple_paired_data, "x_o3", "y_o3")
+        fig = SpatialBiasPlotter().render(build_series(simple_paired_data, "x_o3", "y_o3"))
 
         assert fig is not None
         plt.close(fig)
@@ -971,7 +962,7 @@ class TestSpatialPlotters:
         import numpy as np
         import xarray as xr
 
-        from davinci_monet.plots import plot_spatial_bias
+        from davinci_monet.plots import SpatialBiasPlotter
 
         times = np.array(
             ["2025-08-01T00:00", "2025-08-01T01:00", "2025-08-01T02:00"],
@@ -996,7 +987,7 @@ class TestSpatialPlotters:
             },
         )
 
-        fig = plot_spatial_bias(ds, "x_o3", "y_o3")
+        fig = SpatialBiasPlotter().render(build_series(ds, "x_o3", "y_o3"))
         assert fig is not None
         plt.close(fig)
 
@@ -1011,7 +1002,7 @@ class TestSpatialPlotters:
         import numpy as np
         import xarray as xr
 
-        from davinci_monet.plots import plot_spatial_bias
+        from davinci_monet.plots import SpatialBiasPlotter
 
         times = np.array(["2025-08-01T00:00", "2025-08-01T01:00"], dtype="datetime64[ns]")
         n_sites = 5
@@ -1033,7 +1024,7 @@ class TestSpatialPlotters:
             },
         )
 
-        fig = plot_spatial_bias(ds, "x_aod", "y_aod")
+        fig = SpatialBiasPlotter().render(build_series(ds, "x_aod", "y_aod"))
         assert fig is not None
         plt.close(fig)
 
@@ -1049,7 +1040,7 @@ class TestSpatialPlotters:
         import xarray as xr
         from matplotlib.collections import PathCollection, QuadMesh
 
-        from davinci_monet.plots import plot_spatial_bias
+        from davinci_monet.plots import SpatialBiasPlotter
 
         lat = np.linspace(-89.5, 89.5, 10)
         lon = np.linspace(-179.5, 179.5, 12)
@@ -1066,7 +1057,9 @@ class TestSpatialPlotters:
         )
         ds = xr.Dataset({"x_aod": geometry, "y_aod": dataset})
 
-        fig = plot_spatial_bias(ds, "x_aod", "y_aod", lat_var="lat", lon_var="lon")
+        fig = SpatialBiasPlotter().render(
+            build_series(ds, "x_aod", "y_aod"), lat_var="lat", lon_var="lon"
+        )
         ax = fig.axes[0]
         assert any(
             isinstance(c, QuadMesh) for c in ax.collections
@@ -1087,7 +1080,7 @@ class TestSpatialPlotters:
         import xarray as xr
         from matplotlib.collections import PathCollection
 
-        from davinci_monet.plots import plot_spatial_bias
+        from davinci_monet.plots import SpatialBiasPlotter
 
         site = np.arange(8)
         lat = xr.DataArray(np.linspace(20, 50, 8), dims=("site",), coords={"site": site})
@@ -1100,7 +1093,9 @@ class TestSpatialPlotters:
             coords={"lat": lat, "lon": lon},
         )
 
-        fig = plot_spatial_bias(ds, "x_v", "y_v", lat_var="lat", lon_var="lon")
+        fig = SpatialBiasPlotter().render(
+            build_series(ds, "x_v", "y_v"), lat_var="lat", lon_var="lon"
+        )
         ax = fig.axes[0]
         assert any(
             isinstance(c, PathCollection) for c in ax.collections
@@ -1164,10 +1159,8 @@ class TestPlotterEndToEnd:
         plotter = TimeSeriesPlotter()
 
         # Plot first "dataset"
-        plotter.plot(
-            simple_paired_data,
-            "x_o3",
-            "y_o3",
+        plotter.render(
+            build_series(simple_paired_data, "x_o3", "y_o3"),
             ax=ax,
             aggregate_dim="site",
         )
@@ -1196,10 +1189,8 @@ class TestSpatialOverlay:
         # Create a dataset field (2D lat/lon) for the contour layer
         y_field = gridded_paired_data["y_o3"].isel(time=0)
 
-        fig = plotter.plot(
-            simple_paired_data,
-            x_var="x_o3",
-            y_var="y_o3",
+        fig = plotter.render(
+            build_series(simple_paired_data, "x_o3", "y_o3"),
             y_field=y_field,
         )
 
@@ -1217,11 +1208,7 @@ class TestSpatialOverlay:
         # When dataset_field is None, plotter should fall back to y_var from paired_data
         # This may not produce contours (1D data), but should not crash
         try:
-            fig = plotter.plot(
-                simple_paired_data,
-                x_var="x_o3",
-                y_var="y_o3",
-            )
+            fig = plotter.render(build_series(simple_paired_data, "x_o3", "y_o3"))
             assert fig is not None
             plt.close(fig)
         except (ValueError, KeyError, TypeError):
@@ -1242,10 +1229,8 @@ class TestTimeSeriesAggregate:
         from davinci_monet.plots import TimeSeriesPlotter
 
         plotter = TimeSeriesPlotter()
-        fig = plotter.plot(
-            simple_paired_data,
-            "x_o3",
-            "y_o3",
+        fig = plotter.render(
+            build_series(simple_paired_data, "x_o3", "y_o3"),
             aggregate_dim="site",
         )
 
@@ -1260,10 +1245,8 @@ class TestTimeSeriesAggregate:
         from davinci_monet.plots import TimeSeriesPlotter
 
         plotter = TimeSeriesPlotter()
-        fig = plotter.plot(
-            simple_paired_data,
-            "x_o3",
-            "y_o3",
+        fig = plotter.render(
+            build_series(simple_paired_data, "x_o3", "y_o3"),
             # No aggregate_dim — should auto-detect and average 'site'
         )
 
@@ -1275,10 +1258,8 @@ class TestTimeSeriesAggregate:
         from davinci_monet.plots import TimeSeriesPlotter
 
         plotter = TimeSeriesPlotter()
-        fig = plotter.plot(
-            simple_paired_data,
-            "x_o3",
-            "y_o3",
+        fig = plotter.render(
+            build_series(simple_paired_data, "x_o3", "y_o3"),
             aggregate_dim="site",
             resample="6h",
         )
@@ -1314,11 +1295,7 @@ class TestScorecardPlotterMultiVariable:
         )
 
         plotter = ScorecardPlotter()
-        fig = plotter.plot(
-            ds,
-            x_var="x_o3",
-            y_var="y_o3",
-        )
+        fig = _figure(plotter.render(build_series(ds, "x_o3", "y_o3")))
 
         assert fig is not None
         plt.close(fig)
@@ -1345,7 +1322,7 @@ class TestEdgeCases:
         )
 
         plotter = ScatterPlotter()
-        fig = plotter.plot(ds, "x_o3", "y_o3")
+        fig = _figure(plotter.render(build_series(ds, "x_o3", "y_o3")))
 
         # Should handle gracefully
         assert fig is not None
@@ -1364,7 +1341,7 @@ class TestEdgeCases:
         )
 
         plotter = ScatterPlotter()
-        fig = plotter.plot(ds, "x_o3", "y_o3")
+        fig = _figure(plotter.render(build_series(ds, "x_o3", "y_o3")))
 
         assert fig is not None
         plt.close(fig)

@@ -15,8 +15,6 @@ from matplotlib.colors import TwoSlopeNorm
 
 from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
-    PlotConfig,
-    build_series,
     calculate_symmetric_limits,
     format_label_with_units,
     get_variable_label,
@@ -25,10 +23,8 @@ from davinci_monet.plots.base import (
 from davinci_monet.plots.registry import register_plotter
 from davinci_monet.plots.renderers.spatial.base import (
     BaseSpatialPlotter,
-    MapConfig,
     detect_spatial_geometry,
     draw_spatial_field,
-    get_domain_extent,
     maybe_time_average,
     resolve_spatial_coords,
 )
@@ -56,11 +52,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
     Examples
     --------
     >>> plotter = SpatialBiasPlotter()
-    >>> fig = plotter.plot(
-    ...     paired_data,
-    ...     x_var="x_o3",
-    ...     y_var="y_o3",
-    ... )
+    >>> fig = plotter.render(build_series(paired_data, "x_o3", "y_o3"))
     """
 
     name: str = "spatial_bias"
@@ -81,7 +73,7 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         ax
             Optional GeoAxes to plot on. If None, creates new figure.
         **kwargs
-            Forwarded to the bias rendering logic; same kwargs as ``plot()``.
+            Forwarded to the internal bias rendering logic.
 
         Returns
         -------
@@ -305,138 +297,3 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
             self.set_title(ax, f"{var_label} Bias")
 
         return fig
-
-    def plot(
-        self,
-        paired_data: xr.Dataset,
-        x_var: str,
-        y_var: str,
-        ax: matplotlib.axes.Axes | None = None,
-        lat_var: str = "latitude",
-        lon_var: str = "longitude",
-        time_average: bool = True,
-        cmap: str = "RdBu_r",
-        marker_size: float | None = None,
-        symmetric_cbar: bool = True,
-        show_zero_line: bool = True,
-        show_site_labels: bool = False,
-        site_label_var: str = "site_name",
-        label_sites: list[str] | None = None,
-        city_labels: dict[str, tuple[float, float]] | None = None,
-        label_fontsize: int | None = None,
-        plot_type: str = "auto",
-        **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
-        """Generate a spatial bias plot.
-
-        Parameters
-        ----------
-        paired_data
-            Paired dataset with x and y variables.
-        x_var
-            Name of the x variable.
-        y_var
-            Name of the y variable.
-        ax
-            Optional GeoAxes to plot on. If None, creates new figure.
-        lat_var
-            Name of latitude coordinate/variable.
-        lon_var
-            Name of longitude coordinate/variable.
-        time_average
-            If True, average over time dimension.
-        cmap
-            Colormap name.
-        marker_size
-            Override marker size.
-        symmetric_cbar
-            If True, make colorbar symmetric around zero.
-        show_zero_line
-            If True, highlight zero contour (for gridded data).
-        plot_type
-            How to render the bias field.  ``"auto"`` (default) chooses
-            ``"pcolormesh"`` for gridded data (1-D lat/lon axes with a 2-D+
-            field, or 2-D curvilinear coordinates) and ``"scatter"`` for
-            point/site data (lat/lon share a single dataset dimension).
-            Pass ``"scatter"`` or ``"pcolormesh"`` to override the automatic
-            selection.
-        **kwargs
-            Additional plotting arguments.
-
-        Returns
-        -------
-        matplotlib.figure.Figure
-            The generated figure.
-        """
-        return self.render(
-            build_series(paired_data, x_var, y_var),
-            ax=ax,
-            lat_var=lat_var,
-            lon_var=lon_var,
-            time_average=time_average,
-            cmap=cmap,
-            marker_size=marker_size,
-            symmetric_cbar=symmetric_cbar,
-            show_zero_line=show_zero_line,
-            show_site_labels=show_site_labels,
-            site_label_var=site_label_var,
-            label_sites=label_sites,
-            city_labels=city_labels,
-            label_fontsize=label_fontsize,
-            plot_type=plot_type,
-            **kwargs,
-        )
-
-
-def plot_spatial_bias(
-    paired_data: xr.Dataset,
-    x_var: str,
-    y_var: str,
-    config: PlotConfig | dict[str, Any] | None = None,
-    map_config: MapConfig | dict[str, Any] | None = None,
-    title: str | None = None,
-    **kwargs: Any,
-) -> matplotlib.figure.Figure:
-    """Convenience function for spatial bias plotting.
-
-    Parameters
-    ----------
-    paired_data
-        Paired dataset with x and y variables.
-    x_var
-        Name of the x variable.
-    y_var
-        Name of the y variable.
-    config
-        Plot configuration.
-    map_config
-        Map configuration.
-    title
-        Plot title.
-    **kwargs
-        Additional arguments passed to plot method.
-
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The generated figure.
-    """
-    if isinstance(config, dict):
-        config = PlotConfig.from_dict(config)
-    elif config is None:
-        config = PlotConfig()
-    if isinstance(map_config, dict):
-        map_config = MapConfig.from_dict(map_config)
-
-    if title is not None:
-        config = PlotConfig(
-            title=title,
-            figure=config.figure,
-            style=config.style,
-            text=config.text,
-            vmin=config.vmin,
-            vmax=config.vmax,
-        )
-
-    plotter = SpatialBiasPlotter(config=config, map_config=map_config)
-    return plotter.plot(paired_data, x_var, y_var, **kwargs)

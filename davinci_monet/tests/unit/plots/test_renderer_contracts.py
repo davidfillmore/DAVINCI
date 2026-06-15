@@ -11,7 +11,15 @@ import pandas as pd
 import pytest
 import xarray as xr
 
+from davinci_monet.plots import (
+    FlightTrackPlotter,
+    HistogramPlotter,
+    LMADensityPlotter,
+    SpatialPlotter,
+    VerticalProfilePlotter,
+)
 from davinci_monet.plots.base import build_series
+from davinci_monet.tests.synthetic.geometries import create_point_geometries
 
 
 def _track_ds() -> xr.Dataset:
@@ -41,3 +49,21 @@ def test_lma_density_requires_one_series() -> None:
     s = build_series(_track_ds(), "O3")
     with pytest.raises(NotImplementedError, match="1 series"):
         LMADensityPlotter().render(s + s)
+
+
+@pytest.mark.parametrize(
+    "plotter_cls",
+    [
+        SpatialPlotter,
+        FlightTrackPlotter,
+        HistogramPlotter,
+        LMADensityPlotter,
+        VerticalProfilePlotter,
+    ],
+)
+def test_single_source_plotters_reject_multiple_series(plotter_cls) -> None:
+    ds = create_point_geometries(variables=["O3", "NO2"])
+    series = build_series(ds, ["O3", "NO2"])
+
+    with pytest.raises(NotImplementedError, match="requires exactly 1 series"):
+        plotter_cls().render(series)

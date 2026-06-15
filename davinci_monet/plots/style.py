@@ -16,7 +16,8 @@ Usage
 >>> apply_ncar_style()
 >>>
 >>> # Then create plots as usual
->>> fig = plot_timeseries(paired_data, "x_o3", "y_o3")
+>>> from davinci_monet.plots import TimeSeriesPlotter, build_series
+>>> fig = TimeSeriesPlotter().render(build_series(paired_data, "x_o3", "y_o3"))
 
 The apply_ncar_style() function sets matplotlib rcParams globally, affecting
 all subsequent plots. For individual plots, you can also pass style options

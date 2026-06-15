@@ -76,9 +76,9 @@ class SpatialPlotter(BaseSpatialPlotter):
                 f"SpatialPlotter.render requires exactly 1 series; got {len(series)}."
             )
         s = series[0]
-        return self.plot(s.dataset, s.var_name, s.source_label, ax=ax, **kwargs)
+        return self._plot(s.dataset, s.var_name, s.source_label, ax=ax, **kwargs)
 
-    def plot(  # type: ignore[override]
+    def _plot(
         self,
         ds: xr.Dataset,
         variable: str,

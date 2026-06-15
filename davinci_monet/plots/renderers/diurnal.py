@@ -15,8 +15,6 @@ import numpy as np
 from davinci_monet.core.base import PlotSeries
 from davinci_monet.plots.base import (
     BasePlotter,
-    PlotConfig,
-    build_series,
     format_label_with_units,
     get_axis_color,
     get_series_label,
@@ -28,7 +26,6 @@ from davinci_monet.plots.registry import register_plotter
 if TYPE_CHECKING:
     import matplotlib.axes
     import matplotlib.figure
-    import xarray as xr
 
 
 @register_plotter("diurnal")
@@ -46,10 +43,8 @@ class DiurnalPlotter(BasePlotter):
     Examples
     --------
     >>> plotter = DiurnalPlotter()
-    >>> fig = plotter.plot(
-    ...     paired_data,
-    ...     x_var="x_o3",
-    ...     y_var="y_o3",
+    >>> fig = plotter.render(
+    ...     build_series(paired_data, "x_o3", "y_o3"),
     ...     show_spread="iqr",
     ... )
     """
@@ -215,60 +210,6 @@ class DiurnalPlotter(BasePlotter):
 
         return fig
 
-    def plot(
-        self,
-        paired_data: xr.Dataset,
-        x_var: str,
-        y_var: str,
-        ax: matplotlib.axes.Axes | None = None,
-        time_dim: str = "time",
-        show_spread: Literal["none", "std", "iqr", "range"] = "iqr",
-        x_label: str | None = None,
-        y_label: str | None = None,
-        utc_offset: int = 0,
-        **kwargs: Any,
-    ) -> matplotlib.figure.Figure:
-        """Generate a diurnal cycle plot.
-
-        Parameters
-        ----------
-        paired_data
-            Paired dataset with x and y variables.
-        x_var
-            Name of the x variable.
-        y_var
-            Name of the y variable.
-        ax
-            Optional axes to plot on. If None, creates new figure.
-        time_dim
-            Name of time dimension.
-        show_spread
-            Type of spread to show ('none', 'std', 'iqr', 'range').
-        x_label
-            Custom label for the x series.
-        y_label
-            Custom label for the y series.
-        utc_offset
-            Offset from UTC for local time (hours).
-        **kwargs
-            Additional plotting arguments.
-
-        Returns
-        -------
-        matplotlib.figure.Figure
-            The generated figure.
-        """
-        return self.render(
-            build_series(paired_data, x_var, y_var),
-            ax=ax,
-            time_dim=time_dim,
-            show_spread=show_spread,
-            x_label=x_label,
-            y_label=y_label,
-            utc_offset=utc_offset,
-            **kwargs,
-        )
-
     def _add_spread_bands(
         self,
         ax: matplotlib.axes.Axes,
@@ -349,37 +290,3 @@ class DiurnalPlotter(BasePlotter):
             color=y_color,
             alpha=0.2,
         )
-
-
-def plot_diurnal(
-    paired_data: xr.Dataset,
-    x_var: str,
-    y_var: str,
-    config: PlotConfig | dict[str, Any] | None = None,
-    **kwargs: Any,
-) -> matplotlib.figure.Figure:
-    """Convenience function for diurnal cycle plotting.
-
-    Parameters
-    ----------
-    paired_data
-        Paired dataset with x and y variables.
-    x_var
-        Name of the x variable.
-    y_var
-        Name of the y variable.
-    config
-        Plot configuration.
-    **kwargs
-        Additional arguments passed to plot method.
-
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The generated figure.
-    """
-    if isinstance(config, dict):
-        config = PlotConfig.from_dict(config)
-
-    plotter = DiurnalPlotter(config=config)
-    return plotter.plot(paired_data, x_var, y_var, **kwargs)

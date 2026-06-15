@@ -255,7 +255,8 @@ class TestValidateConfig:
                 "plots": {
                     "plot1": {
                         "type": "timeseries",
-                        "pairs": [],
+                        "source": "cam",
+                        "variable": "O3",
                         "renderer_specific_kwarg": "passed-through",
                     }
                 },

@@ -47,7 +47,7 @@ class FlightTrackPlotter(BasePlotter):
     Examples
     --------
     >>> plotter = FlightTrackPlotter()
-    >>> fig = plotter.plot(x_data, "O3", title="DC3 Flight O3")
+    >>> fig = plotter.render(build_series(x_data, "O3"), title="DC3 Flight O3")
     """
 
     name: str = "flight_track"
@@ -65,9 +65,9 @@ class FlightTrackPlotter(BasePlotter):
                 f"FlightTrackPlotter.render requires exactly 1 series; got {len(series)}."
             )
         s = series[0]
-        return self.plot(s.dataset, s.var_name, **kwargs)
+        return self._plot(s.dataset, s.var_name, **kwargs)
 
-    def plot(
+    def _plot(
         self,
         x_data: xr.Dataset,
         variable: str,

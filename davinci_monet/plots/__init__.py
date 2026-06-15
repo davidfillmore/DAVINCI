@@ -5,13 +5,8 @@ including time series, spatial maps, Taylor diagrams, and more.
 
 Quick Start
 -----------
->>> from davinci_monet.plots import get_plotter, plot_timeseries
+>>> from davinci_monet.plots import build_series, get_plotter
 >>>
->>> # Using convenience function
->>> fig = plot_timeseries(paired_data, "x_o3", "y_o3")
->>>
->>> # Using plotter instance
->>> from davinci_monet.plots.base import build_series
 >>> plotter = get_plotter("scatter")
 >>> fig = plotter.render(build_series(paired_data, "x_o3", "y_o3"))
 
@@ -44,13 +39,18 @@ from davinci_monet.plots.base import (
     PlotConfig,
     StyleConfig,
     TextConfig,
+    build_series,
     calculate_data_limits,
     calculate_symmetric_limits,
     format_label_with_units,
+    get_axis_color,
+    get_series_label,
     get_variable_label,
     get_variable_units,
     merge_config_dicts,
     resolve_source_variable,
+    series_colors,
+    source_label,
 )
 
 # Registry and factory
@@ -83,22 +83,13 @@ from davinci_monet.plots.renderers import (  # Temporal; Statistical; Specialize
     ScorecardPlotter,
     SpatialBiasPlotter,
     SpatialOverlayPlotter,
+    SpatialPlotter,
     TaylorPlotter,
     TimeSeriesPlotter,
     TrackMap3DPlotter,
     VerticalProfilePlotter,
     get_domain_extent,
     get_projection,
-    plot_boxplot,
-    plot_curtain,
-    plot_diurnal,
-    plot_scatter,
-    plot_scorecard,
-    plot_spatial_bias,
-    plot_spatial_overlay,
-    plot_taylor,
-    plot_timeseries,
-    plot_track_map_3d,
 )
 
 # Style configuration (NCAR branding)
@@ -139,6 +130,11 @@ __all__ = [
     "format_label_with_units",
     "calculate_symmetric_limits",
     "calculate_data_limits",
+    "build_series",
+    "series_colors",
+    "get_axis_color",
+    "get_series_label",
+    "source_label",
     # Style configuration (NCAR branding)
     "NCAR_COLORS",
     "NCAR_PALETTE",
@@ -173,30 +169,21 @@ __all__ = [
     "ALL_PLOT_TYPES",
     # Temporal plotters
     "TimeSeriesPlotter",
-    "plot_timeseries",
     "DiurnalPlotter",
-    "plot_diurnal",
     # Statistical plotters
     "ScatterPlotter",
-    "plot_scatter",
     "TaylorPlotter",
-    "plot_taylor",
     "BoxPlotter",
-    "plot_boxplot",
     # Specialized plotters
     "CurtainPlotter",
-    "plot_curtain",
     "ScorecardPlotter",
-    "plot_scorecard",
     "TrackMap3DPlotter",
-    "plot_track_map_3d",
     # Spatial plotters
     "BaseSpatialPlotter",
     "MapConfig",
+    "SpatialPlotter",
     "SpatialBiasPlotter",
     "SpatialOverlayPlotter",
-    "plot_spatial_bias",
-    "plot_spatial_overlay",
     "get_domain_extent",
     "get_projection",
     # Single-source / distribution plotters (unified onto BasePlotter)
@@ -205,3 +192,7 @@ __all__ = [
     "FlightTrackPlotter",
     "LMADensityPlotter",
 ]
+
+# Importing plots.base loads the plots.plot_config submodule; keep it off the
+# top-level package surface so dir(davinci_monet.plots) has no plot_* names.
+globals().pop("plot_config", None)

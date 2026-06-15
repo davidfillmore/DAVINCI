@@ -204,7 +204,8 @@ class TestPointPipeline:
                 },
                 "histogram_o3": {
                     "type": "histogram",
-                    "pairs": ["synthetic_surface"],
+                    "source": "synthetic",
+                    "variable": "O3",
                     "title": "O3 Distribution",
                 },
                 "scorecard_o3": {

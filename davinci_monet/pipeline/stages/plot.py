@@ -27,6 +27,7 @@ from davinci_monet.pipeline.stages.plot_options import (
     single_source_plot_kwargs,
     timestamp_from_field,
 )
+from davinci_monet.plots.contracts import PlotArity, plot_arity
 
 
 class PlottingStage(BaseStage):
@@ -100,16 +101,26 @@ class PlottingStage(BaseStage):
         """Run for paired comparisons or single-source plots."""
         return bool(context.paired) or bool(iter_single_source_datasets(context))
 
-    def _execute_single_source(self, context: PipelineContext) -> StageResult:
-        """Single-source plotting.
+    def _render_single_source_plot(
+        self,
+        *,
+        context: PipelineContext,
+        plot_name: str,
+        plot_type: str,
+        plot_spec: dict[str, Any],
+        analysis_config: dict[str, Any],
+        output_dir: Any,
+        source_map: dict[str, tuple[Any, Any]],
+        plots_generated: list[str],
+        file_index: int,
+    ) -> int:
+        """Render one validated single-source plot spec and save its figures.
 
-        Renders each plot spec against its single configured source, auto-splitting
-        on a ``flight`` coord with >1 flight. Multi-figure renderers return a list
-        of ``(label, fig)`` tuples.
+        Single-source renderers keep their historical output names
+        (``{plot_name}.png`` / ``.pdf`` plus flight and renderer labels) while
+        advancing the shared preview ``file_index`` for mixed dispatch runs.
         """
         import logging
-        import time
-        from pathlib import Path
 
         import matplotlib.pyplot as plt
         import numpy as np
@@ -118,132 +129,94 @@ class PlottingStage(BaseStage):
         from davinci_monet.plots.registry import get_plotter
 
         _logger = logging.getLogger(__name__)
-        start = time.time()
-        config = context.config_dict()
-        plots_config = config.get("plots", {})
-        analysis_config = config.get("analysis", {})
-        output_dir = Path(analysis_config.get("output_dir", "."))
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        plot_count = 0
-        plots_generated: list[str] = []
         errors: list[str] = []
-        source_map = {label: (obj, ds) for label, obj, ds in iter_single_source_datasets(context)}
 
-        for plot_name, plot_spec in plots_config.items():
-            plot_type = plot_spec.get("type", "")
-            # Single-source specs carry a ``source:`` key.
-            if not plot_type or "source" not in plot_spec:
-                continue
+        source_label = str(plot_spec.get("source") or "")
+        variable = str(plot_spec.get("variable") or "")
 
-            source_label = str(plot_spec.get("source") or "")
-            variable = plot_spec.get("variable", "")
+        if not source_label:
+            raise ValueError(f"Plot '{plot_name}' is missing source")
+        if not variable:
+            raise ValueError(f"Plot '{plot_name}' is missing variable")
+        if source_label not in source_map:
+            raise ValueError(f"Source '{source_label}' not found for plot '{plot_name}'")
 
-            if source_label not in source_map:
-                errors.append(f"Source '{source_label}' not found for plot '{plot_name}'")
-                continue
+        _source_obj, ds = source_map[source_label]
 
-            _source_obj, ds = source_map[source_label]
+        if variable not in ds.data_vars:
+            raise ValueError(
+                f"Variable '{variable}' not in source '{source_label}' for plot '{plot_name}'"
+            )
 
-            if variable not in ds.data_vars:
-                errors.append(
-                    f"Variable '{variable}' not in source '{source_label}' for plot '{plot_name}'"
+        plotter = get_plotter(plot_type)
+        plot_kwargs = single_source_plot_kwargs(
+            plot_spec,
+            analysis_config=analysis_config,
+        )
+
+        has_flights = "flight" in ds.coords
+        flight_ids = sorted(set(np.unique(ds["flight"].values).tolist())) if has_flights else [None]
+
+        for fid in flight_ids:
+            if fid is not None:
+                mask = ds["flight"].values == fid
+                subset = ds.isel(time=mask)
+                suffix = f"_{fid}"
+                flight_base_kwargs = (
+                    plot_kwargs
+                    if plot_kwargs.get("title")
+                    else {**plot_kwargs, "title": f"{variable} {plot_type}"}
                 )
+                flight_kwargs = single_source_flight_plot_kwargs(
+                    flight_base_kwargs,
+                    flight_id=fid,
+                )
+            else:
+                subset = ds
+                suffix = ""
+                flight_kwargs = plot_kwargs
+
+            vals = subset[variable].values
+            if not np.any(np.isfinite(vals)):
                 continue
 
-            plotter = get_plotter(plot_type)
-            plot_kwargs = single_source_plot_kwargs(
-                plot_spec,
-                analysis_config=analysis_config,
-            )
+            if "flight_tracks" in plot_spec:
+                flight_kwargs["x_datasets"] = {
+                    label: source_ds for label, (_obj, source_ds) in source_map.items()
+                }
 
-            has_flights = "flight" in ds.coords
-            flight_ids = (
-                sorted(set(np.unique(ds["flight"].values).tolist())) if has_flights else [None]
-            )
-
-            for fid in flight_ids:
-                if fid is not None:
-                    mask = ds["flight"].values == fid
-                    subset = ds.isel(time=mask)
-                    suffix = f"_{fid}"
-                    flight_base_kwargs = (
-                        plot_kwargs
-                        if plot_kwargs.get("title")
-                        else {**plot_kwargs, "title": f"{variable} {plot_type}"}
-                    )
-                    flight_kwargs = single_source_flight_plot_kwargs(
-                        flight_base_kwargs,
-                        flight_id=fid,
-                    )
+            try:
+                # Tag the single source so build_series picks up its source label.
+                tag_source_label(subset, source_label=source_label)
+                render_kwargs = dict(flight_kwargs)
+                plotter.config.subtitle = render_kwargs.pop("subtitle", None)
+                result = plotter.render(build_series(subset, variable), **render_kwargs)
+                figures: list[tuple[str | None, Any]]
+                if isinstance(result, list):
+                    figures = [(fig_label, fig) for fig_label, fig in result]
                 else:
-                    subset = ds
-                    suffix = ""
-                    flight_kwargs = plot_kwargs
-
-                vals = subset[variable].values
-                if not np.any(np.isfinite(vals)):
-                    continue
-
-                if "flight_tracks" in plot_spec:
-                    flight_kwargs["x_datasets"] = {
-                        label: source_ds for label, (_obj, source_ds) in source_map.items()
-                    }
-
-                try:
-                    # Tag the single source so build_series picks up its source label.
-                    tag_source_label(subset, source_label=source_label)
-                    render_kwargs = dict(flight_kwargs)
-                    plotter.config.subtitle = render_kwargs.pop("subtitle", None)
-                    result = plotter.render(build_series(subset, variable), **render_kwargs)
-                    if isinstance(result, list):
-                        for fig_label, fig in result:
-                            fig_suffix = f"_{fig_label}" if fig_label else ""
-                            out_path = output_dir / f"{plot_name}{suffix}{fig_suffix}.png"
-                            plotter.save(fig, out_path)
-                            plots_generated.append(str(out_path))
-                            # Also save PDF (parity with the comparison path)
-                            pdf_path = output_dir / f"{plot_name}{suffix}{fig_suffix}.pdf"
-                            plotter.save(fig, pdf_path)
-                            plots_generated.append(str(pdf_path))
-                            plt.close(fig)
-                            plot_count += 1
-                            _logger.info(f"Saved source plot: {out_path}")
-                    else:
-                        fig = result
-                        out_path = output_dir / f"{plot_name}{suffix}.png"
-                        plotter.save(fig, out_path)
-                        plots_generated.append(str(out_path))
-                        # Also save PDF (parity with the comparison path)
-                        pdf_path = output_dir / f"{plot_name}{suffix}.pdf"
-                        plotter.save(fig, pdf_path)
-                        plots_generated.append(str(pdf_path))
-                        plt.close(fig)
-                        plot_count += 1
-                        _logger.info(f"Saved source plot: {out_path}")
-                except Exception as e:
-                    label = f"'{plot_name}' (flight {fid})" if fid else f"'{plot_name}'"
-                    errors.append(f"Plot {label} failed: {e}")
-                    _logger.warning(f"Source plot {label} failed: {e}")
+                    figures = [(None, result)]
+                for fig_label, fig in figures:
+                    fig_suffix = f"_{fig_label}" if fig_label else ""
+                    out_path = output_dir / f"{plot_name}{suffix}{fig_suffix}.png"
+                    plotter.save(fig, out_path)
+                    plots_generated.append(str(out_path))
+                    # Also save PDF (parity with the comparison path)
+                    pdf_path = output_dir / f"{plot_name}{suffix}{fig_suffix}.pdf"
+                    plotter.save(fig, pdf_path)
+                    plots_generated.append(str(pdf_path))
+                    plt.close(fig)
+                    file_index += 1
+                    _logger.info(f"Saved source plot: {out_path}")
+            except Exception as e:
+                label = f"'{plot_name}' (flight {fid})" if fid else f"'{plot_name}'"
+                errors.append(f"Plot {label} failed: {e}")
+                _logger.warning(f"Source plot {label} failed: {e}")
 
         if errors:
-            context.metadata.setdefault("plot_errors", []).extend(errors)
-            return self._create_result(
-                StageStatus.FAILED,
-                data={
-                    "plot_count": plot_count,
-                    "plots_generated": plots_generated,
-                    "errors": errors,
-                },
-                error="Plotting failed: " + "; ".join(errors),
-                duration=time.time() - start,
-            )
+            raise ValueError("; ".join(errors))
 
-        return self._create_result(
-            StageStatus.COMPLETED if plot_count > 0 or not plots_config else StageStatus.SKIPPED,
-            data={"plot_count": plot_count, "plots_generated": plots_generated, "errors": errors},
-            duration=time.time() - start,
-        )
+        return file_index
 
     def _resolve_pair_labels_and_vars(
         self,
@@ -254,8 +227,7 @@ class PlottingStage(BaseStage):
         """Resolve the paired dataset, source labels, and variable names for a pair.
 
         Returns ``(paired_data, x_source, y_source, var_spec, geometry_var_name,
-        dataset_var_name)`` or ``None`` when the pair should be skipped (mirrors the
-        ``continue`` branches of the original loop body).
+        dataset_var_name)`` or ``None`` when the pair cannot be resolved.
         """
         x_axis = pair_spec.get("x") if isinstance(pair_spec.get("x"), dict) else None
         y_axis = pair_spec.get("y") if isinstance(pair_spec.get("y"), dict) else None
@@ -526,8 +498,7 @@ class PlottingStage(BaseStage):
     ) -> int:
         """Render and save all figures for one (plot, pair) combination.
 
-        Returns the advanced ``file_index``. Returns it unchanged when the pair is
-        skipped (mirrors the ``continue`` branches of the original loop body).
+        Returns the advanced ``file_index``.
         """
         from davinci_monet.plots import get_plotter
 
@@ -591,9 +562,6 @@ class PlottingStage(BaseStage):
 
     def execute(self, context: PipelineContext) -> StageResult:
         """Generate comparison plots from paired data, or plots from unpaired sources."""
-        if not context.paired and iter_single_source_datasets(context):
-            return self._execute_single_source(context)
-
         import time
         from pathlib import Path
 
@@ -622,33 +590,82 @@ class PlottingStage(BaseStage):
         # Get pairs config for variable mapping
         pairs_config = config.get("pairs", {})
         total_plots = len(plot_config)
+        plot_number = 0
         plot_count = 0
         file_index = 0  # Global counter for ordering files in preview
+        source_map = {label: (obj, ds) for label, obj, ds in iter_single_source_datasets(context)}
 
         for plot_name, plot_spec in plot_config.items():
             try:
-                plot_count += 1
+                plot_number += 1
                 plot_type = plot_spec.get("type", "scatter")
                 plot_pairs = plot_spec.get("pairs", [])
                 title = format_plot_title(plot_spec.get("title", plot_name))
+                arity = plot_arity(plot_type)
+                generated_before = len(plots_generated)
 
-                context.log_progress(f"    Plot: {plot_name} ({plot_count}/{total_plots})")
+                context.log_progress(f"    Plot: {plot_name} ({plot_number}/{total_plots})")
                 context.log_progress(f"step: Rendering {plot_type}...")
 
-                for pair_name in plot_pairs:
-                    file_index = self._render_pair(
+                if arity == PlotArity.SINGLE_SOURCE:
+                    file_index = self._render_single_source_plot(
                         context=context,
-                        pair_name=pair_name,
-                        pairs_config=pairs_config,
+                        plot_name=plot_name,
                         plot_type=plot_type,
                         plot_spec=plot_spec,
                         analysis_config=analysis_config,
-                        title=title,
                         output_dir=output_dir,
-                        file_index=file_index,
+                        source_map=source_map,
                         plots_generated=plots_generated,
-                        plot_name=plot_name,
+                        file_index=file_index,
                     )
+                elif arity == PlotArity.PAIRWISE:
+                    if not plot_pairs:
+                        raise ValueError(f"Plot '{plot_name}' has no configured pairs")
+                    for pair_name in plot_pairs:
+                        file_index = self._render_pair(
+                            context=context,
+                            pair_name=pair_name,
+                            pairs_config=pairs_config,
+                            plot_type=plot_type,
+                            plot_spec=plot_spec,
+                            analysis_config=analysis_config,
+                            title=title,
+                            output_dir=output_dir,
+                            file_index=file_index,
+                            plots_generated=plots_generated,
+                            plot_name=plot_name,
+                        )
+                elif arity == PlotArity.MULTI_SOURCE:
+                    if plot_pairs:
+                        for pair_name in plot_pairs:
+                            file_index = self._render_pair(
+                                context=context,
+                                pair_name=pair_name,
+                                pairs_config=pairs_config,
+                                plot_type=plot_type,
+                                plot_spec=plot_spec,
+                                analysis_config=analysis_config,
+                                title=title,
+                                output_dir=output_dir,
+                                file_index=file_index,
+                                plots_generated=plots_generated,
+                                plot_name=plot_name,
+                            )
+                    else:
+                        file_index = self._render_single_source_plot(
+                            context=context,
+                            plot_name=plot_name,
+                            plot_type=plot_type,
+                            plot_spec=plot_spec,
+                            analysis_config=analysis_config,
+                            output_dir=output_dir,
+                            source_map=source_map,
+                            plots_generated=plots_generated,
+                            file_index=file_index,
+                        )
+
+                plot_count += (len(plots_generated) - generated_before) // 2
 
             except Exception as e:
                 context.metadata.setdefault("plot_errors", []).append(f"{plot_name}: {e}")
@@ -658,13 +675,13 @@ class PlottingStage(BaseStage):
         if errors:
             return self._create_result(
                 StageStatus.FAILED,
-                data={"plots_generated": plots_generated},
+                data={"plot_count": plot_count, "plots_generated": plots_generated},
                 error="Plotting failed: " + "; ".join(str(e) for e in errors),
                 duration=time.time() - start,
             )
 
         return self._create_result(
-            StageStatus.COMPLETED,
-            data={"plots_generated": plots_generated},
+            StageStatus.COMPLETED if plot_count > 0 else StageStatus.SKIPPED,
+            data={"plot_count": plot_count, "plots_generated": plots_generated},
             duration=time.time() - start,
         )

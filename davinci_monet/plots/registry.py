@@ -23,6 +23,13 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from davinci_monet.core.registry import Registry, plotter_registry
+from davinci_monet.plots.contracts import (
+    ALL_PLOT_TYPES,
+    SPATIAL_PLOTS,
+    SPECIALIZED_PLOTS,
+    STATISTICAL_PLOTS,
+    TEMPORAL_PLOTS,
+)
 
 if TYPE_CHECKING:
     from davinci_monet.plots.base import BasePlotter, PlotConfig
@@ -144,16 +151,6 @@ def has_plotter(name: str) -> bool:
 # =============================================================================
 # Plot Type Categories
 # =============================================================================
-
-# These are the standard plot type categories
-TEMPORAL_PLOTS = frozenset({"timeseries", "diurnal"})
-STATISTICAL_PLOTS = frozenset({"taylor", "boxplot", "scatter", "histogram"})
-SPATIAL_PLOTS = frozenset({"spatial", "spatial_bias", "spatial_overlay"})
-SPECIALIZED_PLOTS = frozenset(
-    {"curtain", "scorecard", "vertical_profile", "flight_track", "lma_density", "track_map_3d"}
-)
-
-ALL_PLOT_TYPES = TEMPORAL_PLOTS | STATISTICAL_PLOTS | SPATIAL_PLOTS | SPECIALIZED_PLOTS
 
 
 def get_plot_category(name: str) -> str | None:
