@@ -41,13 +41,13 @@ plots:
     type: flight_track
     source: dc8
     variable: "CO"
-    title: "DC-8 Flight Tracks: CO (ppbv)"
+    title: "DC-8 CO Flight Tracks"
 
   dc8_track_o3:
     type: flight_track
     source: dc8
     variable: "O3"
-    title: "DC-8 Flight Tracks: O3 (ppbv)"
+    title: "DC-8 O3 Flight Tracks"
 
   dc8_profile_co:
     type: vertical_profile
