@@ -35,7 +35,7 @@ def test_plot_subtitle_uses_date_range_or_snapshot() -> None:
             {"start_time": "2024-01-01", "end_time": "2024-01-03"},
             snapshot_timestamp=None,
         )
-        == "2024-01-01 - 2024-01-03"
+        == "2024-01-01 – 2024-01-03"
     )
     assert (
         build_plot_subtitle(
@@ -60,7 +60,7 @@ def test_single_source_options_move_trailing_date_to_subtitle() -> None:
     )
 
     assert kwargs["title"] == "DC-8 Flight Track: O3 (ppbv)"
-    assert kwargs["subtitle"] == "2012-05-29 - 2012-05-30"
+    assert kwargs["subtitle"] == "2012-05-29 – 2012-05-30"
 
 
 def test_single_source_flight_date_label_stays_out_of_title() -> None:
