@@ -283,17 +283,30 @@ class LoadSourcesStage(BaseStage):
             if var_name not in ds:
                 continue
             arr = ds[var_name]
+            # Capture units before scaling: xarray arithmetic drops attrs, and
+            # the schema default unit_scale=1.0 means the block below runs for
+            # every variable. We restore the original units after a NO-OP scale
+            # so reader/file-provided units (e.g. ICARTT ppbv, altitude m) are
+            # not silently lost. A real conversion (scale != identity) leaves
+            # units to the explicit config `units` field, since the old unit
+            # would no longer be correct.
+            orig_units = arr.attrs.get("units")
+            scale_is_identity = True
             if "unit_scale" in cfg:
                 scale = cfg["unit_scale"]
                 method = cfg.get("unit_scale_method", "*")
                 if method == "*":
                     arr = arr * scale
+                    scale_is_identity = scale == 1.0
                 elif method == "/":
                     arr = arr / scale
+                    scale_is_identity = scale == 1.0
                 elif method == "+":
                     arr = arr + scale
+                    scale_is_identity = scale == 0
                 elif method == "-":
                     arr = arr - scale
+                    scale_is_identity = scale == 0
             nan_value = cfg.get("nan_value")
             if nan_value is not None:
                 arr = arr.where(arr != nan_value)
@@ -306,6 +319,8 @@ class LoadSourcesStage(BaseStage):
                 arr = arr.where(arr <= max_val)
             if cfg.get("units"):
                 arr.attrs["units"] = cfg["units"]
+            elif orig_units and scale_is_identity and not arr.attrs.get("units"):
+                arr.attrs["units"] = orig_units
             if cfg.get("display_name"):
                 arr.attrs["display_name"] = cfg["display_name"]
             ds[var_name] = arr
