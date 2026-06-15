@@ -14,9 +14,9 @@ import numpy as np
 from matplotlib.colors import TwoSlopeNorm
 
 from davinci_monet.core.base import PlotSeries
+from davinci_monet.plots import labeling
 from davinci_monet.plots.base import (
     calculate_symmetric_limits,
-    format_label_with_units,
     get_variable_label,
     get_variable_units,
 )
@@ -225,7 +225,9 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
 
         # Add colorbar
         units = get_variable_units(paired_data, x_var)
-        label = format_label_with_units("Bias (y - x)", units)
+        y_src = paired_data[y_var].attrs.get("source_label") or ""
+        x_src = paired_data[x_var].attrs.get("source_label") or ""
+        label = labeling.bias_label(y_src, x_src, units)
         self.add_colorbar(fig, scatter, ax, label=label)
 
         # Use config site_label size if not specified
@@ -290,10 +292,10 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
                 )
 
         # Title
-        var_label = get_variable_label(paired_data, x_var)
         if self.config.title:
             self.set_title(ax, self.config.title)
         else:
-            self.set_title(ax, f"{var_label} Bias")
+            quantity = get_variable_label(paired_data, x_var, include_prefix=False)
+            self.set_title(ax, labeling.title_text(quantity, operation="Bias"))
 
         return fig
