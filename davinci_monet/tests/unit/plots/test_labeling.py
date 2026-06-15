@@ -101,6 +101,14 @@ def test_axis_label_dedup():
     assert out == r"CESM NO$_2$ Column (mol m$^{-2}$)"
 
 
+def test_axis_label_dedup_partial_overlap():
+    # source key embeds "NO2 Column" but the quantity is the longer
+    # "Tropospheric NO2 Column" -> keep only the distinctive source token (CESM),
+    # do NOT repeat "NO2 Column".
+    out = L.axis_label(r"Tropospheric NO$_2$ Column", "mol/m2", source="cesm_no2_column")
+    assert out == r"CESM Tropospheric NO$_2$ Column (mol m$^{-2}$)"
+
+
 def test_axis_label_no_units():
     assert L.axis_label("Altitude", "1") == "Altitude"
 
@@ -136,6 +144,13 @@ def test_bias_label_no_shared_quantity():
 def test_bias_label_never_uses_xy():
     out = L.bias_label("cesm_no2_column", "pandora", None)
     assert " x" not in out.lower() and " y" not in out.lower()
+
+
+def test_bias_label_strips_quantity_when_given():
+    # quantity is already in the title -> strip it from the source names so the
+    # colorbar stays terse: "Bias, CESM − Pandora".
+    out = L.bias_label("cesm_no2_column", "pandora", "mol/m2", quantity=r"NO$_2$ Column")
+    assert out == "Bias, CESM − Pandora (mol m$^{-2}$)"
 
 
 # ---------------------------------------------------------------------------

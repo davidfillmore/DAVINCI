@@ -227,7 +227,9 @@ class SpatialBiasPlotter(BaseSpatialPlotter):
         units = get_variable_units(paired_data, x_var)
         y_src = paired_data[y_var].attrs.get("source_label") or ""
         x_src = paired_data[x_var].attrs.get("source_label") or ""
-        label = labeling.bias_label(y_src, x_src, units)
+        label = labeling.bias_label(
+            y_src, x_src, units, quantity=labeling.quantity_label(paired_data, x_var)
+        )
         self.add_colorbar(fig, scatter, ax, label=label)
 
         # Use config site_label size if not specified

@@ -136,7 +136,9 @@ class CurtainPlotter(BasePlotter):
         y_src = paired_data[y_var].attrs.get("source_label") or ""
         x_src = paired_data[x_var].attrs.get("source_label") or ""
         if show_var == "bias":
-            cbar_label: str = labeling.bias_label(y_src, x_src, units)
+            cbar_label: str = labeling.bias_label(
+                y_src, x_src, units, quantity=labeling.quantity_label(paired_data, x_var)
+            )
         elif show_var == "x":
             cbar_label = labeling.axis_label(
                 labeling.quantity_label(paired_data, x_var),

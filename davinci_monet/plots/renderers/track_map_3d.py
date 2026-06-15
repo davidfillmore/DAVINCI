@@ -212,7 +212,12 @@ class TrackMap3DPlotter(BasePlotter):
         else:  # bias
             values = paired_data[y_var].values - paired_data[x_var].values
             default_cmap = "RdBu_r"
-            label = labeling.bias_label(y_src, x_src, get_variable_units(paired_data, x_var))
+            label = labeling.bias_label(
+                y_src,
+                x_src,
+                get_variable_units(paired_data, x_var),
+                quantity=labeling.quantity_label(paired_data, x_var),
+            )
 
         cmap = cmap or default_cmap
 
