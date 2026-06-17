@@ -1,0 +1,46 @@
+"""Cross-reference and dependency rules for the analyses: block."""
+
+from __future__ import annotations
+
+import pytest
+
+from davinci_monet.config.schema import MonetConfig
+
+_SOURCES = {"cam": {"type": "generic", "files": "x.nc", "variables": {"O3": {"units": "ppb"}}}}
+
+
+def test_analysis_unknown_source_rejected() -> None:
+    with pytest.raises(ValueError, match="references unknown source"):
+        MonetConfig(
+            sources=_SOURCES,
+            analyses={"a": {"type": "eof", "source": "nope", "variable": "O3"}},
+        )
+
+
+def test_analysis_cycle_rejected() -> None:
+    with pytest.raises(ValueError, match="cycle"):
+        MonetConfig(
+            sources=_SOURCES,
+            analyses={
+                "a": {"type": "wavelet", "source": "b", "variable": "pc"},
+                "b": {"type": "wavelet", "source": "a", "variable": "pc"},
+            },
+        )
+
+
+def test_analysis_key_collides_with_source_rejected() -> None:
+    with pytest.raises(ValueError, match="collides"):
+        MonetConfig(
+            sources=_SOURCES,
+            analyses={"cam": {"type": "eof", "source": "cam", "variable": "O3"}},
+        )
+
+
+@pytest.mark.skip(reason="eof_pattern registered in Plan B")
+def test_plot_may_reference_derived_source() -> None:
+    cfg = MonetConfig(
+        sources=_SOURCES,
+        analyses={"cam_O3_eof": {"type": "eof", "source": "cam", "variable": "O3"}},
+        plots={"m": {"type": "eof_pattern", "source": "cam_O3_eof", "variable": "mode"}},
+    )
+    assert "m" in cfg.plots
