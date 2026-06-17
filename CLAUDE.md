@@ -417,6 +417,51 @@ plots:
   pc1:      { type: timeseries,  source: cam_O3_eof, variable: pc, mode: 1 }
 ```
 
+**Wavelet analysis** (`type: wavelet`) computes a Morlet continuous wavelet transform (CWT) via `pycwt` (Torrence & Compo 1998). The input must be (or reduce to) a 1-D time series; the AR(1) red-noise background is estimated automatically for significance testing.
+
+| Field | Default | Description |
+|---|---|---|
+| `source` | required | Source key from `sources:` or `analyses:` (e.g. an EOF key) |
+| `variable` | required | Variable name in that source |
+| `mode` | — | Integer (1-based): select one PC when `variable` has a `mode` dim |
+| `reduce` | `area_mean` | `area_mean` — spatial mean over all grid points; `{point: [lat, lon]}` — nearest-neighbor; `null`/omit — input is already 1-D |
+| `omega0` | `6.0` | Morlet parameter ω₀ (higher → better frequency resolution) |
+| `significance_level` | `0.95` | Confidence level for the AR(1) red-noise significance test |
+| `dj` | `0.25` | Scale resolution (smaller → more scales) |
+| `s0` | auto | Smallest scale; defaults to `2 × dt` |
+| `j` | auto | Number of scales; defaults to spanning the full time series |
+
+**Output** (SPECTRUM geometry — `power(time, period)` is the primary variable):
+
+- `power(time, period)` — local wavelet power spectrum
+- `power_significance(time, period)` — power normalised by the local significance threshold; values > 1 are significant
+- `coi(time)` — cone of influence period (edge-effects boundary); units match `period`
+- `global_power(period)` — time-averaged power spectrum
+- `global_significance(period)` — global significance threshold
+
+The `period` coordinate carries units derived from the input time step (e.g. `"days"`).
+
+**Plot type for wavelet output**:
+
+- `type: wavelet_scalogram` — Torrence & Compo–style figure: time × log-period filled power, COI overlay, significance contour, and a global-spectrum side panel.
+
+**Headline use-case — wavelet of an EOF PC**: chain an `eof` entry with a `wavelet` entry whose `source:` points at the EOF key and `mode:` selects the PC:
+
+```yaml
+analyses:
+  cam_O3_eof: { type: eof, source: cam, variable: O3, n_modes: 3 }
+  pc1_wav:
+    type: wavelet
+    source: cam_O3_eof   # pseudo-source produced by the eof step
+    variable: pc
+    mode: 1              # wavelet of PC-1
+
+plots:
+  eof_maps:    { type: eof_pattern,        source: cam_O3_eof, variable: eofs }
+  eof_var:     { type: eof_scree,          source: cam_O3_eof, variable: explained_variance }
+  pc1_scal:    { type: wavelet_scalogram,  source: pc1_wav,    variable: power }
+```
+
 ## Key Design Patterns
 
 1. **Plugin Registry**: Components register via decorators
