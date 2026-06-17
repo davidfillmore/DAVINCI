@@ -22,7 +22,6 @@ import argparse
 import sys
 from pathlib import Path
 
-
 DATA_URL = "https://data.eol.ucar.edu/dataset/353.202"
 
 # LMA networks available for DC3
@@ -72,9 +71,7 @@ def check_existing_data(data_dir: Path) -> dict[str, list[Path]]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Set up and check DC3 LMA data directories"
-    )
+    parser = argparse.ArgumentParser(description="Set up and check DC3 LMA data directories")
     parser.add_argument(
         "--data-dir",
         type=Path,

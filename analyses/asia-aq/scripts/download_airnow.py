@@ -19,8 +19,8 @@ Coverage includes:
 - Rangoon (Myanmar)
 """
 
-from pathlib import Path
 import warnings
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -79,7 +79,9 @@ def download_airnow():
 
     # Summary
     print("\n--- Sites ---")
-    sites = df.groupby(["siteid", "site", "latitude", "longitude"]).size().reset_index(name="records")
+    sites = (
+        df.groupby(["siteid", "site", "latitude", "longitude"]).size().reset_index(name="records")
+    )
     print(f"  {len(sites)} unique sites")
     for _, row in sites.iterrows():
         print(f"    {row['site']:30s} ({row['latitude']:.2f}N, {row['longitude']:.2f}E)")
@@ -90,7 +92,9 @@ def download_airnow():
         if var in df.columns:
             valid = df[var].notna().sum()
             if valid > 0:
-                print(f"  {var:8s}: {valid:4d} values, range: {df[var].min():.1f} - {df[var].max():.1f}")
+                print(
+                    f"  {var:8s}: {valid:4d} values, range: {df[var].min():.1f} - {df[var].max():.1f}"
+                )
 
     print(f"\n--- Time Range ---")
     print(f"  {df['time'].min()} to {df['time'].max()}")
@@ -122,9 +126,7 @@ def dataframe_to_dataset(df: pd.DataFrame) -> xr.Dataset:
     data_dict = {}
     for var in available_vars:
         var_name = var.lower().replace(".", "")
-        pivoted = df.pivot_table(
-            index="time", columns="siteid", values=var, aggfunc="first"
-        )
+        pivoted = df.pivot_table(index="time", columns="siteid", values=var, aggfunc="first")
         # Reindex to ensure consistent site ordering
         pivoted = pivoted.reindex(columns=site_ids)
         data_dict[var_name] = pivoted.values
@@ -143,7 +145,9 @@ def dataframe_to_dataset(df: pd.DataFrame) -> xr.Dataset:
 
     # Add attributes
     ds.attrs["source"] = "AirNow (US EPA)"
-    ds.attrs["domain"] = f"{BBOX['lat_min']}-{BBOX['lat_max']}N, {BBOX['lon_min']}-{BBOX['lon_max']}E"
+    ds.attrs["domain"] = (
+        f"{BBOX['lat_min']}-{BBOX['lat_max']}N, {BBOX['lon_min']}-{BBOX['lon_max']}E"
+    )
     ds.attrs["geometry"] = "point"
     ds.attrs["created"] = pd.Timestamp.now().isoformat()
 

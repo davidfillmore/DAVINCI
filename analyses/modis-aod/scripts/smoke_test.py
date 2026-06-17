@@ -43,12 +43,10 @@ MODIS_PLATFORMS = [
     ("Aqua", "MYD04_L2"),
 ]
 CAM6_BASE_FILE = (
-    Path.home() / "Data" / "CAM6"
-    / "FCnudged_f09.mam.BaseMar27.2019_2021.001_AODVIS.nc"
+    Path.home() / "Data" / "CAM6" / "FCnudged_f09.mam.BaseMar27.2019_2021.001_AODVIS.nc"
 )
 CAM6_NEWDUST_FILE = (
-    Path.home() / "Data" / "CAM6"
-    / "FCnudged_f09.mam.newdustMar282025.2019_2021.001_AODVIS.nc"
+    Path.home() / "Data" / "CAM6" / "FCnudged_f09.mam.newdustMar282025.2019_2021.001_AODVIS.nc"
 )
 OUTPUT_DIR = Path(__file__).resolve().parents[1] / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
@@ -67,6 +65,7 @@ DAYS = [
 # ---------------------------------------------------------------------------
 # 1. Read MODIS granules for one day
 # ---------------------------------------------------------------------------
+
 
 def read_modis_granules(day_of_year: int) -> OrderedDict:
     """Read MODIS L2 granules for a single day from all platforms (Terra + Aqua)."""
@@ -100,6 +99,7 @@ def read_modis_granules(day_of_year: int) -> OrderedDict:
 # 2. Read CAM6 datasets
 # ---------------------------------------------------------------------------
 
+
 def read_cam6_datasets(dates: list[str]) -> tuple[xr.Dataset, xr.Dataset]:
     """Read both CAM6 runs and subset to the target dates."""
     print(f"\nReading CAM6 base: {CAM6_BASE_FILE.name}")
@@ -112,8 +112,12 @@ def read_cam6_datasets(dates: list[str]) -> tuple[xr.Dataset, xr.Dataset]:
     ds_newdust = ds_newdust.sel(time=target_times, method="nearest")
 
     print(f"  CAM6 grid: lat={ds_base.sizes['lat']}, lon={ds_base.sizes['lon']}")
-    print(f"  Base AODVIS range: [{float(ds_base[CAM6_VAR].min()):.4f}, {float(ds_base[CAM6_VAR].max()):.4f}]")
-    print(f"  NewDust AODVIS range: [{float(ds_newdust[CAM6_VAR].min()):.4f}, {float(ds_newdust[CAM6_VAR].max()):.4f}]")
+    print(
+        f"  Base AODVIS range: [{float(ds_base[CAM6_VAR].min()):.4f}, {float(ds_base[CAM6_VAR].max()):.4f}]"
+    )
+    print(
+        f"  NewDust AODVIS range: [{float(ds_newdust[CAM6_VAR].min()):.4f}, {float(ds_newdust[CAM6_VAR].max()):.4f}]"
+    )
 
     return ds_base, ds_newdust
 
@@ -121,6 +125,7 @@ def read_cam6_datasets(dates: list[str]) -> tuple[xr.Dataset, xr.Dataset]:
 # ---------------------------------------------------------------------------
 # 3. Grid MODIS onto dataset grid for one day
 # ---------------------------------------------------------------------------
+
 
 def grid_modis_day(
     granules: OrderedDict,
@@ -152,7 +157,7 @@ def grid_modis_day(
     for i, (key, granule) in enumerate(granules.items()):
         # Keys are "Platform_YYYYjjjHHMM" — strip platform prefix
         datetime_str = key.split("_", 1)[1] if "_" in key else key
-        geometry_timestamp = pd.to_datetime(datetime_str, format='%Y%j%H%M').timestamp()
+        geometry_timestamp = pd.to_datetime(datetime_str, format="%Y%j%H%M").timestamp()
 
         aod = granule[MODIS_VAR].values
         lat = granule["lat"].values
@@ -177,9 +182,15 @@ def grid_modis_day(
         time_flat = np.full(n_geometry, geometry_timestamp, dtype=np.float64)
 
         bin_swath_to_grid(
-            time_edges, lon_edges, lat_edges,
-            time_flat, lon_flat, lat_flat, aod_flat,
-            count_grid, data_grid,
+            time_edges,
+            lon_edges,
+            lat_edges,
+            time_flat,
+            lon_flat,
+            lat_flat,
+            aod_flat,
+            count_grid,
+            data_grid,
         )
 
         if (i + 1) % 25 == 0:
@@ -198,6 +209,7 @@ def grid_modis_day(
 # 4. Lon shift helper for cartopy display
 # ---------------------------------------------------------------------------
 
+
 def shift_lon_to_180(lon: np.ndarray, *arrays: np.ndarray):
     """Shift lon from 0..360 to -180..180 and reorder arrays accordingly.
 
@@ -215,6 +227,7 @@ def shift_lon_to_180(lon: np.ndarray, *arrays: np.ndarray):
 # 5. Plotting
 # ---------------------------------------------------------------------------
 
+
 def make_plots(
     date_str: str,
     lon_centers: np.ndarray,
@@ -230,7 +243,11 @@ def make_plots(
 
     # Shift lon for display
     lon, geometry_d, base_d, newdust_d, count_d = shift_lon_to_180(
-        lon_centers, geometry_data, base_data, newdust_data, count_data.astype(np.float64),
+        lon_centers,
+        geometry_data,
+        base_data,
+        newdust_data,
+        count_data.astype(np.float64),
     )
     lat = lat_centers
 
@@ -243,19 +260,45 @@ def make_plots(
     from matplotlib.colors import TwoSlopeNorm
 
     fig, axes = plt.subplots(
-        2, 3, figsize=(20, 9),
+        2,
+        3,
+        figsize=(20, 9),
         subplot_kw={"projection": ccrs.PlateCarree()},
     )
 
     # Top row: AOD via contourf (CERES-SARB pattern: turbo + levels + extend='max')
     # Non-uniform levels — fine resolution at low end, 0.05 steps above
     # (matches CERES-SARB _compute_levels convention)
-    aod_levels = np.array([
-        0.00, 0.005, 0.01, 0.02, 0.03, 0.04,
-        0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40,
-        0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80,
-        0.85, 0.90, 0.95, 1.00,
-    ])
+    aod_levels = np.array(
+        [
+            0.00,
+            0.005,
+            0.01,
+            0.02,
+            0.03,
+            0.04,
+            0.05,
+            0.10,
+            0.15,
+            0.20,
+            0.25,
+            0.30,
+            0.35,
+            0.40,
+            0.45,
+            0.50,
+            0.55,
+            0.60,
+            0.65,
+            0.70,
+            0.75,
+            0.80,
+            0.85,
+            0.90,
+            0.95,
+            1.00,
+        ]
+    )
     lon_mesh, lat_mesh = np.meshgrid(lon, lat)
     aod_panels = [
         (axes[0, 0], geometry_d, "(a) MODIS Terra+Aqua AOD"),
@@ -266,13 +309,22 @@ def make_plots(
         add_map_features(ax)
         # Rasterized base layer eliminates white contour-line artifacts in PDFs
         ax.pcolormesh(
-            lon, lat, data.T, cmap=plt.cm.turbo,
-            vmin=aod_levels[0], vmax=aod_levels[-1],
-            transform=ccrs.PlateCarree(), rasterized=True,
+            lon,
+            lat,
+            data.T,
+            cmap=plt.cm.turbo,
+            vmin=aod_levels[0],
+            vmax=aod_levels[-1],
+            transform=ccrs.PlateCarree(),
+            rasterized=True,
         )
         cf_aod = ax.contourf(
-            lon_mesh, lat_mesh, data.T, aod_levels,
-            cmap=plt.cm.turbo, extend="max",
+            lon_mesh,
+            lat_mesh,
+            data.T,
+            aod_levels,
+            cmap=plt.cm.turbo,
+            extend="max",
             transform=ccrs.PlateCarree(),
         )
         ax.set_title(title)
@@ -290,25 +342,48 @@ def make_plots(
     for ax, data, title in bias_panels:
         add_map_features(ax)
         ax.pcolormesh(
-            lon, lat, data.T, cmap=plt.cm.RdBu_r,
-            vmin=bias_levels[0], vmax=bias_levels[-1],
-            transform=ccrs.PlateCarree(), rasterized=True,
+            lon,
+            lat,
+            data.T,
+            cmap=plt.cm.RdBu_r,
+            vmin=bias_levels[0],
+            vmax=bias_levels[-1],
+            transform=ccrs.PlateCarree(),
+            rasterized=True,
         )
         cf_bias = ax.contourf(
-            lon_mesh, lat_mesh, data.T, bias_levels,
-            cmap=plt.cm.RdBu_r, extend="both",
+            lon_mesh,
+            lat_mesh,
+            data.T,
+            bias_levels,
+            cmap=plt.cm.RdBu_r,
+            extend="both",
             transform=ccrs.PlateCarree(),
         )
         ax.set_title(title)
 
     # Colorbars — one per row
-    cb_aod = fig.colorbar(cf_aod, ax=axes[0, :].tolist(), orientation="horizontal",
-                          shrink=0.5, label="AOD", pad=0.05, aspect=40)
+    cb_aod = fig.colorbar(
+        cf_aod,
+        ax=axes[0, :].tolist(),
+        orientation="horizontal",
+        shrink=0.5,
+        label="AOD",
+        pad=0.05,
+        aspect=40,
+    )
     cb_aod.set_ticks(np.arange(0, 1.05, 0.20))
     cb_aod.ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.2f}"))
 
-    cb_bias = fig.colorbar(cf_bias, ax=axes[1, :].tolist(), orientation="horizontal",
-                           shrink=0.5, label="AOD Difference", pad=0.05, aspect=40)
+    cb_bias = fig.colorbar(
+        cf_bias,
+        ax=axes[1, :].tolist(),
+        orientation="horizontal",
+        shrink=0.5,
+        label="AOD Difference",
+        pad=0.05,
+        aspect=40,
+    )
     cb_bias.set_ticks(np.arange(-0.30, 0.35, 0.10))
     cb_bias.ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.2f}"))
 
@@ -331,12 +406,17 @@ def make_plots(
     count_display = count_d.copy()
     count_display[count_display == 0] = np.nan
     im = ax.pcolormesh(
-        lon, lat, count_display.T, cmap="YlOrBr",
-        vmin=1, transform=ccrs.PlateCarree(),
+        lon,
+        lat,
+        count_display.T,
+        cmap="YlOrBr",
+        vmin=1,
+        transform=ccrs.PlateCarree(),
     )
     ax.set_title(f"MODIS Pixel Count per Grid Cell — {date_str}")
-    fig.colorbar(im, ax=ax, orientation="horizontal",
-                 shrink=0.5, label="Pixel Count", pad=0.05, aspect=40)
+    fig.colorbar(
+        im, ax=ax, orientation="horizontal", shrink=0.5, label="Pixel Count", pad=0.05, aspect=40
+    )
     plt.tight_layout()
     out_png = OUTPUT_DIR / f"modis_pixel_count_{date_str}.png"
     out_pdf = OUTPUT_DIR / f"modis_pixel_count_{date_str}.pdf"
@@ -370,7 +450,10 @@ if __name__ == "__main__":
         # Read and bin MODIS for this day
         granules = read_modis_granules(day_of_year)
         geometry_data, count_data = grid_modis_day(
-            granules, lat_centers, lon_centers, date_str,
+            granules,
+            lat_centers,
+            lon_centers,
+            date_str,
         )
 
         # Extract CAM6 for this day — (nlat, nlon) → transpose to (nlon, nlat)
@@ -380,12 +463,19 @@ if __name__ == "__main__":
         valid = np.isfinite(geometry_data)
         print(f"  Grid cells with geometry: {valid.sum():,}")
         if valid.any():
-            print(f"  Geometry AOD range: [{geometry_data[valid].min():.4f}, {geometry_data[valid].max():.4f}]")
+            print(
+                f"  Geometry AOD range: [{geometry_data[valid].min():.4f}, {geometry_data[valid].max():.4f}]"
+            )
         print(f"  Max pixel count: {count_data.max()}")
 
         make_plots(
-            date_str, lon_centers, lat_centers,
-            geometry_data, count_data, base_aod, newdust_aod,
+            date_str,
+            lon_centers,
+            lat_centers,
+            geometry_data,
+            count_data,
+            base_aod,
+            newdust_aod,
         )
 
     print(f"\nSmoke test complete! {len(DAYS) * 2} figures in {OUTPUT_DIR}")

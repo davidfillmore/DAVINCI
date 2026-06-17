@@ -51,8 +51,11 @@ class WaveletScalogramPlotter(BasePlotter):
         ax_glob = fig.add_subplot(gs[0, 1], sharey=ax_main)
 
         mesh = ax_main.pcolormesh(
-            time, period, power.transpose("period", "time").values,
-            cmap=get_sequential_cmap(), shading="auto",
+            time,
+            period,
+            power.transpose("period", "time").values,
+            cmap=get_sequential_cmap(),
+            shading="auto",
         )
         ax_main.set_yscale("log")
         ax_main.set_ylim(float(period.max()), float(period.min()))
@@ -77,7 +80,9 @@ class WaveletScalogramPlotter(BasePlotter):
         ax_main.set_xlabel("Time", fontsize=self.config.text.fontsize)
         self.set_title(
             ax_main,
-            labeling.title_text(str(ds.attrs.get("wavelet_quantity", "")), operation="Wavelet Power"),
+            labeling.title_text(
+                str(ds.attrs.get("wavelet_quantity", "")), operation="Wavelet Power"
+            ),
         )
         fig.colorbar(mesh, ax=ax_main, label="Power", shrink=0.85, pad=0.02)
 

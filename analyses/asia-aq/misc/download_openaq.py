@@ -16,11 +16,12 @@ Usage:
     python download_openaq.py
 """
 
-from pathlib import Path
 import os
+from datetime import datetime, timedelta
+from pathlib import Path
+
 import pandas as pd
 import xarray as xr
-from datetime import datetime, timedelta
 
 # Output directory
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -93,10 +94,10 @@ def download_openaq_monetio():
 
                 if lat_col in df.columns and lon_col in df.columns:
                     mask = (
-                        (df[lat_col] >= BBOX["lat_min"]) &
-                        (df[lat_col] <= BBOX["lat_max"]) &
-                        (df[lon_col] >= BBOX["lon_min"]) &
-                        (df[lon_col] <= BBOX["lon_max"])
+                        (df[lat_col] >= BBOX["lat_min"])
+                        & (df[lat_col] <= BBOX["lat_max"])
+                        & (df[lon_col] >= BBOX["lon_min"])
+                        & (df[lon_col] <= BBOX["lon_max"])
                     )
                     df = df[mask]
 
@@ -185,9 +186,7 @@ def dataframe_to_dataset(df: pd.DataFrame) -> xr.Dataset:
 
     # Create site identifier if not present
     if "location" not in df.columns:
-        df["location"] = df.apply(
-            lambda r: f"{r['latitude']:.3f}_{r['longitude']:.3f}", axis=1
-        )
+        df["location"] = df.apply(lambda r: f"{r['latitude']:.3f}_{r['longitude']:.3f}", axis=1)
 
     # Get unique sites
     sites = df.groupby("location").first()[["latitude", "longitude"]].reset_index()
@@ -219,7 +218,9 @@ def dataframe_to_dataset(df: pd.DataFrame) -> xr.Dataset:
 
     # Add attributes
     ds.attrs["source"] = "OpenAQ"
-    ds.attrs["domain"] = f"{BBOX['lat_min']}-{BBOX['lat_max']}N, {BBOX['lon_min']}-{BBOX['lon_max']}E"
+    ds.attrs["domain"] = (
+        f"{BBOX['lat_min']}-{BBOX['lat_max']}N, {BBOX['lon_min']}-{BBOX['lon_max']}E"
+    )
     ds.attrs["geometry"] = "point"
 
     return ds

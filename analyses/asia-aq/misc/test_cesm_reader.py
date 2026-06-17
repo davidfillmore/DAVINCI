@@ -88,8 +88,7 @@ def test_cesm_reader() -> None:
             # Convert mol/mol to ppb
             ppb = vals * 1e9
 
-            print(f"  {var}: {ppb.min():.1f} - {ppb.max():.1f} ppb "
-                  f"(mean: {ppb.mean():.1f})")
+            print(f"  {var}: {ppb.min():.1f} - {ppb.max():.1f} ppb " f"(mean: {ppb.mean():.1f})")
 
     return ds
 
@@ -115,8 +114,7 @@ def plot_surface_snapshot(ds) -> None:
 
     for ax, (var, title, cmap, vmin, vmax) in zip(axes.flat, variables):
         if var not in ds:
-            ax.text(0.5, 0.5, f"{var} not found", ha="center", va="center",
-                    transform=ax.transAxes)
+            ax.text(0.5, 0.5, f"{var} not found", ha="center", va="center", transform=ax.transAxes)
             continue
 
         data = ds[var]
@@ -194,7 +192,7 @@ def plot_time_series(ds) -> None:
         # Find nearest grid point - handle 2D lat/lon arrays
         if lat_vals.ndim == 2:
             # 2D coordinate arrays: find minimum distance
-            dist = np.sqrt((lat_vals - target_lat)**2 + (lon_vals - target_lon)**2)
+            dist = np.sqrt((lat_vals - target_lat) ** 2 + (lon_vals - target_lon) ** 2)
             min_idx = np.unravel_index(dist.argmin(), dist.shape)
             lat_idx, lon_idx = int(min_idx[0]), int(min_idx[1])
             actual_lat = lat_vals[lat_idx, lon_idx]

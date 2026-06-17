@@ -21,11 +21,18 @@ def _grid_nc(path: Path) -> None:
     rng = np.random.default_rng(0)
     pc1 = np.sin(2 * np.pi * t / 16.0) + 0.3 * rng.normal(size=len(times))
     p1 = np.cos(x)[None, :] * np.ones((len(lat), 1))
-    field = 3.0 * pc1[:, None, None] * p1[None] + 0.1 * rng.normal(size=(len(times), len(lat), len(lon)))
+    field = 3.0 * pc1[:, None, None] * p1[None] + 0.1 * rng.normal(
+        size=(len(times), len(lat), len(lon))
+    )
     xr.Dataset(
         {"O3": (("time", "lat", "lon"), field, {"units": "ppb"})},
-        coords={"time": times, "lat": ("lat", lat), "lon": ("lon", lon),
-                "latitude": ("lat", lat), "longitude": ("lon", lon)},
+        coords={
+            "time": times,
+            "lat": ("lat", lat),
+            "lon": ("lon", lon),
+            "latitude": ("lat", lat),
+            "longitude": ("lon", lon),
+        },
     ).to_netcdf(path)
 
 
@@ -35,8 +42,12 @@ def test_areamean_wavelet(tmp_path: Path) -> None:
     _grid_nc(src)
     config = {
         "analysis": {"output_dir": str(tmp_path / "out")},
-        "sources": {"cam": {"type": "generic", "files": str(src), "variables": {"O3": {"units": "ppb"}}}},
-        "analyses": {"cam_wav": {"type": "wavelet", "source": "cam", "variable": "O3", "reduce": "area_mean"}},
+        "sources": {
+            "cam": {"type": "generic", "files": str(src), "variables": {"O3": {"units": "ppb"}}}
+        },
+        "analyses": {
+            "cam_wav": {"type": "wavelet", "source": "cam", "variable": "O3", "reduce": "area_mean"}
+        },
         "plots": {"scal": {"type": "wavelet_scalogram", "source": "cam_wav", "variable": "power"}},
     }
     result = PipelineRunner(show_progress=False).run_from_config(config)
@@ -54,7 +65,9 @@ def test_wavelet_of_eof_pc(tmp_path: Path) -> None:
     _grid_nc(src)
     config = {
         "analysis": {"output_dir": str(tmp_path / "out")},
-        "sources": {"cam": {"type": "generic", "files": str(src), "variables": {"O3": {"units": "ppb"}}}},
+        "sources": {
+            "cam": {"type": "generic", "files": str(src), "variables": {"O3": {"units": "ppb"}}}
+        },
         "analyses": {
             "cam_O3_eof": {"type": "eof", "source": "cam", "variable": "O3", "n_modes": 3},
             "pc1_wav": {"type": "wavelet", "source": "cam_O3_eof", "variable": "pc", "mode": 1},

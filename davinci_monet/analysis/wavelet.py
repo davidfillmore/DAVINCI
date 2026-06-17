@@ -48,7 +48,7 @@ class WaveletAnalysis(DerivedAnalysis):
 
         y = np.asarray(regular.values, dtype=float)
         y = detrend_series(y)
-        alpha = ar1_alpha(y)            # estimate red noise BEFORE normalization
+        alpha = ar1_alpha(y)  # estimate red noise BEFORE normalization
         y_norm, _std, _mean = normalize_series(y)
 
         mother = pycwt.Morlet(spec.omega0)
@@ -56,30 +56,49 @@ class WaveletAnalysis(DerivedAnalysis):
         big_j = spec.j if spec.j is not None else -1
         wave, scales, freqs, coi, _, _ = pycwt.cwt(y_norm, dt, spec.dj, s0, big_j, mother)
 
-        power = np.abs(wave) ** 2          # (scale, time)
-        period = 1.0 / freqs               # (scale,)
+        power = np.abs(wave) ** 2  # (scale, time)
+        period = 1.0 / freqs  # (scale,)
         n = y_norm.size
 
         local_signif, _ = pycwt.significance(
-            1.0, dt, scales, 0, alpha,
-            significance_level=spec.significance_level, wavelet=mother,
+            1.0,
+            dt,
+            scales,
+            0,
+            alpha,
+            significance_level=spec.significance_level,
+            wavelet=mother,
         )
         power_sig = power / local_signif[:, None]
 
         global_power = power.mean(axis=1)  # (scale,)
         dof = n - scales
         global_signif, _ = pycwt.significance(
-            1.0, dt, scales, 1, alpha,
-            significance_level=spec.significance_level, dof=dof, wavelet=mother,
+            1.0,
+            dt,
+            scales,
+            1,
+            alpha,
+            significance_level=spec.significance_level,
+            dof=dof,
+            wavelet=mother,
         )
 
         ds = xr.Dataset(
             {
-                "power": (("time", "period"), power.T, {"kind": "power", "long_name": "Wavelet power"}),
+                "power": (
+                    ("time", "period"),
+                    power.T,
+                    {"kind": "power", "long_name": "Wavelet power"},
+                ),
                 "power_significance": (("time", "period"), power_sig.T, {"kind": "power"}),
                 "coi": (("time",), np.asarray(coi, dtype=float), {"kind": "coi", "units": unit}),
                 "global_power": (("period",), global_power, {"kind": "global"}),
-                "global_significance": (("period",), np.asarray(global_signif, dtype=float), {"kind": "global"}),
+                "global_significance": (
+                    ("period",),
+                    np.asarray(global_signif, dtype=float),
+                    {"kind": "global"},
+                ),
             },
             coords={
                 "time": regular["time"].values,

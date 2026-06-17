@@ -34,7 +34,9 @@ def explore_single_file(filepath: Path) -> xr.Dataset:
         if coord.size <= 10:
             print(f"  {name}: {coord.values}")
         else:
-            print(f"  {name}: [{coord.values[0]:.2f} ... {coord.values[-1]:.2f}] ({coord.size} values)")
+            print(
+                f"  {name}: [{coord.values[0]:.2f} ... {coord.values[-1]:.2f}] ({coord.size} values)"
+            )
 
     print("\n--- Data Variables ---")
     for name, var in ds.data_vars.items():
@@ -130,8 +132,10 @@ def explore_variable_stats(ds: xr.Dataset, variables: list[str]) -> None:
             print(f"  {var}: all NaN")
             continue
 
-        print(f"  {var:12s}: min={values.min():.3e}, max={values.max():.3e}, "
-              f"mean={values.mean():.3e} [{units}]")
+        print(
+            f"  {var:12s}: min={values.min():.3e}, max={values.max():.3e}, "
+            f"mean={values.mean():.3e} [{units}]"
+        )
 
 
 def main():

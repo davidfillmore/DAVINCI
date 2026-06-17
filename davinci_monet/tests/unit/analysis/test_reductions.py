@@ -18,13 +18,19 @@ from davinci_monet.config.schema import PointReduce, WaveletSpec
 
 
 def _grid(nt=20, nlat=3, nlon=4) -> xr.Dataset:
-    lat = np.linspace(-5, 5, nlat); lon = np.linspace(0, 9, nlon)
+    lat = np.linspace(-5, 5, nlat)
+    lon = np.linspace(0, 9, nlon)
     times = pd.date_range("2024-01-01", periods=nt, freq="D")
     data = np.random.default_rng(0).normal(size=(nt, nlat, nlon))
     return xr.Dataset(
         {"O3": (("time", "lat", "lon"), data, {"units": "ppb"})},
-        coords={"time": times, "lat": lat, "lon": lon,
-                "latitude": ("lat", lat), "longitude": ("lon", lon)},
+        coords={
+            "time": times,
+            "lat": lat,
+            "lon": lon,
+            "latitude": ("lat", lat),
+            "longitude": ("lon", lon),
+        },
     )
 
 
@@ -41,7 +47,9 @@ def test_select_area_mean_reduces_to_1d() -> None:
 
 
 def test_select_point() -> None:
-    spec = WaveletSpec(type="wavelet", source="cam", variable="O3", reduce=PointReduce(point=(0.0, 3.0)))
+    spec = WaveletSpec(
+        type="wavelet", source="cam", variable="O3", reduce=PointReduce(point=(0.0, 3.0))
+    )
     s = select_series(_grid(), spec)
     assert s.dims == ("time",)
 
@@ -60,8 +68,9 @@ def test_pc_without_mode_errors() -> None:
 
 
 def test_point_reduce_on_1d_series_errors() -> None:
-    spec = WaveletSpec(type="wavelet", source="eof", variable="pc", mode=1,
-                       reduce=PointReduce(point=(0.0, 0.0)))
+    spec = WaveletSpec(
+        type="wavelet", source="eof", variable="pc", mode=1, reduce=PointReduce(point=(0.0, 0.0))
+    )
     with pytest.raises(ValueError, match="point.*1-D"):
         select_series(_pc(), spec)
 

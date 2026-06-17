@@ -21,9 +21,13 @@ def test_pycwt_minimal_api() -> None:
     assert power.shape == (scales.size, nt)
     assert coi.shape == (nt,)
 
-    signif, _ = pycwt.significance(1.0, dt, scales, 0, alpha, significance_level=0.95, wavelet=mother)
+    signif, _ = pycwt.significance(
+        1.0, dt, scales, 0, alpha, significance_level=0.95, wavelet=mother
+    )
     assert signif.shape == (scales.size,)
 
     dof = nt - scales
-    glbl, _ = pycwt.significance(1.0, dt, scales, 1, alpha, significance_level=0.95, dof=dof, wavelet=mother)
+    glbl, _ = pycwt.significance(
+        1.0, dt, scales, 1, alpha, significance_level=0.95, dof=dof, wavelet=mother
+    )
     assert glbl.shape == (scales.size,)
