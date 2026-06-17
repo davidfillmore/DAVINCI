@@ -15,7 +15,8 @@ from davinci_monet.pipeline.stages.base import PipelineContext, SourceData, Stag
 
 @pytest.fixture
 def _fake_eof_registered():
-    @analysis_registry.register("eof", replace=True)
+    _prev = {name: analysis_registry.get_or_none(name) for name in ("eof", "wavelet")}
+
     class _FakeEOF(DerivedAnalysis):
         name = "eof"
         output_geometry = DataGeometry.GRID
@@ -23,7 +24,6 @@ def _fake_eof_registered():
         def analyze(self, data, spec):
             return xr.Dataset({"pc": ("time", np.arange(3.0))}, coords={"time": np.arange(3)})
 
-    @analysis_registry.register("wavelet", replace=True)
     class _FakeWavelet(DerivedAnalysis):
         name = "wavelet"
         output_geometry = DataGeometry.SPECTRUM
@@ -32,9 +32,16 @@ def _fake_eof_registered():
             assert "pc" in data.data_vars  # depends on the EOF output
             return xr.Dataset({"power": (("time", "period"), np.ones((3, 2)))})
 
+    analysis_registry.register("eof", _FakeEOF, replace=True)
+    analysis_registry.register("wavelet", _FakeWavelet, replace=True)
+
     yield
-    analysis_registry.unregister("eof")
-    analysis_registry.unregister("wavelet")
+
+    for name, prev in _prev.items():
+        if prev is not None:
+            analysis_registry.register(name, prev, replace=True)
+        else:
+            analysis_registry.unregister(name)
 
 
 def _ctx() -> PipelineContext:

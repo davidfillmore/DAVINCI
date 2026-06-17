@@ -20,7 +20,8 @@ from davinci_monet.pipeline.runner import PipelineRunner
 def _passthrough_eof():
     """Register a trivial 'eof' that emits a (time, mode) pc + (mode) variance."""
 
-    @analysis_registry.register("eof", replace=True)
+    _prev = analysis_registry.get_or_none("eof")
+
     class _PassEOF(DerivedAnalysis):
         name = "eof"
         output_geometry = DataGeometry.GRID
@@ -35,8 +36,12 @@ def _passthrough_eof():
                 coords={"time": data["time"].values, "mode": [1, 2]},
             )
 
+    analysis_registry.register("eof", _PassEOF, replace=True)
     yield
-    analysis_registry.unregister("eof")
+    if _prev is not None:
+        analysis_registry.register("eof", _prev, replace=True)
+    else:
+        analysis_registry.unregister("eof")
 
 
 def _grid_nc(path: Path) -> None:

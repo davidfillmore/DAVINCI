@@ -12,7 +12,9 @@ from davinci_monet.pipeline.stages.plot_options import single_source_plot_kwargs
 def test_plotgroup_accepts_mode_and_display_level() -> None:
     cfg = PlotGroupConfig(type="timeseries", source="cam_O3_eof", variable="pc", mode=1)
     assert cfg.mode == 1
-    cfg2 = PlotGroupConfig(type="eof_pattern", source="cam_O3_eof", variable="eofs", display_level=-1)
+    cfg2 = PlotGroupConfig(
+        type="eof_pattern", source="cam_O3_eof", variable="eofs", display_level=-1
+    )
     assert cfg2.display_level == -1
 
 
