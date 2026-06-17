@@ -28,13 +28,13 @@ class TestDataGeometry:
         assert hasattr(DataGeometry, "GRID")
 
     def test_geometry_count(self) -> None:
-        """Verify exactly 5 geometry types."""
-        assert len(DataGeometry) == 5
+        """Verify exactly 6 geometry types."""
+        assert len(DataGeometry) == 6
 
     def test_geometry_iteration(self) -> None:
         """Verify geometry can be iterated."""
         geometries = list(DataGeometry)
-        assert len(geometries) == 5
+        assert len(geometries) == 6
         assert DataGeometry.POINT in geometries
         assert DataGeometry.GRID in geometries
 

@@ -50,6 +50,9 @@ class DataGeometry(Enum):
     GRID = auto()
     """Regular grid (time, lat, lon) - L3 products, reanalysis, dataset output."""
 
+    SPECTRUM = auto()
+    """Time-frequency spectrum (time, period) - wavelet power. Not pairable."""
+
 
 # =============================================================================
 # Unified Source Protocols
