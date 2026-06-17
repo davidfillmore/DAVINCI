@@ -1,6 +1,6 @@
 # Changelog
 
-## 26.06 (2026-06-08)
+## 26.06 (2026-06-17)
 
 **Breaking release.** Completes the dataset/geometry to unified data-source migration and
 removes the `dataset:`/`geometry:` config blocks and runtime containers.
