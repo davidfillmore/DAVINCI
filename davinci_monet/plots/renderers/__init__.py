@@ -52,6 +52,7 @@ from davinci_monet.plots.renderers.taylor import TaylorPlotter
 from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 from davinci_monet.plots.renderers.track_map_3d import TrackMap3DPlotter
 from davinci_monet.plots.renderers.vertical_profile import VerticalProfilePlotter
+from davinci_monet.plots.renderers.wavelet_scalogram import WaveletScalogramPlotter
 
 __all__ = [
     # Temporal
@@ -81,4 +82,6 @@ __all__ = [
     # EOF analysis
     "EOFPatternPlotter",
     "EOFScreePlotter",
+    # Wavelet analysis
+    "WaveletScalogramPlotter",
 ]
