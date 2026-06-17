@@ -34,6 +34,7 @@ from davinci_monet.pipeline.stages.base import (
     StageResult,
     StageStatus,
 )
+from davinci_monet.pipeline.stages.analyses import AnalysesStage
 from davinci_monet.pipeline.stages.factory import (
     create_geometry_pipeline,
     create_standard_pipeline,
@@ -68,6 +69,7 @@ __all__ = [
     "_format_size",
     "_format_duration",
     # Stage classes
+    "AnalysesStage",
     "LoadSourcesStage",
     "PairingStage",
     "StatisticsStage",

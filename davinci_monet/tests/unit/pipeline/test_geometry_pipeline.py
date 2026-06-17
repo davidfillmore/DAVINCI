@@ -186,7 +186,7 @@ class TestGeometryOnlyPipelineDetection:
         stages = create_geometry_pipeline()
         stage_names = [s.name for s in stages]
 
-        assert stage_names == ["load_sources", "statistics", "plotting", "save_results", "summary"]
+        assert stage_names == ["load_sources", "analyses", "statistics", "plotting", "save_results", "summary"]
 
     @pytest.mark.integration
     def test_run_from_config_detects_geometry_only(self, x_data: SourceData, tmp_path: Any) -> None:
