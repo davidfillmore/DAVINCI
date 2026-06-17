@@ -378,6 +378,45 @@ When adding/altering spatial render logic, **verify the render mark programmatic
 (QuadMesh for grid/swath, PathCollection for point/track) — not by eye. See
 `tests/test_spatial_single_source.py`.
 
+### Derived Analyses (`analyses:` block)
+
+The optional top-level `analyses:` block runs after `load_sources` and before `pairing`. Each entry is a named derived-analysis spec; its output is registered as a **pseudo-source** referenceable by `source:` + `variable:` in `plots:`. Derived sources are **not pairable** — they cannot appear in `pairs:`.
+
+**EOF analysis** (`type: eof`) decomposes a gridded field into empirical orthogonal functions via in-repo truncated SVD (no external EOF library). 3-D fields are decomposed as a coupled state vector with area × layer-mass weighting.
+
+| Field | Default | Description |
+|---|---|---|
+| `source` | required | Source key from `sources:` |
+| `variable` | required | Variable name in that source |
+| `n_modes` | `10` | Number of EOF modes to retain |
+| `standardize` | `false` | `true` → correlation EOF; `false` → covariance EOF |
+| `remove_seasonal_cycle` | `false` | Subtract monthly climatology before decomposition |
+| `rotation` | `none` | `none` or `varimax` |
+| `level` | — | Restrict a 3-D field to one level index before decomposing |
+
+**Output variables** (all `mode`-indexed, 1-based):
+
+- `eofs(mode, [lev,] lat, lon)` — spatial patterns (unit-variance)
+- `pc(time, mode)` — principal component time series (unit variance)
+- `explained_variance(mode)` — fraction of total variance (%)
+- `explained_variance_error(mode)` — North's rule sampling error (unrotated only)
+
+**Plot types for EOF output**:
+
+- `type: eof_pattern` — signed spatial maps, one panel per mode; use `display_level:` to slice a 3-D mode
+- `type: eof_scree` — bar chart of `explained_variance` (%)
+- `type: timeseries` with `mode: N` — PC time series for mode N
+
+```yaml
+analyses:
+  cam_O3_eof: { type: eof, source: cam, variable: O3, n_modes: 6 }
+
+plots:
+  eof_maps: { type: eof_pattern, source: cam_O3_eof, variable: eofs }
+  eof_var:  { type: eof_scree,   source: cam_O3_eof, variable: explained_variance }
+  pc1:      { type: timeseries,  source: cam_O3_eof, variable: pc, mode: 1 }
+```
+
 ## Key Design Patterns
 
 1. **Plugin Registry**: Components register via decorators
