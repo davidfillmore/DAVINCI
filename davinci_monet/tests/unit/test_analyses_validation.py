@@ -53,7 +53,6 @@ def test_pair_referencing_derived_source_rejected() -> None:
     assert "references unknown source" not in str(excinfo.value)
 
 
-@pytest.mark.skip(reason="eof_pattern registered in Plan B")
 def test_plot_may_reference_derived_source() -> None:
     cfg = MonetConfig(
         sources=_SOURCES,  # type: ignore[arg-type]

@@ -469,6 +469,8 @@ class PlotGroupConfig(FlexibleSchema):
     pairs: list[str] = Field(default_factory=list)
     source: str | None = None
     variable: str | None = None
+    mode: int | None = None
+    display_level: int | None = None
     data_proc: DataProcConfig | dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="before")

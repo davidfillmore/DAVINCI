@@ -187,6 +187,11 @@ class PlottingStage(BaseStage):
                 }
 
             try:
+                # Select a single PC mode before rendering, if requested.
+                sel_mode = plot_spec.get("mode")
+                if sel_mode is not None and variable in subset and "mode" in subset[variable].dims:
+                    subset = subset.sel(mode=sel_mode)
+
                 # Tag the single source so build_series picks up its source label.
                 tag_source_label(subset, source_label=source_label)
                 render_kwargs = dict(flight_kwargs)
