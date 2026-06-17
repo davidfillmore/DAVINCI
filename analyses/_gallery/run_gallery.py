@@ -175,21 +175,32 @@ def _gridded_no2_column(seed: int, scale: float = 1.0) -> xr.Dataset:
 def _gridded_o3_long(seed: int, n_times: int = 256) -> xr.Dataset:
     """2-D (time, lat, lon) O3 grid with 256 daily steps for EOF/wavelet.
 
-    The field embeds a ~16-day oscillation so the wavelet scalogram shows a
-    clear spectral feature.  Read by the ``generic`` reader.
+    Two orthogonal structured spatial modes on a fine grid: a smooth dome
+    modulated by a dominant ~16-day oscillation (so EOF PC1 drives a clear
+    wavelet spectral feature) and an east-west dipole on a slower ~40-day
+    cycle.  Read by the ``generic`` reader.
     """
     rng = np.random.default_rng(seed)
     times = pd.date_range("2020-01-01", periods=n_times, freq="1D")
-    lats = np.linspace(-5.0, 5.0, 8)
-    lons = np.linspace(0.0, 30.0, 10)
+    # Fine grid so the spatial modes render as smooth fields, not blocky cells.
+    lats = np.linspace(-20.0, 20.0, 30)
+    lons = np.linspace(0.0, 60.0, 40)
     t = np.arange(n_times)
-    x = np.linspace(0, np.pi, len(lons))
-    # dominant 16-day PC
+
+    # Two orthogonal structured 2-D spatial patterns on the (lat, lon) grid.
+    xn = (lons - lons.min()) / (lons.max() - lons.min())  # 0..1 across lon
+    yn = (lats - lats.min()) / (lats.max() - lats.min())  # 0..1 across lat
+    p1 = np.sin(np.pi * yn)[:, None] * np.sin(np.pi * xn)[None, :]  # smooth dome
+    p2 = np.sin(np.pi * yn)[:, None] * np.sin(2 * np.pi * xn)[None, :]  # E-W dipole
+
+    # Dominant ~16-day PC (drives the wavelet scalogram of EOF PC1) + a slower
+    # 40-day PC for the second mode.
     pc1 = np.sin(2 * np.pi * t / 16.0) + 0.3 * rng.normal(size=n_times)
-    p1 = np.cos(x)[None, :] * np.ones((len(lats), 1))
+    pc2 = np.sin(2 * np.pi * t / 40.0) + 0.3 * rng.normal(size=n_times)
     field = (
         3.0 * pc1[:, None, None] * p1[None]
-        + 0.5 * rng.normal(size=(n_times, len(lats), len(lons)))
+        + 1.2 * pc2[:, None, None] * p2[None]
+        + 0.3 * rng.normal(size=(n_times, len(lats), len(lons)))
         + 40.0
     )
     return xr.Dataset(
