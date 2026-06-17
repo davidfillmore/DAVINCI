@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from davinci_monet.pipeline.stages import AnalysesStage, create_standard_pipeline
-from davinci_monet.pipeline.stages import create_geometry_pipeline
+from davinci_monet.pipeline.stages import (
+    AnalysesStage,
+    create_geometry_pipeline,
+    create_standard_pipeline,
+)
 
 
 def _names(stages) -> list[str]:

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import numpy as np
-import xarray as xr
 import pytest
+import xarray as xr
 
 from davinci_monet.analysis import DerivedAnalysis
 from davinci_monet.core.protocols import DataGeometry
@@ -46,7 +46,9 @@ def _ctx() -> PipelineContext:
     )
     return PipelineContext(
         config={
-            "sources": {"cam": {"type": "generic", "files": "x.nc", "variables": {"O3": {"units": "ppb"}}}},
+            "sources": {
+                "cam": {"type": "generic", "files": "x.nc", "variables": {"O3": {"units": "ppb"}}}
+            },
             "analyses": {
                 "pc1_wav": {"type": "wavelet", "source": "cam_O3_eof", "variable": "pc", "mode": 1},
                 "cam_O3_eof": {"type": "eof", "source": "cam", "variable": "O3"},

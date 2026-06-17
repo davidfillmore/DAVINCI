@@ -7,10 +7,12 @@ from davinci_monet.config.schema import EOFSpec, MonetConfig, WaveletSpec
 
 def test_analyses_block_parsed() -> None:
     cfg = MonetConfig(
-        sources={"cam": {"type": "generic", "files": "x.nc", "variables": {"O3": {"units": "ppb"}}}},
+        sources={
+            "cam": {"type": "generic", "files": "x.nc", "variables": {"O3": {"units": "ppb"}}}  # type: ignore[dict-item]
+        },
         analyses={
-            "cam_O3_eof": {"type": "eof", "source": "cam", "variable": "O3", "n_modes": 4},
-            "pc1_wav": {"type": "wavelet", "source": "cam_O3_eof", "variable": "pc", "mode": 1},
+            "cam_O3_eof": {"type": "eof", "source": "cam", "variable": "O3", "n_modes": 4},  # type: ignore[dict-item]
+            "pc1_wav": {"type": "wavelet", "source": "cam_O3_eof", "variable": "pc", "mode": 1},  # type: ignore[dict-item]
         },
     )
     assert isinstance(cfg.analyses["cam_O3_eof"], EOFSpec)

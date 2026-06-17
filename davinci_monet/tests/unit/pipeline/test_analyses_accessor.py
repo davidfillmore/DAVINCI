@@ -10,7 +10,7 @@ _SOURCES = {"cam": {"type": "generic", "files": "x.nc", "variables": {"O3": {"un
 
 
 def test_accessor_from_typed_config() -> None:
-    cfg = MonetConfig(sources=_SOURCES, analyses=_ANALYSES)
+    cfg = MonetConfig(sources=_SOURCES, analyses=_ANALYSES)  # type: ignore[arg-type]
     ctx = PipelineContext(config=cfg)
     out = ctx.analyses_config()
     assert isinstance(out["cam_O3_eof"], EOFSpec)

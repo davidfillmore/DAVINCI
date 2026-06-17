@@ -63,14 +63,19 @@ def test_analysis_runs_through_pipeline(tmp_path: Path, _passthrough_eof) -> Non
     _grid_nc(src)
     config = {
         "analysis": {"output_dir": str(tmp_path / "out")},
-        "sources": {"cam": {"type": "generic", "files": str(src), "variables": {"O3": {"units": "ppb"}}}},
-        "analyses": {"cam_O3_eof": {"type": "eof", "source": "cam", "variable": "O3", "n_modes": 2}},
+        "sources": {
+            "cam": {"type": "generic", "files": str(src), "variables": {"O3": {"units": "ppb"}}}
+        },
+        "analyses": {
+            "cam_O3_eof": {"type": "eof", "source": "cam", "variable": "O3", "n_modes": 2}
+        },
     }
 
     result = PipelineRunner(show_progress=False).run_from_config(config)
 
     assert result.success, getattr(result, "error", None)
     ctx = result.context
+    assert ctx is not None
     assert "cam_O3_eof" in ctx.sources
     derived = ctx.sources["cam_O3_eof"]
     assert derived.source_type == "eof"

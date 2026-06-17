@@ -53,8 +53,9 @@ class AnalysesStage(BaseStage):
         return bool(context.analyses_config())
 
     def execute(self, context: PipelineContext) -> StageResult:
-        import davinci_monet.analysis  # noqa: F401  (registers concrete analyses)
         import time
+
+        import davinci_monet.analysis  # noqa: F401  (registers concrete analyses)
 
         start = time.time()
         specs = context.analyses_config()
@@ -110,4 +111,6 @@ class AnalysesStage(BaseStage):
                 error="Analyses failed: " + "; ".join(str(e) for e in errors),
                 duration=time.time() - start,
             )
-        return self._create_result(StageStatus.COMPLETED, data=summary, duration=time.time() - start)
+        return self._create_result(
+            StageStatus.COMPLETED, data=summary, duration=time.time() - start
+        )

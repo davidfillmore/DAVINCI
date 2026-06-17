@@ -31,6 +31,7 @@ def test_build_wavelet_spec_with_point_reduce() -> None:
 
 def test_wavelet_default_reduce_is_area_mean() -> None:
     spec = build_analysis_spec({"type": "wavelet", "source": "cam", "variable": "O3"})
+    assert isinstance(spec, WaveletSpec)
     assert spec.reduce == "area_mean"
 
 

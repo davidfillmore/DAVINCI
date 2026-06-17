@@ -12,18 +12,18 @@ _SOURCES = {"cam": {"type": "generic", "files": "x.nc", "variables": {"O3": {"un
 def test_analysis_unknown_source_rejected() -> None:
     with pytest.raises(ValueError, match="references unknown source"):
         MonetConfig(
-            sources=_SOURCES,
-            analyses={"a": {"type": "eof", "source": "nope", "variable": "O3"}},
+            sources=_SOURCES,  # type: ignore[arg-type]
+            analyses={"a": {"type": "eof", "source": "nope", "variable": "O3"}},  # type: ignore[dict-item]
         )
 
 
 def test_analysis_cycle_rejected() -> None:
     with pytest.raises(ValueError, match="cycle"):
         MonetConfig(
-            sources=_SOURCES,
+            sources=_SOURCES,  # type: ignore[arg-type]
             analyses={
-                "a": {"type": "wavelet", "source": "b", "variable": "pc"},
-                "b": {"type": "wavelet", "source": "a", "variable": "pc"},
+                "a": {"type": "wavelet", "source": "b", "variable": "pc"},  # type: ignore[dict-item]
+                "b": {"type": "wavelet", "source": "a", "variable": "pc"},  # type: ignore[dict-item]
             },
         )
 
@@ -31,19 +31,19 @@ def test_analysis_cycle_rejected() -> None:
 def test_analysis_key_collides_with_source_rejected() -> None:
     with pytest.raises(ValueError, match="collides"):
         MonetConfig(
-            sources=_SOURCES,
-            analyses={"cam": {"type": "eof", "source": "cam", "variable": "O3"}},
+            sources=_SOURCES,  # type: ignore[arg-type]
+            analyses={"cam": {"type": "eof", "source": "cam", "variable": "O3"}},  # type: ignore[dict-item]
         )
 
 
 def test_pair_referencing_derived_source_rejected() -> None:
     with pytest.raises(ValueError, match="derived sources are not pairable") as excinfo:
         MonetConfig(
-            sources=_SOURCES,
-            analyses={"cam_eof": {"type": "eof", "source": "cam", "variable": "O3"}},
+            sources=_SOURCES,  # type: ignore[arg-type]
+            analyses={"cam_eof": {"type": "eof", "source": "cam", "variable": "O3"}},  # type: ignore[dict-item]
             pairs={
                 "p": {
-                    "x": {"source": "cam", "variable": "O3"},
+                    "x": {"source": "cam", "variable": "O3"},  # type: ignore[dict-item]
                     "y": {"source": "cam_eof", "variable": "O3"},
                 }
             },
@@ -56,8 +56,8 @@ def test_pair_referencing_derived_source_rejected() -> None:
 @pytest.mark.skip(reason="eof_pattern registered in Plan B")
 def test_plot_may_reference_derived_source() -> None:
     cfg = MonetConfig(
-        sources=_SOURCES,
-        analyses={"cam_O3_eof": {"type": "eof", "source": "cam", "variable": "O3"}},
-        plots={"m": {"type": "eof_pattern", "source": "cam_O3_eof", "variable": "mode"}},
+        sources=_SOURCES,  # type: ignore[arg-type]
+        analyses={"cam_O3_eof": {"type": "eof", "source": "cam", "variable": "O3"}},  # type: ignore[dict-item]
+        plots={"m": {"type": "eof_pattern", "source": "cam_O3_eof", "variable": "mode"}},  # type: ignore[dict-item]
     )
     assert "m" in cfg.plots
