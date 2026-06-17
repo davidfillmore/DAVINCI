@@ -632,6 +632,71 @@ class SummaryConfig(StrictSchema):
 
 
 # =============================================================================
+# Derived-Analysis Specs
+# =============================================================================
+
+
+class PointReduce(StrictSchema):
+    """Reduce a gridded field to a series at a single (lat, lon) point."""
+
+    point: tuple[float, float]
+
+
+class EOFSpec(StrictSchema):
+    """EOF decomposition of one gridded source variable."""
+
+    type: Literal["eof"]
+    source: str
+    variable: str
+    n_modes: int = 10
+    standardize: bool = False
+    remove_seasonal_cycle: bool = False
+    rotation: Literal["none", "varimax"] = "none"
+    level: int | None = None
+
+
+class WaveletSpec(StrictSchema):
+    """Continuous wavelet transform of one source variable (a 1-D series)."""
+
+    type: Literal["wavelet"]
+    source: str
+    variable: str
+    mode: int | None = None
+    reduce: Literal["area_mean"] | PointReduce | None = "area_mean"
+    omega0: float = 6.0
+    significance_level: float = 0.95
+    dj: float = 0.25
+    s0: float | None = None
+    j: int | None = None
+
+    @field_validator("reduce", mode="before")
+    @classmethod
+    def _parse_reduce(cls, v: Any) -> Any:
+        if isinstance(v, dict):
+            return PointReduce(**v)
+        return v
+
+
+AnalysisSpec = EOFSpec | WaveletSpec
+
+
+def build_analysis_spec(cfg: Any) -> AnalysisSpec:
+    """Build the right AnalysisSpec submodel from a dict, dispatching on type."""
+    if isinstance(cfg, (EOFSpec, WaveletSpec)):
+        return cfg
+    if not isinstance(cfg, dict):
+        raise ValueError(f"analysis entry must be a mapping, got {type(cfg).__name__}")
+    analysis_type = cfg.get("type")
+    if analysis_type == "eof":
+        return EOFSpec(**cfg)
+    if analysis_type == "wavelet":
+        return WaveletSpec(**cfg)
+    raise ValueError(
+        f"Unknown analysis type '{analysis_type}'. Available analysis types: eof, wavelet"
+    )
+
+
+# =============================================================================
 # Root Configuration
 # =============================================================================
 
