@@ -95,3 +95,119 @@ def _effective_n(anom: xr.DataArray, lat: xr.DataArray) -> float:
     r1 = float(np.corrcoef(x[:-1], x[1:])[0, 1])
     r1 = float(np.clip(r1, -0.99, 0.99))
     return n * (1.0 - r1) / (1.0 + r1)
+
+
+from davinci_monet.analysis.base import DerivedAnalysis  # noqa: E402
+from davinci_monet.core.protocols import DataGeometry  # noqa: E402
+from davinci_monet.core.registry import analysis_registry  # noqa: E402
+
+
+@analysis_registry.register("eof")
+class EOFAnalysis(DerivedAnalysis):
+    """Empirical Orthogonal Function decomposition of a gridded field."""
+
+    name = "eof"
+    long_name = "Empirical Orthogonal Function Decomposition"
+    output_geometry = DataGeometry.GRID
+
+    def analyze(self, data: xr.Dataset, spec: "EOFSpec") -> xr.Dataset:
+        from xeofs.models import EOF, EOFRotator
+
+        da = data[spec.variable]
+        lat = _lat_coord(da)
+        lon = _lon_coord(da)
+        vdim = _vertical_dim(da, lat, lon)
+        if spec.level is not None and vdim is not None:
+            da = da.isel({vdim: spec.level})
+            vdim = None
+
+        anom = da - da.mean("time")
+        if spec.remove_seasonal_cycle:
+            clim = anom.groupby("time.month").mean("time")
+            anom = anom.groupby("time.month") - clim
+        if spec.standardize:
+            std = anom.std("time")
+            anom = anom / std.where(std > 0)
+
+        weight = _area_weight(anom, lat)
+        if vdim is not None and not spec.standardize:
+            mw = _layer_mass_weight(data, vdim)
+            if mw is None:
+                logger.warning(
+                    "EOF 3-D mass weighting unavailable for '%s'; using equal layer weight",
+                    spec.variable,
+                )
+            else:
+                weight = weight * mw
+        elif vdim is not None and spec.standardize:
+            logger.warning(
+                "EOF standardize=True with a 3-D field: vertical mass weighting disabled "
+                "(per-cell standardization already equalizes variance)"
+            )
+        weight = weight.fillna(0.0)
+
+        weighted = (anom * weight).fillna(0.0)
+        model: object = EOF(n_modes=spec.n_modes, use_coslat=False, standardize=False)
+        model.fit(weighted, dim="time")
+        if spec.rotation == "varimax":
+            model = EOFRotator(n_modes=spec.n_modes).fit(model)
+
+        scores = model.scores()                       # (mode, time)
+        ev_ratio = model.explained_variance_ratio()   # (mode,)
+
+        pc = scores / scores.std("time")              # (mode, time), unit variance
+        # Regression of anomaly onto unit-variance PCs → physical spatial modes.
+        # Result has dims (lat, ..., mode); transpose to (mode, <spatial>).
+        mode_raw = (anom * pc).mean("time")
+        spatial_dims = [d for d in mode_raw.dims if d != "mode"]
+        mode_raw = mode_raw.transpose("mode", *spatial_dims)
+        mode_raw, pc = _fix_sign(mode_raw, pc)
+
+        n_modes = int(ev_ratio.sizes["mode"])
+        mode_idx = np.arange(1, n_modes + 1)
+
+        # Build Dataset from numpy arrays to avoid DataArray dim-name collisions.
+        # xarray does not allow a data variable to share its name with one of its
+        # dimensions, so spatial patterns are stored as "eofs" (not "mode") while
+        # the "mode" dimension carries an integer index 1..n_modes.
+        pc_transposed = pc.transpose("time", "mode")
+        ds = xr.Dataset(
+            {
+                "eofs": xr.Variable(
+                    ("mode", *spatial_dims),
+                    mode_raw.values,
+                    attrs=dict(
+                        units=str(da.attrs.get("units", "")),
+                        long_name=f"EOF spatial pattern of {spec.variable}",
+                        kind="eofs",
+                    ),
+                ),
+                "pc": xr.Variable(
+                    ("time", "mode"),
+                    pc_transposed.values,
+                    attrs=dict(units="1", long_name=f"Principal component of {spec.variable}", kind="pc"),
+                ),
+                "explained_variance": xr.Variable(
+                    ("mode",),
+                    ev_ratio.values,
+                    attrs=dict(kind="scalar", percent=True),
+                ),
+            }
+        )
+        if spec.rotation == "none":
+            n_eff = _effective_n(anom, lat)
+            err_vals = ev_ratio.values * np.sqrt(2.0 / n_eff)
+            ds["explained_variance_error"] = xr.Variable(
+                ("mode",), err_vals, attrs=dict(kind="scalar")
+            )
+
+        # Assign coordinates: integer mode index, spatial dim values, time.
+        coord_kwargs: dict[str, object] = {"mode": mode_idx}
+        for dim in spatial_dims:
+            if dim in anom.coords:
+                coord_kwargs[dim] = anom.coords[dim].values
+        if "time" in anom.coords:
+            coord_kwargs["time"] = anom.coords["time"].values
+        ds = ds.assign_coords(**coord_kwargs)
+        ds.attrs["eof_quantity"] = spec.variable
+        return ds
