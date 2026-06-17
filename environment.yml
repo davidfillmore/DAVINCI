@@ -28,4 +28,5 @@ dependencies:
   - pip
   - pip:
     - anthropic>=0.40
+    - pycwt==0.4.0b0
     - -e ".[dev]"

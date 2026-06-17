@@ -42,6 +42,7 @@ dependencies = [
     "monet>=2.2",
     "monetio>=0.2",
     "rich>=13.0",
+    "pycwt==0.4.0b0",
 ]
 
 [project.optional-dependencies]
