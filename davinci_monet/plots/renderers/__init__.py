@@ -22,6 +22,7 @@ Specialized plots:
 """
 
 from davinci_monet.plots.renderers.boxplot import BoxPlotter
+from davinci_monet.plots.renderers.eof_pattern import EOFPatternPlotter
 
 # Specialized plots
 from davinci_monet.plots.renderers.curtain import CurtainPlotter
@@ -76,4 +77,6 @@ __all__ = [
     "VerticalProfilePlotter",
     "FlightTrackPlotter",
     "LMADensityPlotter",
+    # EOF analysis
+    "EOFPatternPlotter",
 ]
