@@ -1,7 +1,15 @@
 # EOF & Wavelet Analysis — Design Spec
 
 **Date:** 2026-06-17
-**Status:** Approved design, pre-implementation (revised after adversarial spec review)
+**Status:** IMPLEMENTED on `develop` (Plans A/B/C complete; full suite green). See as-built deltas below.
+
+> ## As-built deltas (post-implementation)
+> The shipped feature diverged from this design in three places; the design body below is otherwise accurate. CLAUDE.md reflects the as-built behavior.
+> 1. **EOF engine: xeofs → in-repo numpy SVD.** `xeofs` requires `pandas>=2` but DAVINCI pins `pandas<2`; they cannot coexist. The EOF decomposition is computed with `numpy.linalg.svd` in `analysis/eof.py` (PCs + explained-variance ratio), keeping the regression-based physical-mode derivation from §4.4. Varimax is implemented in-repo (`_varimax_rotation`). No new third-party dependency for EOF. (§4.3 / §8 superseded.)
+> 2. **EOF spatial-pattern variable is `eofs`, not `mode`.** xarray forbids a data variable sharing a dimension's name, so the spatial patterns are the `eofs(mode, [lev,] lat, lon)` variable and `mode` is the (1-indexed) coordinate. Plots use `variable: eofs`. (Adjusts §3.5, §4.7, §6.1.)
+> 3. **`reduce` on an already-1-D series**: `area_mean` is a no-op (not an error); only an explicit `PointReduce` on a 1-D series errors. (Refines §3.3.) Wavelet uses `pycwt==0.4.0b0` (0.5+ needs numpy≥2; 0.3 breaks on numpy 1.26).
+
+**Original status:** Approved design, pre-implementation (revised after adversarial spec review)
 **Scope:** Two new analysis features delivered on one shared "derived-analysis" layer:
 1. **EOF** (Empirical Orthogonal Function) decomposition of any 2-D or 3-D gridded field.
 2. **Wavelet** time-series analysis (Torrence & Compo continuous wavelet transform), including of EOF principal-component coefficients.
