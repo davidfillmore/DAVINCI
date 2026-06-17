@@ -38,6 +38,9 @@ def _spectrum() -> xr.Dataset:
 
 def test_scalogram_quadmesh_and_global_panel() -> None:
     fig = WaveletScalogramPlotter().render(build_series(_spectrum(), "power"))
-    assert any(isinstance(c, QuadMesh) for ax in fig.axes for c in ax.collections)
+    meshes = [c for ax in fig.axes for c in ax.collections if isinstance(c, QuadMesh)]
+    assert meshes, "expected a QuadMesh power layer"
+    # Dense data layer is rasterized so the vector PDF stays small.
+    assert meshes[0].get_rasterized() is True
     assert len(fig.axes) >= 2
     plt.close(fig)

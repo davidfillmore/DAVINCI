@@ -56,7 +56,10 @@ def test_eof_pattern_one_quadmesh_per_mode() -> None:
     assert isinstance(figs, list) and len(figs) == 2
     assert [lbl for lbl, _ in figs] == ["mode1", "mode2"]
     ax = figs[0][1].axes[0]
-    assert any(isinstance(c, QuadMesh) for c in ax.collections)
+    meshes = [c for c in ax.collections if isinstance(c, QuadMesh)]
+    assert meshes, "expected a QuadMesh field"
+    # Dense field layer is rasterized so the vector PDF stays small.
+    assert meshes[0].get_rasterized() is True
     for _, f in figs:
         plt.close(f)
 

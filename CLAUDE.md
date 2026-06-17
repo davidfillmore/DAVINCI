@@ -640,6 +640,14 @@ Rules (enforced by `tests/unit/plots/test_labeling.py` + `test_labels_rendered.p
 - **iCloud delivery is PDF-only**; the optional synthetic gallery
   (`analyses/_gallery/make_gallery.py`) renders one figure per plot type for
   multimodal label inspection.
+- **Rasterize dense data layers in vector (PDF) output.** `pcolormesh`/`imshow`/
+  filled (`fill_between`, `contourf`) and large scatter layers must set
+  `rasterized=True` (or `mappable.set_rasterized(True)`) so PDFs stay small and
+  render cleanly; keep axes, text, and thin contour LINES vector (matplotlib
+  ignores — and warns on — rasterizing a `contour` line set, which trips the
+  `error::UserWarning` gate, so do NOT rasterize contour lines).
+- **Date/time x-axes**: rotate tick labels with `ax.tick_params(axis="x", rotation=45)`
+  (the convention in `timeseries`/`curtain`) to avoid overlap.
 
 ## Common Gotchas
 

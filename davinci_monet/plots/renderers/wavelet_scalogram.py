@@ -50,25 +50,36 @@ class WaveletScalogramPlotter(BasePlotter):
         ax_main = fig.add_subplot(gs[0, 0])
         ax_glob = fig.add_subplot(gs[0, 1], sharey=ax_main)
 
+        # Rasterize the dense data layers so the vector PDF stays small and
+        # renders cleanly; axes/text/contour lines stay vector.
         mesh = ax_main.pcolormesh(
             time,
             period,
             power.transpose("period", "time").values,
             cmap=get_sequential_cmap(),
             shading="auto",
+            rasterized=True,
         )
         ax_main.set_yscale("log")
         ax_main.set_ylim(float(period.max()), float(period.min()))
 
         if "power_significance" in ds:
             sig = ds["power_significance"].transpose("period", "time").values
+            # A single significance line: cheap vector, left unrasterized
+            # (matplotlib ignores rasterizing contour lines).
             ax_main.contour(time, period, sig, levels=[1.0], colors="black", linewidths=1.0)
 
         if "coi" in ds:
             coi = ds["coi"].values
             ax_main.plot(time, coi, color="white", linestyle="--", linewidth=1.2)
             ax_main.fill_between(
-                time, coi, float(period.max()), color="white", alpha=0.3, hatch="xx"
+                time,
+                coi,
+                float(period.max()),
+                color="white",
+                alpha=0.3,
+                hatch="xx",
+                rasterized=True,
             )
 
         unit = str(ds["period"].attrs.get("units", ""))
@@ -78,6 +89,7 @@ class WaveletScalogramPlotter(BasePlotter):
             fontsize=self.config.text.fontsize,
         )
         ax_main.set_xlabel("Time", fontsize=self.config.text.fontsize)
+        ax_main.tick_params(axis="x", rotation=45)
         self.set_title(
             ax_main,
             labeling.title_text(

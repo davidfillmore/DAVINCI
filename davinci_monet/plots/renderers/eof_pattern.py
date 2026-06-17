@@ -78,6 +78,8 @@ class EOFPatternPlotter(BaseSpatialPlotter):
                 marker_size=self.config.style.markersize * 2,
                 alpha=1.0,
             )
+            # Rasterize the dense field layer; axes/text/colorbar stay vector.
+            mappable.set_rasterized(True)
             if vmin < 0 < vmax:
                 mappable.set_norm(TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax))
             self.add_colorbar(fig, mappable, axx, label=labeling.format_units(units))
