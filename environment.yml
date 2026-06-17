@@ -28,5 +28,4 @@ dependencies:
   - pip
   - pip:
     - anthropic>=0.40
-    - xeofs>=2.3,<3
     - -e ".[dev]"

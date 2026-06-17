@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from collections.abc import Hashable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import xarray as xr
@@ -37,7 +38,7 @@ def _vertical_dim(da: xr.DataArray, lat: xr.DataArray, lon: xr.DataArray) -> str
     verts = [d for d in da.dims if d != "time" and d not in horiz]
     if len(verts) > 1:
         raise ValueError(f"EOF: ambiguous vertical dims {verts}; expected one")
-    return verts[0] if verts else None
+    return str(verts[0]) if verts else None
 
 
 def _area_weight(da: xr.DataArray, lat: xr.DataArray) -> xr.DataArray:
@@ -60,7 +61,10 @@ def _layer_mass_weight(data: xr.Dataset, vdim: str) -> xr.DataArray | None:
     elif {"hyai", "hybi"} <= set(data.variables):
         p0 = float(data["P0"]) if "P0" in data.variables else 1.0e5
         ps = float(np.asarray(data["PS"].values).mean()) if "PS" in data.variables else p0
-        edges = np.asarray(data["hyai"].values, float) * p0 + np.asarray(data["hybi"].values, float) * ps
+        edges = (
+            np.asarray(data["hyai"].values, float) * p0
+            + np.asarray(data["hybi"].values, float) * ps
+        )
         if edges.size == nlev + 1:
             dp = np.abs(np.diff(edges))
     if dp is None:
@@ -76,7 +80,7 @@ def _fix_sign(mode: xr.DataArray, pc: xr.DataArray) -> tuple[xr.DataArray, xr.Da
     """
     spatial = [d for d in mode.dims if d != "mode"]
     flat = mode.stack(_pt=spatial)
-    idx = np.abs(flat).argmax("_pt")
+    idx = abs(flat).argmax("_pt")
     peak = flat.isel(_pt=idx)
     signs = xr.where(peak >= 0, 1.0, -1.0)
     return mode * signs, pc * signs
@@ -97,6 +101,65 @@ def _effective_n(anom: xr.DataArray, lat: xr.DataArray) -> float:
     return n * (1.0 - r1) / (1.0 + r1)
 
 
+def _varimax_rotation(loadings: np.ndarray, max_iter: int = 100, tol: float = 1e-6) -> np.ndarray:
+    """Kaiser varimax: return the (k, k) orthogonal rotation maximizing loading variance."""
+    _p, k = loadings.shape
+    rot = np.eye(k)
+    last = 0.0
+    for _ in range(max_iter):
+        lam = loadings @ rot
+        diag = np.diag((lam**2).sum(axis=0))
+        u, s, vt = np.linalg.svd(loadings.T @ (lam**3 - lam @ diag / _p))
+        rot = u @ vt
+        cur = float(s.sum())
+        if last != 0.0 and cur / last < 1.0 + tol:
+            break
+        last = cur
+    return rot
+
+
+def _svd_decompose(
+    weighted: xr.DataArray, n_modes: int, rotation: str
+) -> tuple[xr.DataArray, xr.DataArray]:
+    """EOF decomposition via SVD of the weighted-anomaly matrix.
+
+    Returns unit-variance principal components ``pc(time, mode)`` and the
+    explained-variance ratio ``ev_ratio(mode)``. Replaces a third-party EOF
+    library to stay within the project's ``pandas<2`` dependency pin.
+    """
+    spatial = [d for d in weighted.dims if d != "time"]
+    stacked = weighted.transpose("time", *spatial).stack(_feat=spatial)
+    matrix = np.nan_to_num(np.asarray(stacked.values, dtype=float), nan=0.0)
+    matrix = matrix - matrix.mean(axis=0, keepdims=True)
+
+    u_mat, sing, vt = np.linalg.svd(matrix, full_matrices=False)
+    total = float((sing**2).sum())
+    k = int(min(n_modes, sing.shape[0]))
+    scores = u_mat[:, :k] * sing[:k]  # (time, k)
+    ev_vals = (sing[:k] ** 2) / total if total > 0 else np.zeros(k)
+
+    if rotation == "varimax" and k > 1:
+        loadings = vt[:k].T * sing[:k]  # (feat, k)
+        rot = _varimax_rotation(loadings)
+        scores = scores @ rot
+        var = (scores**2).sum(axis=0)
+        ev_vals = var / total if total > 0 else np.zeros(k)
+        order = np.argsort(ev_vals)[::-1]  # rotation does not preserve ordering
+        scores = scores[:, order]
+        ev_vals = ev_vals[order]
+
+    std = scores.std(axis=0)
+    std[std == 0.0] = 1.0
+    modes = np.arange(1, k + 1)
+    pc = xr.DataArray(
+        scores / std,
+        dims=("time", "mode"),
+        coords={"time": weighted["time"].values, "mode": modes},
+    )
+    ev_ratio = xr.DataArray(ev_vals, dims=("mode",), coords={"mode": modes})
+    return pc, ev_ratio
+
+
 from davinci_monet.analysis.base import DerivedAnalysis  # noqa: E402
 from davinci_monet.core.protocols import DataGeometry  # noqa: E402
 from davinci_monet.core.registry import analysis_registry  # noqa: E402
@@ -111,8 +174,6 @@ class EOFAnalysis(DerivedAnalysis):
     output_geometry = DataGeometry.GRID
 
     def analyze(self, data: xr.Dataset, spec: "EOFSpec") -> xr.Dataset:
-        from xeofs.models import EOF, EOFRotator
-
         da = data[spec.variable]
         lat = _lat_coord(da)
         lon = _lon_coord(da)
@@ -147,15 +208,7 @@ class EOFAnalysis(DerivedAnalysis):
         weight = weight.fillna(0.0)
 
         weighted = (anom * weight).fillna(0.0)
-        model: object = EOF(n_modes=spec.n_modes, use_coslat=False, standardize=False)
-        model.fit(weighted, dim="time")
-        if spec.rotation == "varimax":
-            model = EOFRotator(n_modes=spec.n_modes).fit(model)
-
-        scores = model.scores()                       # (mode, time)
-        ev_ratio = model.explained_variance_ratio()   # (mode,)
-
-        pc = scores / scores.std("time")              # (mode, time), unit variance
+        pc, ev_ratio = _svd_decompose(weighted, spec.n_modes, spec.rotation)
         # Regression of anomaly onto unit-variance PCs → physical spatial modes.
         # Result has dims (lat, ..., mode); transpose to (mode, <spatial>).
         mode_raw = (anom * pc).mean("time")
@@ -185,7 +238,9 @@ class EOFAnalysis(DerivedAnalysis):
                 "pc": xr.Variable(
                     ("time", "mode"),
                     pc_transposed.values,
-                    attrs=dict(units="1", long_name=f"Principal component of {spec.variable}", kind="pc"),
+                    attrs=dict(
+                        units="1", long_name=f"Principal component of {spec.variable}", kind="pc"
+                    ),
                 ),
                 "explained_variance": xr.Variable(
                     ("mode",),
@@ -202,12 +257,12 @@ class EOFAnalysis(DerivedAnalysis):
             )
 
         # Assign coordinates: integer mode index, spatial dim values, time.
-        coord_kwargs: dict[str, object] = {"mode": mode_idx}
+        coord_kwargs: dict[Hashable, Any] = {"mode": mode_idx}
         for dim in spatial_dims:
             if dim in anom.coords:
                 coord_kwargs[dim] = anom.coords[dim].values
         if "time" in anom.coords:
             coord_kwargs["time"] = anom.coords["time"].values
-        ds = ds.assign_coords(**coord_kwargs)
+        ds = ds.assign_coords(coord_kwargs)
         ds.attrs["eof_quantity"] = spec.variable
         return ds

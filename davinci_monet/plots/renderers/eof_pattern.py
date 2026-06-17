@@ -59,7 +59,7 @@ class EOFPatternPlotter(BaseSpatialPlotter):
             fld = field.sel(mode=m)
             vdims = [d for d in fld.dims if d not in horiz]
             if vdims:
-                lev = vdims[0]
+                lev = str(vdims[0])
                 idx = display_level if display_level is not None else surface_level_index(fld, lev)
                 fld = fld.isel({lev: idx})
 
@@ -67,10 +67,16 @@ class EOFPatternPlotter(BaseSpatialPlotter):
             fig, axx = self.create_map_figure()
             self.add_map_features(axx)
             mappable = draw_spatial_field(
-                axx, fld.values, lats, lons,
-                plot_type="pcolormesh", cmap=get_bias_cmap(),
-                vmin=vmin, vmax=vmax,
-                marker_size=self.config.style.markersize * 2, alpha=1.0,
+                axx,
+                fld.values,
+                lats,
+                lons,
+                plot_type="pcolormesh",
+                cmap=get_bias_cmap(),
+                vmin=vmin,
+                vmax=vmax,
+                marker_size=self.config.style.markersize * 2,
+                alpha=1.0,
             )
             if vmin < 0 < vmax:
                 mappable.set_norm(TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax))

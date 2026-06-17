@@ -17,18 +17,35 @@ from davinci_monet.plots.renderers.eof_pattern import EOFPatternPlotter  # noqa:
 
 
 def _eof_ds(nlev=0) -> xr.Dataset:
-    lat = np.linspace(10, 40, 4); lon = np.linspace(-120, -90, 5)
+    lat = np.linspace(10, 40, 4)
+    lon = np.linspace(-120, -90, 5)
     if nlev:
         arr = np.zeros((2, nlev, 4, 5))
         arr[:, -1] = 1.0  # surface level (last index) distinct
-        da = xr.DataArray(arr, dims=("mode", "lev", "lat", "lon"),
-                          coords={"mode": [1, 2], "lev": np.array([100.0, 500.0, 1000.0])[:nlev],
-                                  "lat": lat, "lon": lon, "latitude": ("lat", lat), "longitude": ("lon", lon)})
+        da = xr.DataArray(
+            arr,
+            dims=("mode", "lev", "lat", "lon"),
+            coords={
+                "mode": [1, 2],
+                "lev": np.array([100.0, 500.0, 1000.0])[:nlev],
+                "lat": lat,
+                "lon": lon,
+                "latitude": ("lat", lat),
+                "longitude": ("lon", lon),
+            },
+        )
     else:
-        da = xr.DataArray(np.random.default_rng(0).normal(size=(2, 4, 5)),
-                          dims=("mode", "lat", "lon"),
-                          coords={"mode": [1, 2], "lat": lat, "lon": lon,
-                                  "latitude": ("lat", lat), "longitude": ("lon", lon)})
+        da = xr.DataArray(
+            np.random.default_rng(0).normal(size=(2, 4, 5)),
+            dims=("mode", "lat", "lon"),
+            coords={
+                "mode": [1, 2],
+                "lat": lat,
+                "lon": lon,
+                "latitude": ("lat", lat),
+                "longitude": ("lon", lon),
+            },
+        )
     ds = xr.Dataset({"eofs": da, "explained_variance": ("mode", np.array([0.7, 0.3]))})
     ds.attrs["eof_quantity"] = "O3"
     return ds

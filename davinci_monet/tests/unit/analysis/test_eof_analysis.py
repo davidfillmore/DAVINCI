@@ -19,18 +19,27 @@ def _planted(nt=200, nlat=6, nlon=8, seed=0) -> tuple[xr.Dataset, np.ndarray, np
     p2 = np.cos(2 * x)[None, :] * np.ones((nlat, 1))
     pc1 = rng.normal(size=nt)
     pc2 = rng.normal(size=nt)
-    field = (3.0 * pc1[:, None, None] * p1[None] + 1.0 * pc2[:, None, None] * p2[None]
-             + 0.05 * rng.normal(size=(nt, nlat, nlon)))
+    field = (
+        3.0 * pc1[:, None, None] * p1[None]
+        + 1.0 * pc2[:, None, None] * p2[None]
+        + 0.05 * rng.normal(size=(nt, nlat, nlon))
+    )
     ds = xr.Dataset(
         {"O3": (("time", "lat", "lon"), field, {"units": "ppb"})},
-        coords={"time": np.arange(nt), "lat": lat, "lon": lon,
-                "latitude": ("lat", lat), "longitude": ("lon", lon)},
+        coords={
+            "time": np.arange(nt),
+            "lat": lat,
+            "lon": lon,
+            "latitude": ("lat", lat),
+            "longitude": ("lon", lon),
+        },
     )
     return ds, p1.ravel(), pc1
 
 
 def _corr(a, b) -> float:
-    a = np.asarray(a, float).ravel(); b = np.asarray(b, float).ravel()
+    a = np.asarray(a, float).ravel()
+    b = np.asarray(b, float).ravel()
     return abs(float(np.corrcoef(a, b)[0, 1]))
 
 

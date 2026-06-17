@@ -20,15 +20,26 @@ def _grid(nt=10, nlat=4, nlon=5, nlev=0) -> xr.DataArray:
     lat = np.linspace(10, 40, nlat)
     lon = np.linspace(-120, -90, nlon)
     if nlev:
-        dims = ("time", "lev", "lat", "lon")
-        shape = (nt, nlev, nlat, nlon)
-        coords = {"time": np.arange(nt), "lev": np.arange(nlev), "lat": lat, "lon": lon,
-                  "latitude": ("lat", lat), "longitude": ("lon", lon)}
+        dims: tuple[str, ...] = ("time", "lev", "lat", "lon")
+        shape: tuple[int, ...] = (nt, nlev, nlat, nlon)
+        coords = {
+            "time": np.arange(nt),
+            "lev": np.arange(nlev),
+            "lat": lat,
+            "lon": lon,
+            "latitude": ("lat", lat),
+            "longitude": ("lon", lon),
+        }
     else:
         dims = ("time", "lat", "lon")
         shape = (nt, nlat, nlon)
-        coords = {"time": np.arange(nt), "lat": lat, "lon": lon,
-                  "latitude": ("lat", lat), "longitude": ("lon", lon)}
+        coords = {
+            "time": np.arange(nt),
+            "lat": lat,
+            "lon": lon,
+            "latitude": ("lat", lat),
+            "longitude": ("lon", lon),
+        }
     return xr.DataArray(np.ones(shape), dims=dims, coords=coords, name="O3")
 
 
@@ -58,7 +69,9 @@ def test_fix_sign_makes_max_loading_positive() -> None:
         dims=("mode", "lat"),
         coords={"mode": [1, 2], "lat": [0, 1]},
     )
-    pc = xr.DataArray(np.ones((2, 4)), dims=("mode", "time"), coords={"mode": [1, 2], "time": np.arange(4)})
+    pc = xr.DataArray(
+        np.ones((2, 4)), dims=("mode", "time"), coords={"mode": [1, 2], "time": np.arange(4)}
+    )
     m2, p2 = _fix_sign(mode, pc)
     assert float(m2.sel(mode=1).max()) == 3.0
     assert float(p2.sel(mode=1).isel(time=0)) == -1.0

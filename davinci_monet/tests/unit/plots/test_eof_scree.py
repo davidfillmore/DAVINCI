@@ -33,6 +33,6 @@ def test_eof_scree_bars_and_errorbars() -> None:
     ax = fig.axes[0]
     assert any(isinstance(c, BarContainer) for c in ax.containers)
     assert ax.get_ylabel().startswith("Explained variance")
-    heights = sorted(rect.get_height() for rect in ax.patches)
+    heights = sorted(rect.get_height() for rect in ax.patches)  # type: ignore[attr-defined]
     assert heights[-1] == pytest.approx(60.0, abs=0.1)
     plt.close(fig)

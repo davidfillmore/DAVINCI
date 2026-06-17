@@ -75,6 +75,8 @@ from davinci_monet.plots.renderers import (  # Temporal; Statistical; Specialize
     BoxPlotter,
     CurtainPlotter,
     DiurnalPlotter,
+    EOFPatternPlotter,
+    EOFScreePlotter,
     FlightTrackPlotter,
     HistogramPlotter,
     LMADensityPlotter,
@@ -191,6 +193,8 @@ __all__ = [
     "VerticalProfilePlotter",
     "FlightTrackPlotter",
     "LMADensityPlotter",
+    "EOFPatternPlotter",
+    "EOFScreePlotter",
 ]
 
 # Importing plots.base loads the plots.plot_config submodule; keep it off the

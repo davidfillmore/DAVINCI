@@ -42,7 +42,6 @@ dependencies = [
     "monet>=2.2",
     "monetio>=0.2",
     "rich>=13.0",
-    "xeofs>=2.3,<3",
 ]
 
 [project.optional-dependencies]

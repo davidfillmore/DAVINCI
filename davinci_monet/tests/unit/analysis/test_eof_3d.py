@@ -18,12 +18,21 @@ def _planted_3d(nt=150, nlev=3, nlat=5, nlon=6, seed=2) -> xr.Dataset:
     p1 = vstruct[:, None, None] * np.cos(x)[None, None, :]
     p1 = np.broadcast_to(p1, (nlev, nlat, nlon))
     pc1 = rng.normal(size=nt)
-    field = 3.0 * pc1[:, None, None, None] * p1[None] + 0.05 * rng.normal(size=(nt, nlev, nlat, nlon))
-    lat = np.linspace(-5, 5, nlat); lon = np.linspace(0, 30, nlon)
+    field = 3.0 * pc1[:, None, None, None] * p1[None] + 0.05 * rng.normal(
+        size=(nt, nlev, nlat, nlon)
+    )
+    lat = np.linspace(-5, 5, nlat)
+    lon = np.linspace(0, 30, nlon)
     return xr.Dataset(
         {"O3": (("time", "lev", "lat", "lon"), field, {"units": "ppb"})},
-        coords={"time": np.arange(nt), "lev": np.arange(nlev), "lat": lat, "lon": lon,
-                "latitude": ("lat", lat), "longitude": ("lon", lon)},
+        coords={
+            "time": np.arange(nt),
+            "lev": np.arange(nlev),
+            "lat": lat,
+            "lon": lon,
+            "latitude": ("lat", lat),
+            "longitude": ("lon", lon),
+        },
     )
 
 

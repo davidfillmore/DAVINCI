@@ -55,6 +55,8 @@ class EOFScreePlotter(BasePlotter):
         ax.set_xlabel("Mode", fontsize=self.config.text.fontsize)
         ax.set_ylabel("Explained variance (%)", fontsize=self.config.text.fontsize)
         quantity = str(ds.attrs.get("eof_quantity", ""))
-        self.set_title(ax, title or labeling.title_text(quantity, operation="EOF Explained Variance"))
+        self.set_title(
+            ax, title or labeling.title_text(quantity, operation="EOF Explained Variance")
+        )
         ax.grid(True, alpha=0.3, axis="y")
         return fig
