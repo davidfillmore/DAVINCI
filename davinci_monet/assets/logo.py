@@ -40,7 +40,7 @@ def get_colored_logo() -> Text:
     wave3_r = "( (((  "
 
     # Acronym expansion
-    davinci = "Data Analysis and Visual Intelligence for Climate"
+    davinci = "Data Analysis and Visual Intelligence for Climate/Chemistry"
 
     # Line 1 - NSF NCAR + DAVINCI
     orange(wave1_l)

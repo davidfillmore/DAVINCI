@@ -21,7 +21,7 @@ nocite: '@fillmore_davinci'
 
 # Summary
 
-DAVINCI (Data Analysis and Visual Intelligence for Climate) is a
+DAVINCI (Data Analysis and Visual Intelligence for Climate/Chemistry) is a
 Python package for evaluating climate and atmospheric composition dataset
 output against geometries. It combines validated YAML configuration,
 geometry-aware pairing, evaluation statistics, and plotting in a stage-based
