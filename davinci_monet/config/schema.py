@@ -741,6 +741,7 @@ class MonetConfig(StrictSchema):
     pairs: dict[str, SourcePairConfig] = Field(default_factory=dict)
     pairing: PipelinePairingConfig | None = None
     plots: dict[str, PlotGroupConfig] = Field(default_factory=dict)
+    analyses: dict[str, AnalysisSpec] = Field(default_factory=dict)
     stats: StatsConfig | None = None
     summary: SummaryConfig | None = None
 
@@ -766,6 +767,19 @@ class MonetConfig(StrictSchema):
         if isinstance(v, dict):
             return {
                 str(name): SourcePairConfig(**cfg) if isinstance(cfg, dict) else cfg
+                for name, cfg in v.items()
+            }
+        return dict(v)
+
+    @field_validator("analyses", mode="before")
+    @classmethod
+    def parse_analyses(cls, v: Any) -> dict[str, AnalysisSpec]:
+        """Parse derived-analysis configurations (dispatch on type)."""
+        if v is None:
+            return {}
+        if isinstance(v, dict):
+            return {
+                str(name): build_analysis_spec(cfg) if isinstance(cfg, dict) else cfg
                 for name, cfg in v.items()
             }
         return dict(v)
