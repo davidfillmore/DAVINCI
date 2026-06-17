@@ -132,6 +132,8 @@ module = [
     "yaml.*",
     "pyhdf",
     "pyhdf.*",
+    "pycwt",
+    "pycwt.*",
 ]
 ignore_missing_imports = true
 
