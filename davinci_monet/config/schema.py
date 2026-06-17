@@ -804,12 +804,13 @@ class MonetConfig(StrictSchema):
         """Validate that pair, plot, and stats references resolve."""
         source_names = set(self.sources)
         pair_names = set(self.pairs)
+        analysis_names = set(self.analyses)
         errors: list[str] = []
 
         for pair_name, pair in self.pairs.items():
-            if source_names and pair.x.source not in source_names:
+            if source_names and pair.x.source not in source_names | analysis_names:
                 errors.append(f"pairs.{pair_name}.x.source references unknown source")
-            if source_names and pair.y.source not in source_names:
+            if source_names and pair.y.source not in source_names | analysis_names:
                 errors.append(f"pairs.{pair_name}.y.source references unknown source")
 
         for plot_name, plot in self.plots.items():
@@ -833,7 +834,7 @@ class MonetConfig(StrictSchema):
                     errors.append(f"plots.{plot_name}.pairs references unknown pair '{ref}'")
 
             source_ref = plot.source
-            if source_ref is not None and str(source_ref) not in source_names | set(self.analyses):
+            if source_ref is not None and str(source_ref) not in source_names | analysis_names:
                 errors.append(f"plots.{plot_name}.source references unknown source '{source_ref}'")
 
         if self.stats is not None:
@@ -841,7 +842,6 @@ class MonetConfig(StrictSchema):
                 if ref not in pair_names:
                     errors.append(f"stats.data references unknown pair '{ref}'")
 
-        analysis_names = set(self.analyses)
         # Derived analyses become pseudo-sources; their keys must be unique.
         for name in analysis_names & source_names:
             errors.append(f"analyses.{name} collides with a source of the same name")

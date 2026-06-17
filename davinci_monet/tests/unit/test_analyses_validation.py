@@ -36,6 +36,23 @@ def test_analysis_key_collides_with_source_rejected() -> None:
         )
 
 
+def test_pair_referencing_derived_source_rejected() -> None:
+    with pytest.raises(ValueError, match="derived sources are not pairable") as excinfo:
+        MonetConfig(
+            sources=_SOURCES,
+            analyses={"cam_eof": {"type": "eof", "source": "cam", "variable": "O3"}},
+            pairs={
+                "p": {
+                    "x": {"source": "cam", "variable": "O3"},
+                    "y": {"source": "cam_eof", "variable": "O3"},
+                }
+            },
+        )
+    # The misleading duplicate "references unknown source" message must NOT fire
+    # for this pair — only the specific not-pairable message.
+    assert "references unknown source" not in str(excinfo.value)
+
+
 @pytest.mark.skip(reason="eof_pattern registered in Plan B")
 def test_plot_may_reference_derived_source() -> None:
     cfg = MonetConfig(
