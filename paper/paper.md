@@ -29,7 +29,9 @@ workflow built around xarray datasets. Datasets and geometries are handled
 uniformly as data sources distinguished by their data geometry rather than by
 type, so DAVINCI supports paired dataset-geometry analyses, geometry-only
 field-campaign workflows, and satellite swath-to-grid evaluation within one
-software stack. It is intended
+software stack. A derived-analysis layer extends the same workflow to intrinsic
+single-source diagnostics, including empirical orthogonal function (EOF)
+decomposition and continuous-wavelet time--frequency analysis. It is intended
 for atmospheric chemistry dataset developers and analysis teams who need
 reproducible, scriptable evaluation across multiple geometry types,
 including repeatable batch workflows.
@@ -137,6 +139,23 @@ The package also includes performance-oriented features such as geometry
 time filtering during load, configurable Dask concurrency during pairing, and
 numba-accelerated grid binning for satellite workflows.
 
+Beyond dataset--geometry comparison, DAVINCI includes a derived-analysis layer
+for intrinsic diagnostics computed from a single source. Analyses are declared
+in the same control file and run as a pipeline stage in dependency order; each
+result is registered as a first-class data source, so the existing plotters
+render it without special cases and one analysis can consume another. Two
+analyses are provided. An empirical orthogonal function (EOF) decomposition
+reduces any 2-D or 3-D gridded field to ranked spatial patterns and
+principal-component time series from area- and layer-mass-weighted anomalies via
+a singular-value decomposition, with North's rule [@north_eof_1982] for
+eigenvalue separation. A continuous-wavelet analysis applies the Morlet
+transform of @torrence_compo_1998—with AR(1) red-noise significance and a cone
+of influence—to any one-dimensional series, whether a station record, a domain
+average, or an EOF principal component. Dedicated renderers produce EOF pattern
+maps, scree plots, and wavelet scalograms; computing the wavelet spectrum of an
+EOF principal component is expressed as a short chain of analyses in the control
+file rather than as bespoke code.
+
 An optional final stage realizes the "Visual Intelligence" element of the
 toolkit's name: a single-prompt AI summary of each run. When enabled in the
 control file, it sends the computed statistics, configuration metadata, and a
@@ -179,7 +198,7 @@ for this paper. Some workflows depend on external datasets or credentials, so
 DAVINCI does not claim that every analysis is push-button reproducible in a
 fresh environment. Instead, the repository makes the configuration,
 acquisition paths, and workflow structure explicit, and the test suite
-(1,200+ synthetic-data tests) verifies pipeline correctness independent of
+(1,500+ synthetic-data tests) verifies pipeline correctness independent of
 external data. The same structure also supports repeated campaign-scale runs
 through a consistent command-line and configuration interface.
 
