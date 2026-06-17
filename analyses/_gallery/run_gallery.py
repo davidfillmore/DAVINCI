@@ -12,7 +12,8 @@ directly.  Instead the script:
 
 Plot types covered (each produced through the pipeline):
   scatter, timeseries, spatial (single-source map), spatial_bias, curtain,
-  vertical_profile, histogram, flight_track, track_map_3d.
+  vertical_profile, histogram, flight_track, track_map_3d,
+  eof_pattern, eof_scree, wavelet_scalogram.
 
 Data is internally consistent (source name matches the physical quantity):
   - O3 plots use ppbv "Ozone" sources (cam / wrf / airnow / cesm).
@@ -166,6 +167,50 @@ def _gridded_no2_column(seed: int, scale: float = 1.0) -> xr.Dataset:
             "time": times,
             "lat": ("lat", lats, {"units": "degrees_north"}),
             "lon": ("lon", lons, {"units": "degrees_east"}),
+        },
+        attrs={"geometry": "grid"},
+    )
+
+
+def _gridded_o3_long(seed: int, n_times: int = 256) -> xr.Dataset:
+    """2-D (time, lat, lon) O3 grid with 256 daily steps for EOF/wavelet.
+
+    Two orthogonal structured spatial modes on a fine grid: a smooth dome
+    modulated by a dominant ~16-day oscillation (so EOF PC1 drives a clear
+    wavelet spectral feature) and an east-west dipole on a slower ~40-day
+    cycle.  Read by the ``generic`` reader.
+    """
+    rng = np.random.default_rng(seed)
+    times = pd.date_range("2020-01-01", periods=n_times, freq="1D")
+    # Fine grid so the spatial modes render as smooth fields, not blocky cells.
+    lats = np.linspace(-20.0, 20.0, 30)
+    lons = np.linspace(0.0, 60.0, 40)
+    t = np.arange(n_times)
+
+    # Two orthogonal structured 2-D spatial patterns on the (lat, lon) grid.
+    xn = (lons - lons.min()) / (lons.max() - lons.min())  # 0..1 across lon
+    yn = (lats - lats.min()) / (lats.max() - lats.min())  # 0..1 across lat
+    p1 = np.sin(np.pi * yn)[:, None] * np.sin(np.pi * xn)[None, :]  # smooth dome
+    p2 = np.sin(np.pi * yn)[:, None] * np.sin(2 * np.pi * xn)[None, :]  # E-W dipole
+
+    # Dominant ~16-day PC (drives the wavelet scalogram of EOF PC1) + a slower
+    # 40-day PC for the second mode.
+    pc1 = np.sin(2 * np.pi * t / 16.0) + 0.3 * rng.normal(size=n_times)
+    pc2 = np.sin(2 * np.pi * t / 40.0) + 0.3 * rng.normal(size=n_times)
+    field = (
+        3.0 * pc1[:, None, None] * p1[None]
+        + 1.2 * pc2[:, None, None] * p2[None]
+        + 0.3 * rng.normal(size=(n_times, len(lats), len(lons)))
+        + 40.0
+    )
+    return xr.Dataset(
+        {"O3": (["time", "lat", "lon"], field.clip(min=0), {"units": "ppb", "long_name": "Ozone"})},
+        coords={
+            "time": times,
+            "lat": ("lat", lats, {"units": "degrees_north"}),
+            "lon": ("lon", lons, {"units": "degrees_east"}),
+            "latitude": ("lat", lats, {"units": "degrees_north"}),
+            "longitude": ("lon", lons, {"units": "degrees_east"}),
         },
         attrs={"geometry": "grid"},
     )
@@ -426,6 +471,97 @@ def config_no2_column(run_dir: Path) -> dict:
     }
 
 
+def _analysis_block_long(run_dir: Path) -> dict:
+    """Analysis block spanning the long synthetic grid (2020, 256 daily steps)."""
+    return {
+        "start_time": "2020-01-01",
+        "end_time": "2020-09-13",  # 256 days from 2020-01-01
+        "output_dir": str(run_dir),
+        "log_dir": str(run_dir / "logs"),
+        "style": {"theme": "ncar"},
+    }
+
+
+def config_eof(run_dir: Path) -> dict:
+    """EOF decomposition of a long O3 grid.
+
+    Drives: eof_pattern (spatial modes), eof_scree (variance bar chart).
+    """
+    src = _write_nc(_gridded_o3_long(seed=99), "o3_long_grid.nc")
+    return {
+        "analysis": _analysis_block_long(run_dir),
+        "sources": {
+            "cam": {
+                "type": "generic",
+                "files": src,
+                "variables": {"O3": {"units": "ppb"}},
+            }
+        },
+        "analyses": {
+            "cam_O3_eof": {
+                "type": "eof",
+                "source": "cam",
+                "variable": "O3",
+                "n_modes": 4,
+            }
+        },
+        "plots": {
+            "eof_pattern": {
+                "type": "eof_pattern",
+                "source": "cam_O3_eof",
+                "variable": "eofs",
+                "title": "O3",
+            },
+            "eof_scree": {
+                "type": "eof_scree",
+                "source": "cam_O3_eof",
+                "variable": "explained_variance",
+                "title": "O3",
+            },
+        },
+    }
+
+
+def config_wavelet(run_dir: Path) -> dict:
+    """Wavelet scalogram of the leading EOF PC of O3.
+
+    Chain: eof -> wavelet -> wavelet_scalogram.  Drives: wavelet_scalogram.
+    """
+    src = _write_nc(_gridded_o3_long(seed=99), "o3_long_grid.nc")
+    return {
+        "analysis": _analysis_block_long(run_dir),
+        "sources": {
+            "cam": {
+                "type": "generic",
+                "files": src,
+                "variables": {"O3": {"units": "ppb"}},
+            }
+        },
+        "analyses": {
+            "cam_O3_eof": {
+                "type": "eof",
+                "source": "cam",
+                "variable": "O3",
+                "n_modes": 3,
+            },
+            "pc1_wav": {
+                "type": "wavelet",
+                "source": "cam_O3_eof",
+                "variable": "pc",
+                "mode": 1,
+            },
+        },
+        "plots": {
+            "wavelet_scalogram": {
+                "type": "wavelet_scalogram",
+                "source": "pc1_wav",
+                "variable": "power",
+                "title": "O3 PC-1",
+            }
+        },
+    }
+
+
 def config_olr_bias(run_dir: Path) -> dict:
     """OLR spatial bias [W m-2]: merra2 model (y) vs ceres obs (x)."""
     merra2 = _write_nc(_gridded_olr(seed=66, bias=12.0), "olr_merra2_grid.nc")
@@ -506,6 +642,18 @@ _CONFIGS = [
         config_olr_bias,
         "olr_bias",
         {"spatial_bias_olr": "spatial_bias_olr"},
+    ),
+    (
+        "gallery-eof",
+        config_eof,
+        "eof",
+        {"eof_pattern": "eof_pattern", "eof_scree": "eof_scree"},
+    ),
+    (
+        "gallery-wavelet",
+        config_wavelet,
+        "wavelet",
+        {"wavelet_scalogram": "wavelet_scalogram"},
     ),
 ]
 

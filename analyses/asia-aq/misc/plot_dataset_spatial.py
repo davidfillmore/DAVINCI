@@ -13,9 +13,9 @@ import xarray as xr
 
 from davinci_monet.datasets.cesm import CESMFVReader
 from davinci_monet.plots import (
-    SpatialDistributionPlotter,
-    PlotConfig,
     MapConfig,
+    PlotConfig,
+    SpatialDistributionPlotter,
 )
 
 # Paths
@@ -48,16 +48,20 @@ def prepare_dataset_as_paired(ds: xr.Dataset, var: str, scale: float = 1.0) -> x
     lon_coord = "longitude" if "longitude" in ds.coords else "lon"
 
     # Create paired-like dataset
-    paired = xr.Dataset({
-        f"geometry_{var.lower()}": data,
-        f"dataset_{var.lower()}": data,
-    })
+    paired = xr.Dataset(
+        {
+            f"geometry_{var.lower()}": data,
+            f"dataset_{var.lower()}": data,
+        }
+    )
 
     # Add coordinates
-    paired = paired.assign_coords({
-        "latitude": ds[lat_coord],
-        "longitude": ds[lon_coord],
-    })
+    paired = paired.assign_coords(
+        {
+            "latitude": ds[lat_coord],
+            "longitude": ds[lon_coord],
+        }
+    )
 
     return paired
 
@@ -85,7 +89,10 @@ def plot_with_davinci_plotter():
     ]
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle("CESM/CAM ASIA-AQ Surface Fields (DAVINCI-MONET Plotter)\n2024-02-01 00-12 UTC Average", fontsize=14)
+    fig.suptitle(
+        "CESM/CAM ASIA-AQ Surface Fields (DAVINCI-MONET Plotter)\n2024-02-01 00-12 UTC Average",
+        fontsize=14,
+    )
 
     for ax, (var, scale, units, cmap, vmin, vmax) in zip(axes.flat, variables):
         print(f"  Plotting {var}...")
@@ -105,10 +112,8 @@ def plot_with_davinci_plotter():
 
         # We need to create a GeoAxes for cartopy
         import cartopy.crs as ccrs
-        ax_geo = fig.add_subplot(
-            2, 2, list(axes.flat).index(ax) + 1,
-            projection=ccrs.PlateCarree()
-        )
+
+        ax_geo = fig.add_subplot(2, 2, list(axes.flat).index(ax) + 1, projection=ccrs.PlateCarree())
         ax.remove()  # Remove the original non-geo axis
 
         # Plot using the plotter

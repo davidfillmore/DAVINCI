@@ -5,6 +5,7 @@ Convenience constructors that assemble the standard ordered list of stages.
 
 from __future__ import annotations
 
+from davinci_monet.pipeline.stages.analyses import AnalysesStage
 from davinci_monet.pipeline.stages.base import BaseStage
 from davinci_monet.pipeline.stages.io import SaveResultsStage
 from davinci_monet.pipeline.stages.load import LoadSourcesStage
@@ -25,6 +26,7 @@ def create_standard_pipeline() -> list[BaseStage]:
     """
     return [
         LoadSourcesStage(),
+        AnalysesStage(),
         PairingStage(),
         StatisticsStage(),
         PlottingStage(),
@@ -43,6 +45,7 @@ def create_geometry_pipeline() -> list[BaseStage]:
     """
     return [
         LoadSourcesStage(),
+        AnalysesStage(),
         StatisticsStage(),
         PlottingStage(),
         SaveResultsStage(),

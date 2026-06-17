@@ -58,6 +58,7 @@ def compute_tropospheric_column(
     column.attrs = {"long_name": f"{var_name} tropospheric column", "units": "mol/m2"}
     return column
 
+
 # Data directory from env var or default to ~/Data/ASIA-AQ
 ASIA_AQ_DATA = Path(os.environ.get("ASIA_AQ_DATA", Path.home() / "Data" / "ASIA-AQ"))
 
@@ -127,7 +128,9 @@ def main():
 
     # Precompute NO2 column if needed
     if not no2_column_path.exists():
-        dataset_files = glob(str(ASIA_AQ_DATA / "CAM" / "f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc"))
+        dataset_files = glob(
+            str(ASIA_AQ_DATA / "CAM" / "f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-*.nc")
+        )
         if dataset_files:
             precompute_no2_column(dataset_files, no2_column_path)
         else:

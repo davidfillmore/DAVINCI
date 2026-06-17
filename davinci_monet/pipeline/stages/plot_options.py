@@ -11,6 +11,7 @@ SINGLE_SOURCE_SCHEMA_KEYS = {
     "geometry",
     "source",
     "variable",
+    "mode",
     "fig_kwargs",
     "default_plot_kwargs",
     "text_kwargs",
@@ -71,6 +72,9 @@ def single_source_plot_kwargs(
     title = kwargs.get("title")
     if isinstance(title, str):
         kwargs["title"] = strip_trailing_date_title(title)
+
+    if plot_spec.get("display_level") is not None:
+        kwargs["display_level"] = plot_spec["display_level"]
 
     return kwargs
 

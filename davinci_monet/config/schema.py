@@ -469,6 +469,8 @@ class PlotGroupConfig(FlexibleSchema):
     pairs: list[str] = Field(default_factory=list)
     source: str | None = None
     variable: str | None = None
+    mode: int | None = None
+    display_level: int | None = None
     data_proc: DataProcConfig | dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="before")
@@ -632,6 +634,71 @@ class SummaryConfig(StrictSchema):
 
 
 # =============================================================================
+# Derived-Analysis Specs
+# =============================================================================
+
+
+class PointReduce(StrictSchema):
+    """Reduce a gridded field to a series at a single (lat, lon) point."""
+
+    point: tuple[float, float]
+
+
+class EOFSpec(StrictSchema):
+    """EOF decomposition of one gridded source variable."""
+
+    type: Literal["eof"]
+    source: str
+    variable: str
+    n_modes: int = 10
+    standardize: bool = False
+    remove_seasonal_cycle: bool = False
+    rotation: Literal["none", "varimax"] = "none"
+    level: int | None = None
+
+
+class WaveletSpec(StrictSchema):
+    """Continuous wavelet transform of one source variable (a 1-D series)."""
+
+    type: Literal["wavelet"]
+    source: str
+    variable: str
+    mode: int | None = None
+    reduce: Literal["area_mean"] | PointReduce | None = "area_mean"
+    omega0: float = 6.0
+    significance_level: float = 0.95
+    dj: float = 0.25
+    s0: float | None = None
+    j: int | None = None
+
+    @field_validator("reduce", mode="before")
+    @classmethod
+    def _parse_reduce(cls, v: Any) -> Any:
+        if isinstance(v, dict):
+            return PointReduce(**v)
+        return v
+
+
+AnalysisSpec = EOFSpec | WaveletSpec
+
+
+def build_analysis_spec(cfg: Any) -> AnalysisSpec:
+    """Build the right AnalysisSpec submodel from a dict, dispatching on type."""
+    if isinstance(cfg, (EOFSpec, WaveletSpec)):
+        return cfg
+    if not isinstance(cfg, dict):
+        raise ValueError(f"analysis entry must be a mapping, got {type(cfg).__name__}")
+    analysis_type = cfg.get("type")
+    if analysis_type == "eof":
+        return EOFSpec(**cfg)
+    if analysis_type == "wavelet":
+        return WaveletSpec(**cfg)
+    raise ValueError(
+        f"Unknown analysis type '{analysis_type}'. Available analysis types: eof, wavelet"
+    )
+
+
+# =============================================================================
 # Root Configuration
 # =============================================================================
 
@@ -676,6 +743,7 @@ class MonetConfig(StrictSchema):
     pairs: dict[str, SourcePairConfig] = Field(default_factory=dict)
     pairing: PipelinePairingConfig | None = None
     plots: dict[str, PlotGroupConfig] = Field(default_factory=dict)
+    analyses: dict[str, AnalysisSpec] = Field(default_factory=dict)
     stats: StatsConfig | None = None
     summary: SummaryConfig | None = None
 
@@ -705,6 +773,19 @@ class MonetConfig(StrictSchema):
             }
         return dict(v)
 
+    @field_validator("analyses", mode="before")
+    @classmethod
+    def parse_analyses(cls, v: Any) -> dict[str, AnalysisSpec]:
+        """Parse derived-analysis configurations (dispatch on type)."""
+        if v is None:
+            return {}
+        if isinstance(v, dict):
+            return {
+                str(name): build_analysis_spec(cfg) if isinstance(cfg, dict) else cfg
+                for name, cfg in v.items()
+            }
+        return dict(v)
+
     @field_validator("plots", mode="before")
     @classmethod
     def parse_plots(cls, v: Any) -> dict[str, PlotGroupConfig]:
@@ -725,12 +806,13 @@ class MonetConfig(StrictSchema):
         """Validate that pair, plot, and stats references resolve."""
         source_names = set(self.sources)
         pair_names = set(self.pairs)
+        analysis_names = set(self.analyses)
         errors: list[str] = []
 
         for pair_name, pair in self.pairs.items():
-            if source_names and pair.x.source not in source_names:
+            if source_names and pair.x.source not in source_names | analysis_names:
                 errors.append(f"pairs.{pair_name}.x.source references unknown source")
-            if source_names and pair.y.source not in source_names:
+            if source_names and pair.y.source not in source_names | analysis_names:
                 errors.append(f"pairs.{pair_name}.y.source references unknown source")
 
         for plot_name, plot in self.plots.items():
@@ -754,13 +836,53 @@ class MonetConfig(StrictSchema):
                     errors.append(f"plots.{plot_name}.pairs references unknown pair '{ref}'")
 
             source_ref = plot.source
-            if source_ref is not None and str(source_ref) not in source_names:
+            if source_ref is not None and str(source_ref) not in source_names | analysis_names:
                 errors.append(f"plots.{plot_name}.source references unknown source '{source_ref}'")
 
         if self.stats is not None:
             for ref in self.stats.data:
                 if ref not in pair_names:
                     errors.append(f"stats.data references unknown pair '{ref}'")
+
+        # Derived analyses become pseudo-sources; their keys must be unique.
+        for name in analysis_names & source_names:
+            errors.append(f"analyses.{name} collides with a source of the same name")
+
+        # A valid source reference is a real source OR another analysis output.
+        resolvable = source_names | analysis_names
+        for a_name, a_spec in self.analyses.items():
+            if a_spec.source not in resolvable:
+                errors.append(
+                    f"analyses.{a_name}.source references unknown source '{a_spec.source}'"
+                )
+
+        # Pairs may NOT reference a derived (analysis) source — not pairable.
+        for pair_name, pair in self.pairs.items():
+            for axis in ("x", "y"):
+                ref = getattr(pair, axis).source
+                if ref in analysis_names:
+                    errors.append(
+                        f"pairs.{pair_name}.{axis}.source '{ref}' is a derived analysis "
+                        "output; derived sources are not pairable"
+                    )
+
+        # Detect cycles in the analysis dependency graph (topological sort).
+        state: dict[str, int] = {}  # 0 unvisited, 1 visiting, 2 done
+
+        def _visit(node: str) -> None:
+            if state.get(node, 0) == 2:
+                return
+            if state.get(node, 0) == 1:
+                errors.append(f"analyses dependency cycle detected at '{node}'")
+                return
+            state[node] = 1
+            dep = self.analyses[node].source
+            if dep in analysis_names:
+                _visit(dep)
+            state[node] = 2
+
+        for a_name in analysis_names:
+            _visit(a_name)
 
         if errors:
             raise ValueError("; ".join(errors))

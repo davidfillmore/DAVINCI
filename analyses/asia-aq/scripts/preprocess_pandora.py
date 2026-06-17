@@ -9,8 +9,8 @@ Usage:
     python preprocess_pandora.py
 """
 
-from pathlib import Path
 from glob import glob
+from pathlib import Path
 
 import xarray as xr
 
@@ -84,12 +84,17 @@ def main():
     no2_col = ds.no2_trop_column.values
     valid = ~xr.DataArray(no2_col).isnull()
     print(f"Total valid datasets: {int(valid.sum())}")
-    print(f"NO2 column range: {float(ds.no2_trop_column.min()):.2e} to {float(ds.no2_trop_column.max()):.2e} mol/m²")
+    print(
+        f"NO2 column range: {float(ds.no2_trop_column.min()):.2e} to {float(ds.no2_trop_column.max()):.2e} mol/m²"
+    )
     print()
 
     # Save to NetCDF
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_file = OUTPUT_DIR / f"pandora_no2_column_{START_TIME.replace('-', '')}_{END_TIME.replace('-', '')}.nc"
+    output_file = (
+        OUTPUT_DIR
+        / f"pandora_no2_column_{START_TIME.replace('-', '')}_{END_TIME.replace('-', '')}.nc"
+    )
 
     # Add processing metadata
     ds.attrs["preprocessing"] = "preprocess_pandora.py"

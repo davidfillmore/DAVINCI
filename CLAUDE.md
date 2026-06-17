@@ -16,7 +16,7 @@ A modern, type-safe Python toolkit for evaluating atmospheric chemistry and air 
 ## ⚠️ Output Display Constraint
 
 **The user cannot scroll up in their terminal** — only the most recent output is visible. Keep responses short and chunked:
-- A few sentences per message, one idea at a time.
+- Be very brief; sentence fragments are fine. At most ~three points per message.
 - Do NOT dump long multi-section answers, large menus, or many options at once; earlier content is lost.
 - When presenting a design, plan, or list, deliver it incrementally and wait for "ok"/confirmation before continuing.
 
@@ -378,6 +378,90 @@ When adding/altering spatial render logic, **verify the render mark programmatic
 (QuadMesh for grid/swath, PathCollection for point/track) — not by eye. See
 `tests/test_spatial_single_source.py`.
 
+### Derived Analyses (`analyses:` block)
+
+The optional top-level `analyses:` block runs after `load_sources` and before `pairing`. Each entry is a named derived-analysis spec; its output is registered as a **pseudo-source** referenceable by `source:` + `variable:` in `plots:`. Derived sources are **not pairable** — they cannot appear in `pairs:`.
+
+**EOF analysis** (`type: eof`) decomposes a gridded field into empirical orthogonal functions via in-repo truncated SVD (no external EOF library). 3-D fields are decomposed as a coupled state vector with area × layer-mass weighting.
+
+| Field | Default | Description |
+|---|---|---|
+| `source` | required | Source key from `sources:` |
+| `variable` | required | Variable name in that source |
+| `n_modes` | `10` | Number of EOF modes to retain |
+| `standardize` | `false` | `true` → correlation EOF; `false` → covariance EOF |
+| `remove_seasonal_cycle` | `false` | Subtract monthly climatology before decomposition |
+| `rotation` | `none` | `none` or `varimax` |
+| `level` | — | Restrict a 3-D field to one level index before decomposing |
+
+**Output variables** (all `mode`-indexed, 1-based):
+
+- `eofs(mode, [lev,] lat, lon)` — spatial patterns (unit-variance)
+- `pc(time, mode)` — principal component time series (unit variance)
+- `explained_variance(mode)` — fraction of total variance (%)
+- `explained_variance_error(mode)` — North's rule sampling error (unrotated only)
+
+**Plot types for EOF output**:
+
+- `type: eof_pattern` — signed spatial maps, one panel per mode; use `display_level:` to slice a 3-D mode
+- `type: eof_scree` — bar chart of `explained_variance` (%)
+- `type: timeseries` with `mode: N` — PC time series for mode N
+
+```yaml
+analyses:
+  cam_O3_eof: { type: eof, source: cam, variable: O3, n_modes: 6 }
+
+plots:
+  eof_maps: { type: eof_pattern, source: cam_O3_eof, variable: eofs }
+  eof_var:  { type: eof_scree,   source: cam_O3_eof, variable: explained_variance }
+  pc1:      { type: timeseries,  source: cam_O3_eof, variable: pc, mode: 1 }
+```
+
+**Wavelet analysis** (`type: wavelet`) computes a Morlet continuous wavelet transform (CWT) via `pycwt` (Torrence & Compo 1998). The input must be (or reduce to) a 1-D time series; the AR(1) red-noise background is estimated automatically for significance testing.
+
+| Field | Default | Description |
+|---|---|---|
+| `source` | required | Source key from `sources:` or `analyses:` (e.g. an EOF key) |
+| `variable` | required | Variable name in that source |
+| `mode` | — | Integer (1-based): select one PC when `variable` has a `mode` dim |
+| `reduce` | `area_mean` | `area_mean` — spatial mean over all grid points; `{point: [lat, lon]}` — nearest-neighbor; `null`/omit — input is already 1-D |
+| `omega0` | `6.0` | Morlet parameter ω₀ (higher → better frequency resolution) |
+| `significance_level` | `0.95` | Confidence level for the AR(1) red-noise significance test |
+| `dj` | `0.25` | Scale resolution (smaller → more scales) |
+| `s0` | auto | Smallest scale; defaults to `2 × dt` |
+| `j` | auto | Number of scales; defaults to spanning the full time series |
+
+**Output** (SPECTRUM geometry — `power(time, period)` is the primary variable):
+
+- `power(time, period)` — local wavelet power spectrum
+- `power_significance(time, period)` — power normalised by the local significance threshold; values > 1 are significant
+- `coi(time)` — cone of influence period (edge-effects boundary); units match `period`
+- `global_power(period)` — time-averaged power spectrum
+- `global_significance(period)` — global significance threshold
+
+The `period` coordinate carries units derived from the input time step (e.g. `"days"`).
+
+**Plot type for wavelet output**:
+
+- `type: wavelet_scalogram` — Torrence & Compo–style figure: time × log-period filled power, COI overlay, significance contour, and a global-spectrum side panel.
+
+**Headline use-case — wavelet of an EOF PC**: chain an `eof` entry with a `wavelet` entry whose `source:` points at the EOF key and `mode:` selects the PC:
+
+```yaml
+analyses:
+  cam_O3_eof: { type: eof, source: cam, variable: O3, n_modes: 3 }
+  pc1_wav:
+    type: wavelet
+    source: cam_O3_eof   # pseudo-source produced by the eof step
+    variable: pc
+    mode: 1              # wavelet of PC-1
+
+plots:
+  eof_maps:    { type: eof_pattern,        source: cam_O3_eof, variable: eofs }
+  eof_var:     { type: eof_scree,          source: cam_O3_eof, variable: explained_variance }
+  pc1_scal:    { type: wavelet_scalogram,  source: pc1_wav,    variable: power }
+```
+
 ## Key Design Patterns
 
 1. **Plugin Registry**: Components register via decorators
@@ -556,6 +640,14 @@ Rules (enforced by `tests/unit/plots/test_labeling.py` + `test_labels_rendered.p
 - **iCloud delivery is PDF-only**; the optional synthetic gallery
   (`analyses/_gallery/make_gallery.py`) renders one figure per plot type for
   multimodal label inspection.
+- **Rasterize dense data layers in vector (PDF) output.** `pcolormesh`/`imshow`/
+  filled (`fill_between`, `contourf`) and large scatter layers must set
+  `rasterized=True` (or `mappable.set_rasterized(True)`) so PDFs stay small and
+  render cleanly; keep axes, text, and thin contour LINES vector (matplotlib
+  ignores — and warns on — rasterizing a `contour` line set, which trips the
+  `error::UserWarning` gate, so do NOT rasterize contour lines).
+- **Date/time x-axes**: rotate tick labels with `ax.tick_params(axis="x", rotation=45)`
+  (the convention in `timeseries`/`curtain`) to avoid overlap.
 
 ## Common Gotchas
 

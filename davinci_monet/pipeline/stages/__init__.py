@@ -25,6 +25,7 @@ The implementation is split across submodules for maintainability; this
 
 from __future__ import annotations
 
+from davinci_monet.pipeline.stages.analyses import AnalysesStage
 from davinci_monet.pipeline.stages.base import (
     BaseStage,
     PipelineContext,
@@ -68,6 +69,7 @@ __all__ = [
     "_format_size",
     "_format_duration",
     # Stage classes
+    "AnalysesStage",
     "LoadSourcesStage",
     "PairingStage",
     "StatisticsStage",

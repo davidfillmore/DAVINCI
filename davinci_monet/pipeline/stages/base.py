@@ -17,6 +17,7 @@ import xarray as xr
 
 from davinci_monet.config.schema import (
     AnalysisConfig,
+    AnalysisSpec,
     MonetConfig,
     PipelinePairingConfig,
     PlotGroupConfig,
@@ -224,6 +225,16 @@ class PipelineContext:
             str(k): v if isinstance(v, PlotGroupConfig) else PlotGroupConfig(**v)
             for k, v in section.items()
         }
+
+    def analyses_config(self) -> dict[str, AnalysisSpec]:
+        """Typed ``analyses:`` mapping (the derived-analysis block)."""
+        from davinci_monet.config.schema import build_analysis_spec
+
+        typed = self._typed_config()
+        if typed is not None:
+            return typed.analyses
+        section = self._config_section("analyses") or {}
+        return {str(k): build_analysis_spec(v) for k, v in section.items()}
 
     def stats_config(self) -> StatsConfig | None:
         """Typed ``stats:`` section (``None`` when absent)."""

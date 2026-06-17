@@ -27,6 +27,9 @@ SINGLE_SOURCE_PLOTS = frozenset(
         "histogram",
         "lma_density",
         "vertical_profile",
+        "eof_pattern",
+        "eof_scree",
+        "wavelet_scalogram",
     }
 )
 
@@ -47,10 +50,18 @@ PAIRWISE_PLOTS = frozenset(
 MULTI_SOURCE_PLOTS = frozenset({"timeseries"})
 
 TEMPORAL_PLOTS = frozenset({"timeseries", "diurnal"})
-STATISTICAL_PLOTS = frozenset({"taylor", "boxplot", "scatter", "histogram"})
-SPATIAL_PLOTS = frozenset({"spatial", "spatial_bias", "spatial_overlay"})
+STATISTICAL_PLOTS = frozenset({"taylor", "boxplot", "scatter", "histogram", "eof_scree"})
+SPATIAL_PLOTS = frozenset({"spatial", "spatial_bias", "spatial_overlay", "eof_pattern"})
 SPECIALIZED_PLOTS = frozenset(
-    {"curtain", "scorecard", "vertical_profile", "flight_track", "lma_density", "track_map_3d"}
+    {
+        "curtain",
+        "scorecard",
+        "vertical_profile",
+        "flight_track",
+        "lma_density",
+        "track_map_3d",
+        "wavelet_scalogram",
+    }
 )
 
 ALL_PLOT_TYPES = TEMPORAL_PLOTS | STATISTICAL_PLOTS | SPATIAL_PLOTS | SPECIALIZED_PLOTS

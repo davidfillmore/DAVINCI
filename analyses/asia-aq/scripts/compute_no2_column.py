@@ -9,8 +9,8 @@ Usage:
     python compute_no2_column.py
 """
 
-from pathlib import Path
 from glob import glob
+from pathlib import Path
 
 import numpy as np
 import xarray as xr
@@ -185,7 +185,9 @@ def main():
 
     # Save
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_file = OUTPUT_DIR / f"cesm_no2_column_{START_DATE.replace('-', '')}_{END_DATE.replace('-', '')}.nc"
+    output_file = (
+        OUTPUT_DIR / f"cesm_no2_column_{START_DATE.replace('-', '')}_{END_DATE.replace('-', '')}.nc"
+    )
 
     print(f"Saving to {output_file}...")
     ds_out.to_netcdf(output_file)

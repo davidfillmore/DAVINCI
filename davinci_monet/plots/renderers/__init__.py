@@ -26,6 +26,8 @@ from davinci_monet.plots.renderers.boxplot import BoxPlotter
 # Specialized plots
 from davinci_monet.plots.renderers.curtain import CurtainPlotter
 from davinci_monet.plots.renderers.diurnal import DiurnalPlotter
+from davinci_monet.plots.renderers.eof_pattern import EOFPatternPlotter
+from davinci_monet.plots.renderers.eof_scree import EOFScreePlotter
 from davinci_monet.plots.renderers.flight_track import FlightTrackPlotter
 from davinci_monet.plots.renderers.histogram import HistogramPlotter
 from davinci_monet.plots.renderers.lma_density import LMADensityPlotter
@@ -50,6 +52,7 @@ from davinci_monet.plots.renderers.taylor import TaylorPlotter
 from davinci_monet.plots.renderers.timeseries import TimeSeriesPlotter
 from davinci_monet.plots.renderers.track_map_3d import TrackMap3DPlotter
 from davinci_monet.plots.renderers.vertical_profile import VerticalProfilePlotter
+from davinci_monet.plots.renderers.wavelet_scalogram import WaveletScalogramPlotter
 
 __all__ = [
     # Temporal
@@ -76,4 +79,9 @@ __all__ = [
     "VerticalProfilePlotter",
     "FlightTrackPlotter",
     "LMADensityPlotter",
+    # EOF analysis
+    "EOFPatternPlotter",
+    "EOFScreePlotter",
+    # Wavelet analysis
+    "WaveletScalogramPlotter",
 ]

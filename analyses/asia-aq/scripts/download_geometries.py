@@ -12,8 +12,8 @@ Period: February 1-28, 2024
 """
 
 import os
-from pathlib import Path
 import warnings
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -79,7 +79,9 @@ def download_airnow():
 
     # Summary
     print(f"\n--- Sites ({len(df['siteid'].unique())}) ---")
-    sites = df.groupby(["siteid", "site", "latitude", "longitude"]).size().reset_index(name="records")
+    sites = (
+        df.groupby(["siteid", "site", "latitude", "longitude"]).size().reset_index(name="records")
+    )
     for _, row in sites.iterrows():
         print(f"  {row['site']:30s} ({row['latitude']:.2f}N, {row['longitude']:.2f}E)")
 
@@ -89,7 +91,9 @@ def download_airnow():
         if var in df.columns:
             valid = df[var].notna().sum()
             if valid > 0:
-                print(f"  {var:8s}: {valid:6d} values, range: {df[var].min():.1f} - {df[var].max():.1f}")
+                print(
+                    f"  {var:8s}: {valid:6d} values, range: {df[var].min():.1f} - {df[var].max():.1f}"
+                )
 
     return df
 
@@ -112,9 +116,7 @@ def airnow_to_dataset(df: pd.DataFrame) -> xr.Dataset:
     data_dict = {}
     for var in available_vars:
         var_name = var.lower().replace(".", "")
-        pivoted = df.pivot_table(
-            index="time", columns="siteid", values=var, aggfunc="first"
-        )
+        pivoted = df.pivot_table(index="time", columns="siteid", values=var, aggfunc="first")
         pivoted = pivoted.reindex(columns=site_ids)
         data_dict[var_name] = pivoted.values
 
@@ -130,7 +132,9 @@ def airnow_to_dataset(df: pd.DataFrame) -> xr.Dataset:
     )
 
     ds.attrs["source"] = "AirNow (US EPA)"
-    ds.attrs["domain"] = f"{BBOX['lat_min']}-{BBOX['lat_max']}N, {BBOX['lon_min']}-{BBOX['lon_max']}E"
+    ds.attrs["domain"] = (
+        f"{BBOX['lat_min']}-{BBOX['lat_max']}N, {BBOX['lon_min']}-{BBOX['lon_max']}E"
+    )
     ds.attrs["geometry"] = "point"
     ds.attrs["created"] = pd.Timestamp.now().isoformat()
 
@@ -202,9 +206,7 @@ def aeronet_to_dataset(df: pd.DataFrame) -> xr.Dataset:
 
     data_dict = {}
     for var in available_vars:
-        pivoted = df.pivot_table(
-            index="time", columns="siteid", values=var, aggfunc="first"
-        )
+        pivoted = df.pivot_table(index="time", columns="siteid", values=var, aggfunc="first")
         pivoted = pivoted.reindex(columns=site_ids)
         data_dict[var] = pivoted.values
 
@@ -313,14 +315,20 @@ def main():
     if df_aeronet is not None:
         ds_aeronet = aeronet_to_dataset(df_aeronet)
         if ds_aeronet is not None:
-            nc_file = DATA_DIR / f"AERONET_L15_{START_DATE.replace('-', '')}_{END_DATE.replace('-', '')}.nc"
+            nc_file = (
+                DATA_DIR
+                / f"AERONET_L15_{START_DATE.replace('-', '')}_{END_DATE.replace('-', '')}.nc"
+            )
             ds_aeronet.to_netcdf(nc_file)
             print(f"\nSaved: {nc_file}")
 
     # 3. Pandora
     ds_pandora = process_pandora()
     if ds_pandora is not None:
-        nc_file = DATA_DIR / f"pandora_no2_column_{START_DATE.replace('-', '')}_{END_DATE.replace('-', '')}.nc"
+        nc_file = (
+            DATA_DIR
+            / f"pandora_no2_column_{START_DATE.replace('-', '')}_{END_DATE.replace('-', '')}.nc"
+        )
         ds_pandora.to_netcdf(nc_file)
         print(f"\nSaved: {nc_file}")
 

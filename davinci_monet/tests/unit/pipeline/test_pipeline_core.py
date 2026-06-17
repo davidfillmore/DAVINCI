@@ -815,11 +815,12 @@ class TestCreateStandardPipeline:
         """Test all standard stages are created."""
         stages = create_standard_pipeline()
 
-        assert len(stages) == 6
+        assert len(stages) == 7
 
         stage_names = [s.name for s in stages]
         assert stage_names == [
             "load_sources",
+            "analyses",
             "pairing",
             "statistics",
             "plotting",
@@ -832,9 +833,10 @@ class TestCreateStandardPipeline:
         stages = create_standard_pipeline()
 
         assert stages[0].name == "load_sources"
-        assert stages[1].name == "pairing"
-        assert stages[2].name == "statistics"
-        assert stages[3].name == "plotting"
+        assert stages[1].name == "analyses"
+        assert stages[2].name == "pairing"
+        assert stages[3].name == "statistics"
+        assert stages[4].name == "plotting"
 
 
 # =============================================================================
@@ -850,8 +852,8 @@ class TestPipelineRunner:
         runner = PipelineRunner()
 
         # Unified pipeline (geometry/paired stage fork collapsed): load_sources,
-        # pairing, statistics, plotting, save_results, summary.
-        assert len(runner.stages) == 6
+        # analyses, pairing, statistics, plotting, save_results, summary.
+        assert len(runner.stages) == 7
 
     def test_custom_stages(self):
         """Test runner accepts custom stages."""
