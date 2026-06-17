@@ -1,4 +1,4 @@
-"""DAVINCI: Data Analysis and Visual Intelligence for Climate.
+"""DAVINCI: Data Analysis and Visual Intelligence for Climate/Chemistry.
 
 A modern, type-safe toolkit for evaluating climate and atmospheric
 composition datasets against datasets.

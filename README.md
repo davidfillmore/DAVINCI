@@ -1,6 +1,6 @@
 # DAVINCI
 
-**Data Analysis and Visual Intelligence for Climate**
+**Data Analysis and Visual Intelligence for Climate/Chemistry**
 
 A modern, type-safe Python toolkit for comparing climate and atmospheric composition datasets.
 
