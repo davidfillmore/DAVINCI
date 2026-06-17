@@ -307,3 +307,10 @@ plotter_registry: Registry[type] = Registry("plotter")
 
 statistic_registry: Registry[type] = Registry("statistic")
 """Registry for statistic metric classes (MB, RMSE, R2, etc.)."""
+
+analysis_registry: Registry[type] = Registry("analysis")
+"""Registry for derived-analysis classes (eof, wavelet, ...).
+
+Like the other registries it stores component *classes* keyed by a unique
+``type`` id. An analysis consumes one source dataset and emits a derived
+dataset (see ``davinci_monet.analysis.base.DerivedAnalysis``)."""
