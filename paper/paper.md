@@ -1,5 +1,5 @@
 ---
-title: 'DAVINCI: A Type-Safe, Geometry-Aware Toolkit for Climate Dataset Evaluation'
+title: 'DAVINCI: A Type-Safe, Geometry-Aware Toolkit for Climate/Chemistry Dataset Evaluation'
 tags:
   - Python
   - atmospheric chemistry
