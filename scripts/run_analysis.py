@@ -30,7 +30,7 @@ def main() -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python scripts/run_analysis.py analyses/asia-aq/configs/asia-aq.yaml
+    python scripts/run_analysis.py analyses/asia-aq/configs/asia-aq-airnow.example.yaml
     python scripts/run_analysis.py my_analysis/config.yaml --quiet
 
 Environment variables in config paths (e.g., ${MY_DATA}/file.nc) are

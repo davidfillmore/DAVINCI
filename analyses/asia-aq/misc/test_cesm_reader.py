@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-Test CESM/CAM reader with ASIA-AQ dataset output.
+Test CESM/CAM reader with ASIA-AQ model output.
 
-This script verifies that the DAVINCI-MONET CESM reader correctly
-loads and standardizes the ASIA-AQ dataset output.
+This script verifies that the DAVINCI CESM reader correctly
+loads and standardizes the ASIA-AQ model output.
 """
 
 from pathlib import Path
@@ -25,7 +25,7 @@ FILE_PATTERN = "f.e3b06m.FCnudged.t6s.01x01.01.cam.h2i.2024-02-01-*.nc"
 
 def test_cesm_reader() -> None:
     """Test the CESM reader with ASIA-AQ data."""
-    print("Testing DAVINCI-MONET CESM Reader")
+    print("Testing DAVINCI CESM Reader")
     print("=" * 60)
 
     # Get file list
@@ -45,7 +45,7 @@ def test_cesm_reader() -> None:
 
     print(f"\nDataset loaded:")
     print(f"  Label: cesm_asiaq")
-    print(f"  Dataset type: cesm_fv")
+    print(f"  Model type: cesm_fv")
 
     print(f"\n--- Dataset Structure ---")
     print(f"  Dimensions: {dict(ds.sizes)}")
@@ -58,7 +58,7 @@ def test_cesm_reader() -> None:
     print(f"  End: {ds.time.values[-1]}")
     print(f"  Steps: {len(ds.time)}")
 
-    # Check grid (note: DAVINCI-MONET renames dims and coords)
+    # Check grid (note: DAVINCI renames dims and coords)
     print(f"\n--- Grid ---")
     # Handle different coordinate naming conventions
     lat_coord = "latitude" if "latitude" in ds.coords else "lat"
@@ -70,7 +70,7 @@ def test_cesm_reader() -> None:
     if "z" in ds.dims:
         print(f"  Vertical levels: {len(ds.z)}")
 
-    # Surface values (lowest dataset level = index 0 for CESM)
+    # Surface values (lowest model level = index 0 for CESM)
     # Note: CESM levels go from surface (z=0) to top (z=-1)
     print(f"\n--- Surface Values (level 0) ---")
     for var in ["O3", "NO2", "CO", "PM25"]:

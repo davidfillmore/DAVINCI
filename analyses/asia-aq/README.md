@@ -1,6 +1,6 @@
 # ASIA-AQ Analysis
 
-Dataset evaluation for the NASA ASIA-AQ (Airborne and Satellite Investigation of Asian Air Quality) campaign.
+Model evaluation for the NASA ASIA-AQ (Airborne and Satellite Investigation of Asian Air Quality) campaign.
 
 ## Campaign Overview
 
@@ -9,7 +9,7 @@ ASIA-AQ was an international cooperative field study conducted from January-Marc
 **Science Goals:**
 - Satellite validation and interpretation (especially GEMS geostationary sensor)
 - Emissions quantification and verification
-- Dataset evaluation
+- Model evaluation
 - Aerosol and ozone chemistry
 
 **Data Sources:**
@@ -17,9 +17,9 @@ ASIA-AQ was an international cooperative field study conducted from January-Marc
 - [NASA ASDC ASIA-AQ Data](https://asdc.larc.nasa.gov/project/ASIA-AQ)
 - [CASEI Campaign Archive](https://impact.earthdata.nasa.gov/casei/campaign/ASIA-AQ)
 
-## Dataset Data
+## Model Data
 
-**Dataset:** CESM/CAM-chem with FC (full chemistry) configuration, nudged to meteorology
+**Model:** CESM/CAM-chem with FC (full chemistry) configuration, nudged to meteorology
 
 **Case:** `f.e3b06m.FCnudged.t6s.01x01.01`
 
@@ -40,7 +40,7 @@ ASIA-AQ was an international cooperative field study conducted from January-Marc
 | PM25 | PM2.5 | × 1.2e9 (kg/kg → µg/m³) |
 | AODVISdn | Aerosol optical depth (550 nm) | none |
 
-## Dataset Data
+## Observation Data
 
 | Type | Source | Variables | Sites | Status |
 |------|--------|-----------|-------|--------|
@@ -65,16 +65,16 @@ Seoul, Seoul-SNU, Incheon-ESC, Yongin, Seosan, Ulsan, Suwon-USW, Busan (South Ko
 asia-aq/
 ├── README.md
 ├── configs/
-│   └── asia-aq.yaml                # Pipeline configuration
+│   └── asia-aq-airnow.example.yaml  # Pipeline config (portable template)
 ├── scripts/
-│   ├── download_geometries.py    # Download all geometry (AirNow, AERONET, Pandora)
+│   ├── download_observations.py    # Download all obs (AirNow, AERONET, Pandora)
 │   ├── download_airnow.py          # AirNow data download (standalone)
 │   └── run_evaluation.py           # Run pipeline (with NO2 column preprocessing)
-├── data/                           # Dataset data (NetCDF)
-│   ├── airnow_asiaq_*.nc           # AirNow surface datasets
+├── data/                           # Observation data (NetCDF)
+│   ├── airnow_asiaq_*.nc           # AirNow surface observations
 │   ├── AERONET_L15_*.nc            # AERONET AOD
 │   ├── pandora_no2_column_*.nc     # Pandora NO2 columns
-│   └── cesm_no2_column_*.nc        # Precomputed dataset NO2 columns
+│   └── cesm_no2_column_*.nc        # Precomputed model NO2 columns
 ├── output/                         # Plots and statistics
 ├── logs/                           # Pipeline logs (timestamped)
 └── misc/                           # Exploratory scripts
@@ -85,7 +85,7 @@ asia-aq/
 Set the environment variables for data and analysis directories:
 
 ```bash
-# Dataset and raw dataset data (required)
+# Model and raw observation data (required)
 export ASIA_AQ_DATA=~/Data/ASIA-AQ
 
 # Analysis directory (set automatically by run_evaluation.py)
@@ -97,10 +97,10 @@ The `ASIA_AQ_ANALYSIS` variable is set automatically when running `run_evaluatio
 
 ## Usage
 
-**Download datasets:**
+**Download observations:**
 ```bash
-# All datasets (AirNow, AERONET, Pandora)
-python scripts/download_geometries.py
+# All observations (AirNow, AERONET, Pandora)
+python scripts/download_observations.py
 
 # Or individual sources
 python scripts/download_airnow.py
@@ -114,14 +114,14 @@ python scripts/run_evaluation.py
 
 Or via CLI:
 ```bash
-davinci-monet run configs/asia-aq.yaml
+davinci-monet run configs/asia-aq-airnow.example.yaml
 ```
 
 ## Results (February 1-29, 2024)
 
 ### Surface Species (AirNow)
 
-| Species | N | Mean Geometry | Mean Dataset | R | NMB |
+| Species | N | Mean Obs | Mean Model | R | NMB |
 |---------|---|----------|------------|-----|------|
 | PM2.5 | 1,008 | 37.3 µg/m³ | 48.2 µg/m³ | 0.21 | +29% |
 | O3 | 152 | 13.0 ppb | 7.1 ppb | 0.48 | -45% |
@@ -130,19 +130,19 @@ davinci-monet run configs/asia-aq.yaml
 
 ### Aerosol Optical Depth (AERONET)
 
-| Variable | N | Mean Geometry | Mean Dataset | R | NMB |
+| Variable | N | Mean Obs | Mean Model | R | NMB |
 |----------|---|----------|------------|-----|------|
 | AOD (500nm) | 8,150 | 0.38 | 0.20 | 0.51 | -46% |
 
 ### Tropospheric NO2 Column (Pandora)
 
-| Variable | N | Mean Geometry | Mean Dataset | R | NMB |
+| Variable | N | Mean Obs | Mean Model | R | NMB |
 |----------|---|----------|------------|-----|------|
 | NO2 Column | 8,886 | 1.56×10⁻⁴ mol/m² | 2.90×10⁻⁴ mol/m² | 0.57 | +86% |
 
 ### DC-8 Aircraft
 
-| Variable | N | Mean Geometry | Mean Dataset | R | NMB |
+| Variable | N | Mean Obs | Mean Model | R | NMB |
 |----------|---|----------|------------|-----|------|
 | O3 (ROZE) | 3,248 | 37.7 ppb | 54.3 ppb | 0.42 | +44% |
 | NO2 (CANOE) | 3,255 | 0.98 ppb | 1.25 ppb | 0.67 | +28% |
@@ -157,12 +157,12 @@ davinci-monet run configs/asia-aq.yaml
 - `output/statistics_per_flight.csv` - Per-flight metrics for aircraft data (enable via `per_flight: true` in stats config)
 
 **Surface plots:**
-- `*_scatter.png` - Dataset vs geometry scatter plots with regression
+- `*_scatter.png` - Model vs obs scatter plots with regression
 - `*_timeseries.png` - Time series with uncertainty bands (mean ± std)
 - `*_spatial_bias.png` - Spatial bias maps with city labels
 
 **DC-8 Aircraft plots:**
-- `dc8_*_scatter.png` - Dataset vs aircraft scatter plots
+- `dc8_*_scatter.png` - Model vs aircraft scatter plots
 - `dc8_*_track_3d.png` - 3D flight track with bias coloring
 
 **Logs:**
@@ -170,9 +170,9 @@ davinci-monet run configs/asia-aq.yaml
 
 ## Key Findings
 
-1. **NO2 biases**: Dataset is higher than geometry for NO2 at surface (+150%), in column (+86%), and aloft (+28%)
-2. **AOD low bias**: Dataset is lower than geometry for aerosol loading by 46%
-3. **O3 mixed bias**: Surface is lower (-45%); free troposphere is higher (+44%)
+1. **NO2 biases**: Model overpredicts NO2 at surface (+150%), in column (+86%), and aloft (+28%)
+2. **AOD underprediction**: Model underpredicts aerosol loading by 46%
+3. **O3 high bias**: Surface underpredicted (-45%), free troposphere overpredicted (+44%)
 4. **CO low bias**: Aircraft CO shows -27% bias but best correlation (R=0.77)
 5. **Pandora correlation**: NO2 column has good correlation (R=0.57) among all species
 6. **Per-flight variability**: Statistics vary significantly by flight date (see `statistics_per_flight.csv`)
