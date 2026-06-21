@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-Explore CESM/CAM ASIA-AQ dataset output.
+Explore CESM/CAM ASIA-AQ model output.
 
-This script examines the dataset data structure, variables, and coverage
-to inform configuration for dataset-dataset comparisons.
+This script examines the model data structure, variables, and coverage
+to inform configuration for model-observation comparisons.
 """
 
 import os
@@ -140,7 +140,7 @@ def explore_variable_stats(ds: xr.Dataset, variables: list[str]) -> None:
 
 def main():
     """Main exploration routine."""
-    print("CESM/CAM ASIA-AQ Dataset Data Exploration")
+    print("CESM/CAM ASIA-AQ Model Data Exploration")
     print("=" * 60)
 
     # Check data directory

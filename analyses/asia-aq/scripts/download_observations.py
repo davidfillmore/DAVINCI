@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Download and process dataset data for the ASIA-AQ domain.
+Download and process observation data for the ASIA-AQ domain.
 
 This script downloads/processes:
 - AirNow data (US Embassy monitors)
@@ -44,7 +44,7 @@ END_DATE = "2024-02-29"
 
 def download_airnow():
     """Download AirNow data using monetio."""
-    from monetio.geometry import airnow
+    from monetio.obs import airnow
 
     print("=" * 60)
     print("Downloading AirNow data")
@@ -155,7 +155,7 @@ def airnow_to_dataset(df: pd.DataFrame) -> xr.Dataset:
 
 def download_aeronet():
     """Download AERONET data using monetio."""
-    from monetio.geometry import aeronet
+    from monetio.obs import aeronet
 
     print()
     print("=" * 60)
@@ -281,10 +281,10 @@ def process_pandora():
     for site in ds.site.values:
         lat = float(ds.sel(site=site).latitude)
         lon = float(ds.sel(site=site).longitude)
-        n_geometry = int(ds.sel(site=site)["no2_trop_column"].count())
-        print(f"  {site:25s}: ({lat:.2f}N, {lon:.2f}E) - {n_geometry} geometry")
+        n_obs = int(ds.sel(site=site)["no2_trop_column"].count())
+        print(f"  {site:25s}: ({lat:.2f}N, {lon:.2f}E) - {n_obs} obs")
 
-    print(f"\nTotal datasets: {int(ds['no2_trop_column'].count())}")
+    print(f"\nTotal observations: {int(ds['no2_trop_column'].count())}")
 
     return ds
 
@@ -292,7 +292,7 @@ def process_pandora():
 def main():
     """Main download routine."""
     print("=" * 70)
-    print("ASIA-AQ Dataset Data Download/Processing")
+    print("ASIA-AQ Observation Data Download/Processing")
     print(f"Period: {START_DATE} to {END_DATE}")
     print("=" * 70)
     print()

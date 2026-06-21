@@ -17,8 +17,8 @@ import xarray as xr
 from davinci_monet.datasets.surface.pandora import PandoraReader
 
 # Input/output paths
-PANDORA_DIR = Path("/glade/campaign/acom/acom-weather/emmons/ASIAAQ_geometry/Pandora")
-OUTPUT_DIR = Path("/glade/derecho/scratch/fillmore/ASIA-AQ/geometry")
+PANDORA_DIR = Path("/glade/campaign/acom/acom-weather/emmons/ASIAAQ_obs/Pandora")
+OUTPUT_DIR = Path("/glade/derecho/scratch/fillmore/ASIA-AQ/obs")
 
 # Time range
 START_TIME = "2024-02-01"
@@ -76,14 +76,14 @@ def main():
     for i, site in enumerate(ds.site.values):
         lat = float(ds.latitude.values[i])
         lon = float(ds.longitude.values[i])
-        n_geometry = int(ds.no2_trop_column.sel(site=site).notnull().sum())
-        print(f"  {site:20s} ({lat:6.2f}°N, {lon:7.2f}°E) - {n_geometry} geometry")
+        n_obs = int(ds.no2_trop_column.sel(site=site).notnull().sum())
+        print(f"  {site:20s} ({lat:6.2f}°N, {lon:7.2f}°E) - {n_obs} obs")
     print()
 
     # Statistics
     no2_col = ds.no2_trop_column.values
     valid = ~xr.DataArray(no2_col).isnull()
-    print(f"Total valid datasets: {int(valid.sum())}")
+    print(f"Total valid observations: {int(valid.sum())}")
     print(
         f"NO2 column range: {float(ds.no2_trop_column.min()):.2e} to {float(ds.no2_trop_column.max()):.2e} mol/m²"
     )

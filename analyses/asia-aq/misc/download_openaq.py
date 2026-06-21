@@ -64,7 +64,7 @@ END_DATE = "2024-02-03"
 def download_openaq_monetio():
     """Download OpenAQ data using monetio openaq_v3."""
     try:
-        from monetio.geometry import openaq_v3 as openaq
+        from monetio.obs import openaq_v3 as openaq
     except ImportError:
         print("ERROR: monetio not installed. Install with: pip install monetio")
         return None
