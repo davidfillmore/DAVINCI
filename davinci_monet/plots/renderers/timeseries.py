@@ -382,7 +382,17 @@ class TimeSeriesPlotter(BasePlotter):
         var_label = get_variable_label(ds, s.var_name, include_prefix=False)
         ax.set_ylabel(labeling.axis_label(var_label, units), fontsize=self.config.text.fontsize)
         ax.set_xlabel("Time", fontsize=self.config.text.fontsize)
-        self.set_title(ax, title)
+        # Synthesise a title when none is configured (mirrors the spatial
+        # renderer): quantity + distinctive source name, so a single-source
+        # series shows e.g. "O3 (AirNow)" rather than only the date subtitle.
+        if title or self.config.title:
+            self.set_title(ax, title)
+        else:
+            title_q = labeling.quantity_label(ds, s.var_name)
+            src_display = (
+                labeling.distinctive_source_name(s.source_label, title_q) if s.source_label else ""
+            )
+            self.set_title(ax, f"{title_q} ({src_display})" if src_display else title_q)
         ax.grid(True, alpha=0.3)
         ax.tick_params(axis="x", rotation=45)
 
@@ -438,7 +448,12 @@ class TimeSeriesPlotter(BasePlotter):
         var_label = get_variable_label(first.dataset, first.var_name, include_prefix=False)
         ax.set_ylabel(labeling.axis_label(var_label, units), fontsize=self.config.text.fontsize)
         ax.set_xlabel("Time", fontsize=self.config.text.fontsize)
-        self.set_title(ax, title)
+        # Overlay sources are distinguished by the legend, so the synthesised
+        # title carries the quantity only (no single source name).
+        if title or self.config.title:
+            self.set_title(ax, title)
+        else:
+            self.set_title(ax, labeling.quantity_label(first.dataset, first.var_name))
         ax.grid(True, alpha=0.3)
         ax.tick_params(axis="x", rotation=45)
         return fig
